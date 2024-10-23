@@ -54,6 +54,7 @@ public final class Adyenv6coreConstants extends GeneratedAdyenv6coreConstants {
 	public static final String PAYMENT_METHOD_BCMC = "bcmc";
 	public static final String PAYMENT_METHOD_BCMC_MOBILE = "bcmc_mobile";
 	public static final String PAYMENT_METHOD_GOOGLE = "paywithgoogle";
+	public static final String PAYMENT_METHOD_GOOGLE_PAY = "googlepay";
 	public static final String PAYMENT_METHOD_TRUSTLY = "trustly";
 	public static final String PAYMENT_METHOD_INTERAC = "interac";
 	public static final String PAYMENT_METHOD_SOFORT = "directEbanking";

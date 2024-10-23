@@ -411,12 +411,12 @@
         <property name="modelService" ref="modelService"/>
         <property name="customerFacade" ref="customerFacade"/>
         <property name="commonI18NService" ref="commonI18NService"/>
+        <property name="i18NFacade" ref="i18NFacade"/>
         <property name="customerAccountService" ref="customerAccountService"/>
-        <property name="checkoutFacade" ref="checkoutFacade"/>
         <property name="commerceCartService" ref="commerceCartService"/>
         <property name="deliveryModeService" ref="deliveryModeService"/>
-        <property name="zoneDeliveryModeService" ref="zoneDeliveryModeService"/>
         <property name="adyenCheckoutFacade" ref="adyenCheckoutFacade"/>
+        <property name="adyenCheckoutApiFacade" ref="adyenCheckoutApiFacade"/>
         <property name="cartConverter" ref="cartConverter"/>
         <property name="sessionService" ref="sessionService"/>
         <property name="userService" ref="userService"/>
