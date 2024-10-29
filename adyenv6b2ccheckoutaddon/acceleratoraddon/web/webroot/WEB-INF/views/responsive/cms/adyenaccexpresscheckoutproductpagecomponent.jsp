@@ -6,3 +6,5 @@
 
 <div class="adyen-google-pay-button">
 </div>
+<div class="adyen-apple-pay-button">
+</div>

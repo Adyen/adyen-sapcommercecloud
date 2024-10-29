@@ -1,4 +1,4 @@
-var AdyenExpressCheckoutHybris = (function() {
+var AdyenExpressCheckoutHybris = (function () {
     'use strict';
 
     var ErrorMessages = {
@@ -11,13 +11,11 @@ var AdyenExpressCheckoutHybris = (function() {
     return {
 
         adyenConfig: {
-            merchantName: null,
-            merchantId: null,
             pageType: null,
             productCode: null
         },
 
-        initiateCheckout: async function(initConfig) {
+        initiateCheckout: async function (initConfig) {
             const configuration = {
                 ...initConfig,
                 analytics: {
@@ -37,10 +35,10 @@ var AdyenExpressCheckoutHybris = (function() {
             var checkoutPromise = this.initiateCheckout(config);
             checkoutPromise.then((checkout) => {
                 this.initiateGooglePayExpress(checkout, params)
+                this.initiateApplePayExpress(checkout, p)
             });
         },
-        initiateApplePayExpress: async function(params, config) {
-            var checkoutPromise = this.initiateCheckout(config);
+        initiateApplePayExpress: async function (checkout, params) {
             const {
                 amount,
                 countryCode,
@@ -50,28 +48,17 @@ var AdyenExpressCheckoutHybris = (function() {
                 productCode
             } = params;
 
-            const applePayNode = document.getElementById('adyen-component-button-container');
+            const applePayNodes = document.getElementsByClassName('adyen-apple-pay-button');
 
-            this.adyenConfig.merchantName = applePayMerchantName;
-            this.adyenConfig.merchantId = applePayMerchantIdentifier;
             this.adyenConfig.pageType = pageType;
             this.adyenConfig.productCode = productCode;
 
-            const applePayConfiguration = {
-                //onValidateMerchant is required if you're using your own Apple Pay certificate
-                onValidateMerchant: (resolve, reject, validationURL) => {
-                    resolve();
-                }
-            };
-            checkoutPromise.then((checkout) => {
-                var applePayComponent = checkout.create("applepay", {
+
+            for (let applePayNode of applePayNodes) {
+                let applePayComponent = checkout.create("applepay", {
                     amount: {
                         currency: amount.currency,
                         value: amount.value
-                    },
-                    configuration: {
-                        merchantName: applePayMerchantName,
-                        merchantId: applePayMerchantIdentifier
                     },
                     // Button config
                     buttonType: "check-out",
@@ -91,10 +78,14 @@ var AdyenExpressCheckoutHybris = (function() {
 //                    }
 //                    resolve(shippingMethodUpdate);
 //                },
-                    onClick: function(resolve, reject) {
+                    //onValidateMerchant is required if you're using your own Apple Pay certificate
+                    onValidateMerchant: (resolve, reject, validationURL) => {
                         resolve();
                     },
-                    onSubmit: function(state, component) {
+                    onClick: function (resolve, reject) {
+                        resolve();
+                    },
+                    onSubmit: function (state, component) {
                         // empty to block session flow, submit logic done in onAuthorized
                     },
                     onAuthorized: (resolve, reject, event) => {
@@ -103,14 +94,13 @@ var AdyenExpressCheckoutHybris = (function() {
                     }
                 });
                 applePayComponent.isAvailable()
-                    .then(function() {
+                    .then(function () {
                         applePayComponent.mount(applePayNode);
                     })
-                    .catch(function(e) {
+                    .catch(function (e) {
                         // Apple Pay is not available
-                        console.log('Something went wrong trying to mount the Apple Pay component');
                     });
-            })
+            }
         },
         initiateGooglePayExpress: function (checkout, params) {
             const {
@@ -233,7 +223,7 @@ var AdyenExpressCheckoutHybris = (function() {
                 type: "POST",
                 data: JSON.stringify(data),
                 contentType: "application/json; charset=utf-8",
-                success: function(response) {
+                success: function (response) {
                     try {
                         if (response.resultCode && (response.resultCode === 'Authorised' || response.resultCode === 'RedirectShopper')) {
                             resolve();
@@ -247,7 +237,7 @@ var AdyenExpressCheckoutHybris = (function() {
                         AdyenExpressCheckoutHybris.handleResult(ErrorMessages.PaymentError, true);
                     }
                 },
-                error: function(xmlHttpResponse, exception) {
+                error: function (xmlHttpResponse, exception) {
                     reject();
                     var responseMessage = xmlHttpResponse.responseJSON;
                     if (xmlHttpResponse.status === 400) {
@@ -259,7 +249,7 @@ var AdyenExpressCheckoutHybris = (function() {
                 }
             })
         },
-        handleResult: function(data, error) {
+        handleResult: function (data, error) {
             if (error) {
                 if (data) {
                     document.querySelector("#resultCode").value = data.resultCode;
@@ -272,48 +262,34 @@ var AdyenExpressCheckoutHybris = (function() {
             }
             document.querySelector("#handleComponentResultForm").submit();
         },
-        prepareDataApple: function(event) {
-            //TODO: Refactor as google data
-            if (this.adyenConfig.pageType === 'PDP') {
-                return {
-                    productCode: this.adyenConfig.productCode,
-                    adyenApplePayMerchantName: this.adyenConfig.merchantName,
-                    adyenApplePayMerchantIdentifier: this.adyenConfig.merchantId,
-                    applePayToken: btoa(JSON.stringify(event.payment.token.paymentData)),
-                    addressData: {
-                        email: event.payment.shippingContact.emailAddress,
-                        firstName: event.payment.shippingContact.givenName,
-                        lastName: event.payment.shippingContact.familyName,
-                        line1: event.payment.shippingContact.addressLines[0],
-                        line2: event.payment.shippingContact.addressLines[1],
-                        postalCode: event.payment.shippingContact.postalCode,
-                        town: event.payment.shippingContact.locality,
-                        country: {
-                            isocode: event.payment.shippingContact.countryCode,
-                            name: event.payment.shippingContact.country
-                        }
+        prepareDataApple: function (event) {
+            const baseData = {
+                applePayDetails: {
+                    applePayToken: btoa(JSON.stringify(event.payment.token.paymentData))
+                },
+                addressData: {
+                    email: event.payment.shippingContact.emailAddress,
+                    firstName: event.payment.shippingContact.givenName,
+                    lastName: event.payment.shippingContact.familyName,
+                    line1: event.payment.shippingContact.addressLines[0],
+                    line2: event.payment.shippingContact.addressLines[1],
+                    postalCode: event.payment.shippingContact.postalCode,
+                    town: event.payment.shippingContact.locality,
+                    country: {
+                        isocode: event.payment.shippingContact.countryCode,
+                        name: event.payment.shippingContact.country
                     }
                 }
             }
-            if (this.adyenConfig.pageType === 'cart') {
+
+            if (this.adyenConfig.pageType === 'PDP') {
                 return {
-                    adyenApplePayMerchantName: this.adyenConfig.merchantName,
-                    adyenApplePayMerchantIdentifier: this.adyenConfig.merchantId,
-                    applePayToken: btoa(JSON.stringify(event.payment.token.paymentData)),
-                    addressData: {
-                        email: event.payment.shippingContact.emailAddress,
-                        firstName: event.payment.shippingContact.givenName,
-                        lastName: event.payment.shippingContact.familyName,
-                        line1: event.payment.shippingContact.addressLines[0],
-                        line2: event.payment.shippingContact.addressLines[1],
-                        postalCode: event.payment.shippingContact.postalCode,
-                        town: event.payment.shippingContact.locality,
-                        country: {
-                            isocode: event.payment.shippingContact.countryCode,
-                            name: event.payment.shippingContact.country
-                        }
-                    }
+                    productCode: this.adyenConfig.productCode,
+                    ...baseData
                 }
+            }
+            if (this.adyenConfig.pageType === 'cart') {
+                return baseData
             }
             console.error('unknown page type')
             return {};
@@ -353,17 +329,17 @@ var AdyenExpressCheckoutHybris = (function() {
             console.error('unknown page type')
             return {};
         },
-        getAppleUrl: function() {
+        getAppleUrl: function () {
             if (this.adyenConfig.pageType === 'PDP') {
-                return ACC.config.encodedContextPath + '/expressCheckout/applePayPDP'
+                return ACC.config.encodedContextPath + '/express-checkout/apple/PDP'
             }
             if (this.adyenConfig.pageType === 'cart') {
-                return ACC.config.encodedContextPath + '/expressCheckout/cart'
+                return ACC.config.encodedContextPath + '/express-checkout/apple/cart'
             }
             console.error('unknown page type')
             return null;
         },
-        getGoogleUrl: function() {
+        getGoogleUrl: function () {
             if (this.adyenConfig.pageType === 'PDP') {
                 return ACC.config.encodedContextPath + '/express-checkout/google/PDP'
             }
