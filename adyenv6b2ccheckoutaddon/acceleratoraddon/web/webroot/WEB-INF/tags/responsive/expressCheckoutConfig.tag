@@ -20,8 +20,6 @@
         amountDecimal: '${amountDecimal}',
         merchantAccount: '${merchantAccount}',
         label: ['visible-xs', 'hidden-xs'],
-        applePayMerchantIdentifier: '${applePayMerchantIdentifier}',
-        applePayMerchantName: '${applePayMerchantName}',
         pageType: '${pageType}',
         productCode: '${product.code}'
     }
