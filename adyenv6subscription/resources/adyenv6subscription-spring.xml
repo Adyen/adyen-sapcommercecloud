@@ -10,17 +10,6 @@
 
             http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd">
 
-    <alias name="subscriptionAdyenPaymentServiceFactory" alias="adyenPaymentServiceFactory" />
-    <bean id="subscriptionAdyenPaymentServiceFactory" class="com.adyen.v6.factory.SubscriptionAdyenPaymentServiceFactory">
-        <constructor-arg name="adyenRequestFactory" ref="adyenRequestFactory"/>
-        <constructor-arg name="adyenMerchantAccountStrategy" ref="adyenMerchantStrategy"/>
-    </bean>
-
-    <alias name="subscriptionRequestFactory" alias="adyenRequestFactory" />
-    <bean id="subscriptionRequestFactory" class="com.adyen.v6.factory.SubscriptionPaymentRequestFactory">
-        <property name="cartFacade" ref="cartFacade" />
-    </bean>
-
     <bean id="subscriptionRepository" class="com.adyen.v6.repository.SubscriptionRepository" >
         <property name="flexibleSearchService" ref="flexibleSearchService" />
     </bean>
@@ -36,7 +25,6 @@
         <property name="baseStoreService" ref="baseStoreService" />
         <property name="modelService" ref="modelService" />
         <property name="keyGenerator" ref="orderCodeGenerator" />
-        <property name="subscriptionAdyenPaymentServiceFactory" ref="subscriptionAdyenPaymentServiceFactory" />
     </bean>
 
     <alias alias="subscriptionCommercePlaceOrderMethodHook" name="adyenSubscriptionCommercePlaceOrderMethodHook"/>
