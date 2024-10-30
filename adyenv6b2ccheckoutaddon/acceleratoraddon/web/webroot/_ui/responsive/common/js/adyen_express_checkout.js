@@ -28,22 +28,18 @@ var AdyenExpressCheckoutHybris = (function () {
                     console.error("Checkout error occured");
                 },
             };
-            console.log(configuration)
             return await AdyenWeb.AdyenCheckout(configuration);
         },
         initExpressCheckout: async function (params, config) {
             var checkoutPromise = this.initiateCheckout(config);
             checkoutPromise.then((checkout) => {
                 this.initiateGooglePayExpress(checkout, params)
-                this.initiateApplePayExpress(checkout, p)
+                this.initiateApplePayExpress(checkout, params)
             });
         },
         initiateApplePayExpress: async function (checkout, params) {
             const {
                 amount,
-                countryCode,
-                applePayMerchantIdentifier,
-                applePayMerchantName,
                 pageType,
                 productCode
             } = params;
@@ -55,7 +51,7 @@ var AdyenExpressCheckoutHybris = (function () {
 
 
             for (let applePayNode of applePayNodes) {
-                let applePayComponent = checkout.create("applepay", {
+                let applePayComponent = new AdyenWeb.ApplePay(checkout, {
                     amount: {
                         currency: amount.currency,
                         value: amount.value
@@ -299,8 +295,8 @@ var AdyenExpressCheckoutHybris = (function () {
         prepareDataGoogle: function(paymentData) {
             let baseData = {
                 googlePayDetails: {
-                    googlePayToken: paymentData.paymentMethodData.tokenizationData.token,
-                    googlePayCardNetwork: paymentData.paymentMethodData.info.cardNetwork
+                    googlePayToken: paymentData.authorizedEvent.paymentMethodData.tokenizationData.token,
+                    googlePayCardNetwork: paymentData.authorizedEvent.paymentMethodData.info.cardNetwork
                 },
                 addressData: {
                     email: paymentData.authorizedEvent.email,
