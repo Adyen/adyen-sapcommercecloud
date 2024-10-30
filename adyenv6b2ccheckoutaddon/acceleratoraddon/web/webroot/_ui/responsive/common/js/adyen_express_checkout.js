@@ -321,22 +321,22 @@ var AdyenExpressCheckoutHybris = (function() {
         prepareDataGoogle: function(paymentData) {
             let baseData = {
                 googlePayDetails: {
-                    googlePayToken: paymentData.paymentMethodData.tokenizationData.token,
-                    googlePayCardNetwork: paymentData.paymentMethodData.info.cardNetwork
+                    googlePayToken: paymentData.authorizedEvent.paymentMethodData.tokenizationData.token,
+                    googlePayCardNetwork: paymentData.authorizedEvent.paymentMethodData.info.cardNetwork
                 },
                 addressData: {
-                    email: paymentData.email,
-                    firstName: paymentData.shippingAddress.name,
+                    email: paymentData.authorizedEvent.email,
+                    firstName: paymentData.deliveryAddress.firstName,
                     // lastName: paymentData.payment.shippingContact.familyName,
-                    line1: paymentData.shippingAddress.address1,
-                    line2: paymentData.shippingAddress.address2,
-                    postalCode: paymentData.shippingAddress.postalCode,
-                    town: paymentData.shippingAddress.locality,
+                    line1: paymentData.deliveryAddress.street,
+                    line2: paymentData.deliveryAddress.houseNumberOrName,
+                    postalCode: paymentData.deliveryAddress.postalCode,
+                    town: paymentData.deliveryAddress.city,
                     country: {
-                        isocode: paymentData.shippingAddress.countryCode,
+                        isocode: paymentData.deliveryAddress.country,
                     },
                     region: {
-                        isocodeShort: paymentData.shippingAddress.administrativeArea
+                        isocodeShort: paymentData.deliveryAddress.stateOrProvince
                     }
                 }
             }
