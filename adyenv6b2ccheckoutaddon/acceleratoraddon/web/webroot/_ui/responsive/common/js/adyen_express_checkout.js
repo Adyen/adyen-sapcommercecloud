@@ -30,8 +30,8 @@ var AdyenExpressCheckoutHybris = (function() {
                     console.error("Checkout error occured");
                 },
             };
-
-            return await AdyenCheckout(configuration);
+            console.log(configuration)
+            return await AdyenWeb.AdyenCheckout(configuration);
         },
         initExpressCheckout: async function (params, config) {
             var checkoutPromise = this.initiateCheckout(config);
@@ -126,108 +126,108 @@ var AdyenExpressCheckoutHybris = (function() {
 
             const googlePayNodes = document.getElementsByClassName('adyen-google-pay-button');
 
-            for (let googlePayNode of googlePayNodes) {
-                let googlePayComponent = checkout.create('googlepay', {
+            const googlePayConfig = {
 
-                    // Step 2: Set the callback intents.
-                    buttonSizeMode: "fill",
-                    buttonType: "checkout",
+                // Step 2: Set the callback intents.
+                buttonSizeMode: "fill",
+                buttonType: "checkout",
 
-                    callbackIntents: ['SHIPPING_ADDRESS'],
+                callbackIntents: ['SHIPPING_ADDRESS'],
 
-                    // Step 3: Set shipping configurations.
+                // Step 3: Set shipping configurations.
 
-                    shippingAddressRequired: true,
-                    emailRequired: true,
+                shippingAddressRequired: true,
+                emailRequired: true,
 
-                    shippingAddressParameters: {
-                        allowedCountryCodes: [],
-                        phoneNumberRequired: false
-                    },
+                shippingAddressParameters: {
+                    allowedCountryCodes: [],
+                    phoneNumberRequired: false
+                },
 
-                    // Shipping options configurations.
-                    shippingOptionRequired: false,
+                // Shipping options configurations.
+                shippingOptionRequired: false,
 
-                    // Step 4: Pass the default shipping options.
+                // Step 4: Pass the default shipping options.
 
-                    // shippingOptions: {
-                    //     defaultSelectedOptionId: 'shipping-001',
-                    //     shippingOptions: [
-                    //         {
-                    //             id: 'shipping-001',
-                    //             label: '$0.00: Free shipping',
-                    //             description: 'Free shipping: delivered in 10 business days.'
-                    //         },
-                    //         {
-                    //             id: 'shipping-002',
-                    //             label: '$1.99: Standard shipping',
-                    //             description: 'Standard shipping: delivered in 3 business days.'
-                    //         },
-                    //     ]
-                    // },
+                // shippingOptions: {
+                //     defaultSelectedOptionId: 'shipping-001',
+                //     shippingOptions: [
+                //         {
+                //             id: 'shipping-001',
+                //             label: '$0.00: Free shipping',
+                //             description: 'Free shipping: delivered in 10 business days.'
+                //         },
+                //         {
+                //             id: 'shipping-002',
+                //             label: '$1.99: Standard shipping',
+                //             description: 'Standard shipping: delivered in 3 business days.'
+                //         },
+                //     ]
+                // },
 
-                    // Step 5: Set the transaction information.
+                // Step 5: Set the transaction information.
 
-                    //Required for v6.0.0 or later.
-                    isExpress: true,
+                //Required for v6.0.0 or later.
+                isExpress: true,
 
 
-                    transactionInfo: {
-                        countryCode: countryCode,
-                        currencyCode: amount.currency,
-                        totalPriceStatus: 'FINAL',
-                        totalPrice: amountDecimal,
-                        totalPriceLabel: 'Total'
-                    },
+                transactionInfo: {
+                    countryCode: countryCode,
+                    currencyCode: amount.currency,
+                    totalPriceStatus: 'FINAL',
+                    totalPrice: amountDecimal,
+                    totalPriceLabel: 'Total'
+                },
 
-                    // Step 6: Update the payment data.
+                // Step 6: Update the payment data.
 
-                    paymentDataCallbacks: {
-                        onPaymentDataChanged(intermediatePaymentData) {
-                            return new Promise(async resolve => {
-                                const {
-                                    callbackTrigger,
-                                    shippingAddress,
-                                    shippingOptionData
-                                } = intermediatePaymentData;
-                                const paymentDataRequestUpdate = {};
+                paymentDataCallbacks: {
+                    onPaymentDataChanged(intermediatePaymentData) {
+                        return new Promise(async resolve => {
+                            const {
+                                callbackTrigger,
+                                shippingAddress,
+                                shippingOptionData
+                            } = intermediatePaymentData;
+                            const paymentDataRequestUpdate = {};
 
-                                // Validate the country/region and address selection.
-                                if (shippingAddress.countryCode !== 'US' && shippingAddress.countryCode !== 'BR') {
-                                    paymentDataRequestUpdate.error = {
-                                        reason: 'SHIPPING_ADDRESS_UNSERVICEABLE',
-                                        message: 'Cannot ship to the selected address',
-                                        intent: 'SHIPPING_ADDRESS'
-                                    };
-                                }
+                            // Validate the country/region and address selection.
+                            if (shippingAddress.countryCode !== 'US' && shippingAddress.countryCode !== 'BR') {
+                                paymentDataRequestUpdate.error = {
+                                    reason: 'SHIPPING_ADDRESS_UNSERVICEABLE',
+                                    message: 'Cannot ship to the selected address',
+                                    intent: 'SHIPPING_ADDRESS'
+                                };
+                            }
 
-                                // If it initializes or changes the shipping address, calculate the shipping options and transaction info.
-                                if (callbackTrigger === 'INITIALIZE' || callbackTrigger === 'SHIPPING_ADDRESS') {
-                                    // paymentDataRequestUpdate.newShippingOptionParameters = await fetchNewShippingOptions(shippingAddress.countryCode);
-                                    // paymentDataRequestUpdate.newTransactionInfo = calculateNewTransactionInfo(/* ... */);
-                                }
+                            // If it initializes or changes the shipping address, calculate the shipping options and transaction info.
+                            if (callbackTrigger === 'INITIALIZE' || callbackTrigger === 'SHIPPING_ADDRESS') {
+                                // paymentDataRequestUpdate.newShippingOptionParameters = await fetchNewShippingOptions(shippingAddress.countryCode);
+                                // paymentDataRequestUpdate.newTransactionInfo = calculateNewTransactionInfo(/* ... */);
+                            }
 
-                                // If SHIPPING_OPTION changes, calculate the new shipping amount.
-                                if (callbackTrigger === 'SHIPPING_OPTION') {
-                                    // paymentDataRequestUpdate.newTransactionInfo = calculateNewTransactionInfo(/* ... */);
-                                }
+                            // If SHIPPING_OPTION changes, calculate the new shipping amount.
+                            if (callbackTrigger === 'SHIPPING_OPTION') {
+                                // paymentDataRequestUpdate.newTransactionInfo = calculateNewTransactionInfo(/* ... */);
+                            }
 
-                                resolve(paymentDataRequestUpdate);
-                            });
-                        }
-                    },
-
-                    // Step 7: Configure the callback to get the shopper's information.
-
-                    onAuthorized: (paymentData) => {
-                        console.log('Shopper details');
-                        console.log(paymentData)
-                        this.makePayment(this.prepareDataGoogle(paymentData), this.getGoogleUrl())
-                    },
-                    onError: function (error) {
-                        console.log(error)
+                            resolve(paymentDataRequestUpdate);
+                        });
                     }
-                });
+                },
+
+                // Step 7: Configure the callback to get the shopper's information.
+
+                onAuthorized: (paymentData) => {
+                    this.makePayment(this.prepareDataGoogle(paymentData), this.getGoogleUrl())
+                },
+                onError: function (error) {
+                    console.log(error)
+                }
+            }
+
+            for (let googlePayNode of googlePayNodes) {
+                let googlePayComponent = new AdyenWeb.GooglePay(checkout, googlePayConfig);
                 googlePayComponent.isAvailable()
                     .then(function () {
                             googlePayComponent.mount(googlePayNode);
@@ -327,21 +327,21 @@ var AdyenExpressCheckoutHybris = (function() {
         },
         prepareDataGoogle: function(paymentData) {
             const baseData = {
-                googlePayToken: paymentData.paymentMethodData.tokenizationData.token,
-                googlePayCardNetwork: paymentData.paymentMethodData.info.cardNetwork,
+                googlePayToken: paymentData.authorizedEvent.paymentMethodData.tokenizationData.token,
+                googlePayCardNetwork: paymentData.authorizedEvent.paymentMethodData.info.cardNetwork,
                 addressData: {
-                    email: paymentData.email,
-                    firstName: paymentData.shippingAddress.name,
+                    email: paymentData.authorizedEvent.email,
+                    firstName: paymentData.deliveryAddress.firstName,
                     // lastName: paymentData.payment.shippingContact.familyName,
-                    line1: paymentData.shippingAddress.address1,
-                    line2: paymentData.shippingAddress.address2,
-                    postalCode: paymentData.shippingAddress.postalCode,
-                    town: paymentData.shippingAddress.locality,
+                    line1: paymentData.deliveryAddress.street,
+                    line2: paymentData.deliveryAddress.houseNumberOrName,
+                    postalCode: paymentData.deliveryAddress.postalCode,
+                    town: paymentData.deliveryAddress.city,
                     country: {
-                        isocode: paymentData.shippingAddress.countryCode,
+                        isocode: paymentData.deliveryAddress.country,
                     },
                     region: {
-                        isocode: paymentData.shippingAddress.administrativeArea
+                        isocodeShort: paymentData.deliveryAddress.stateOrProvince
                     }
                 }
             }
