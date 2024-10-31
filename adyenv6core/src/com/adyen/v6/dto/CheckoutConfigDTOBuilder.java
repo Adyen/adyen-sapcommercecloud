@@ -7,6 +7,7 @@ import com.adyen.model.checkout.PaymentMethod;
 import com.adyen.model.checkout.StoredPaymentMethod;
 import com.adyen.v6.enums.AdyenCardTypeEnum;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
@@ -146,6 +147,11 @@ public class CheckoutConfigDTOBuilder {
 
     public CheckoutConfigDTOBuilder setSepaDirectDebit(boolean sepaDirectDebit) {
         checkoutConfigDTO.setSepaDirectDebit(sepaDirectDebit);
+        return this;
+    }
+
+    public CheckoutConfigDTOBuilder setAmountDecimal(BigDecimal amountDecimal) {
+        checkoutConfigDTO.setAmountDecimal(amountDecimal);
         return this;
     }
 

@@ -780,8 +780,9 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
                 .setShowComboCard(showComboCard())
                 .setShowPos(showPos())
                 .setImmediateCapture(isImmediateCapture())
-                .setCountryCode(cartData.getDeliveryAddress().getCountry().getIsocode())
+                .setCountryCode(cartData != null && cartData.getDeliveryAddress() != null && cartData.getDeliveryAddress().getCountry() != null ? cartData.getDeliveryAddress().getCountry().getIsocode() : "")
                 .setCardHolderNameRequired(getHolderNameRequired())
+                .setAmountDecimal(cartData.getTotalPriceWithTax().getValue())
                 .build();
     }
 
@@ -904,6 +905,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
                 .setCountryCode(cartData.getDeliveryAddress().getCountry().getIsocode())
                 .setCardHolderNameRequired(getHolderNameRequired())
                 .setSepaDirectDebit(sepaDirectDebit)
+                .setAmountDecimal(cartData.getTotalPriceWithTax().getValue())
                 .build();
     }
 
@@ -958,11 +960,16 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     }
 
     protected PaymentMethodsResponse getPaymentMethods(AdyenCheckoutApiService adyenPaymentService, CartData cartData, CustomerModel customerModel, List<String> excludedPaymentMethods) throws IOException, ApiException {
-        return adyenPaymentService.getPaymentMethodsResponse(cartData.getTotalPriceWithTax().getValue(),
-                cartData.getTotalPriceWithTax().getCurrencyIso(),
-                cartData.getDeliveryAddress().getCountry().getIsocode(),
-                getShopperLocale(),
-                customerModel.getCustomerID(), excludedPaymentMethods);
+        if (adyenPaymentService == null || cartData == null || customerModel == null) {
+            throw new IllegalArgumentException("Required parameters cannot be null");
+        }
+
+        BigDecimal totalPrice = cartData.getTotalPriceWithTax() != null ? cartData.getTotalPriceWithTax().getValue() : BigDecimal.ZERO;
+        String currencyIso = cartData.getTotalPriceWithTax() != null ? cartData.getTotalPriceWithTax().getCurrencyIso() : StringUtils.EMPTY;
+        String countryIso = cartData.getDeliveryAddress() != null && cartData.getDeliveryAddress().getCountry() != null ? cartData.getDeliveryAddress().getCountry().getIsocode() : StringUtils.EMPTY;
+        String customerID = customerModel.getCustomerID() != null ? customerModel.getCustomerID() : StringUtils.EMPTY;
+
+        return adyenPaymentService.getPaymentMethodsResponse(totalPrice, currencyIso, countryIso, getShopperLocale(), customerID, excludedPaymentMethods);
     }
 
 
@@ -1219,7 +1226,15 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     public boolean showSocialSecurityNumber() {
         Boolean showSocialSecurityNumber = false;
         CartData cart = getCheckoutFacade().getCheckoutCart();
+        if (cart == null) {
+            return showSocialSecurityNumber;
+        }
+
         final AddressData deliveryAddress = cart.getDeliveryAddress();
+        if (deliveryAddress == null || deliveryAddress.getCountry() == null) {
+            return showSocialSecurityNumber;
+        }
+
         String countryCode = deliveryAddress.getCountry().getIsocode();
         if (PAYMENT_METHODS_ALLOW_SOCIAL_SECURITY_NUMBER.contains(cart.getAdyenPaymentMethod()) && OPENINVOICE_METHODS_ALLOW_SOCIAL_SECURITY_NUMBER.contains(countryCode)) {
             showSocialSecurityNumber = true;
