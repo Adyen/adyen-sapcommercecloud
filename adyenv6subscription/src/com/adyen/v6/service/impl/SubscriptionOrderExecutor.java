@@ -2,7 +2,6 @@ package com.adyen.v6.service.impl;
 
 import com.adyen.model.checkout.PaymentResponse;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
-import com.adyen.v6.factory.SubscriptionAdyenPaymentServiceFactory;
 import com.adyen.v6.model.RequestInfo;
 import com.adyen.v6.service.AdyenTransactionService;
 import de.hybris.platform.commercefacades.order.data.CartData;
@@ -42,8 +41,6 @@ public class SubscriptionOrderExecutor implements ImpersonationService.Executor<
     private KeyGenerator keyGenerator;
     private final AbstractOrderModel subscriptionOrder;
 
-    private SubscriptionAdyenPaymentServiceFactory subscriptionAdyenPaymentServiceFactory;
-
     public SubscriptionOrderExecutor(final AbstractOrderModel subscriptionOrder)
     {
         this.subscriptionOrder = subscriptionOrder;
@@ -58,7 +55,7 @@ public class SubscriptionOrderExecutor implements ImpersonationService.Executor<
         try {
 
             final RequestInfo request = new RequestInfo();
-            final PaymentResponse paymentResponse = subscriptionAdyenPaymentServiceFactory
+            final PaymentResponse paymentResponse = adyenPaymentServiceFactory
                     .createAdyenCheckoutApiService(baseStoreService.getCurrentBaseStore())
                     .authorisePayment(cartConverter.convert(cart), request, (CustomerModel) cart.getUser());
 
@@ -159,7 +156,4 @@ public class SubscriptionOrderExecutor implements ImpersonationService.Executor<
         this.keyGenerator = keyGenerator;
     }
 
-    public void setSubscriptionAdyenPaymentServiceFactory(SubscriptionAdyenPaymentServiceFactory subscriptionAdyenPaymentServiceFactory) {
-        this.subscriptionAdyenPaymentServiceFactory = subscriptionAdyenPaymentServiceFactory;
-    }
 }

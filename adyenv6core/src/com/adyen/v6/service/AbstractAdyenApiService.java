@@ -2,6 +2,7 @@ package com.adyen.v6.service;
 
 import com.adyen.Client;
 import com.adyen.Config;
+import com.adyen.commerce.services.AdyenRequestService;
 import com.adyen.enums.Environment;
 import com.adyen.v6.factory.AdyenRequestFactory;
 import de.hybris.platform.store.BaseStoreModel;
@@ -14,6 +15,7 @@ public abstract class AbstractAdyenApiService {
     protected BaseStoreModel baseStore;
     protected String merchantAccount;
     protected AdyenRequestFactory adyenRequestFactory;
+    protected AdyenRequestService adyenRequestService;
     protected Config config;
     protected Client client;
     protected Config posConfig;
@@ -26,10 +28,10 @@ public abstract class AbstractAdyenApiService {
     private AbstractAdyenApiService() {
     }
 
-
-    public AbstractAdyenApiService(final BaseStoreModel baseStore, final String merchantAccount) {
+    public AbstractAdyenApiService(final BaseStoreModel baseStore, final String merchantAccount, final AdyenRequestService adyenRequestService) {
         this.baseStore = baseStore;
         this.merchantAccount = merchantAccount;
+        this.adyenRequestService = adyenRequestService;
 
         if (Boolean.TRUE.equals(baseStore.getAdyenPosEnabled())) {
             posConfig = new Config();
@@ -57,7 +59,6 @@ public abstract class AbstractAdyenApiService {
             this.config.setTerminalApiCloudEndpoint(Client.TERMINAL_API_ENDPOINT_LIVE);
             this.config.setLiveEndpointUrlPrefix(baseStore.getAdyenAPIEndpointPrefix());
         }
-
     }
 
     public AdyenRequestFactory getAdyenRequestFactory() {

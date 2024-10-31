@@ -30,12 +30,11 @@
         shopperLocale: '${shopperLocale}',
         environment: '${environmentMode}',
         clientKey: '${clientKey}',
-        sessionId: '${sessionData.id}',
-        sessionData: '${sessionData.sessionData}',
         session: {
             id: '${sessionData.id}',
             sessionData: '${sessionData.sessionData}'
-        }
+        },
+        countryCode: 'US'
     }
 
     window.onload = function() {

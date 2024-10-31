@@ -1,5 +1,6 @@
 package com.adyen.v6.service;
 
+import com.adyen.commerce.services.AdyenRequestService;
 import com.adyen.model.checkout.PaymentCaptureRequest;
 import com.adyen.model.checkout.PaymentCaptureResponse;
 import com.adyen.model.checkout.PaymentRefundRequest;
@@ -18,8 +19,8 @@ public class DefaultAdyenModificationsApiService extends AbstractAdyenApiService
 
     private static final Logger LOG = Logger.getLogger(DefaultAdyenModificationsApiService.class);
 
-    public DefaultAdyenModificationsApiService(BaseStoreModel baseStore, String merchantAccount) {
-        super(baseStore, merchantAccount);
+    public DefaultAdyenModificationsApiService(BaseStoreModel baseStore, String merchantAccount, final AdyenRequestService adyenRequestService) {
+        super(baseStore, merchantAccount, adyenRequestService);
     }
 
     @Override

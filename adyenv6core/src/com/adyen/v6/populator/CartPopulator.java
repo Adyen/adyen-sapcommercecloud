@@ -66,6 +66,7 @@ public class CartPopulator implements Populator<CartModel, CartData> {
             target.setAdyenGiftCardBrand(paymentInfo.getAdyenGiftCardBrand());
             target.setAdyenAmazonPayConfiguration(source.getAdyenAmazonPayConfiguration());
         }
+
     }
 
     protected boolean isAdyenPaymentInfo(final PaymentInfoModel paymentInfo) {

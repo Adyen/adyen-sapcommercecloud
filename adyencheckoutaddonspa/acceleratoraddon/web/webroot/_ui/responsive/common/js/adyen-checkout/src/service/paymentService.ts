@@ -2,7 +2,7 @@ import {AxiosError, AxiosResponse} from "axios";
 import {CSRFToken, urlContextPath} from "../util/baseUrlUtil";
 import {AddressData, PlaceOrderRequest} from "../types/paymentForm";
 import {AddressModel} from "../reducers/types";
-import {PaymentAction} from "@adyen/adyen-web/dist/types/types";
+import {PaymentAction} from "@adyen/adyen-web";
 import {ErrorResponse} from "../types/errorResponse";
 import {adyenAxios} from "../axios/AdyenAxios";
 

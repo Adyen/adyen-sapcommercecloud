@@ -82,6 +82,7 @@
 				<editorArea:section name="hmc.adyen.advanced">
 					<editorArea:attribute qualifier="adyenBoleto"/>
 					<editorArea:attribute qualifier="adyenPaypalMerchantId"/>
+					<editorArea:attribute qualifier="l2L3ESDEnabled"/>
 				</editorArea:section>
 			</editorArea:tab>
 		</editorArea:editorArea>

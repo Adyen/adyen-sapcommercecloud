@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@adyen/adyen-web": "5.57.0",
+    "@adyen/adyen-web": "6.1.1",
     "@babel/core": "^7.16.0",
     "@pmmmwh/react-refresh-webpack-plugin": "^0.5.3",
     "@reduxjs/toolkit": "^2.0.1",
@@ -67,6 +67,9 @@
     "webpack-dev-server": "^4.6.0",
     "webpack-manifest-plugin": "^4.0.2",
     "workbox-webpack-plugin": "^6.4.1"
+  },
+  "exports": {
+    "./dist/adyen.css": "./dist/adyen.css"
   },
   "scripts": {
     "start": "node scripts/start.js",

@@ -10,12 +10,22 @@
             <json:property name="locale" value="${shopperLocale}"/>
             <json:property name="environment" value="${environmentMode}"/>
             <json:property name="clientKey" value="${clientKey}"/>
+            <json:property name="sessionId" value="${sessionData.id}"/>
+            <json:property name="sessionData" value="${sessionData.sessionData}"/>
+            <json:property name="countryCode" value="${countryCode}"/>
             <json:object name="risk" escapeXml="false">
                 <json:property name="enabled" value="${false}"/>
             </json:object>
         </json:object>
     </c:set>
     <script type="text/javascript">
+
+        const { AdyenCheckout, Dropin, Card, PayPal, GooglePay,
+            ApplePay, CashAppPay, Sepa,Redirect,OnlineBankingIN,
+            OnlineBankingPL, Ideal, EPS, Pix, WalletIN, AfterPay, Bcmc,
+            Pos, PayBright, Boleto, SepaDirectDebit, RatePay, Paytm,Giftcard,Blik
+        } = AdyenWeb;
+
         let checkout;
         const handleOnAdditionalDetails = (state) => {
             document.getElementById("details").value = JSON.stringify(state.data.details);

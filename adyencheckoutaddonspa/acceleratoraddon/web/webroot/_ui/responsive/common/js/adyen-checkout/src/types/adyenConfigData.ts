@@ -1,5 +1,7 @@
+import {PaymentMethod} from "@adyen/adyen-web";
+
 export interface AdyenConfigData {
-    paymentMethods: PaymentMethodData[];
+    paymentMethods: PaymentMethod[];
     connectedTerminalList: string[];
     storedPaymentMethodList: StoredPaymentMethodData[];
     issuerLists: Map<string, string>;
@@ -29,55 +31,6 @@ export interface AdyenConfigData {
 interface SessionData {
     id: string,
     sessionData: string
-}
-
-export interface PaymentMethodData {
-    brand?: string;
-    brands?: string[];
-    configuration: object;
-    issuers?: PaymentMethodIssuerData[];
-    fundingSource?: string;
-    group?: PaymentMethodGroupData;
-    inputDetails?: InputDetailData[];
-    name: string;
-    type: string;
-}
-
-interface PaymentMethodIssuerData {
-    disabled: boolean;
-    id: string;
-    name: string;
-}
-
-interface InputDetailData {
-    onfiguration: Map<string, string>
-    details: SubInputDetailData[];
-    itemSearchUrl: string;
-    items: ItemData[];
-    key: string;
-    optional: boolean;
-    type: string;
-    value: string;
-}
-
-interface SubInputDetailData {
-    items: ItemData[];
-    key: string;
-    optional: boolean;
-    type: string;
-    value: string;
-    configuration: Map<string, string>;
-}
-
-interface ItemData {
-    id: string;
-    name: string;
-}
-
-interface PaymentMethodGroupData {
-    name: string;
-    paymentMethodData: string;
-    type: string;
 }
 
 interface StoredPaymentMethodData {
