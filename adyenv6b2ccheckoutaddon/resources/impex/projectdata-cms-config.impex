@@ -1,10 +1,23 @@
-$contentCatalog=electronicsContentCatalog
-$contentCVS=catalogVersion(CatalogVersion.catalog(Catalog.id[default=$contentCatalog]),CatalogVersion.version[default=Staged])[default=$contentCatalog:Staged]
-$contentCVO=catalogVersion(CatalogVersion.catalog(Catalog.id[default=$contentCatalog]),CatalogVersion.version[default=Online])[default=$contentCatalog:Online]
+$contentCatalog = electronicsContentCatalog
+$contentCVS = catalogVersion(CatalogVersion.catalog(Catalog.id[default = $contentCatalog]), CatalogVersion.version[default = Staged])[default = $contentCatalog:Staged]
+$contentCVO = catalogVersion(CatalogVersion.catalog(Catalog.id[default = $contentCatalog]), CatalogVersion.version[default = Online])[default = $contentCatalog:Online]
 
-INSERT_UPDATE JspIncludeComponent;uid[unique=true];page;$contentCVS[unique=true]
-                                 ;CartComponent;/WEB-INF/views/responsive/pages/cart/cartDisplay.jsp
+INSERT_UPDATE JspIncludeComponent; uid[unique = true]; page; $contentCVS[unique = true]
+                                 ; CartComponent     ; /WEB-INF/views/responsive/pages/cart/cartDisplay.jsp
 
 
-INSERT_UPDATE JspIncludeComponent;uid[unique=true];page;$contentCVO[unique=true]
-                                 ;CartComponent;/WEB-INF/views/responsive/pages/cart/cartDisplay.jsp
+INSERT_UPDATE JspIncludeComponent; uid[unique = true]; page; $contentCVO[unique = true]
+                                 ; CartComponent     ; /WEB-INF/views/responsive/pages/cart/cartDisplay.jsp
+
+INSERT_UPDATE ContentSlot; $contentCVS[unique = true]; uid[unique = true]; cmsComponents(&componentRef)[mode = merge]
+                         ;                           ; AddToCartSlot     ; AccAdyenProductExpressCheckout
+
+INSERT_UPDATE AdyenAccExpressCheckoutProductPageComponent; $contentCVS[unique = true]; uid[unique = true]             ; name                                            ; &componentRef
+                                                         ;                           ; AccAdyenProductExpressCheckout ; Adyen Accelerator Product Page Express Checkout ; AccAdyenProductExpressCheckout
+
+INSERT_UPDATE ContentSlot; $contentCVS[unique = true]; uid[unique = true]           ; cmsComponents($contentCVS, uid)
+                         ;                           ; TopContent-cartPage          ; AccAdyenCartExpressCheckout,CartComponent
+                         ;                           ; BottomContentSlot-cartPage ; CheckoutComponent,AccAdyenCartExpressCheckout,CartSuggestions
+
+INSERT_UPDATE AdyenAccExpressCheckoutCartPageComponent; $contentCVS[unique = true]; uid[unique = true]          ; name                                         ; &componentRef
+                                                      ;                           ; AccAdyenCartExpressCheckout ; Adyen Accelerator Cart Page Express Checkout ; AccAdyenCartExpressCheckout
