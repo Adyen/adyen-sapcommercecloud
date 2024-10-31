@@ -222,6 +222,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     public static final String MODEL_CONNECTED_TERMINAL_LIST = "connectedTerminalList";
     public static final String MODEL_ENVIRONMENT_MODE = "environmentMode";
     public static final String MODEL_AMOUNT = "amount";
+    public static final String MODEL_AMOUNT_DECIMAL= "amountDecimal";
     public static final String MODEL_IMMEDIATE_CAPTURE = "immediateCapture";
     public static final String MODEL_PAYPAL_MERCHANT_ID = "paypalMerchantId";
     public static final String MODEL_COUNTRY_CODE = "countryCode";
@@ -1093,6 +1094,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         model.addAttribute(MODEL_MERCHANT_ACCOUNT, adyenMerchantAccountStrategy.getWebMerchantAccount());
         model.addAttribute(SESSION_DATA, getAdyenSessionData(amount));
         model.addAttribute(MODEL_AMOUNT, amount);
+        model.addAttribute(MODEL_AMOUNT_DECIMAL, amountValue);
         model.addAttribute(MODEL_DF_URL, getAdyenPaymentService().getDeviceFingerprintUrl());
         model.addAttribute(MODEL_CHECKOUT_SHOPPER_HOST, getCheckoutShopperHost());
     }
