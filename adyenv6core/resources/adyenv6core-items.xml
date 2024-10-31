@@ -100,6 +100,14 @@
             </attributes>
         </itemtype>
 
+        <itemtype code="Product" autocreate="false" generate="false">
+            <attributes>
+                <attribute qualifier="CommodityCode" type="java.lang.String" >
+                    <persistence type="property"/>
+                </attribute>
+            </attributes>
+        </itemtype>
+
         <itemtype code="NotificationItem" generate="true" autocreate="true">
             <deployment table="AdyenNotificationItem" typecode="22936"/>
             <attributes>
@@ -331,6 +339,11 @@
                 <attribute qualifier="adyenMerchantConfig" type="AdyenMerchantConfigList">
                     <description>Merchant config list</description>
                     <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="l2L3ESDEnabled" type="java.lang.boolean">
+                    <persistence type="property"/>
+                    <defaultvalue>Boolean.FALSE</defaultvalue>
+                    <modifiers optional="false"/>
                 </attribute>
             </attributes>
         </itemtype>

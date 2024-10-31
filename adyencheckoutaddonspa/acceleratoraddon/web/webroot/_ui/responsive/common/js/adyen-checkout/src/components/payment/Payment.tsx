@@ -9,24 +9,19 @@ import {AddressData} from "../../types/addressData";
 import {InputCheckbox} from "../controls/InputCheckbox";
 import {AddressService} from "../../service/addressService";
 import {AdyenConfigService} from "../../service/adyenConfigService";
-import AdyenCheckout from '@adyen/adyen-web';
-import '@adyen/adyen-web/dist/adyen.css';
+import { AdyenCheckout, Dropin,AdyenCheckoutError, ICore } from '@adyen/adyen-web/auto'
+import '@adyen/adyen-web/styles/adyen.css';
 import {AdyenConfigData} from "../../types/adyenConfigData";
 import {isEmpty, isNotEmpty} from "../../util/stringUtil";
-import {CoreOptions} from "@adyen/adyen-web/dist/types/core/types";
-import {ActionHandledReturnObject, OnPaymentCompletedData} from "@adyen/adyen-web/dist/types/components/types";
-import AdyenCheckoutError from "@adyen/adyen-web/dist/types/core/Errors/AdyenCheckoutError";
-import Core from "@adyen/adyen-web/dist/types/core";
 import {PlaceOrderRequest} from "../../types/paymentForm";
 import {PaymentService, PlaceOrderResponse} from "../../service/paymentService";
-import {UIElement} from "@adyen/adyen-web/dist/types/components/UIElement";
 import {translationsStore} from "../../store/translationsStore";
 import AddressSection from "../common/AddressSection";
 import {routes} from "../../router/routes";
 import {Navigate} from "react-router-dom";
 import {PaymentError} from "./PaymentError";
 import {ScrollHere} from "../common/ScrollTo";
-import DropinElement from "@adyen/adyen-web/dist/types/components/Dropin";
+import {CoreConfiguration,CardConfiguration, UIElement} from "@adyen/adyen-web";
 
 interface State {
     useDifferentBillingAddress: boolean
@@ -68,7 +63,7 @@ class Payment extends React.Component<Props, State> {
 
     paymentRef: RefObject<HTMLDivElement>
     threeDSRef: RefObject<HTMLDivElement>
-    dropIn: DropinElement
+    dropIn: Dropin
 
     constructor(props: Props) {
         super(props);
@@ -105,22 +100,14 @@ class Payment extends React.Component<Props, State> {
         this.initiateDropIn(adyenCheckout)
     }
 
-    private getAdyenCheckoutConfig(): CoreOptions {
+    private getAdyenCheckoutConfig(): CoreConfiguration {
         return {
-            paymentMethodsConfiguration: {
-                card: {
-                    type: 'card',
-                    hasHolderName: true,
-                    holderNameRequired: this.props.adyenConfig.cardHolderNameRequired,
-                    enableStoreDetails: this.props.adyenConfig.showRememberTheseDetails
-                }
-            },
             paymentMethodsResponse: {
                 paymentMethods: this.props.adyenConfig.paymentMethods,
                 storedPaymentMethods: this.props.adyenConfig.storedPaymentMethodList
             },
             locale: this.props.adyenConfig.shopperLocale,
-            environment: this.props.adyenConfig.environmentMode,
+            environment: this.castToEnvironment(this.props.adyenConfig.environmentMode),
             clientKey: this.props.adyenConfig.adyenClientKey,
             session: {
                 id: this.props.adyenConfig.sessionData.id,
@@ -133,25 +120,39 @@ class Payment extends React.Component<Props, State> {
             risk: {
                 enabled: true
             },
-            onPaymentCompleted(data: OnPaymentCompletedData, element?: UIElement) {
-                console.info(data, element);
-            },
             onError: (error: AdyenCheckoutError, element?: UIElement) => {
                 this.handleError()
             },
             onSubmit: (state: any, element: UIElement) => this.handlePayment(state.data),
-            onAdditionalDetails: (state: any, element?: UIElement) => this.handleAdditionalDetails(state.data),
-            onActionHandled(data: ActionHandledReturnObject) {
-                console.log("onActionHandled", data);
-            }
+            onAdditionalDetails: (state: any, element?: UIElement) => this.handleAdditionalDetails(state.data)
         }
     }
 
-    private initiateDropIn(adyenCheckout: Core) {
+    private getAdyenCardConfig(): CardConfiguration {
+        return {
+            type: 'card',
+            hasHolderName: true,
+            holderNameRequired: this.props.adyenConfig.cardHolderNameRequired,
+            enableStoreDetails: this.props.adyenConfig.showRememberTheseDetails
+        }
+    }
 
-        this.dropIn = adyenCheckout.create("dropin");
+    private castToEnvironment(env: string): CoreConfiguration['environment'] {
+        const validEnvironments: CoreConfiguration['environment'][] = ['test', 'live', 'live-us', 'live-au', 'live-apse', 'live-in'];
+        if (validEnvironments.includes(env as CoreConfiguration['environment'])) {
+            return env as CoreConfiguration['environment'];
+        }
+        throw new Error(`Invalid environment: ${env}`);
+    }
 
-        this.dropIn.mount(this.paymentRef.current)
+    private initiateDropIn(adyenCheckout: ICore) {
+
+        this.dropIn = new Dropin(adyenCheckout, {
+             paymentMethodsConfiguration: {
+                    card: this.getAdyenCardConfig()
+            }
+        }).mount(this.paymentRef.current);
+
     }
 
     private async handleError(){

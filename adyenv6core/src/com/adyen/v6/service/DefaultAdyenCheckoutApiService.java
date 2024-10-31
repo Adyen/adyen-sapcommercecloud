@@ -20,6 +20,8 @@
  */
 package com.adyen.v6.service;
 
+import com.adyen.commerce.services.AdyenRequestService;
+import com.adyen.commerce.services.impl.DefaultAdyenRequestService;
 import com.adyen.model.checkout.Amount;
 import com.adyen.model.checkout.CheckoutPaymentMethod;
 import com.adyen.model.checkout.CreateCheckoutSessionRequest;
@@ -49,13 +51,16 @@ import com.adyen.service.checkout.PaymentsApi;
 import com.adyen.service.exception.ApiException;
 import com.adyen.terminal.serialization.TerminalAPIGsonBuilder;
 import com.adyen.v6.enums.RecurringContractMode;
+import com.adyen.v6.factory.AdyenRequestFactory;
 import com.adyen.v6.model.RequestInfo;
+import com.adyen.v6.strategy.AdyenMerchantAccountStrategy;
 import com.adyen.v6.util.AmountUtil;
 import de.hybris.platform.commercefacades.order.data.CartData;
 import de.hybris.platform.commercefacades.product.data.PriceData;
 import de.hybris.platform.core.model.order.AbstractOrderModel;
 import de.hybris.platform.core.model.user.CustomerModel;
 import de.hybris.platform.store.BaseStoreModel;
+import de.hybris.platform.store.services.BaseStoreService;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
@@ -76,31 +81,8 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
 
     private static final Logger LOG = Logger.getLogger(DefaultAdyenCheckoutApiService.class);
 
-    public DefaultAdyenCheckoutApiService(BaseStoreModel baseStore, String merchantAccount) {
-        super(baseStore, merchantAccount);
-    }
-
-
-    @Override
-    @Deprecated
-    public PaymentResponse authorisePayment(final CartData cartData, final RequestInfo requestInfo, final CustomerModel customerModel) throws Exception {
-        LOG.debug("Authorize payment");
-
-        PaymentsApi paymentsApi = new PaymentsApi(client);
-
-        PaymentRequest paymentsRequest = getAdyenRequestFactory().createPaymentsRequest(merchantAccount,
-                cartData,
-                null,
-                requestInfo,
-                customerModel,
-                baseStore.getAdyenRecurringContractMode(),
-                baseStore.getAdyenGuestUserTokenization());
-
-        LOG.debug(paymentsRequest);
-        PaymentResponse payments = paymentsApi.payments(paymentsRequest);
-        LOG.debug(payments);
-
-        return payments;
+    public DefaultAdyenCheckoutApiService(BaseStoreModel baseStore, String merchantAccount, AdyenRequestService adyenRequestService) {
+        super(baseStore, merchantAccount, adyenRequestService);
     }
 
     @Override
@@ -121,7 +103,7 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
     }
 
     @Override
-    public PaymentResponse componentPayment(final CartData cartData, PaymentRequest originPaymentsRequest, final RequestInfo requestInfo, final CustomerModel customerModel) throws Exception {
+    public PaymentResponse processPaymentRequest(final CartData cartData, PaymentRequest originPaymentsRequest, final RequestInfo requestInfo, final CustomerModel customerModel) throws Exception {
         LOG.debug("Component payment");
 
         PaymentsApi checkoutApi = new PaymentsApi(client);
@@ -131,6 +113,8 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
                 originPaymentsRequest,
                 requestInfo,
                 customerModel, baseStore.getAdyenRecurringContractMode(), baseStore.getAdyenGuestUserTokenization());
+
+        adyenRequestService.applyAdditionalData(cartData, paymentsRequest);
 
         LOG.debug(paymentsRequest);
         PaymentResponse paymentsResponse = checkoutApi.payments(paymentsRequest);
