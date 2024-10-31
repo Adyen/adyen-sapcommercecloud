@@ -4,20 +4,16 @@ import com.adyen.commerce.constants.AdyenoccConstants;
 import com.adyen.commerce.controllerbase.PlaceOrderControllerBase;
 import com.adyen.commerce.facades.AdyenCheckoutApiFacade;
 import com.adyen.commerce.request.PlaceOrderRequest;
+import com.adyen.commerce.resolver.PaymentRedirectReturnUrlResolver;
 import com.adyen.commerce.response.OCCPlaceOrderResponse;
-import com.adyen.commerce.response.PlaceOrderResponse;
-import com.adyen.commerce.utils.WebServicesBaseUrlResolver;
 import com.adyen.model.checkout.PaymentDetailsRequest;
 import com.adyen.v6.facades.AdyenCheckoutFacade;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import de.hybris.platform.acceleratorfacades.flow.CheckoutFlowFacade;
 import de.hybris.platform.acceleratorservices.urlresolver.SiteBaseUrlResolutionService;
 import de.hybris.platform.commercefacades.order.CartFacade;
-import de.hybris.platform.commerceservices.i18n.CommerceCommonI18NService;
 import de.hybris.platform.commerceservices.request.mapping.annotation.ApiVersion;
 import de.hybris.platform.commerceservices.strategies.CheckoutCustomerStrategy;
-import de.hybris.platform.order.InvalidCartException;
-import de.hybris.platform.order.exceptions.CalculationException;
 import de.hybris.platform.site.BaseSiteService;
 import de.hybris.platform.webservicescommons.swagger.ApiBaseSiteIdUserIdAndCartIdParam;
 import io.swagger.v3.oas.annotations.Operation;
@@ -26,7 +22,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.annotation.Secured;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
@@ -55,14 +54,11 @@ public class PlaceOrderController extends PlaceOrderControllerBase {
     @Autowired
     private AdyenCheckoutFacade adyenCheckoutFacade;
 
-    @Autowired
-    private WebServicesBaseUrlResolver webServicesBaseUrlResolver;
-
     @Resource(name = "checkoutCustomerStrategy")
     private CheckoutCustomerStrategy checkoutCustomerStrategy;
 
-    @Resource(name = "commerceCommonI18NService")
-    private CommerceCommonI18NService commerceCommonI18NService;
+    @Autowired
+    private PaymentRedirectReturnUrlResolver paymentRedirectReturnUrlResolver;
 
     @Secured({"ROLE_CUSTOMERGROUP", "ROLE_CLIENT", "ROLE_CUSTOMERMANAGERGROUP", "ROLE_TRUSTED_CLIENT"})
     @PostMapping(value = "/place-order", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -91,12 +87,7 @@ public class PlaceOrderController extends PlaceOrderControllerBase {
 
     @Override
     public String getPaymentRedirectReturnUrl() {
-        String occBaseUrl = webServicesBaseUrlResolver.getOCCBaseUrl(true);
-        String currency = commerceCommonI18NService.getCurrentCurrency().getIsocode();
-        String language = commerceCommonI18NService.getCurrentLanguage().getIsocode();
-        String baseSiteUid = baseSiteService.getCurrentBaseSite().getUid();
-
-        return occBaseUrl + "/v2/" + baseSiteUid + "/adyen/redirect?lang=" + language + "&curr=" + currency;
+        return paymentRedirectReturnUrlResolver.resolvePaymentRedirectReturnUrl();
     }
 
     @Override

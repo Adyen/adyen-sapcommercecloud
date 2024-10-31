@@ -19,4 +19,9 @@
 		<property name="configurationService" ref="configurationService"/>
 	</bean>
 
+	<bean id="paymentRedirectReturnUrlResolver" class="com.adyen.commerce.resolver.PaymentRedirectReturnUrlResolver">
+		<property name="baseSiteService" ref="baseSiteService"/>
+		<property name="commerceCommonI18NService" ref="commerceCommonI18NService"/>
+		<property name="webServicesBaseUrlResolver" ref="webServicesBaseUrlResolver"/>
+	</bean>
 </beans>

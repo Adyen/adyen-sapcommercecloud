@@ -1,6 +1,9 @@
 <%@ taglib prefix="adyen" tagdir="/WEB-INF/tags/addons/adyenv6b2ccheckoutaddon/responsive" %>
 <%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags" %>
 <%@ attribute name="pageType" required="true" type="java.lang.String"%>
+
+<spring:url value="/checkout/multi/adyen/summary/component-result-express" var="handleComponentResult"/>
 
 
 <adyen:adyenLibrary
@@ -43,6 +46,7 @@
            class="create_update_payment_form"
            action="${handleComponentResult}"
            method="post">
-    <input type="hidden" id="resultData" name="resultData"/>
+    <input type="hidden" id="resultCode" name="resultCode"/>
+    <input type="hidden" id="merchantReference" name="merchantReference"/>
     <input type="hidden" id="isResultError" name="isResultError" value="false"/>
 </form:form>

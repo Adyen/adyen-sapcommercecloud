@@ -30,7 +30,7 @@ var AdyenExpressCheckoutHybris = (function() {
                     console.error("Checkout error occured");
                 },
             };
-            console.log(configuration)
+
             return await AdyenWeb.AdyenCheckout(configuration);
         },
         initExpressCheckout: async function (params, config) {
@@ -191,20 +191,11 @@ var AdyenExpressCheckoutHybris = (function() {
                             } = intermediatePaymentData;
                             const paymentDataRequestUpdate = {};
 
-                            // Validate the country/region and address selection.
-                            if (shippingAddress.countryCode !== 'US' && shippingAddress.countryCode !== 'BR') {
-                                paymentDataRequestUpdate.error = {
-                                    reason: 'SHIPPING_ADDRESS_UNSERVICEABLE',
-                                    message: 'Cannot ship to the selected address',
-                                    intent: 'SHIPPING_ADDRESS'
-                                };
-                            }
-
-                            // If it initializes or changes the shipping address, calculate the shipping options and transaction info.
-                            if (callbackTrigger === 'INITIALIZE' || callbackTrigger === 'SHIPPING_ADDRESS') {
-                                // paymentDataRequestUpdate.newShippingOptionParameters = await fetchNewShippingOptions(shippingAddress.countryCode);
-                                // paymentDataRequestUpdate.newTransactionInfo = calculateNewTransactionInfo(/* ... */);
-                            }
+                                // If it initializes or changes the shipping address, calculate the shipping options and transaction info.
+                                if (callbackTrigger === 'INITIALIZE' || callbackTrigger === 'SHIPPING_ADDRESS') {
+                                    // paymentDataRequestUpdate.newShippingOptionParameters = await fetchNewShippingOptions(shippingAddress.countryCode);
+                                    // paymentDataRequestUpdate.newTransactionInfo = calculateNewTransactionInfo(/* ... */);
+                                }
 
                             // If SHIPPING_OPTION changes, calculate the new shipping amount.
                             if (callbackTrigger === 'SHIPPING_OPTION') {
@@ -230,7 +221,7 @@ var AdyenExpressCheckoutHybris = (function() {
                 let googlePayComponent = new AdyenWeb.GooglePay(checkout, googlePayConfig);
                 googlePayComponent.isAvailable()
                     .then(function () {
-                            googlePayComponent.mount(googlePayNode);
+                        googlePayComponent.mount(googlePayNode);
                     })
                     .catch(function (e) {
                         // Google Pay is not available
@@ -272,10 +263,14 @@ var AdyenExpressCheckoutHybris = (function() {
         },
         handleResult: function(data, error) {
             if (error) {
-                document.querySelector("#resultData").value = data;
+                if (data) {
+                    document.querySelector("#resultCode").value = data.resultCode;
+                    document.querySelector("#merchantReference").value = data.merchantReference;
+                }
                 document.querySelector("#isResultError").value = error;
             } else {
-                document.querySelector("#resultData").value = JSON.stringify(data);
+                document.querySelector("#resultCode").value = data.resultCode;
+                document.querySelector("#merchantReference").value = data.merchantReference;
             }
             document.querySelector("#handleComponentResultForm").submit();
         },
@@ -326,9 +321,11 @@ var AdyenExpressCheckoutHybris = (function() {
             return {};
         },
         prepareDataGoogle: function(paymentData) {
-            const baseData = {
-                googlePayToken: paymentData.authorizedEvent.paymentMethodData.tokenizationData.token,
-                googlePayCardNetwork: paymentData.authorizedEvent.paymentMethodData.info.cardNetwork,
+            let baseData = {
+                googlePayDetails: {
+                    googlePayToken: paymentData.authorizedEvent.paymentMethodData.tokenizationData.token,
+                    googlePayCardNetwork: paymentData.authorizedEvent.paymentMethodData.info.cardNetwork
+                },
                 addressData: {
                     email: paymentData.authorizedEvent.email,
                     firstName: paymentData.deliveryAddress.firstName,
@@ -345,6 +342,7 @@ var AdyenExpressCheckoutHybris = (function() {
                     }
                 }
             }
+
             if (this.adyenConfig.pageType === 'PDP') {
                 return {
                     productCode: this.adyenConfig.productCode,
@@ -369,10 +367,10 @@ var AdyenExpressCheckoutHybris = (function() {
         },
         getGoogleUrl: function() {
             if (this.adyenConfig.pageType === 'PDP') {
-                return ACC.config.encodedContextPath + '/expressCheckout/googlePayPDP'
+                return ACC.config.encodedContextPath + '/express-checkout/google/PDP'
             }
             if (this.adyenConfig.pageType === 'cart') {
-                return ACC.config.encodedContextPath + '/expressCheckout/googlePayCart'
+                return ACC.config.encodedContextPath + '/express-checkout/google/cart'
             }
             console.error('unknown page type')
             return null;
