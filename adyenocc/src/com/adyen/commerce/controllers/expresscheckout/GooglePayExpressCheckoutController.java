@@ -6,6 +6,7 @@ import com.adyen.commerce.request.GooglePayExpressPDPRequest;
 import com.adyen.commerce.resolver.PaymentRedirectReturnUrlResolver;
 import com.adyen.commerce.response.OCCPlaceOrderResponse;
 import com.adyen.model.checkout.CheckoutPaymentMethod;
+import com.adyen.model.checkout.GooglePayDetails;
 import com.adyen.model.checkout.PaymentRequest;
 import com.adyen.v6.constants.Adyenv6coreConstants;
 import com.adyen.v6.facades.AdyenExpressCheckoutFacade;
@@ -52,6 +53,7 @@ public class GooglePayExpressCheckoutController extends ExpressCheckoutControlle
     @ApiBaseSiteIdUserIdAndCartIdParam
     public ResponseEntity<String> googlePayCartExpressCheckout(final HttpServletRequest request, @RequestBody GooglePayExpressPDPRequest googlePayExpressPDPRequest) throws Exception {
         PaymentRequest paymentRequest = new PaymentRequest();
+        googlePayExpressPDPRequest.getGooglePayDetails().setType(GooglePayDetails.TypeEnum.GOOGLEPAY);
         paymentRequest.setPaymentMethod(new CheckoutPaymentMethod(googlePayExpressPDPRequest.getGooglePayDetails()));
 
         OCCPlaceOrderResponse placeOrderResponse = handlePayment(request, paymentRequest, Adyenv6coreConstants.PAYMENT_METHOD_GOOGLE_PAY, googlePayExpressPDPRequest.getAddressData(), googlePayExpressPDPRequest.getProductCode(), true);
@@ -66,6 +68,7 @@ public class GooglePayExpressCheckoutController extends ExpressCheckoutControlle
     @ApiBaseSiteIdUserIdAndCartIdParam
     public ResponseEntity<String> googlePayCartExpressCheckout(final HttpServletRequest request, @RequestBody GooglePayExpressCartRequest googlePayExpressCartRequest) throws Exception {
         PaymentRequest paymentRequest = new PaymentRequest();
+        googlePayExpressCartRequest.getGooglePayDetails().setType(GooglePayDetails.TypeEnum.GOOGLEPAY);
         paymentRequest.setPaymentMethod(new CheckoutPaymentMethod(googlePayExpressCartRequest.getGooglePayDetails()));
 
         OCCPlaceOrderResponse placeOrderResponse = handlePayment(request, paymentRequest, Adyenv6coreConstants.PAYMENT_METHOD_GOOGLE_PAY, googlePayExpressCartRequest.getAddressData(), null, false);
