@@ -3,6 +3,7 @@ package com.adyen.commerce.controllers.expresscheckout;
 import com.adyen.commerce.constants.AdyenoccConstants;
 import com.adyen.commerce.request.GooglePayExpressCartRequest;
 import com.adyen.commerce.request.GooglePayExpressPDPRequest;
+import com.adyen.commerce.request.PlaceOrderRequest;
 import com.adyen.commerce.resolver.PaymentRedirectReturnUrlResolver;
 import com.adyen.commerce.response.OCCPlaceOrderResponse;
 import com.adyen.model.checkout.CheckoutPaymentMethod;
@@ -51,7 +52,9 @@ public class GooglePayExpressCheckoutController extends ExpressCheckoutControlle
     @Operation(operationId = "placeOrderGooglePayExpressPDP", summary = "Handle googlePayExpress place order request", description =
             "Places order based on request data")
     @ApiBaseSiteIdUserIdAndCartIdParam
-    public ResponseEntity<String> googlePayCartExpressCheckout(final HttpServletRequest request, @RequestBody GooglePayExpressPDPRequest googlePayExpressPDPRequest) throws Exception {
+    public ResponseEntity<String> googlePayCartExpressCheckoutPDP(final HttpServletRequest request, @RequestBody String googlePayExpressPDPRequestString) throws Exception {
+        GooglePayExpressPDPRequest googlePayExpressPDPRequest = objectMapper.readValue(googlePayExpressPDPRequestString, GooglePayExpressPDPRequest.class);
+
         PaymentRequest paymentRequest = new PaymentRequest();
         googlePayExpressPDPRequest.getGooglePayDetails().setType(GooglePayDetails.TypeEnum.GOOGLEPAY);
         paymentRequest.setPaymentMethod(new CheckoutPaymentMethod(googlePayExpressPDPRequest.getGooglePayDetails()));
@@ -66,7 +69,8 @@ public class GooglePayExpressCheckoutController extends ExpressCheckoutControlle
     @Operation(operationId = "placeOrderGooglePayExpressCart", summary = "Handle googlePayExpress place order request", description =
             "Places order based on request data")
     @ApiBaseSiteIdUserIdAndCartIdParam
-    public ResponseEntity<String> googlePayCartExpressCheckout(final HttpServletRequest request, @RequestBody GooglePayExpressCartRequest googlePayExpressCartRequest) throws Exception {
+    public ResponseEntity<String> googlePayCartExpressCheckoutCart(final HttpServletRequest request, @RequestBody String googlePayExpressCartRequestString) throws Exception {
+        GooglePayExpressCartRequest googlePayExpressCartRequest = objectMapper.readValue(googlePayExpressCartRequestString, GooglePayExpressCartRequest.class);
         PaymentRequest paymentRequest = new PaymentRequest();
         googlePayExpressCartRequest.getGooglePayDetails().setType(GooglePayDetails.TypeEnum.GOOGLEPAY);
         paymentRequest.setPaymentMethod(new CheckoutPaymentMethod(googlePayExpressCartRequest.getGooglePayDetails()));
