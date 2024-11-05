@@ -1,4 +1,4 @@
-package com.adyen.v6.request;
+package com.adyen.commerce.request;
 
 import com.adyen.model.checkout.ApplePayDetails;
 import de.hybris.platform.commercefacades.user.data.AddressData;

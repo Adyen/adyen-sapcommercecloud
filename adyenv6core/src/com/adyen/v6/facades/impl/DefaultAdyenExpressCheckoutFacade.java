@@ -1,8 +1,8 @@
 package com.adyen.v6.facades.impl;
 
 import com.adyen.commerce.facades.AdyenCheckoutApiFacade;
-import com.adyen.model.checkout.*;
-import com.adyen.v6.constants.Adyenv6coreConstants;
+import com.adyen.model.checkout.PaymentRequest;
+import com.adyen.model.checkout.PaymentResponse;
 import com.adyen.v6.facades.AdyenCheckoutFacade;
 import com.adyen.v6.facades.AdyenExpressCheckoutFacade;
 import de.hybris.platform.commercefacades.customer.CustomerFacade;
@@ -55,6 +55,7 @@ public class DefaultAdyenExpressCheckoutFacade implements AdyenExpressCheckoutFa
     protected static final String USER_NAME = "ExpressCheckoutGuest";
     private static final String DELIVERY_MODE_CODE = "adyen-express-checkout";
     protected static final String ANONYMOUS_CHECKOUT_GUID = "anonymous_checkout_guid";
+    protected static final String ANONYMOUS_CHECKOUT = "anonymous_checkout";
 
     private CartFactory cartFactory;
     private CartService cartService;
@@ -129,8 +130,10 @@ public class DefaultAdyenExpressCheckoutFacade implements AdyenExpressCheckoutFa
             throw new IllegalArgumentException("Empty email address");
         }
         CustomerModel user = (CustomerModel) userService.getCurrentUser();
+        boolean isGuestUser = false;
         if (userService.isAnonymousUser(user)) {
             user = createGuestCustomer(addressData.getEmail());
+            isGuestUser = true;
         }
 
         CartModel cart = createCartForExpressCheckout(user);
@@ -160,9 +163,10 @@ public class DefaultAdyenExpressCheckoutFacade implements AdyenExpressCheckoutFa
 
             PaymentResponse paymentsResponse = adyenCheckoutFacade.componentPayment(request, cartData, paymentRequest);
 
-            if (userService.isAnonymousUser(user)) {
+            if (isGuestUser) {
                 sessionService.setAttribute(ANONYMOUS_CHECKOUT_GUID,
                         org.apache.commons.lang.StringUtils.substringBefore(cart.getUser().getUid(), "|"));
+                sessionService.setAttribute(ANONYMOUS_CHECKOUT, Boolean.TRUE);
             }
 
             if (sessionCart != null) {
@@ -224,71 +228,14 @@ public class DefaultAdyenExpressCheckoutFacade implements AdyenExpressCheckoutFa
         }
     }
 
-
-    //TODO: Remove after applepay
-    public PaymentResponse appleExpressPDPCheckout(AddressData addressData, String productCode, String merchantId, String merchantName,
-                                                   String applePayToken, HttpServletRequest request) throws Exception {
-        validateParameterNotNull(addressData, "Empty address");
-        if (StringUtils.isEmpty(addressData.getEmail())) {
-            throw new IllegalArgumentException("Empty email address");
-        }
-        CustomerModel user = (CustomerModel) userService.getCurrentUser();
-        if (userService.isAnonymousUser(user)) {
-            user = createGuestCustomer(addressData.getEmail());
-        }
-
-        CartModel cart = createCartForExpressCheckout(user);
-
-        DeliveryModeModel deliveryMode = deliveryModeService.getDeliveryModeForCode(DELIVERY_MODE_CODE);
-        validateParameterNotNull(deliveryMode, "Delivery mode for Adyen express checkout not configured");
-
-        AddressModel addressModel = prepareAddressModel(addressData, user);
-        PaymentInfoModel paymentInfo = createPaymentInfoForCart(user, addressModel, cart,
-                Adyenv6coreConstants.PAYMENT_METHOD_APPLEPAY, merchantId, merchantName);
-
-        prepareCart(cart, deliveryMode, addressModel, paymentInfo);
-
-        addProductToCart(productCode, cart);
-
-        if (cartHasEntries(cart)) {
-            CommerceCartParameter commerceCartParameter = new CommerceCartParameter();
-            commerceCartParameter.setCart(cart);
-            commerceCartService.calculateCart(commerceCartParameter);
-
-            CartModel sessionCart = null;
-            if (cartService.hasSessionCart()) {
-                sessionCart = cartService.getSessionCart();
-            }
-            cartService.setSessionCart(cart);
-
-            CartData cartData = cartConverter.convert(cart);
-
-            ApplePayDetails applePayDetails = new ApplePayDetails();
-            applePayDetails.setApplePayToken(applePayToken);
-            CheckoutPaymentMethod checkoutPaymentMethod = new CheckoutPaymentMethod(applePayDetails);
-            PaymentRequest paymentRequest = new PaymentRequest();
-            paymentRequest.setPaymentMethod(checkoutPaymentMethod);
-            PaymentResponse paymentsResponse = adyenCheckoutFacade.componentPayment(request, cartData, paymentRequest);
-
-            sessionService.setAttribute(ANONYMOUS_CHECKOUT_GUID,
-                    org.apache.commons.lang.StringUtils.substringBefore(cart.getUser().getUid(), "|"));
-
-            if (sessionCart != null) {
-                cartService.setSessionCart(sessionCart);
-            }
-
-            return paymentsResponse;
-        } else {
-            throw new InvalidCartException("Checkout attempt on empty cart");
-        }
-    }
-
     protected PaymentResponse expressCartCheckout(PaymentRequest paymentRequest, AddressData addressData, PaymentInfoModel paymentInfoModel,
                                                HttpServletRequest request) throws Exception {
         CustomerModel user = (CustomerModel) userService.getCurrentUser();
+        boolean isGuestUser = false;
         if (userService.isAnonymousUser(user)) {
             user = createGuestCustomer(addressData.getEmail());
             cartService.changeCurrentCartUser(user);
+            isGuestUser = true;
         }
 
         CartModel cart = cartService.getSessionCart();
@@ -308,9 +255,11 @@ public class DefaultAdyenExpressCheckoutFacade implements AdyenExpressCheckoutFa
         if (cartHasEntries(cart)) {
             CartData cartData = cartConverter.convert(cart);
 
-            if (userService.isAnonymousUser(user)) {
+            if (isGuestUser) {
                 sessionService.setAttribute(ANONYMOUS_CHECKOUT_GUID,
                         org.apache.commons.lang.StringUtils.substringBefore(cart.getUser().getUid(), "|"));
+                sessionService.setAttribute(ANONYMOUS_CHECKOUT, Boolean.TRUE);
+
             }
 
             return adyenCheckoutFacade.componentPayment(request, cartData, paymentRequest);
@@ -345,47 +294,6 @@ public class DefaultAdyenExpressCheckoutFacade implements AdyenExpressCheckoutFa
             CartData cartData = cartConverter.convert(cart);
 
             return adyenCheckoutApiFacade.placeOrderWithPayment(request, cartData, paymentRequest);
-        } else {
-            throw new InvalidCartException("Checkout attempt on empty cart");
-        }
-    }
-
-    //TODO: Remove after applepay
-    public PaymentResponse appleEexpressCartCheckout(AddressData addressData, String merchantId, String merchantName,
-                                                     String applePayToken, HttpServletRequest request) throws Exception {
-        CustomerModel user = (CustomerModel) userService.getCurrentUser();
-        if (userService.isAnonymousUser(user)) {
-            user = createGuestCustomer(addressData.getEmail());
-            cartService.changeCurrentCartUser(user);
-        }
-
-        CartModel cart = cartService.getSessionCart();
-
-        DeliveryModeModel deliveryMode = deliveryModeService.getDeliveryModeForCode(DELIVERY_MODE_CODE);
-        validateParameterNotNull(deliveryMode, "Delivery mode for Adyen express checkout not configured");
-
-        AddressModel addressModel = prepareAddressModel(addressData, user);
-
-        PaymentInfoModel paymentInfo = createPaymentInfoForCart(user, addressModel, cart,
-                Adyenv6coreConstants.PAYMENT_METHOD_APPLEPAY, merchantId, merchantName);
-
-        prepareCart(cart, deliveryMode, addressModel, paymentInfo);
-
-        CommerceCartParameter commerceCartParameter = new CommerceCartParameter();
-        commerceCartParameter.setCart(cart);
-        commerceCartService.recalculateCart(commerceCartParameter);
-
-        if (cartHasEntries(cart)) {
-            CartData cartData = cartConverter.convert(cart);
-
-            ApplePayDetails applePayDetails = new ApplePayDetails();
-            applePayDetails.setApplePayToken(applePayToken);
-
-            sessionService.setAttribute(ANONYMOUS_CHECKOUT_GUID,
-                    org.apache.commons.lang.StringUtils.substringBefore(cart.getUser().getUid(), "|"));
-            PaymentRequest paymentRequest = new PaymentRequest();
-            paymentRequest.setPaymentMethod(new CheckoutPaymentMethod(applePayDetails));
-            return adyenCheckoutFacade.componentPayment(request, cartData, paymentRequest);
         } else {
             throw new InvalidCartException("Checkout attempt on empty cart");
         }
