@@ -12,12 +12,6 @@ import java.util.Optional;
 
 public interface AdyenExpressCheckoutFacade {
 
-    PaymentResponse appleExpressPDPCheckout(AddressData addressData, String productCode, String merchantId, String merchantName,
-                                            String applePayToken, HttpServletRequest request) throws Exception;
-
-    PaymentResponse appleEexpressCartCheckout(AddressData addressData, String merchantId, String merchantName,
-                                              String applePayToken, HttpServletRequest request) throws Exception;
-
     PaymentResponse expressCheckoutPDP(String productCode, PaymentRequest paymentRequest, String paymentMethod, AddressData addressData,
                                        HttpServletRequest request) throws Exception ;
 
