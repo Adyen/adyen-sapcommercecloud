@@ -155,6 +155,11 @@ public class CheckoutConfigDTOBuilder {
         return this;
     }
 
+    public CheckoutConfigDTOBuilder setExpressPaymentConfig(ExpressPaymentConfigDto expressPaymentConfigDto) {
+        checkoutConfigDTO.setExpressPaymentConfig(expressPaymentConfigDto);
+        return this;
+    }
+
     public CheckoutConfigDTO build() {
         return checkoutConfigDTO;
     }
