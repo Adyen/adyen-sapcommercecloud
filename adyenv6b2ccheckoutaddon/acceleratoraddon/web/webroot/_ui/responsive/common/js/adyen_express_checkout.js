@@ -75,18 +75,11 @@ var AdyenExpressCheckoutHybris = (function () {
 //                    resolve(shippingMethodUpdate);
 //                },
                     //onValidateMerchant is required if you're using your own Apple Pay certificate
-                    onValidateMerchant: (resolve, reject, validationURL) => {
-                        resolve();
-                    },
-                    onClick: function (resolve, reject) {
-                        resolve();
-                    },
                     onSubmit: function (state, component) {
                         // empty to block session flow, submit logic done in onAuthorized
                     },
-                    onAuthorized: (resolve, reject, event) => {
-                        var data = this.prepareDataApple(event);
-                        this.makePayment(data, this.getAppleUrl(), resolve, reject);
+                    onAuthorized: (paymentData, actions) => {
+                        this.makePayment(this.prepareDataApple(paymentData), this.getAppleUrl(), actions.resolve, actions.reject);
                     }
                 });
                 applePayComponent.isAvailable()
@@ -195,8 +188,8 @@ var AdyenExpressCheckoutHybris = (function () {
 
                 // Step 7: Configure the callback to get the shopper's information.
 
-                onAuthorized: (paymentData) => {
-                    this.makePayment(this.prepareDataGoogle(paymentData), this.getGoogleUrl())
+                onAuthorized: (paymentData, actions) => {
+                    this.makePayment(this.prepareDataGoogle(paymentData), this.getGoogleUrl(), actions.resolve, actions.reject)
                 },
                 onError: function (error) {
                     console.log(error)
@@ -260,7 +253,9 @@ var AdyenExpressCheckoutHybris = (function () {
             }
             document.querySelector("#handleComponentResultForm").submit();
         },
-        prepareDataApple: function (event) {
+        prepareDataApple: function (paymentData) {
+            const event = paymentData.authorizedEvent;
+
             const baseData = {
                 applePayDetails: {
                     applePayToken: btoa(JSON.stringify(event.payment.token.paymentData))
