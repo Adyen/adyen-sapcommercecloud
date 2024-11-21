@@ -1,12 +1,12 @@
 package com.adyen.commerce.controllers.expresscheckout;
 
 import com.adyen.commerce.constants.AdyenoccConstants;
-import com.adyen.commerce.request.GooglePayExpressCartRequest;
-import com.adyen.commerce.request.GooglePayExpressPDPRequest;
+import com.adyen.commerce.request.PayPalExpressCartRequest;
+import com.adyen.commerce.request.PayPalExpressPDPRequest;
 import com.adyen.commerce.resolver.PaymentRedirectReturnUrlResolver;
 import com.adyen.commerce.response.OCCPlaceOrderResponse;
 import com.adyen.model.checkout.CheckoutPaymentMethod;
-import com.adyen.model.checkout.GooglePayDetails;
+import com.adyen.model.checkout.PayPalDetails;
 import com.adyen.model.checkout.PaymentRequest;
 import com.adyen.v6.constants.Adyenv6coreConstants;
 import com.adyen.v6.facades.AdyenExpressCheckoutFacade;
@@ -28,10 +28,10 @@ import org.springframework.web.bind.annotation.RestController;
 import javax.servlet.http.HttpServletRequest;
 
 @RestController
-@RequestMapping(value = AdyenoccConstants.ADYEN_USER_CART_PREFIX + "/express-checkout/google")
+@RequestMapping(value = AdyenoccConstants.ADYEN_USER_CART_PREFIX + "/express-checkout/paypal")
 @ApiVersion("v2")
 @Tag(name = "Adyen")
-public class GooglePayExpressCheckoutController extends ExpressCheckoutControllerBase {
+public class PayPalExpressCheckoutController extends ExpressCheckoutControllerBase {
 
     @Autowired
     private CartFacade cartFacade;
@@ -48,38 +48,38 @@ public class GooglePayExpressCheckoutController extends ExpressCheckoutControlle
 
     @Secured({"ROLE_CUSTOMERGROUP", "ROLE_CLIENT", "ROLE_CUSTOMERMANAGERGROUP", "ROLE_TRUSTED_CLIENT"})
     @PostMapping(value = "/PDP", produces = MediaType.APPLICATION_JSON_VALUE)
-    @Operation(operationId = "placeOrderGooglePayExpressPDP", summary = "Handle googlePayExpress place order request", description =
+    @Operation(operationId = "placeOrderPayPalExpressPDP", summary = "Handle PayPalExpress place order request", description =
             "Places order based on request data")
     @ApiBaseSiteIdUserIdAndCartIdParam
-    public ResponseEntity<String> googlePayCartExpressCheckoutPDP(final HttpServletRequest request, @RequestBody String googlePayExpressPDPRequestString) throws Exception {
-        GooglePayExpressPDPRequest googlePayExpressPDPRequest = objectMapper.readValue(googlePayExpressPDPRequestString, GooglePayExpressPDPRequest.class);
+    public ResponseEntity<String> PayPalCartExpressCheckoutPDP(final HttpServletRequest request, @RequestBody String PayPalExpressPDPRequestString) throws Exception {
+        PayPalExpressPDPRequest payPalExpressPDPRequest = objectMapper.readValue(PayPalExpressPDPRequestString, PayPalExpressPDPRequest.class);
 
-        PaymentRequest paymentRequest = getPaymentRequest(googlePayExpressPDPRequest);
+        PaymentRequest paymentRequest = getPaymentRequest(payPalExpressPDPRequest);
 
-        OCCPlaceOrderResponse placeOrderResponse = handlePayment(request, paymentRequest, Adyenv6coreConstants.PAYMENT_METHOD_GOOGLE_PAY, googlePayExpressPDPRequest.getAddressData(), googlePayExpressPDPRequest.getProductCode(), true);
+        OCCPlaceOrderResponse placeOrderResponse = handlePayment(request, paymentRequest, Adyenv6coreConstants.PAYMENT_METHOD_PAYPAL, payPalExpressPDPRequest.getAddressData(), payPalExpressPDPRequest.getProductCode(), true);
         String response = objectMapper.writeValueAsString(placeOrderResponse);
         return ResponseEntity.ok(response);
     }
 
     @Secured({"ROLE_CUSTOMERGROUP", "ROLE_CLIENT", "ROLE_CUSTOMERMANAGERGROUP", "ROLE_TRUSTED_CLIENT"})
     @PostMapping(value = "/cart", produces = MediaType.APPLICATION_JSON_VALUE)
-    @Operation(operationId = "placeOrderGooglePayExpressCart", summary = "Handle googlePayExpress place order request", description =
+    @Operation(operationId = "placeOrderPayPalExpressCart", summary = "Handle PayPalExpress place order request", description =
             "Places order based on request data")
     @ApiBaseSiteIdUserIdAndCartIdParam
-    public ResponseEntity<String> googlePayCartExpressCheckoutCart(final HttpServletRequest request, @RequestBody String googlePayExpressCartRequestString) throws Exception {
-        GooglePayExpressCartRequest googlePayExpressCartRequest = objectMapper.readValue(googlePayExpressCartRequestString, GooglePayExpressCartRequest.class);
-        PaymentRequest paymentRequest = getPaymentRequest(googlePayExpressCartRequest);
+    public ResponseEntity<String> PayPalCartExpressCheckoutCart(final HttpServletRequest request, @RequestBody String PayPalExpressCartRequestString) throws Exception {
+        PayPalExpressCartRequest payPalExpressCartRequest = objectMapper.readValue(PayPalExpressCartRequestString, PayPalExpressCartRequest.class);
+        PaymentRequest paymentRequest = getPaymentRequest(payPalExpressCartRequest);
 
-        OCCPlaceOrderResponse placeOrderResponse = handlePayment(request, paymentRequest, Adyenv6coreConstants.PAYMENT_METHOD_GOOGLE_PAY, googlePayExpressCartRequest.getAddressData(), null, false);
+        OCCPlaceOrderResponse placeOrderResponse = handlePayment(request, paymentRequest, Adyenv6coreConstants.PAYMENT_METHOD_PAYPAL, payPalExpressCartRequest.getAddressData(), null, false);
         String response = objectMapper.writeValueAsString(placeOrderResponse);
         return ResponseEntity.ok(response);
     }
 
-    private static <T extends GooglePayExpressCartRequest> PaymentRequest getPaymentRequest(T request) {
+    private static <T extends PayPalExpressCartRequest> PaymentRequest getPaymentRequest(T request) {
         PaymentRequest paymentRequest = new PaymentRequest();
-        GooglePayDetails googlePayDetails = request.getGooglePayDetails();
-        googlePayDetails.setType(GooglePayDetails.TypeEnum.GOOGLEPAY);
-        paymentRequest.setPaymentMethod(new CheckoutPaymentMethod(googlePayDetails));
+        PayPalDetails payPalDetails = request.getPayPalDetails();
+        payPalDetails.setType(PayPalDetails.TypeEnum.PAYPAL);
+        paymentRequest.setPaymentMethod(new CheckoutPaymentMethod(payPalDetails));
         return paymentRequest;
     }
 
