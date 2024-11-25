@@ -77,6 +77,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.adyen.model.checkout.CreateCheckoutSessionRequest.StorePaymentMethodModeEnum.ASKFORCONSENT;
+
 public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService implements AdyenCheckoutApiService {
 
     private static final Logger LOG = Logger.getLogger(DefaultAdyenCheckoutApiService.class);
@@ -289,6 +291,10 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
         }
         createCheckoutSessionRequest.returnUrl(Optional.ofNullable(cartData.getAdyenReturnUrl()).orElse("returnUrl"));
         createCheckoutSessionRequest.reference(cartData.getCode());
+        createCheckoutSessionRequest.setStorePaymentMethod(true);
+        createCheckoutSessionRequest.setStorePaymentMethodMode(ASKFORCONSENT);
+        createCheckoutSessionRequest.enableOneClick(true);
+        createCheckoutSessionRequest.recurringProcessingModel(CreateCheckoutSessionRequest.RecurringProcessingModelEnum.CARDONFILE);
 
         return checkout.sessions(createCheckoutSessionRequest);
     }

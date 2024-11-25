@@ -52,8 +52,10 @@
             paymentMethodConfigs['createCard'] = {
                 allowedCards,
                 showRememberDetails: ${showRememberTheseDetails},
-                cardHolderNameRequired: ${cardHolderNameRequired}
-            }
+                cardHolderNameRequired: ${cardHolderNameRequired},
+                merchantDisplayName: "${merchantDisplayName}",
+                shopperEmail: "${shopperEmail}",
+            };
 
             const adyenCheckout = new AdyenCheckoutHelper();
 

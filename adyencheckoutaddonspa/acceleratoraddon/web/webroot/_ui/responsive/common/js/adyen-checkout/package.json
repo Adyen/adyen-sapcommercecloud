@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@adyen/adyen-web": "6.1.1",
+    "@adyen/adyen-web": "6.5.0",
     "@babel/core": "^7.16.0",
     "@pmmmwh/react-refresh-webpack-plugin": "^0.5.3",
     "@reduxjs/toolkit": "^2.0.1",
@@ -13,7 +13,7 @@
     "@testing-library/user-event": "^13.5.0",
     "@types/react": "^18.2.47",
     "@types/react-dom": "^18.2.18",
-    "axios": "^1.6.2",
+    "axios": "1.7.4",
     "babel-jest": "^27.4.2",
     "babel-loader": "^8.2.3",
     "babel-plugin-named-asset-import": "^0.3.8",
