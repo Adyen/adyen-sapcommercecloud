@@ -60,6 +60,14 @@ class AdyenCheckoutHelper {
             onError: (error, component) => {
                 console.error(error.name, error.message, error.stack, component);
             },
+            paymentMethodsConfiguration:{
+                card: {
+                    enableStoreDetails: true,
+                    clickToPayConfiguration: {
+                        merchantDisplayName: 'YOUR_MERCHANT_NAME'
+                    }
+                },
+            }
         };
         console.log("Execution of initiateCheckout: ", this.i++);
         this.checkout = await AdyenWeb.AdyenCheckout(configuration);

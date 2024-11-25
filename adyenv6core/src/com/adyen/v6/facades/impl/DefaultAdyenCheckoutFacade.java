@@ -657,6 +657,8 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         model.addAttribute(MODEL_CHECKOUT_SHOPPER_HOST, checkoutConfigDTO.getCheckoutShopperHost());
         model.addAttribute(MODEL_ENVIRONMENT_MODE, checkoutConfigDTO.getEnvironmentMode());
         model.addAttribute(SHOPPER_LOCALE, checkoutConfigDTO.getShopperLocale());
+        model.addAttribute("merchantDisplayName", checkoutConfigDTO.getMerchantDisplayName());
+        model.addAttribute("shopperEmail", checkoutConfigDTO.getShopperEmail());
 
         // OpenInvoice Methods
         model.addAttribute(MODEL_OPEN_INVOICE_METHODS, checkoutConfigDTO.getOpenInvoiceMethods());
@@ -780,6 +782,8 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
                 .setImmediateCapture(isImmediateCapture())
                 .setCountryCode(cartData.getDeliveryAddress().getCountry().getIsocode())
                 .setCardHolderNameRequired(getHolderNameRequired())
+                .setMerchantDisplayName(baseStore.getName())
+                .setShopperEmail(customerModel.getContactEmail())
                 .build();
     }
 
@@ -902,6 +906,8 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
                 .setCountryCode(cartData.getDeliveryAddress().getCountry().getIsocode())
                 .setCardHolderNameRequired(getHolderNameRequired())
                 .setSepaDirectDebit(sepaDirectDebit)
+                .setMerchantDisplayName(baseStore.getName())
+                .setShopperEmail(customerModel.getContactEmail())
                 .build();
     }
 
