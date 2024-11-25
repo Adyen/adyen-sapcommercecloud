@@ -26,6 +26,8 @@ export interface AdyenConfigData {
     countryCode: string;
     cardHolderNameRequired: boolean;
     sepaDirectDebit: boolean;
+    merchantDisplayName: string,
+    shopperEmail: string,
 }
 
 interface SessionData {

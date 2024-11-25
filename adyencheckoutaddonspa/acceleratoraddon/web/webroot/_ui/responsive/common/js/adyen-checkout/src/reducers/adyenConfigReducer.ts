@@ -26,7 +26,9 @@ export const adyenConfigInitialState : AdyenConfigData = {
     deviceFingerPrintUrl: "",
     issuerLists: undefined,
     sepaDirectDebit: undefined,
-    storedPaymentMethodList: []
+    storedPaymentMethodList: [],
+    merchantDisplayName: "",
+    shopperEmail: "",
 }
 
 export function adyenConfigReducer(adyenConfig: AdyenConfigData, action: RootAction): AdyenConfigData {

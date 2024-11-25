@@ -40,7 +40,8 @@ public class CheckoutConfigDTO {
     private  String countryCode;
     private boolean cardHolderNameRequired;
     private boolean sepaDirectDebit;
-
+    private String merchantDisplayName;
+    private String shopperEmail;
 
     public List<PaymentMethod> getAlternativePaymentMethods() {
         return alternativePaymentMethods;
@@ -248,5 +249,21 @@ public class CheckoutConfigDTO {
 
     public void setPaymentMethods(List<PaymentMethod> paymentMethods) {
         this.paymentMethods = paymentMethods;
+    }
+
+    public String getMerchantDisplayName() {
+        return merchantDisplayName;
+    }
+
+    public void setMerchantDisplayName(String merchantDisplayName) {
+        this.merchantDisplayName = merchantDisplayName;
+    }
+
+    public String getShopperEmail() {
+        return shopperEmail;
+    }
+
+    public void setShopperEmail(String shopperEmail) {
+        this.shopperEmail = shopperEmail;
     }
 }

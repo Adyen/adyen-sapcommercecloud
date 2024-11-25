@@ -49,7 +49,7 @@ class PaymentComponentFactory {
     }
 
     createCard(params) {
-        const {allowedCards, showRememberDetails, cardHolderNameRequired} = params;
+        const {allowedCards, showRememberDetails, cardHolderNameRequired,merchantDisplayName,shopperEmail} = params;
 
         const copyCardBrand= (event) => {
             this.helper.selectedCardBrand = event.brand;
@@ -60,9 +60,14 @@ class PaymentComponentFactory {
             type: 'card',
             hasHolderName: true,
             holderNameRequired: cardHolderNameRequired,
+            storePaymentMethod: showRememberDetails ? 'askForConsent': 'disabled',
             enableStoreDetails: showRememberDetails,
             brands: allowedCards,
-            onBrand: copyCardBrand
+            onBrand: copyCardBrand,
+            clickToPayConfiguration: {
+                merchantDisplayName: merchantDisplayName,
+                shopperEmail:  shopperEmail
+            }
         }).mount("#card-div");
 
     }

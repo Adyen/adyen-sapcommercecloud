@@ -40,7 +40,7 @@ interface ComponentProps {
 interface StoreProps {
     billingAddress: AddressModel,
     shippingAddressFromCart: AddressData,
-    adyenConfig: AdyenConfigData
+    adyenConfig: AdyenConfigData,
 }
 
 interface DispatchProps {
@@ -133,7 +133,11 @@ class Payment extends React.Component<Props, State> {
             type: 'card',
             hasHolderName: true,
             holderNameRequired: this.props.adyenConfig.cardHolderNameRequired,
-            enableStoreDetails: this.props.adyenConfig.showRememberTheseDetails
+            enableStoreDetails: this.props.adyenConfig.showRememberTheseDetails,
+            clickToPayConfiguration: {
+                merchantDisplayName: this.props.adyenConfig.merchantDisplayName,
+                shopperEmail:  this.props.adyenConfig.shopperEmail
+            }
         }
     }
 
