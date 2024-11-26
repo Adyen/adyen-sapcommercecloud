@@ -1,6 +1,6 @@
-package com.adyen.v6.request;
+package com.adyen.commerce.request;
 
-public class GooglePayExpressPDPRequest extends GooglePayExpressCartRequest {
+public class PayPalExpressPDPRequest extends PayPalExpressCartRequest {
     private String productCode;
 
     public String getProductCode() {
