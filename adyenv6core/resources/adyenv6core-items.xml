@@ -345,6 +345,56 @@
                     <defaultvalue>Boolean.FALSE</defaultvalue>
                     <modifiers optional="false"/>
                 </attribute>
+                <attribute qualifier="expressPaymentConfig" type="ExpressPaymentConfig">
+                    <description>Configuration for express payment methods</description>
+                    <persistence type="property"/>
+                </attribute>
+            </attributes>
+        </itemtype>
+
+        <itemtype code="ExpressPaymentConfig" generate="true" autocreate="true">
+            <deployment table="ExpressPaymentConfig" typecode="22939"/>
+            <attributes>
+                <attribute qualifier="googlePayExpressEnabledOnCart" type="java.lang.boolean">
+                    <description>Enable Google Pay Express on Cart Page</description>
+                    <persistence type="property"/>
+                    <defaultvalue>Boolean.FALSE</defaultvalue>
+                </attribute>
+                <attribute qualifier="applePayExpressEnabledOnCart" type="java.lang.boolean">
+                    <description>Enable Apple Pay Express on Cart Page</description>
+                    <persistence type="property"/>
+                    <defaultvalue>Boolean.FALSE</defaultvalue>
+                </attribute>
+                <attribute qualifier="paypalExpressEnabledOnCart" type="java.lang.boolean">
+                    <description>Enable PayPal Express on Cart Page</description>
+                    <persistence type="property"/>
+                    <defaultvalue>Boolean.FALSE</defaultvalue>
+                </attribute>
+                <attribute qualifier="amazonPayExpressEnabledOnCart" type="java.lang.boolean">
+                    <description>Enable Amazon Pay Express on Cart Page</description>
+                    <persistence type="property"/>
+                    <defaultvalue>Boolean.FALSE</defaultvalue>
+                </attribute>
+                <attribute qualifier="googlePayExpressEnabledOnProduct" type="java.lang.boolean">
+                    <description>Enable Google Pay Express on Product Page</description>
+                    <persistence type="property"/>
+                    <defaultvalue>Boolean.FALSE</defaultvalue>
+                </attribute>
+                <attribute qualifier="applePayExpressEnabledOnProduct" type="java.lang.boolean">
+                    <description>Enable Apple Pay Express on Product Page</description>
+                    <persistence type="property"/>
+                    <defaultvalue>Boolean.FALSE</defaultvalue>
+                </attribute>
+                <attribute qualifier="paypalExpressEnabledOnProduct" type="java.lang.boolean">
+                    <description>Enable PayPal Express on Product Page</description>
+                    <persistence type="property"/>
+                    <defaultvalue>Boolean.FALSE</defaultvalue>
+                </attribute>
+                <attribute qualifier="amazonPayExpressEnabledOnProduct" type="java.lang.boolean">
+                    <description>Enable Amazon Pay Express on Product Page</description>
+                    <persistence type="property"/>
+                    <defaultvalue>Boolean.FALSE</defaultvalue>
+                </attribute>
             </attributes>
         </itemtype>
 

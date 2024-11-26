@@ -41,6 +41,18 @@ public class CheckoutConfigDTO {
     private boolean cardHolderNameRequired;
     private boolean sepaDirectDebit;
     private BigDecimal amountDecimal;
+    private ExpressPaymentConfigDto expressPaymentConfig;
+
+    // Getters and setters for the new field
+    public ExpressPaymentConfigDto getExpressPaymentConfig() {
+        return expressPaymentConfig;
+    }
+
+    public void setExpressPaymentConfig(ExpressPaymentConfigDto expressPaymentConfigDto) {
+        this.expressPaymentConfig = expressPaymentConfigDto;
+    }
+
+
 
 
     public List<PaymentMethod> getAlternativePaymentMethods() {
