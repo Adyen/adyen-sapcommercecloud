@@ -126,7 +126,7 @@
 
         <%-- API only payments methods --%>
         <c:otherwise>
-        paymentMethodConfigs['createPayment'] = {
+        paymentMethodConfigs['createRedirectPaymentMethod'] = {
             ...callbackConfig,
             paymentType: "${selectedPaymentMethod}"
         }
