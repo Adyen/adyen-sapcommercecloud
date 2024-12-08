@@ -63,9 +63,6 @@ class AdyenCheckoutHelper {
             paymentMethodsConfiguration:{
                 card: {
                     enableStoreDetails: true,
-                    clickToPayConfiguration: {
-                        merchantDisplayName: 'YOUR_MERCHANT_NAME'
-                    }
                 },
             }
         };
