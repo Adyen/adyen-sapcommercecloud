@@ -277,7 +277,6 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
         return paymentsResponse;
     }
 
-
     @Override
     public CreateCheckoutSessionResponse getPaymentSessionData(final CartData cartData) throws IOException, ApiException {
         final PaymentsApi checkout = new PaymentsApi(client);
@@ -294,8 +293,10 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
         createCheckoutSessionRequest.setStorePaymentMethod(true);
         createCheckoutSessionRequest.setStorePaymentMethodMode(ASKFORCONSENT);
         createCheckoutSessionRequest.enableOneClick(true);
+        createCheckoutSessionRequest.shopperEmail(cartData.getUser().getUid());
         createCheckoutSessionRequest.recurringProcessingModel(CreateCheckoutSessionRequest.RecurringProcessingModelEnum.CARDONFILE);
-
+        createCheckoutSessionRequest.shopperReference(cartData.getUser().getUid());
+        
         return checkout.sessions(createCheckoutSessionRequest);
     }
 
