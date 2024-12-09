@@ -109,7 +109,7 @@ public abstract class PlaceOrderControllerBase {
         }
     }
 
-    private void preHandleAndValidateRequest(PlaceOrderRequest placeOrderRequest, String adyenPaymentMethod) {
+    protected void preHandleAndValidateRequest(PlaceOrderRequest placeOrderRequest, String adyenPaymentMethod) {
         final BeanPropertyBindingResult bindingResult = new BeanPropertyBindingResult(placeOrderRequest, "placeOrderRequest");
 
         boolean showRememberDetails = getAdyenCheckoutApiFacade().showRememberDetails();

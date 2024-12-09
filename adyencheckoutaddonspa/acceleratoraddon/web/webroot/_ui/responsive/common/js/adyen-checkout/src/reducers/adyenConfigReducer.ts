@@ -29,6 +29,7 @@ export const adyenConfigInitialState : AdyenConfigData = {
     storedPaymentMethodList: [],
     merchantDisplayName: "",
     shopperEmail: "",
+    clicktoPayLocale: "",
 }
 
 export function adyenConfigReducer(adyenConfig: AdyenConfigData, action: RootAction): AdyenConfigData {

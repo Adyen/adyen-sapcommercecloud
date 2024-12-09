@@ -37,13 +37,14 @@ public class CheckoutConfigDTO {
     private boolean showComboCard;
     private boolean showPos;
     private boolean immediateCapture;
-    private  String countryCode;
+    private String countryCode;
     private boolean cardHolderNameRequired;
     private boolean sepaDirectDebit;
     private BigDecimal amountDecimal;
     private ExpressPaymentConfigDto expressPaymentConfig;
     private String merchantDisplayName;
     private String shopperEmail;
+    private String clickToPayLocale;
 
     // Getters and setters for the new field
     public ExpressPaymentConfigDto getExpressPaymentConfig() {
@@ -53,9 +54,6 @@ public class CheckoutConfigDTO {
     public void setExpressPaymentConfig(ExpressPaymentConfigDto expressPaymentConfigDto) {
         this.expressPaymentConfig = expressPaymentConfigDto;
     }
-
-
-
 
     public List<PaymentMethod> getAlternativePaymentMethods() {
         return alternativePaymentMethods;
@@ -287,5 +285,13 @@ public class CheckoutConfigDTO {
 
     public void setShopperEmail(String shopperEmail) {
         this.shopperEmail = shopperEmail;
+    }
+
+    public String getClickToPayLocale() {
+        return clickToPayLocale;
+    }
+
+    public void setClickToPayLocale(String clickToPayLocale) {
+        this.clickToPayLocale = clickToPayLocale;
     }
 }

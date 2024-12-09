@@ -349,6 +349,10 @@
                     <description>Configuration for express payment methods</description>
                     <persistence type="property"/>
                 </attribute>
+                <attribute qualifier="clickToPayLocale" type="java.lang.String">
+                    <description>Click to Pay Locale in form eq. en_US</description>
+                    <persistence type="property"/>
+                </attribute>
             </attributes>
         </itemtype>
 
