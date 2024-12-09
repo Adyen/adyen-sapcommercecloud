@@ -54,7 +54,7 @@ public class DefaultAdyenTransactionService implements AdyenTransactionService {
     private AdyenPaymentServiceFactory adyenPaymentServiceFactory;
     private BaseStoreService baseStoreService;
     private TransactionOperations transactionTemplate;
-    private PaymentTransactionRepository paymentTransactionRepository;
+    private PaymentTransactionRepository adyenPaymentTransactionRepository;
 
 
     @Override
@@ -112,7 +112,7 @@ public class DefaultAdyenTransactionService implements AdyenTransactionService {
         return transactionTemplate.execute(transactionStatus -> {
 
             //First save the transactions to the CartModel < AbstractOrderModel
-            PaymentTransactionModel paymentTransactionModel = paymentTransactionRepository.getTransactionModel(pspReference);
+            PaymentTransactionModel paymentTransactionModel = adyenPaymentTransactionRepository.getTransactionModel(pspReference);
 
             if(paymentTransactionModel == null) {
                 paymentTransactionModel = createPaymentTransaction(merchantTransactionCode, pspReference, abstractOrderModel, paymentAmount);
@@ -249,7 +249,7 @@ public class DefaultAdyenTransactionService implements AdyenTransactionService {
     public PaymentTransactionModel createPaymentTransactionFromResultCode(final AbstractOrderModel abstractOrderModel, final String merchantTransactionCode, final String pspReference, final PaymentDetailsResponse.ResultCodeEnum resultCodeEnum) {
         return transactionTemplate.execute(transactionStatus -> {
 
-            PaymentTransactionModel paymentTransactionModel = paymentTransactionRepository.getTransactionModel(pspReference);
+            PaymentTransactionModel paymentTransactionModel = adyenPaymentTransactionRepository.getTransactionModel(pspReference);
 
             if(paymentTransactionModel == null) {
                 paymentTransactionModel = createPaymentTransaction(merchantTransactionCode, pspReference, abstractOrderModel);
@@ -349,5 +349,9 @@ public class DefaultAdyenTransactionService implements AdyenTransactionService {
 
     public void setTransactionTemplate(TransactionOperations transactionTemplate) {
         this.transactionTemplate = transactionTemplate;
+    }
+
+    public void setAdyenPaymentTransactionRepository(PaymentTransactionRepository adyenPaymentTransactionRepository) {
+        this.adyenPaymentTransactionRepository = adyenPaymentTransactionRepository;
     }
 }

@@ -45,12 +45,6 @@
         </json:object>
         </c:set>
 
-        const { AdyenCheckout, Dropin, Card, PayPal, GooglePay,
-            ApplePay, CashAppPay, Sepa,Redirect,OnlineBankingIN,
-            OnlineBankingPL, Ideal, EPS, Pix, WalletIN, AfterPay, Bcmc,
-            Pos, PayBright, Boleto, SepaDirectDebit, RatePay, Paytm,Giftcard,Blik
-        } = AdyenWeb;
-
         const initConfig = ${initConfig};
         const callbackConfig = ${callbackConfig};
         const paymentMethodConfigs = {};
