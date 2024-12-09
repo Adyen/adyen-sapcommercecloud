@@ -55,7 +55,7 @@ class PaymentComponentFactory {
             context.selectedCardBrand = event.brand;
         }
 
-        this.helper.card = new Card(this.checkout, {
+        this.helper.card = new AdyenWeb.Card(this.checkout, {
             showPayButton: false,
             type: 'card',
             hasHolderName: true,
@@ -71,7 +71,7 @@ class PaymentComponentFactory {
         if (storedCardList && storedCardList.length) {
             for (const storedCard of storedCardList) {
                 const oneClickCardNode = document.getElementById("one-click-card_" + storedCard.storedPaymentMethodId);
-                const oneClickCard = new Card(this.checkout, {
+                const oneClickCard = new AdyenWeb.Card(this.checkout, {
                     showPayButton: false,
                     storedPaymentMethods: storedCard,
                 }).mount(oneClickCardNode);
@@ -93,7 +93,7 @@ class PaymentComponentFactory {
             sepaIbanNumberField.value = sepaIbanNumber;
         }
 
-        this.helper.sepaDirectDebit = new Sepa(this.checkout, {
+        this.helper.sepaDirectDebit = new AdyenWeb.Sepa(this.checkout, {
             showPayButton: false,
             onChange: handleOnChange
         }).mount('#adyen_hpp_sepadirectdebit_container')
@@ -109,7 +109,7 @@ class PaymentComponentFactory {
     }
 
     createEps(epsDetails) {
-        const eps = new EPS(this.checkout, {
+        const eps = new AdyenWeb.EPS(this.checkout, {
             issuers: epsDetails, // The array of issuers coming from the /paymentMethods api call
             onChange: this.handleOnChange // Gets triggered once the shopper selects an issuer
         }).mount('#adyen_hpp_eps_container');
@@ -158,7 +158,7 @@ class PaymentComponentFactory {
 
     createPaypal(params) {
         const {amount, isImmediateCapture, paypalMerchantId, label} = params;
-        const paypal = new PayPal(this.checkout, {
+        const paypal = new AdyenWeb.PayPal(this.checkout, {
             style: { // Optional configuration for PayPal payment buttons.
                 layout: "vertical",
                 color: "gold"
@@ -247,7 +247,7 @@ class PaymentComponentFactory {
                 console.log(validationURL, reject, resolve);
             }
         };
-        const adyenComponent = new ApplePay(this.checkout, {
+        const adyenComponent = new AdyenWeb.ApplePay(this.checkout, {
             amount: {
                 currency: amount.currency,
                 value: amount.value
@@ -296,7 +296,7 @@ class PaymentComponentFactory {
     createGooglePay(params) {
         const {amount, merchantAccount, label} = params;
         const googlePayNode = document.getElementById('adyen-component-button-container-' + label);
-        const adyenComponent = new GooglePay (this.checkout, {
+        const adyenComponent = new AdyenWeb.GooglePay (this.checkout, {
             environment: this.checkout.options.environment,
             amount: {
                 currency: amount.currency,
@@ -380,7 +380,7 @@ class PaymentComponentFactory {
             }
         };
         const amazonPayNode = document.getElementById('adyen-component-button-container-' + label);
-        const adyenComponent = new AdeynWeb.AmazonPay(this.checkout,componentConfiguration);
+        const adyenComponent = new AdyenWeb.AmazonPay(this.checkout,componentConfiguration);
         try {
             adyenComponent.mount(amazonPayNode);
         } catch (e) {
@@ -391,25 +391,25 @@ class PaymentComponentFactory {
 
     createMbway(params) {
         const {label} = params;
-        const adyenComponent = new MBWay(this.checkout, this.paymentConfiguration(label)).mount('#adyen-component-container-' + label);
+        const adyenComponent = new AdyenWeb.MBWay(this.checkout, this.paymentConfiguration(label)).mount('#adyen-component-container-' + label);
         this.helper.configureButton(adyenComponent, false, label);
     }
 
     createBlik(params) {
         const {label} = params;
-        const adyenComponent = new Blik(this.checkout, this.paymentConfiguration(label)).mount('#adyen-component-container-' + label);
+        const adyenComponent = new AdyenWeb.Blik(this.checkout, this.paymentConfiguration(label)).mount('#adyen-component-container-' + label);
         this.helper.configureButton(adyenComponent, false, label);
     }
 
     createGiftCard (params) {
         const {label} = params;
-        const adyenComponent = new Giftcard(this.checkout, this.paymentConfiguration(label)).mount('#adyen-component-container-' + label);;
+        const adyenComponent = new AdyenWeb.Giftcard(this.checkout, this.paymentConfiguration(label)).mount('#adyen-component-container-' + label);;
         this.helper.configureButton(adyenComponent, false, label);
 
     }
 
     createAfterPay(countryCode) {
-        this.afterPay = new AdynWeb.AfterPay(this.checkout, {
+        this.afterPay = new AdyenWeb.AfterPay(this.checkout, {
             countryCode: countryCode,
             visibility: { // Optional configuration
                 personalDetails: "editable",
@@ -582,7 +582,7 @@ class PaymentComponentFactory {
     }
 
     initiatePaytm() {
-        const paytm = new Redirect(this.checkout, {type: 'paytm', onChange: this.handleOnChange}).mount('#adyen_hpp_paytm_container');
+        const paytm = new AdyenWeb.Redirect(this.checkout, {type: 'paytm', onChange: this.handleOnChange}).mount('#adyen_hpp_paytm_container');
     }
 
     // Helper methods
