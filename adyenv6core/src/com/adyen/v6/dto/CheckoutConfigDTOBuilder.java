@@ -159,6 +159,11 @@ public class CheckoutConfigDTOBuilder {
         return this;
     }
 
+    public CheckoutConfigDTOBuilder setClickToPayLocale(String clickToPayLocale) {
+        checkoutConfigDTO.setClickToPayLocale(clickToPayLocale);
+        return this;
+    }
+
     public CheckoutConfigDTO build() {
         return checkoutConfigDTO;
     }

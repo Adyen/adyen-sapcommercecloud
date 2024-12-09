@@ -42,6 +42,7 @@ public class CheckoutConfigDTO {
     private boolean sepaDirectDebit;
     private String merchantDisplayName;
     private String shopperEmail;
+    private String clickToPayLocale;
 
     public List<PaymentMethod> getAlternativePaymentMethods() {
         return alternativePaymentMethods;
@@ -265,5 +266,13 @@ public class CheckoutConfigDTO {
 
     public void setShopperEmail(String shopperEmail) {
         this.shopperEmail = shopperEmail;
+    }
+
+    public String getClickToPayLocale() {
+        return clickToPayLocale;
+    }
+
+    public void setClickToPayLocale(String clickToPayLocale) {
+        this.clickToPayLocale = clickToPayLocale;
     }
 }
