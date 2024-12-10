@@ -396,11 +396,10 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         }
 
         if (PaymentDetailsResponse.ResultCodeEnum.AUTHORISED == paymentDetailsResponse.getResultCode() || PaymentDetailsResponse.ResultCodeEnum.RECEIVED == paymentDetailsResponse.getResultCode()) {
-            //remove PAYMENT_PENDING status, will be processed by order management
-            LOGGER.info("Removing PAYMENT_PENDING status, will be processed by order management");
+            //PAYMENT_PENDING status, will be processed by order management
+            LOGGER.info("PAYMENT_PENDING status, will be processed by order management");
 
-            orderModel.setStatus(null);
-            orderModel.setStatusInfo(null);
+            orderModel.setStatus(OrderStatus.PAYMENT_PENDING);
         } else {
             //payment was not authorised, cancel pending order
             LOGGER.warn("Payment was not authorised, cancel pending order");

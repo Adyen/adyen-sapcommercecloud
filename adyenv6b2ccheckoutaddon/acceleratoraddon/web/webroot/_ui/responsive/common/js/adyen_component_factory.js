@@ -26,7 +26,7 @@ class PaymentComponentFactory {
             },
             onError: (error, component) => {
                 console.log('Something went wrong trying to make the Gift Card payment: ' + error);
-                this.helper.handleResult(ErrorMessages.PaymentError, true);
+                this.helper.handleResult({resultCode: ErrorMessages.PaymentError}, true);
             }
         };
     }
@@ -55,7 +55,7 @@ class PaymentComponentFactory {
             context.selectedCardBrand = event.brand;
         }
 
-        this.helper.card = new Card(this.checkout, {
+        this.helper.card = new AdyenWeb.Card(this.checkout, {
             showPayButton: false,
             type: 'card',
             hasHolderName: true,
@@ -71,7 +71,7 @@ class PaymentComponentFactory {
         if (storedCardList && storedCardList.length) {
             for (const storedCard of storedCardList) {
                 const oneClickCardNode = document.getElementById("one-click-card_" + storedCard.storedPaymentMethodId);
-                const oneClickCard = new Card(this.checkout, {
+                const oneClickCard = new AdyenWeb.Card(this.checkout, {
                     showPayButton: false,
                     storedPaymentMethods: storedCard,
                 }).mount(oneClickCardNode);
@@ -93,7 +93,7 @@ class PaymentComponentFactory {
             sepaIbanNumberField.value = sepaIbanNumber;
         }
 
-        this.helper.sepaDirectDebit = new Sepa(this.checkout, {
+        this.helper.sepaDirectDebit = new AdyenWeb.Sepa(this.checkout, {
             showPayButton: false,
             onChange: handleOnChange
         }).mount('#adyen_hpp_sepadirectdebit_container')
@@ -109,13 +109,12 @@ class PaymentComponentFactory {
     }
 
     createEps(epsDetails) {
-        const eps = new EPS(this.checkout, {
+        const eps = new AdyenWeb.EPS(this.checkout, {
             issuers: epsDetails, // The array of issuers coming from the /paymentMethods api call
             onChange: this.handleOnChange // Gets triggered once the shopper selects an issuer
         }).mount('#adyen_hpp_eps_container');
     }
 
-    // TODO: to check
     createUPI() {
         const label = this.getVisibleLabel();
         const uPINode = document.getElementById('adyen-component-button-container-' + label);
@@ -134,7 +133,7 @@ class PaymentComponentFactory {
                         window.location.href = ACC.config.encodedContextPath + "/" + data.replace("redirect:/", "");
                     } catch (e) {
                         console.log('Error redirecting the user to the placeOrder page');
-                        this.helper.handleResult(ErrorMessages.PaymentError, true);
+                        this.helper.handleResult({resultCode: ErrorMessages.PaymentError}, true);
                     }
                 },
                 error: (xmlHttpResponse, exception) => {
@@ -143,14 +142,14 @@ class PaymentComponentFactory {
                         this.helper.handleResult(responseMessage, true);
                     } else {
                         console.log('Error on handling the redirect to the placeOrder page: ' + responseMessage);
-                        this.helper.handleResult(ErrorMessages.PaymentError, true);
+                        this.helper.handleResult({resultCode: ErrorMessages.PaymentError}, true);
                     }
                 }
             })
         }
 
 
-        let upi = this.checkout.create('upi', {
+        new UPI({
             onPaymentCompleted: handlePaymentResult,
             defaultMode: 'vpa',
             showPayButton: true,
@@ -159,7 +158,7 @@ class PaymentComponentFactory {
 
     createPaypal(params) {
         const {amount, isImmediateCapture, paypalMerchantId, label} = params;
-        const paypal = new PayPal(this.checkout, {
+        const paypal = new AdyenWeb.PayPal(this.checkout, {
             style: { // Optional configuration for PayPal payment buttons.
                 layout: "vertical",
                 color: "gold"
@@ -206,14 +205,14 @@ class PaymentComponentFactory {
             },
             onCancel:  (data, component) => {
                 // Sets your prefered status of the component when a PayPal payment is cancelled.
-                this.helper.handleResult(ErrorMessages.PaymentCancelled, true);
+                this.helper.handleResult({resultCode: ErrorMessages.PaymentCancelled}, true);
             },
             onError:  (error, component) =>{
                 // Sets your prefered status of the component when an error occurs.
                 if (error.name === 'CANCEL') {
-                    this.helper.handleResult(ErrorMessages.PaymentCancelled, true);
+                    this.helper.handleResult({resultCode: ErrorMessages.PaymentCancelled}, true);
                 } else {
-                    this.helper.handleResult(ErrorMessages.PaymentError, true);
+                    this.helper.handleResult({resultCode: ErrorMessages.PaymentError}, true);
                 }
             },
             onAdditionalDetails:  (state, component) => {
@@ -232,7 +231,7 @@ class PaymentComponentFactory {
                     resolve();
                 } else {
                     reject();
-                    this.helper.handleResult(ErrorMessages.TermsNotAccepted, true);
+                    this.helper.handleResult({resultCode: ErrorMessages.TermsNotAccepted}, true);
                 }
                 // Your server uses the validation URL to request a session from the Apple Pay server.
                 // Call resolve(MERCHANTSESSION) or reject() to complete merchant validation.
@@ -248,7 +247,7 @@ class PaymentComponentFactory {
                 console.log(validationURL, reject, resolve);
             }
         };
-        const adyenComponent = new ApplePay(this.checkout, {
+        const adyenComponent = new AdyenWeb.ApplePay(this.checkout, {
             amount: {
                 currency: amount.currency,
                 value: amount.value
@@ -278,7 +277,7 @@ class PaymentComponentFactory {
                     resolve();
                 } else {
                     reject();
-                    this.helper.handleResult(ErrorMessages.TermsNotAccepted, true);
+                    this.helper.handleResult({resultCode: ErrorMessages.TermsNotAccepted}, true);
                 }
             }
         }).mount('adyen-component-button-container-' + label);
@@ -290,14 +289,14 @@ class PaymentComponentFactory {
             .catch( (e) => {
                 // Apple Pay is not available
                 console.log('Something went wrong trying to mount the Apple Pay component: ' + e);
-                this.helper.handleResult(ErrorMessages.PaymentNotAvailable, true);
+                this.helper.handleResult({resultCode: ErrorMessages.PaymentNotAvailable}, true);
             });
     }
 
     createGooglePay(params) {
         const {amount, merchantAccount, label} = params;
         const googlePayNode = document.getElementById('adyen-component-button-container-' + label);
-        const adyenComponent = this.checkout.create("paywithgoogle", {
+        const adyenComponent = new AdyenWeb.GooglePay (this.checkout, {
             environment: this.checkout.options.environment,
             amount: {
                 currency: amount.currency,
@@ -310,23 +309,23 @@ class PaymentComponentFactory {
             buttonColor: "white",
             onChange: (state, component) => {
                 if (!state.isValid) {
-                    this.helper.helper.hideSpinner();
+                    this.helper.hideSpinner();
                 }
             },
             onSubmit:  (state, component) => {
                 if (!state.isValid) {
-                    this.helper.helper.hideSpinner();
+                    this.helper.hideSpinner();
                     return false;
                 }
-                this.helper.helper.showSpinner();
-                this.helper.helper.makePayment(state.data, component, this.helper.handleResult, label);
+                this.helper.showSpinner();
+                this.helper.makePayment(state.data, component, this.helper.handleResult, label);
             },
             onClick: (resolve, reject) => {
-                if (this.helper.helper.isTermsAccepted(label)) {
+                if (this.helper.isTermsAccepted(label)) {
                     resolve();
                 } else {
                     reject();
-                    this.helper.helper.handleResult(ErrorMessages.TermsNotAccepted, true);
+                    this.helper.handleResult({resultCode: ErrorMessages.TermsNotAccepted}, true);
                 }
             }
         });
@@ -338,11 +337,10 @@ class PaymentComponentFactory {
             .catch( (e) => {
                 // Google Pay is not available
                 console.log('Something went wrong trying to mount the Google Pay component: ' + e);
-                this.helper.handleResult(ErrorMessages.PaymentNotAvailable, true);
+                this.helper.handleResult({resultCode: ErrorMessages.PaymentNotAvailable }, true);
             });
     }
 
-    // TODO: to check
     createAmazonPay(params) {
         const {amount, deliveryAddress, amazonPayConfiguration, locale} = params;
         const label = this.getVisibleLabel();
@@ -382,7 +380,7 @@ class PaymentComponentFactory {
             }
         };
         const amazonPayNode = document.getElementById('adyen-component-button-container-' + label);
-        const adyenComponent = this.checkout.create("amazonpay", componentConfiguration);
+        const adyenComponent = new AdyenWeb.AmazonPay(this.checkout,componentConfiguration);
         try {
             adyenComponent.mount(amazonPayNode);
         } catch (e) {
@@ -393,25 +391,25 @@ class PaymentComponentFactory {
 
     createMbway(params) {
         const {label} = params;
-        const adyenComponent = new MBWay(this.checkout, this.paymentConfiguration(label)).mount('#adyen-component-container-' + label);
+        const adyenComponent = new AdyenWeb.MBWay(this.checkout, this.paymentConfiguration(label)).mount('#adyen-component-container-' + label);
         this.helper.configureButton(adyenComponent, false, label);
     }
 
     createBlik(params) {
         const {label} = params;
-        const adyenComponent = new Blik(this.checkout, this.paymentConfiguration(label)).mount('#adyen-component-container-' + label);
+        const adyenComponent = new AdyenWeb.Blik(this.checkout, this.paymentConfiguration(label)).mount('#adyen-component-container-' + label);
         this.helper.configureButton(adyenComponent, false, label);
     }
 
     createGiftCard (params) {
         const {label} = params;
-        const adyenComponent = new Giftcard(this.checkout, this.paymentConfiguration(label)).mount('#adyen-component-container-' + label);;
+        const adyenComponent = new AdyenWeb.Giftcard(this.checkout, this.paymentConfiguration(label)).mount('#adyen-component-container-' + label);;
         this.helper.configureButton(adyenComponent, false, label);
 
     }
 
     createAfterPay(countryCode) {
-        this.afterPay = this.checkout.create("afterpay_default", {
+        this.afterPay = new AdyenWeb.AfterPay(this.checkout, {
             countryCode: countryCode,
             visibility: { // Optional configuration
                 personalDetails: "editable",
@@ -430,31 +428,31 @@ class PaymentComponentFactory {
     createPix(params) {
         const {label, issuers} = params;
         $("#generateqr-" + label).click( () => {
-            this.helper.helper.showSpinner();
-            if (!this.helper.helper.isTermsAccepted(label)) {
-                this.helper.helper.handleResult(ErrorMessages.TermsNotAccepted, true)
+            this.helper.showSpinner();
+            if (!this.helper.isTermsAccepted(label)) {
+                this.helper.handleResult({resultCode: ErrorMessages.TermsNotAccepted}, true)
             } else {
                 $("#generateqr-" + label).hide();
                 $(".checkbox").hide();
                 var actionHandler = {
                     handleAction: (action) => {
-                        this.helper.helper.checkout.createFromAction(action, { //TODO FXIME: check if this is correct
+                        this.helper.checkout.createFromAction(action, { //TODO FXIME: check if this is correct
                             issuers: issuers,
                             onAdditionalDetails:  (state) => {
-                                this.helper.helper.hideSpinner();
-                                this.helper.helper.submitDetails(state.data, this.helper.helper.handleResult);
+                                this.helper.hideSpinner();
+                                this.helper.submitDetails(state.data, this.helper.handleResult);
                             }
                         }).mount('#qrcode-container-' + label);
-                        this.helper.helper.hideSpinner();
+                        this.helper.hideSpinner();
                     }
                 };
-                this.helper.helper.makePayment({type: "pix"}, actionHandler, this.helper.helper.handleResult, label);
+                this.helper.makePayment({type: "pix"}, actionHandler, this.helper.handleResult, label);
             }
         });
     }
 
     createBcmc() {
-        this.bcmc = this.checkout.create("bcmc", {
+        this.bcmc = new AdyenWeb.BCMC(this.checkout, {
             hasHolderName: true,
             holderNameRequired: true
         });
@@ -471,7 +469,7 @@ class PaymentComponentFactory {
         $("#generateqr-" + label).click( () => {
             this.helper.showSpinner();
             if (!this.helper.isTermsAccepted(label)) {
-                this.helper.handleResult(ErrorMessages.TermsNotAccepted, true)
+                this.helper.handleResult({resultCode: ErrorMessages.TermsNotAccepted}, true)
             } else {
                 $("#generateqr-" + label).hide();
                 $(".checkbox").hide();
@@ -503,7 +501,7 @@ class PaymentComponentFactory {
                 let termsCheck = document.getElementById('terms-conditions-check-' + label).checked
 
                 if (termsCheck === false) {
-                    this.helper.handleResult(ErrorMessages.TermsNotAccepted, true);
+                    this.helper.handleResult({resultCode: ErrorMessages.TermsNotAccepted}, true);
                     return;
                 }
 
@@ -574,13 +572,17 @@ class PaymentComponentFactory {
             .mount("#adyen_hpp_ideal_container");
     }
 
+    createRedirectPaymentMethod(paymentMethod) {
+        new Redirect(this.checkout, {type: paymentMethod.paymentType, onChange: this.handleOnChange}).mount('#adyen-component-button-container-' + paymentMethod.label);
+    }
+
     initiateWalletIN() {
         new Redirect(this.checkout, {type: 'wallet_IN', onChange: this.handleOnChange
         }).mount('#adyen_hpp_wallet_IN_container');
     }
 
     initiatePaytm() {
-        const paytm = new Redirect(this.checkout, {type: 'paytm', onChange: this.handleOnChange}).mount('#adyen_hpp_paytm_container');
+        const paytm = new AdyenWeb.Redirect(this.checkout, {type: 'paytm', onChange: this.handleOnChange}).mount('#adyen_hpp_paytm_container');
     }
 
     // Helper methods

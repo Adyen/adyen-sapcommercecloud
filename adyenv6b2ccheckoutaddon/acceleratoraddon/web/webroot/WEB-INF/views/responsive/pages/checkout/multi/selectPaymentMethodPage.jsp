@@ -21,13 +21,6 @@
                 showDefaultCss="${true}"
         />
         <script type="text/javascript">
-
-            const { AdyenCheckout, Dropin, Card, PayPal, GooglePay,
-                    ApplePay, CashAppPay, Sepa,Redirect,OnlineBankingIN,
-                    OnlineBankingPL, Ideal, EPS, Pix, WalletIN, AfterPay, Bcmc,
-                    Pos, PayBright, Boleto, SepaDirectDebit, RatePay, Paytm,Giftcard,Blik
-            } = AdyenWeb;
-
             <c:if test="${not empty allowedCards}">
             //Set the allowed cards
             const allowedCards = [];
