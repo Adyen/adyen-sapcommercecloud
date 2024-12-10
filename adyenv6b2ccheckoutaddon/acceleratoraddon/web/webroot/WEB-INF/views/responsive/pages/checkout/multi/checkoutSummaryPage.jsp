@@ -45,13 +45,22 @@
         </json:object>
         </c:set>
 
+        const { AdyenCheckout, Dropin, Card, PayPal, GooglePay,
+            ApplePay, CashAppPay, Sepa,Redirect,OnlineBankingIN,
+            OnlineBankingPL, Ideal, EPS, Pix, WalletIN, AfterPay, Bcmc,
+            Pos, PayBright, Boleto, SepaDirectDebit, RatePay, Paytm,Giftcard,Blik
+        } = AdyenWeb;
+
         const initConfig = ${initConfig};
         const callbackConfig = ${callbackConfig};
-        const fnCallbackArray = {};
+        const paymentMethodConfigs = {};
+
+        const adyenCheckout = new AdyenCheckoutHelper();
+
         <c:choose>
         <%-- Configure components --%>
         <c:when test="${selectedPaymentMethod eq 'paypal' && (not empty paypalMerchantId || environmentMode eq 'test')}">
-        fnCallbackArray['initiatePaypal'] = {
+        paymentMethodConfigs['createPaypal'] = {
             ...callbackConfig,
             isImmediateCapture: ${immediateCapture},
             paypalMerchantId: "${paypalMerchantId}"
@@ -59,15 +68,15 @@
         </c:when>
 
         <c:when test="${selectedPaymentMethod eq 'mbway'}">
-        fnCallbackArray['initiateMbway'] = callbackConfig
+        paymentMethodConfigs['createMbway'] = callbackConfig
         </c:when>
 
         <c:when test="${selectedPaymentMethod eq 'bizum'}">
-        fnCallbackArray['initiateBizum'] = callbackConfig
+        paymentMethodConfigs['createBizum'] = callbackConfig
         </c:when>
 
         <c:when test="${selectedPaymentMethod eq 'applepay'}">
-        fnCallbackArray['initiateApplePay'] = {
+        paymentMethodConfigs['createApplePay'] = {
             ...callbackConfig,
             countryCode: "${countryCode}",
             applePayMerchantIdentifier: "${applePayMerchantIdentifier}",
@@ -76,15 +85,15 @@
         </c:when>
 
         <c:when test="${selectedPaymentMethod eq 'pix'}">
-        fnCallbackArray['initiatePix'] = callbackConfig
+        paymentMethodConfigs['createPix'] = callbackConfig
         </c:when>
 
         <c:when test="${selectedPaymentMethod eq 'googlepay'}">
-        fnCallbackArray['initiateGooglePay'] = callbackConfig
+        paymentMethodConfigs['createGooglePay'] = callbackConfig
         </c:when>
 
         <c:when test="${selectedPaymentMethod eq 'amazonpay'}">
-        fnCallbackArray['initiateAmazonPay'] = {
+        paymentMethodConfigs['createAmazonPay'] = {
             ...callbackConfig,
             deliveryAddress: ${deliveryAddress},
             amazonPayConfiguration: ${amazonPayConfiguration},
@@ -94,37 +103,36 @@
         </c:when>
 
         <c:when test="${selectedPaymentMethod eq 'upi'}">
-        fnCallbackArray['initiateUPI'] = callbackConfig
+        paymentMethodConfigs['createUPI'] = callbackConfig
         </c:when>
 
         <c:when test="${selectedPaymentMethod eq 'bcmc_mobile'}">
-        fnCallbackArray['initiateBcmcMobile'] = callbackConfig;
+        paymentMethodConfigs['createBcmcMobile'] = callbackConfig;
         </c:when>
 
         <c:when test="${selectedPaymentMethod eq 'giftcard'}">
-        fnCallbackArray['initiateGiftCard'] = callbackConfig;
+        paymentMethodConfigs['createGiftCard'] = callbackConfig;
         </c:when>
 
         <c:when test="${selectedPaymentMethod eq 'blik'}">
-        fnCallbackArray['initiateBlik'] = callbackConfig
+        paymentMethodConfigs['createBlik'] = callbackConfig
         </c:when>
 
         <c:when test="${selectedPaymentMethod eq 'adyen_cc' ||
                     fn:startsWith(selectedPaymentMethod, 'adyen_oneclick_')}">
-        AdyenCheckoutHybris.configureButton($("#placeOrderForm-hidden-xs"), true, "hidden-xs");
-        AdyenCheckoutHybris.configureButton($("#placeOrderForm-visible-xs"), true, "visible-xs");
+        adyenCheckout.configureButton($("#placeOrderForm-hidden-xs"), true, "hidden-xs");
+        adyenCheckout.configureButton($("#placeOrderForm-visible-xs"), true, "visible-xs");
         </c:when>
 
         <%-- API only payments methods --%>
         <c:otherwise>
-        fnCallbackArray['initiatePayment'] = {
+        paymentMethodConfigs['createPayment'] = {
             ...callbackConfig,
             paymentType: "${selectedPaymentMethod}"
         }
         </c:otherwise>
         </c:choose>
-
-        AdyenCheckoutHybris.initiateCheckout(initConfig, fnCallbackArray);
+        adyenCheckout.initiateCheckout(initConfig, paymentMethodConfigs);
 
     </script>
 </jsp:attribute>

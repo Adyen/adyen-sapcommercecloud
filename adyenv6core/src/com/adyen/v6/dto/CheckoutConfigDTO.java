@@ -4,8 +4,8 @@ import com.adyen.model.checkout.Amount;
 import com.adyen.model.checkout.CreateCheckoutSessionResponse;
 import com.adyen.model.checkout.PaymentMethod;
 import com.adyen.model.checkout.StoredPaymentMethod;
-import com.adyen.v6.enums.AdyenCardTypeEnum;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
@@ -40,6 +40,19 @@ public class CheckoutConfigDTO {
     private  String countryCode;
     private boolean cardHolderNameRequired;
     private boolean sepaDirectDebit;
+    private BigDecimal amountDecimal;
+    private ExpressPaymentConfigDto expressPaymentConfig;
+
+    // Getters and setters for the new field
+    public ExpressPaymentConfigDto getExpressPaymentConfig() {
+        return expressPaymentConfig;
+    }
+
+    public void setExpressPaymentConfig(ExpressPaymentConfigDto expressPaymentConfigDto) {
+        this.expressPaymentConfig = expressPaymentConfigDto;
+    }
+
+
 
 
     public List<PaymentMethod> getAlternativePaymentMethods() {
@@ -248,5 +261,13 @@ public class CheckoutConfigDTO {
 
     public void setPaymentMethods(List<PaymentMethod> paymentMethods) {
         this.paymentMethods = paymentMethods;
+    }
+
+    public BigDecimal getAmountDecimal() {
+        return amountDecimal;
+    }
+
+    public void setAmountDecimal(BigDecimal amountDecimal) {
+        this.amountDecimal = amountDecimal;
     }
 }

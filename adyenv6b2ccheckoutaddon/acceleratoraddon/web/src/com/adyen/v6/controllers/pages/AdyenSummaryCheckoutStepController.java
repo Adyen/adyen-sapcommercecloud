@@ -47,11 +47,14 @@ import de.hybris.platform.acceleratorstorefrontcommons.forms.PlaceOrderForm;
 import de.hybris.platform.basecommerce.model.site.BaseSiteModel;
 import de.hybris.platform.cms2.exceptions.CMSItemNotFoundException;
 import de.hybris.platform.commercefacades.order.OrderFacade;
+import de.hybris.platform.commercefacades.order.data.CCPaymentInfoData;
 import de.hybris.platform.commercefacades.order.data.CartData;
 import de.hybris.platform.commercefacades.order.data.OrderData;
 import de.hybris.platform.commercefacades.order.data.OrderEntryData;
 import de.hybris.platform.commercefacades.product.ProductOption;
 import de.hybris.platform.commercefacades.product.data.ProductData;
+import de.hybris.platform.commercefacades.user.data.AddressData;
+import de.hybris.platform.commercefacades.user.data.CountryData;
 import de.hybris.platform.commerceservices.order.CommerceCartModificationException;
 import de.hybris.platform.order.InvalidCartException;
 import de.hybris.platform.order.exceptions.CalculationException;
@@ -77,6 +80,7 @@ import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.adyen.model.checkout.PaymentResponse.ResultCodeEnum.CHALLENGESHOPPER;
 import static com.adyen.model.checkout.PaymentResponse.ResultCodeEnum.ERROR;
@@ -183,6 +187,18 @@ public class AdyenSummaryCheckoutStepController extends AbstractCheckoutStepCont
         return AdyenControllerConstants.Views.Pages.MultiStepCheckout.CheckoutSummaryPage;
     }
 
+    protected String getCountryCode(final CartData cartData) {
+        //Identify country code based on shopper's delivery address
+        return Optional.ofNullable(cartData.getPaymentInfo())
+                .map(CCPaymentInfoData::getBillingAddress)
+                .map(billingAddress -> Optional.ofNullable(billingAddress).or(() -> Optional.ofNullable(cartData.getDeliveryAddress())))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .map(AddressData::getCountry)
+                .map(CountryData::getIsocode)
+                .orElse("");
+    }
+
     @PostMapping({"/placeOrder"})
     @RequireHardLogIn
     public String placeOrder(@ModelAttribute("placeOrderForm") final PlaceOrderForm placeOrderForm,
@@ -284,7 +300,7 @@ public class AdyenSummaryCheckoutStepController extends AbstractCheckoutStepCont
                 if (REDIRECTSHOPPER == paymentsResponse.getResultCode()) {
                     if (is3DSPaymentMethod(adyenPaymentMethod)) {
                         LOGGER.debug("PaymentResponse resultCode is REDIRECTSHOPPER, redirecting shopper to 3DS flow");
-                        return redirectTo3DSValidation(model, paymentsResponse);
+                        return redirectTo3DSValidation(model, paymentsResponse, cartData);
                     }
                     if (AFTERPAY_TOUCH.equals(adyenPaymentMethod)) {
                         LOGGER.debug("PaymentResponse resultCode is REDIRECTSHOPPER, redirecting shopper to afterpaytouch page");
@@ -495,6 +511,17 @@ public class AdyenSummaryCheckoutStepController extends AbstractCheckoutStepCont
 
         LOGGER.debug("Redirecting to payment method with error: " + messageKey);
         return REDIRECT_PREFIX + SELECT_PAYMENT_METHOD_PREFIX;
+    }
+
+    protected String redirectTo3DSValidation(Model model, PaymentResponse paymentsResponse, CartData cartData) throws JsonProcessingException {
+        PaymentResponseAction action = paymentsResponse.getAction();
+        model.addAttribute(MODEL_CLIENT_KEY, adyenCheckoutFacade.getClientKey());
+        model.addAttribute(MODEL_CHECKOUT_SHOPPER_HOST, adyenCheckoutFacade.getCheckoutShopperHost());
+        model.addAttribute(MODEL_ENVIRONMENT_MODE, adyenCheckoutFacade.getEnvironmentMode());
+        model.addAttribute(SHOPPER_LOCALE, adyenCheckoutFacade.getShopperLocale());
+        model.addAttribute("countryCode", getCountryCode(cartData));
+        model.addAttribute(ACTION, ( ((CheckoutRedirectAction) action.getActualInstance()).toJson()));
+        return AdyenControllerConstants.Views.Pages.MultiStepCheckout.Validate3DSPaymentPage;
     }
 
     protected String redirectTo3DSValidation(Model model, PaymentResponse paymentsResponse) throws JsonProcessingException {

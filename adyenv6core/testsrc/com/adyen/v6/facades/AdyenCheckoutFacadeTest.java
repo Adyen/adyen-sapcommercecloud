@@ -492,7 +492,7 @@ public class AdyenCheckoutFacadeTest {
             adyenCheckoutFacade.authorisePayment(request, cartData);
             fail("Expected AdyenNonAuthorizedPaymentException");
         } catch (AdyenNonAuthorizedPaymentException e) {
-            verify(adyenCheckoutApiService).authorisePayment(eq(cartData), any(), any());
+            verify(adyenCheckoutApiService).processPaymentRequest(eq(cartData),null, any(), any());
             verify(cartModel).setStatus(OrderStatus.PAYMENT_PENDING);
             verify(checkoutFacade).placeOrder();
             assertNotNull(e.getPaymentsResponse());

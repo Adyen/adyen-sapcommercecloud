@@ -50,7 +50,6 @@ import de.hybris.platform.commerceservices.enums.CustomerType;
 import de.hybris.platform.core.model.user.CustomerModel;
 import de.hybris.platform.servicelayer.config.ConfigurationService;
 import de.hybris.platform.util.TaxValue;
-import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.configuration.Configuration;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
@@ -78,6 +77,14 @@ import static com.adyen.v6.constants.Adyenv6coreConstants.PLUGIN_NAME;
 import static com.adyen.v6.constants.Adyenv6coreConstants.PLUGIN_VERSION;
 import static com.adyen.v6.constants.Adyenv6coreConstants.RATEPAY;
 
+/**
+ * Factory class to create Adyen API requests, do not add new code to this class.
+ * This class is deprecated and will be removed in future versions.
+ * Please use the new {@link com.adyen.commerce.services.AdyenRequestService} instead.
+ * @deprecated since v13.1. Please use the new {@link com.adyen.commerce.services.AdyenRequestService} instead.
+ * @see com.adyen.commerce.services.AdyenRequestService
+ */
+@Deprecated(since = "v13.1", forRemoval = true)
 public class AdyenRequestFactory {
     private static final Logger LOG = Logger.getLogger(AdyenRequestFactory.class);
 
@@ -794,4 +801,7 @@ public class AdyenRequestFactory {
         return configurationService;
     }
 
+
 }
+
+

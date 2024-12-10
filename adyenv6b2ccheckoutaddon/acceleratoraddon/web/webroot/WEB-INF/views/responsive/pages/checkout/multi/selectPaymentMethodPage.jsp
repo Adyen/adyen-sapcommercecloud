@@ -20,8 +20,14 @@
                 dfUrl="${dfUrl}"
                 showDefaultCss="${true}"
         />
-
         <script type="text/javascript">
+
+            const { AdyenCheckout, Dropin, Card, PayPal, GooglePay,
+                    ApplePay, CashAppPay, Sepa,Redirect,OnlineBankingIN,
+                    OnlineBankingPL, Ideal, EPS, Pix, WalletIN, AfterPay, Bcmc,
+                    Pos, PayBright, Boleto, SepaDirectDebit, RatePay, Paytm,Giftcard,Blik
+            } = AdyenWeb;
+
             <c:if test="${not empty allowedCards}">
             //Set the allowed cards
             const allowedCards = [];
@@ -38,39 +44,41 @@
                     sessionData: "${sessionData.sessionData}",
                 }
             };
-            const fnCallbackArray = {};
+            const paymentMethodConfigs = {};
 
             /**
              * Generate array of available payment methods to initialize
              */
-            fnCallbackArray['initiateCard'] = {
+            paymentMethodConfigs['createCard'] = {
                 allowedCards,
                 showRememberDetails: ${showRememberTheseDetails},
                 cardHolderNameRequired: ${cardHolderNameRequired}
             }
 
+            const adyenCheckout = new AdyenCheckoutHelper();
+
             <c:if test="${sepadirectdebit}">
-            fnCallbackArray['initiateSepaDirectDebit'] = null;
+            paymentMethodConfigs['createSepaDirectDebit'] = null;
             </c:if>
 
             <c:if test="${not empty issuerLists['ideal']}">
-            fnCallbackArray['initiateIdeal'] = ${issuerLists['ideal']};
+            paymentMethodConfigs['createIdeal'] = ${issuerLists['ideal']};
             </c:if>
 
             <c:if test="${not empty issuerLists['onlinebanking_IN']}">
-            fnCallbackArray['initiateOnlinebankingIN'] = null;
+            paymentMethodConfigs['createOnlinebankingIN'] = null;
             </c:if>
 
             <c:if test="${not empty issuerLists['onlineBanking_PL']}">
-            fnCallbackArray['initiateOnlineBankingPL'] = null;
+            paymentMethodConfigs['createOnlineBankingPL'] = null;
             </c:if>
 
             <c:if test="${not empty issuerLists['eps']}">
-            fnCallbackArray['initiateEps'] = ${issuerLists['eps']};
+            paymentMethodConfigs['createEps'] = ${issuerLists['eps']};
             </c:if>
 
             <c:if test="${not empty issuerLists['pix']}">
-            fnCallbackArray['initiatePix'] = {
+            paymentMethodConfigs['createPix'] = {
                 label: null,
                 issuers: ${issuerLists['pix']}
             };
@@ -79,16 +87,16 @@
             <c:forEach var="paymentMethod" items="${paymentMethods}">
 
             <c:if test="${paymentMethod.type eq 'wallet_IN'}">
-            fnCallbackArray['initiateWalletIN'] = null;
+            paymentMethodConfigs['createWalletIN'] = null;
             </c:if>
             //TO-DO Refactor the code to get a returnUrl service and add another endpoint to manage the result
-            //Adding here paytm payment method, there is already an initiatePaytm function defined on the adyen.checkout.js
+            //Adding here paytm payment method, there is already an createPaytm function defined on the adyen.checkout.js
             <c:if test="${paymentMethod.type eq 'afterpay_default'}">
-            fnCallbackArray['initiateAfterPay'] = "${countryCode}";
+            paymentMethodConfigs['createAfterPay'] = "${countryCode}";
             </c:if>
 
             <c:if test="${paymentMethod.type eq 'bcmc'}">
-            fnCallbackArray['initiateBcmc'] = "${countryCode}";
+            paymentMethodConfigs['createBcmc'] = "${countryCode}";
             </c:if>
 
             </c:forEach>
@@ -110,39 +118,39 @@
                 shopperEmail: "${storedCard.shopperEmail}"
             };
 
-            if (fnCallbackArray['initiateOneClickCard']) {
-                fnCallbackArray['initiateOneClickCard'].push(storedCardJS);
+            if (paymentMethodConfigs['createOneClickCard']) {
+                paymentMethodConfigs['createOneClickCard'].push(storedCardJS);
             } else {
-                fnCallbackArray['initiateOneClickCard'] = [storedCardJS];
+                paymentMethodConfigs['createOneClickCard'] = [storedCardJS];
             }
             </c:forEach>
 
-            AdyenCheckoutHybris.initiateCheckout(initConfig, fnCallbackArray);
+            adyenCheckout.initiateCheckout(initConfig, paymentMethodConfigs);
             </c:if>
 
             //Handle form submission
             $(".submit_silentOrderPostForm").click(function () {
-                if (!AdyenCheckoutHybris.validateForm()) {
+                if (!adyenCheckout.validateForm()) {
                     return false;
                 }
-                AdyenCheckoutHybris.setCustomPaymentMethodValues();
-                AdyenCheckoutHybris.addRiskData();
+                adyenCheckout.setCustomPaymentMethodValues();
+                adyenCheckout.addRiskData();
 
                 $("#adyen-encrypted-form").submit();
             });
 
             <c:if test="${not empty selectedPaymentMethod}">
-            AdyenCheckoutHybris.togglePaymentMethod("${selectedPaymentMethod}");
+            adyenCheckout.togglePaymentMethod("${selectedPaymentMethod}");
             $('input[type=radio][name=paymentMethod][value="${selectedPaymentMethod}"]').prop("checked", true);
             </c:if>
 
             // Toggle payment method specific areas (credit card form and issuers list)
             $('input[type=radio][name=paymentMethod]').change(function () {
-                AdyenCheckoutHybris.togglePaymentMethod(this.value);
+                adyenCheckout.togglePaymentMethod(this.value);
             });
 
-            AdyenCheckoutHybris.createDobDatePicker("p_method_adyen_hpp_dob");
-            AdyenCheckoutHybris.createDfValue();
+            adyenCheckout.createDobDatePicker("p_method_adyen_hpp_dob");
+            adyenCheckout.createDfValue();
         </script>
     </jsp:attribute>
 

@@ -65,6 +65,11 @@
 
     <bean class="de.hybris.platform.commercefacades.order.data.OrderEntryData">
         <property name="taxValues" type="java.util.Collection&lt;de.hybris.platform.util.TaxValue>"/>
+        <property name="unitOfMeasure" type="String" />
+    </bean>
+
+    <bean class="de.hybris.platform.commercefacades.product.data.ProductData">
+        <property name="commodityCode" type="String"/>
     </bean>
 
     <bean class="de.hybris.platform.commercewebservicescommons.dto.order.PaymentDetailsWsDTO">
