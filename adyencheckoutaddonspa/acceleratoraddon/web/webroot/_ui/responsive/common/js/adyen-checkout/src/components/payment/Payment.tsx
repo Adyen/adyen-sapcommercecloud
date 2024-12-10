@@ -149,16 +149,16 @@ class Payment extends React.Component<Props, State> {
 
         this.dropIn = new Dropin(adyenCheckout, {
              paymentMethodsConfiguration: {
-                    card: this.getAdyenCardConfig(),
-                     boletobancario: {
-                         personalDetailsRequired: true,
-                         billingAddressRequired: false,
-                         showEmailAddress: false,
-                         data:{
-                             firstName: this.props.shippingAddressFromCart.firstName,
-                             lastName: this.props.shippingAddressFromCart.lastName,
-                         }
+                 card: this.getAdyenCardConfig(),
+                 boletobancario: {
+                     personalDetailsRequired: true,
+                     billingAddressRequired: false,
+                     showEmailAddress: false,
+                     data:{
+                         firstName: this.props.shippingAddressFromCart.firstName,
+                         lastName: this.props.shippingAddressFromCart.lastName,
                      }
+                 }
             },
             onSelect: (activeComponent) => {
 
