@@ -150,7 +150,7 @@ class Payment extends React.Component<Props, State> {
         this.dropIn = new Dropin(adyenCheckout, {
              paymentMethodsConfiguration: {
                  card: this.getAdyenCardConfig(),
-                 boletobancario: {
+                 boletoBancarioConfiguration: {
                      personalDetailsRequired: true,
                      billingAddressRequired: false,
                      showEmailAddress: false,
@@ -159,6 +159,26 @@ class Payment extends React.Component<Props, State> {
                          lastName: this.props.shippingAddressFromCart.lastName,
                      }
                  }
+            },
+            onSelect: (activeComponent) => {
+
+                const observer = new MutationObserver(() => {
+                    const firstNameField = document.querySelector(".adyen-checkout__field--firstName");
+                    const lastNameField = document.querySelector(".adyen-checkout__field--lastName");
+
+                    if (firstNameField && firstNameField instanceof HTMLElement) {
+                        firstNameField.style.display = "none";
+                    }
+
+                    if (lastNameField && lastNameField instanceof HTMLElement) {
+                        lastNameField.style.display = "none";
+                    }
+                });
+
+
+                if (this.paymentRef.current) {
+                    observer.observe(this.paymentRef.current, {childList: true, subtree: true});
+                }
             }
         }).mount(this.paymentRef.current);
 
