@@ -171,7 +171,7 @@ public class AdyenRequestFactory {
         }
         //Set Boleto parameters
         else if (cartData.getAdyenPaymentMethod().indexOf(PAYMENT_METHOD_BOLETO) == 0) {
-            setBoletoData(paymentsRequest, cartData);
+            setBoletoData(paymentsRequest, cartData, originPaymentsRequest.getSocialSecurityNumber());
         }
         //For alternate payment methods like iDeal, Paypal etc.
         else {
@@ -738,8 +738,8 @@ public class AdyenRequestFactory {
     /**
      * Set Boleto payment request data
      */
-    protected void setBoletoData(final PaymentRequest paymentsRequest, final CartData cartData) {
-        paymentsRequest.setSocialSecurityNumber(cartData.getAdyenSocialSecurityNumber());
+    protected void setBoletoData(final PaymentRequest paymentsRequest, final CartData cartData, final String socialSecurityNumber) {
+        paymentsRequest.setSocialSecurityNumber(socialSecurityNumber);
 
         final Name shopperName = new Name()
                 .firstName(cartData.getAdyenFirstName())

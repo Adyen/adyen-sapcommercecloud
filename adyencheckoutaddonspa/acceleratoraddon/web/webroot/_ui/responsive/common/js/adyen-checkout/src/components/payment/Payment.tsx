@@ -109,6 +109,7 @@ class Payment extends React.Component<Props, State> {
             locale: this.props.adyenConfig.shopperLocale,
             environment: this.castToEnvironment(this.props.adyenConfig.environmentMode),
             clientKey: this.props.adyenConfig.adyenClientKey,
+            countryCode: this.props.adyenConfig.countryCode,
             session: {
                 id: this.props.adyenConfig.sessionData.id,
                 sessionData: this.props.adyenConfig.sessionData.sessionData
@@ -153,8 +154,18 @@ class Payment extends React.Component<Props, State> {
 
         this.dropIn = new Dropin(adyenCheckout, {
              paymentMethodsConfiguration: {
-                    card: this.getAdyenCardConfig()
-            }
+                 card: this.getAdyenCardConfig(),
+                 boletobancario: {
+                     // @ts-ignore
+                     personalDetailsRequired: true,
+                     billingAddressRequired: false,
+                     showEmailAddress: false,
+                     data: {
+                         firstName: this.props.shippingAddressFromCart.firstName,
+                         lastName: this.props.shippingAddressFromCart.lastName,
+                     }
+                 }
+            },
         }).mount(this.paymentRef.current);
 
     }
