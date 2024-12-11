@@ -322,7 +322,7 @@
 
     <bean id="adyenCreateOrderFromCartStrategy" class="com.adyen.v6.impl.order.strategies.AdyenCreateOrderFromCartStrategy" parent="defaultCreateOrderFromCartStrategy" />
 
-    <bean id="adyenOrderEntryPopulator" class="com.adyen.v6.populator.TaxValuesOrderEntryPopulator" parent="defaultOrderEntryPopulator" />
+    <bean id="adyenOrderEntryPopulator" class="com.adyen.v6.populator.AdyenOrderEntryPopulator" parent="defaultOrderEntryPopulator" />
 
     <alias name="adyenOrderCancelPopulator" alias="orderCancelPopulator"/>
     <bean id="adyenOrderCancelPopulator" parent="defaultOrderCancelPopulator"
