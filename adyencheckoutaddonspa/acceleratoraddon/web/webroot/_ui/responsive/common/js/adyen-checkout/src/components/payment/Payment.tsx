@@ -159,7 +159,7 @@ class Payment extends React.Component<Props, State> {
                      personalDetailsRequired: true,
                      billingAddressRequired: false,
                      showEmailAddress: false,
-                     data:{
+                     data: {
                          firstName: this.props.shippingAddressFromCart.firstName,
                          lastName: this.props.shippingAddressFromCart.lastName,
                      }
