@@ -77,6 +77,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.adyen.model.checkout.CreateCheckoutSessionRequest.StorePaymentMethodModeEnum.ASKFORCONSENT;
+
 public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService implements AdyenCheckoutApiService {
 
     private static final Logger LOG = Logger.getLogger(DefaultAdyenCheckoutApiService.class);
@@ -275,9 +277,8 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
         return paymentsResponse;
     }
 
-
     @Override
-    public CreateCheckoutSessionResponse getPaymentSessionData(final CartData cartData) throws IOException, ApiException {
+    public CreateCheckoutSessionResponse getPaymentSessionData(final CartData cartData, final boolean storePaymentMethod) throws IOException, ApiException {
         final PaymentsApi checkout = new PaymentsApi(client);
         final PriceData totalPriceWithTax = cartData.getTotalPriceWithTax();
 
@@ -289,7 +290,13 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
         }
         createCheckoutSessionRequest.returnUrl(Optional.ofNullable(cartData.getAdyenReturnUrl()).orElse("returnUrl"));
         createCheckoutSessionRequest.reference(cartData.getCode());
-
+        createCheckoutSessionRequest.setStorePaymentMethod(storePaymentMethod);
+        createCheckoutSessionRequest.setStorePaymentMethodMode(ASKFORCONSENT);
+        createCheckoutSessionRequest.enableOneClick(true);
+        createCheckoutSessionRequest.shopperEmail(cartData.getUser().getUid());
+        createCheckoutSessionRequest.recurringProcessingModel(CreateCheckoutSessionRequest.RecurringProcessingModelEnum.CARDONFILE);
+        createCheckoutSessionRequest.shopperReference(cartData.getUser().getUid());
+        
         return checkout.sessions(createCheckoutSessionRequest);
     }
 

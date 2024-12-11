@@ -112,6 +112,7 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
                         .map(method -> method.getActualInstance())
                         .filter(instance -> instance instanceof CardDetails)
                         .map(instance -> (CardDetails) instance)
+                        .filter(cardDetails -> cardDetails.getBrand() != null)
                         .map(cardDetails -> getL2L3SupportedBrands().contains(cardDetails.getBrand()))
                         .orElse(false) &&
                 Optional.ofNullable(sessionCart.getDeliveryAddress())

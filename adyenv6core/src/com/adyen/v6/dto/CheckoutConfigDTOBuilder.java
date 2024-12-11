@@ -159,6 +159,16 @@ public class CheckoutConfigDTOBuilder {
         checkoutConfigDTO.setExpressPaymentConfig(expressPaymentConfigDto);
         return this;
     }
+    public CheckoutConfigDTOBuilder setMerchantDisplayName(String merchantDisplayName) {
+        checkoutConfigDTO.setMerchantDisplayName(merchantDisplayName);
+        return this;
+    }
+
+    public CheckoutConfigDTOBuilder setShopperEmail(String shopperEmail) {
+        checkoutConfigDTO.setShopperEmail(shopperEmail);
+        return this;
+    }
+
 
     public CheckoutConfigDTO build() {
         return checkoutConfigDTO;
