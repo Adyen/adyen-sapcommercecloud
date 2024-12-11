@@ -151,7 +151,6 @@ class Payment extends React.Component<Props, State> {
         this.dropIn = new Dropin(adyenCheckout, {
              paymentMethodsConfiguration: {
                  card: this.getAdyenCardConfig(),
-                 // @ts-ignore
                  boletobancario: {
                      // @ts-ignore
                      personalDetailsRequired: true,
