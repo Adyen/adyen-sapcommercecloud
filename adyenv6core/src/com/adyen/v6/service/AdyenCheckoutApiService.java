@@ -104,7 +104,7 @@ public interface AdyenCheckoutApiService {
      */
     TerminalAPIResponse sendSyncPosStatusRequest(CartData cartData, String serviceId) throws Exception;
 
-    CreateCheckoutSessionResponse getPaymentSessionData(final CartData cartData) throws IOException, ApiException;
+    CreateCheckoutSessionResponse getPaymentSessionData(final CartData cartData, final boolean storePaymentMethod) throws IOException, ApiException;
 
     CreateCheckoutSessionResponse getPaymentSessionData(final Amount amount) throws IOException, ApiException;
 }

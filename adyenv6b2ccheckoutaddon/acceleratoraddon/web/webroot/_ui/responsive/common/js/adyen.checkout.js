@@ -62,7 +62,7 @@ class AdyenCheckoutHelper {
             },
             paymentMethodsConfiguration:{
                 card: {
-                    enableStoreDetails: true,
+                    enableStoreDetails: paymentMethodConfigs.enableStoreDetails,
                 },
             }
         };

@@ -278,7 +278,7 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
     }
 
     @Override
-    public CreateCheckoutSessionResponse getPaymentSessionData(final CartData cartData) throws IOException, ApiException {
+    public CreateCheckoutSessionResponse getPaymentSessionData(final CartData cartData, final boolean storePaymentMethod) throws IOException, ApiException {
         final PaymentsApi checkout = new PaymentsApi(client);
         final PriceData totalPriceWithTax = cartData.getTotalPriceWithTax();
 
@@ -290,7 +290,7 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
         }
         createCheckoutSessionRequest.returnUrl(Optional.ofNullable(cartData.getAdyenReturnUrl()).orElse("returnUrl"));
         createCheckoutSessionRequest.reference(cartData.getCode());
-        createCheckoutSessionRequest.setStorePaymentMethod(true);
+        createCheckoutSessionRequest.setStorePaymentMethod(storePaymentMethod);
         createCheckoutSessionRequest.setStorePaymentMethodMode(ASKFORCONSENT);
         createCheckoutSessionRequest.enableOneClick(true);
         createCheckoutSessionRequest.shopperEmail(cartData.getUser().getUid());
