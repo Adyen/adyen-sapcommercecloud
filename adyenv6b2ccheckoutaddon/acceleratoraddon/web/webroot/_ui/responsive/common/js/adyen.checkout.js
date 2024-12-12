@@ -66,7 +66,6 @@ class AdyenCheckoutHelper {
                 },
             }
         };
-        console.log("Execution of initiateCheckout: ", this.i++);
         this.checkout = await AdyenWeb.AdyenCheckout(configuration);
         this.factory = new PaymentComponentFactory(this.checkout, this);
         this.factory.createFromConfigs(paymentMethodConfigs);
