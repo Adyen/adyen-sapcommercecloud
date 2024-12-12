@@ -52,7 +52,7 @@ class PaymentComponentFactory {
         const {allowedCards, showRememberDetails, cardHolderNameRequired} = params;
 
         const copyCardBrand= (event) => {
-            context.selectedCardBrand = event.brand;
+            this.helper.selectedCardBrand = event.brand;
         }
 
         this.helper.card = new AdyenWeb.Card(this.checkout, {
