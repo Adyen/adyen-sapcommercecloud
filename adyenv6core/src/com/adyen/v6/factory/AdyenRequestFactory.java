@@ -292,12 +292,14 @@ public class AdyenRequestFactory {
 
         if (StringUtils.isNotEmpty(encryptedCardNumber) && StringUtils.isNotEmpty(encryptedExpiryMonth) && StringUtils.isNotEmpty(encryptedExpiryYear)) {
             paymentsRequest.setPaymentMethod(new CheckoutPaymentMethod(new CardDetails()
+                    .type(CardDetails.TypeEnum.CARD)
                     .encryptedCardNumber(encryptedCardNumber)
                     .encryptedExpiryMonth(encryptedExpiryMonth)
                     .encryptedExpiryYear(encryptedExpiryYear)
                     .encryptedSecurityCode(cartData.getAdyenEncryptedSecurityCode())
                     .holderName(cartData.getAdyenCardHolder())));
         }
+
 
         if (cartData.getAdyenInstallments() != null) {
             Installments installmentObj = new Installments();
