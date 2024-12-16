@@ -22,7 +22,9 @@
         label: ['visible-xs', 'hidden-xs'],
         pageType: '${pageType}',
         productCode: '${product.code}',
-        payPalIntent: '${paypalIntent}'
+        payPalIntent: '${paypalIntent}',
+        payPalExpressEnabledOnProduct: ${expressPaymentConfig.paypalExpressEnabledOnProduct},
+        payPalExpressEnabledOnCart: ${expressPaymentConfig.paypalExpressEnabledOnCart},
     }
 
     var checkoutConfig = {
@@ -34,7 +36,6 @@
         applePayExpressEnabledOnCart: ${expressPaymentConfig.applePayExpressEnabledOnCart},
         googlePayExpressEnabledOnProduct: ${expressPaymentConfig.googlePayExpressEnabledOnProduct},
         applePayExpressEnabledOnProduct: ${expressPaymentConfig.applePayExpressEnabledOnProduct},
-
     }
 
     window.onload = function() {

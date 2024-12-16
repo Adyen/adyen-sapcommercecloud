@@ -43,7 +43,9 @@ var AdyenExpressCheckoutHybris = (function () {
                 if (params.pageType === 'cart' && config.applePayExpressEnabledOnCart || params.pageType === 'PDP' && config.applePayExpressEnabledOnProduct) {
                     this.initiateApplePayExpress(checkout, params)
                 }
-                this.initiatePayPalExpress(checkout, params)
+                if (params.pageType === 'cart' && params.payPalExpressEnabledOnCart || params.pageType === 'PDP' && params.payPalExpressEnabledOnProduct) {
+                    this.initiatePayPalExpress(checkout, params)
+                }
             });
         },
         initiateApplePayExpress: async function (checkout, params) {
