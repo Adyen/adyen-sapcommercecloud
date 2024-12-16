@@ -431,8 +431,6 @@ var AdyenExpressCheckoutHybris = (function () {
             return {};
         },
         prepareDataPayPal: function (paymentData) {
-            console.log(JSON.stringify(paymentData))
-
             let baseData = {
                 payPalDetails: {
                     orderID: paymentData.authorizedEvent.id,
