@@ -12,7 +12,8 @@ var AdyenExpressCheckoutHybris = (function () {
 
         adyenConfig: {
             pageType: null,
-            productCode: null
+            productCode: null,
+            expressCartGuid: null
         },
 
         initiateCheckout: async function (initConfig) {
@@ -25,7 +26,7 @@ var AdyenExpressCheckoutHybris = (function () {
                     enabled: false
                 },
                 onError: (error, component) => {
-                    console.error("Checkout error occured");
+                    console.error("Checkout error occurred");
                 },
             };
             return await AdyenWeb.AdyenCheckout(configuration);
@@ -33,22 +34,20 @@ var AdyenExpressCheckoutHybris = (function () {
         initExpressCheckout: async function (params, config) {
             var checkoutPromise = this.initiateCheckout(config);
             checkoutPromise.then((checkout) => {
+                this.adyenConfig.pageType = params.pageType;
+                this.adyenConfig.productCode = params.productCode;
+
                 this.initiateGooglePayExpress(checkout, params)
                 this.initiateApplePayExpress(checkout, params)
+                this.initiatePayPalExpress(checkout, params)
             });
         },
         initiateApplePayExpress: async function (checkout, params) {
             const {
                 amount,
-                pageType,
-                productCode
             } = params;
 
             const applePayNodes = document.getElementsByClassName('adyen-apple-pay-button');
-
-            this.adyenConfig.pageType = pageType;
-            this.adyenConfig.productCode = productCode;
-
 
             for (let applePayNode of applePayNodes) {
                 let applePayComponent = new AdyenWeb.ApplePay(checkout, {
@@ -96,12 +95,7 @@ var AdyenExpressCheckoutHybris = (function () {
                 amount,
                 amountDecimal,
                 countryCode,
-                pageType,
-                productCode
             } = params;
-
-            this.adyenConfig.pageType = pageType;
-            this.adyenConfig.productCode = productCode;
 
             const googlePayNodes = document.getElementsByClassName('adyen-google-pay-button');
 
@@ -208,7 +202,115 @@ var AdyenExpressCheckoutHybris = (function () {
                     });
             }
         },
-        makePayment: function(data, url, resolve = ()=>{}, reject = ()=>{}) {
+        initiatePayPalExpress: function (checkout, params) {
+            const {
+                amount,
+                payPalIntent
+            } = params;
+
+            const payPalNodes = document.getElementsByClassName('adyen-paypal-button');
+
+            let payPalComponent;
+
+            const payPalConfig = {
+                amount: {
+                    currency: amount.currency,
+                    value: amount.value
+                },
+
+                isExpress: true,
+                blockPayPalVenmoButton: true,
+                blockPayPalCreditButton: true,
+                blockPayPalPayLaterButton: true,
+
+                intent: payPalIntent,
+
+                onSubmit: (state, component, actions) => {
+                    if (this.adyenConfig.pageType === "PDP") {
+                        this.onPayPalPDPSubmit(state.data, actions.resolve, actions.reject, component);
+                    }
+
+                    if (this.adyenConfig.pageType === "cart") {
+                        this.onPayPalCartSubmit(state.data, actions.resolve, actions.reject, component)
+                    }
+                },
+                onAuthorized: (paymentData, actions) => {
+                    this.onPayPalAuthorize(this.getPayPalUrl(), this.prepareDataPayPal(paymentData), actions.resolve, actions.reject)
+                },
+                onAdditionalDetails: (state) => {
+                    this.makePayment(state.data, this.getAdditionalDataUrl())
+                }
+            }
+
+            if (payPalNodes.length > 0) {
+                payPalComponent = new AdyenWeb.PayPal(checkout, payPalConfig);
+                payPalComponent.isAvailable()
+                    .then(function () {
+                        payPalComponent.mount(payPalNodes[0]);
+                    })
+                    .catch(function (e) {
+                        // PayPal is not available
+                        console.log('Something went wrong trying to mount the PayPal component');
+                    });
+
+                if (payPalNodes.length > 1) {
+                    console.warn("More than one PayPal placeholder")
+                }
+            }
+        },
+        onPayPalCartSubmit: function (data, resolve, reject, component) {
+            $.ajax({
+                url: ACC.config.encodedContextPath + '/express-checkout/paypal/submit/cart',
+                type: "POST",
+                data: JSON.stringify(data),
+                contentType: "application/json; charset=utf-8",
+                success: function (response) {
+                    console.log(response)
+                    if (response.action) {
+                        component.handleAction(response.action)
+                    }
+                },
+                error: function () {
+                    reject();
+                }
+            })
+        },
+        onPayPalPDPSubmit: function (data, resolve, reject, component) {
+            $.ajax({
+                url: ACC.config.encodedContextPath + '/express-checkout/paypal/submit/PDP',
+                type: "POST",
+                data: JSON.stringify({
+                    payPalDetails: data,
+                    productCode: this.adyenConfig.productCode
+                }),
+                contentType: "application/json; charset=utf-8",
+                success: function (response) {
+                    console.log(response)
+                    AdyenExpressCheckoutHybris.adyenConfig.expressCartGuid = response.expressCartGuid;
+                    if (response.paymentResponse.action) {
+                        component.handleAction(response.paymentResponse.action)
+                    }
+                },
+                error: function () {
+                    reject();
+                }
+            })
+        },
+        onPayPalAuthorize: function (url, data, resolve, reject) {
+            $.ajax({
+                url: url,
+                type: "POST",
+                data: JSON.stringify(data),
+                contentType: "application/json; charset=utf-8",
+                success: function () {
+                    resolve();
+                },
+                error: function () {
+                    reject();
+                }
+            })
+        },
+        makePayment: function (data, url, resolve = () => {}, reject = () => {}) {
             $.ajax({
                 url: url,
                 type: "POST",
@@ -287,7 +389,7 @@ var AdyenExpressCheckoutHybris = (function () {
             console.error('unknown page type')
             return {};
         },
-        prepareDataGoogle: function(paymentData) {
+        prepareDataGoogle: function (paymentData) {
             let baseData = {
                 googlePayDetails: {
                     googlePayToken: paymentData.authorizedEvent.paymentMethodData.tokenizationData.token,
@@ -322,6 +424,46 @@ var AdyenExpressCheckoutHybris = (function () {
             console.error('unknown page type')
             return {};
         },
+        prepareDataPayPal: function (paymentData) {
+            console.log(JSON.stringify(paymentData))
+
+            let baseData = {
+                payPalDetails: {
+                    orderID: paymentData.authorizedEvent.id,
+                    payerID: paymentData.authorizedEvent.payer.payer_id
+                },
+                addressData: {
+                    email: paymentData.authorizedEvent.payer.email_address,
+                    firstName: paymentData.authorizedEvent.payer.name.given_name,
+                    lastName: paymentData.authorizedEvent.payer.name.surname,
+                    line1: paymentData.deliveryAddress.street,
+                    line2: paymentData.deliveryAddress.houseNumberOrName,
+                    postalCode: paymentData.deliveryAddress.postalCode,
+                    town: paymentData.deliveryAddress.city,
+                    country: {
+                        isocode: paymentData.deliveryAddress.country,
+                    },
+                    region: {
+                        isocodeShort: paymentData.deliveryAddress.stateOrProvince
+                    }
+                }
+            }
+
+            if (this.adyenConfig.pageType === 'PDP') {
+                return {
+                    cartGuid: this.adyenConfig.expressCartGuid,
+                    ...baseData
+                }
+            }
+            if (this.adyenConfig.pageType === 'cart') {
+                return baseData;
+            }
+            console.error('unknown page type')
+            return {};
+        },
+        getAdditionalDataUrl: function () {
+            return ACC.config.encodedContextPath + '/adyen/component/submit-details'
+        },
         getAppleUrl: function () {
             if (this.adyenConfig.pageType === 'PDP') {
                 return ACC.config.encodedContextPath + '/express-checkout/apple/PDP'
@@ -338,6 +480,16 @@ var AdyenExpressCheckoutHybris = (function () {
             }
             if (this.adyenConfig.pageType === 'cart') {
                 return ACC.config.encodedContextPath + '/express-checkout/google/cart'
+            }
+            console.error('unknown page type')
+            return null;
+        },
+        getPayPalUrl: function () {
+            if (this.adyenConfig.pageType === 'PDP') {
+                return ACC.config.encodedContextPath + '/express-checkout/paypal/PDP'
+            }
+            if (this.adyenConfig.pageType === 'cart') {
+                return ACC.config.encodedContextPath + '/express-checkout/paypal/cart'
             }
             console.error('unknown page type')
             return null;

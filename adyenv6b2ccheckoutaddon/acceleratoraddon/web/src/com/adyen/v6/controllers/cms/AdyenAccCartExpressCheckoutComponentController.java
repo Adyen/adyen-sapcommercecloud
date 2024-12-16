@@ -27,7 +27,7 @@ public class AdyenAccCartExpressCheckoutComponentController extends AbstractCMSA
     protected void fillModel(final HttpServletRequest request, final Model model, final AdyenAccExpressCheckoutCartPageComponentModel component) {
         try {
             adyenExpressCheckoutFacade.removeDeliveryModeFromSessionCart();
-            adyenCheckoutFacade.initializeApplePayExpressCartPageData(model);
+            adyenCheckoutFacade.initializeExpressCartPageData(model);
         } catch (ApiException | CalculationException e) {
             throw new RuntimeException(e);
         }

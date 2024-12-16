@@ -21,18 +21,15 @@
         merchantAccount: '${merchantAccount}',
         label: ['visible-xs', 'hidden-xs'],
         pageType: '${pageType}',
-        productCode: '${product.code}'
+        productCode: '${product.code}',
+        payPalIntent: '${paypalIntent}'
     }
 
     var checkoutConfig = {
         shopperLocale: '${shopperLocale}',
         environment: '${environmentMode}',
         clientKey: '${clientKey}',
-        session: {
-            id: '${sessionData.id}',
-            sessionData: '${sessionData.sessionData}'
-        },
-        countryCode: 'US'
+        countryCode: 'US',
     }
 
     window.onload = function() {

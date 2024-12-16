@@ -33,7 +33,7 @@ public class AdyenAccProductExpressCheckoutComponentController extends AbstractC
             requestContextData.getProduct();
             final ProductData productData = productFacade.getProductForCodeAndOptions(requestContextData.getProduct().getCode(), Arrays.asList(ProductOption.BASIC, ProductOption.PRICE));
 
-            adyenCheckoutFacade.initializeApplePayExpressPDPData(model, productData);
+            adyenCheckoutFacade.initializeExpressPDPData(model, productData);
         } catch (ApiException e) {
             throw new RuntimeException(e);
         }

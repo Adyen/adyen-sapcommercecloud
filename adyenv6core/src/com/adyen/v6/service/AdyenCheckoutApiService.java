@@ -21,15 +21,7 @@
 package com.adyen.v6.service;
 
 import com.adyen.httpclient.HTTPClientException;
-import com.adyen.model.checkout.Amount;
-import com.adyen.model.checkout.CreateCheckoutSessionResponse;
-import com.adyen.model.checkout.PaymentCompletionDetails;
-import com.adyen.model.checkout.PaymentDetailsRequest;
-import com.adyen.model.checkout.PaymentDetailsResponse;
-import com.adyen.model.checkout.PaymentMethod;
-import com.adyen.model.checkout.PaymentMethodsResponse;
-import com.adyen.model.checkout.PaymentRequest;
-import com.adyen.model.checkout.PaymentResponse;
+import com.adyen.model.checkout.*;
 import com.adyen.model.recurring.RecurringDetail;
 import com.adyen.model.terminal.ConnectedTerminalsResponse;
 import com.adyen.model.terminal.TerminalAPIResponse;
@@ -48,6 +40,8 @@ public interface AdyenCheckoutApiService {
     ConnectedTerminalsResponse getConnectedTerminals() throws IOException, ApiException;
 
     PaymentResponse processPaymentRequest(CartData cartData, PaymentRequest originPaymentsRequest, RequestInfo requestInfo, CustomerModel customerModel) throws Exception;
+
+    PaymentResponse sendPaymentRequest(final PaymentRequest paymentRequest) throws IOException, ApiException;
 
     PaymentDetailsResponse authorise3DSPayment(PaymentDetailsRequest paymentsDetailsRequest) throws Exception;
 

@@ -363,7 +363,7 @@ public class DefaultAdyenExpressCheckoutFacadeTest {
     }
 
     @Test
-    public void prepareCart() {
+    public void updateCart() {
         //given
         CartModel cartModel = new CartModel();
         DeliveryModeModel deliveryModeModel = new DeliveryModeModel();
@@ -373,7 +373,7 @@ public class DefaultAdyenExpressCheckoutFacadeTest {
         ArgumentCaptor<CartModel> cartCaptor = ArgumentCaptor.forClass(CartModel.class);
 
         //when
-        defaultAdyenExpressCheckoutFacade.prepareCart(cartModel, deliveryModeModel, addressModel, paymentInfo);
+        defaultAdyenExpressCheckoutFacade.updateCart(cartModel, deliveryModeModel, addressModel, paymentInfo);
 
         //then
         verify(modelService).save(cartCaptor.capture());
