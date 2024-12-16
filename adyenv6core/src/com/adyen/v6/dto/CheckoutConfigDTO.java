@@ -41,6 +41,20 @@ public class CheckoutConfigDTO {
     private boolean cardHolderNameRequired;
     private boolean sepaDirectDebit;
     private BigDecimal amountDecimal;
+    private ExpressPaymentConfigDto expressPaymentConfig;
+    private String merchantDisplayName;
+    private String shopperEmail;
+
+    // Getters and setters for the new field
+    public ExpressPaymentConfigDto getExpressPaymentConfig() {
+        return expressPaymentConfig;
+    }
+
+    public void setExpressPaymentConfig(ExpressPaymentConfigDto expressPaymentConfigDto) {
+        this.expressPaymentConfig = expressPaymentConfigDto;
+    }
+
+
 
 
     public List<PaymentMethod> getAlternativePaymentMethods() {
@@ -257,5 +271,21 @@ public class CheckoutConfigDTO {
 
     public void setAmountDecimal(BigDecimal amountDecimal) {
         this.amountDecimal = amountDecimal;
+    }
+
+    public String getMerchantDisplayName() {
+        return merchantDisplayName;
+    }
+
+    public void setMerchantDisplayName(String merchantDisplayName) {
+        this.merchantDisplayName = merchantDisplayName;
+    }
+
+    public String getShopperEmail() {
+        return shopperEmail;
+    }
+
+    public void setShopperEmail(String shopperEmail) {
+        this.shopperEmail = shopperEmail;
     }
 }

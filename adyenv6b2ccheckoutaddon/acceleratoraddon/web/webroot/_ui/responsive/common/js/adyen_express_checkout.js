@@ -37,8 +37,12 @@ var AdyenExpressCheckoutHybris = (function () {
                 this.adyenConfig.pageType = params.pageType;
                 this.adyenConfig.productCode = params.productCode;
 
-                this.initiateGooglePayExpress(checkout, params)
-                this.initiateApplePayExpress(checkout, params)
+                if (params.pageType === 'cart' && config.googlePayExpressEnabledOnCart || params.pageType === 'PDP' && config.googlePayExpressEnabledOnProduct) {
+                    this.initiateGooglePayExpress(checkout, params)
+                }
+                if (params.pageType === 'cart' && config.applePayExpressEnabledOnCart || params.pageType === 'PDP' && config.applePayExpressEnabledOnProduct) {
+                    this.initiateApplePayExpress(checkout, params)
+                }
                 this.initiatePayPalExpress(checkout, params)
             });
         },

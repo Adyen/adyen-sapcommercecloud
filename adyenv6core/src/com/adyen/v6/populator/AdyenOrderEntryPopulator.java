@@ -29,11 +29,12 @@ import de.hybris.platform.commercefacades.order.converters.populator.OrderEntryP
  * Populate TaxValues into the OrderEntryData object.
  * This data is needed for OpenInvoice Payment Methods
  */
-public class TaxValuesOrderEntryPopulator extends OrderEntryPopulator {
+public class AdyenOrderEntryPopulator extends OrderEntryPopulator {
 
     @Override
     public void populate(@Nonnull final AbstractOrderEntryModel source, @Nonnull final OrderEntryData target)
     {
         target.setTaxValues(source.getTaxValues());
+        target.setUnitOfMeasure(source.getUnit().getName());
     }
 }

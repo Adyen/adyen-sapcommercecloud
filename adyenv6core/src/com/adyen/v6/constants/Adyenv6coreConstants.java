@@ -87,6 +87,8 @@ public final class Adyenv6coreConstants extends GeneratedAdyenv6coreConstants {
 	public static final String CLEARPAY = "clearpay";
 	public static final String SHOPPER_LOCALE = "shopperLocale";
 
+	public static final String EXPRESS_PAYMENT_CONFIG = "expressPaymentConfig";
+
 	private Adyenv6coreConstants() {
 		//empty to avoid instantiating this constant class
 	}

@@ -60,9 +60,13 @@ class AdyenCheckoutHelper {
             onError: (error, component) => {
                 console.error(error.name, error.message, error.stack, component);
             },
+            paymentMethodsConfiguration:{
+                card: {
+                    enableStoreDetails: paymentMethodConfigs.enableStoreDetails,
+                },
+            }
         };
-        console.log("Execution of initiateCheckout: ", this.i++);
-        this.checkout = await AdyenCheckout(configuration);
+        this.checkout = await AdyenWeb.AdyenCheckout(configuration);
         this.factory = new PaymentComponentFactory(this.checkout, this);
         this.factory.createFromConfigs(paymentMethodConfigs);
     }

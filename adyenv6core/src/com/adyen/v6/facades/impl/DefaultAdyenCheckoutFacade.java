@@ -33,6 +33,7 @@ import com.adyen.v6.controllers.dtos.PaymentResultDTO;
 import com.adyen.v6.converters.PosPaymentResponseConverter;
 import com.adyen.v6.dto.CheckoutConfigDTO;
 import com.adyen.v6.dto.CheckoutConfigDTOBuilder;
+import com.adyen.v6.dto.ExpressPaymentConfigDto;
 import com.adyen.v6.enums.AdyenCardTypeEnum;
 import com.adyen.v6.enums.AdyenRegions;
 import com.adyen.v6.enums.RecurringContractMode;
@@ -44,6 +45,7 @@ import com.adyen.v6.factory.AdyenPaymentServiceFactory;
 import com.adyen.v6.forms.AddressForm;
 import com.adyen.v6.forms.AdyenPaymentForm;
 import com.adyen.v6.forms.validation.AdyenPaymentFormValidator;
+import com.adyen.v6.model.ExpressPaymentConfigModel;
 import com.adyen.v6.model.RequestInfo;
 import com.adyen.v6.repository.OrderRepository;
 import com.adyen.v6.service.AdyenBusinessProcessService;
@@ -132,6 +134,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     private static final String US = "US";
     private static final String RECURRING_RECURRING_DETAIL_REFERENCE = "recurring.recurringDetailReference";
     private static final String EXCLUDED_PAYMENT_METHODS_CONFIG = "adyen.payment-methods.excluded";
+    public static final String EXPRESS_PAYMENT_CONFIG = "expressPaymentConfig";
 
     private BaseStoreService baseStoreService;
     private SessionService sessionService;
@@ -370,11 +373,10 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         }
 
         if (PaymentDetailsResponse.ResultCodeEnum.AUTHORISED == paymentDetailsResponse.getResultCode() || PaymentDetailsResponse.ResultCodeEnum.RECEIVED == paymentDetailsResponse.getResultCode()) {
-            //remove PAYMENT_PENDING status, will be processed by order management
-            LOGGER.info("Removing PAYMENT_PENDING status, will be processed by order management");
+            //PAYMENT_PENDING status, will be processed by order management
+            LOGGER.info("PAYMENT_PENDING status, will be processed by order management");
 
-            orderModel.setStatus(null);
-            orderModel.setStatusInfo(null);
+            orderModel.setStatus(OrderStatus.PAYMENT_PENDING);
         } else {
             //payment was not authorised, cancel pending order
             LOGGER.warn("Payment was not authorised, cancel pending order");
@@ -640,6 +642,8 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         model.addAttribute(MODEL_CHECKOUT_SHOPPER_HOST, checkoutConfigDTO.getCheckoutShopperHost());
         model.addAttribute(MODEL_ENVIRONMENT_MODE, checkoutConfigDTO.getEnvironmentMode());
         model.addAttribute(SHOPPER_LOCALE, checkoutConfigDTO.getShopperLocale());
+        model.addAttribute("merchantDisplayName", checkoutConfigDTO.getMerchantDisplayName());
+        model.addAttribute("shopperEmail", checkoutConfigDTO.getShopperEmail());
 
         // OpenInvoice Methods
         model.addAttribute(MODEL_OPEN_INVOICE_METHODS, checkoutConfigDTO.getOpenInvoiceMethods());
@@ -668,6 +672,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         model.addAttribute(MODEL_COUNTRY_CODE, checkoutConfigDTO.getCountryCode());
         model.addAttribute(MODEL_CARD_HOLDER_NAME_REQUIRED, checkoutConfigDTO.isCardHolderNameRequired());
         model.addAttribute(PAYMENT_METHOD_SEPA_DIRECTDEBIT, checkoutConfigDTO.isSepaDirectDebit());
+
     }
 
     public CheckoutConfigDTO getReactCheckoutConfig() throws ApiException {
@@ -741,7 +746,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
 
         CheckoutConfigDTOBuilder checkoutConfigDTOBuilder = new CheckoutConfigDTOBuilder();
 
-        return checkoutConfigDTOBuilder
+         checkoutConfigDTOBuilder
                 .setPaymentMethods(paymentMethods)
                 .setConnectedTerminalList(connectedTerminalList)
                 .setStoredPaymentMethodList(storedPaymentMethodList)
@@ -749,7 +754,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
                 .setAdyenClientKey(baseStore.getAdyenClientKey())
                 .setAdyenPaypalMerchantId(baseStore.getAdyenPaypalMerchantId())
                 .setDeviceFingerPrintUrl(adyenPaymentService.getDeviceFingerprintUrl())
-                .setSessionData(getAdyenSessionData())
+                .setSessionData(getAdyenSessionData(showRememberDetails()))
                 .setSelectedPaymentMethod(cartData.getAdyenPaymentMethod())
                 .setShowRememberTheseDetails(showRememberDetails())
                 .setCheckoutShopperHost(getCheckoutShopperHost())
@@ -764,7 +769,30 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
                 .setCountryCode(cartData != null && cartData.getDeliveryAddress() != null && cartData.getDeliveryAddress().getCountry() != null ? cartData.getDeliveryAddress().getCountry().getIsocode() : "")
                 .setCardHolderNameRequired(getHolderNameRequired())
                 .setAmountDecimal(cartData.getTotalPriceWithTax().getValue())
-                .build();
+                .setMerchantDisplayName(baseStore.getName())
+                .setShopperEmail(customerModel.getContactEmail());
+
+        ExpressPaymentConfigModel expressPaymentConfigModel = baseStore.getExpressPaymentConfig();
+        if (expressPaymentConfigModel != null) {
+            ExpressPaymentConfigDto expressPaymentConfigDto = getExpressPaymentConfigDto(expressPaymentConfigModel);
+
+            checkoutConfigDTOBuilder.setExpressPaymentConfig(expressPaymentConfigDto);
+        }
+
+        return checkoutConfigDTOBuilder.build();
+    }
+
+    private static ExpressPaymentConfigDto getExpressPaymentConfigDto(ExpressPaymentConfigModel expressPaymentConfigModel) {
+        ExpressPaymentConfigDto expressPaymentConfigDto = new ExpressPaymentConfigDto();
+        expressPaymentConfigDto.setGooglePayExpressEnabledOnCart(expressPaymentConfigModel.getGooglePayExpressEnabledOnCart());
+        expressPaymentConfigDto.setApplePayExpressEnabledOnCart(expressPaymentConfigModel.getApplePayExpressEnabledOnCart());
+        expressPaymentConfigDto.setPaypalExpressEnabledOnCart(expressPaymentConfigModel.getPaypalExpressEnabledOnCart());
+        expressPaymentConfigDto.setAmazonPayExpressEnabledOnCart(expressPaymentConfigModel.getAmazonPayExpressEnabledOnCart());
+        expressPaymentConfigDto.setGooglePayExpressEnabledOnProduct(expressPaymentConfigModel.getGooglePayExpressEnabledOnProduct());
+        expressPaymentConfigDto.setApplePayExpressEnabledOnProduct(expressPaymentConfigModel.getApplePayExpressEnabledOnProduct());
+        expressPaymentConfigDto.setPaypalExpressEnabledOnProduct(expressPaymentConfigModel.getPaypalExpressEnabledOnProduct());
+        expressPaymentConfigDto.setAmazonPayExpressEnabledOnProduct(expressPaymentConfigModel.getAmazonPayExpressEnabledOnProduct());
+        return expressPaymentConfigDto;
     }
 
     protected List<String> getExcludedPaymentMethodsFromConfiguration() {
@@ -861,7 +889,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
 
         CheckoutConfigDTOBuilder checkoutConfigDTOBuilder = new CheckoutConfigDTOBuilder();
 
-        return checkoutConfigDTOBuilder.setAlternativePaymentMethods(alternativePaymentMethods)
+        checkoutConfigDTOBuilder.setAlternativePaymentMethods(alternativePaymentMethods)
                 .setConnectedTerminalList(connectedTerminalList)
                 .setStoredPaymentMethodList(storedPaymentMethodList)
                 .setIssuerLists(issuerLists)
@@ -871,7 +899,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
                 .setAdyenClientKey(baseStore.getAdyenClientKey())
                 .setAdyenPaypalMerchantId(baseStore.getAdyenPaypalMerchantId())
                 .setDeviceFingerPrintUrl(adyenCheckoutApiService.getDeviceFingerprintUrl())
-                .setSessionData(getAdyenSessionData())
+                .setSessionData(getAdyenSessionData(showRememberDetails()))
                 .setSelectedPaymentMethod(cartData.getAdyenPaymentMethod())
                 .setShowRememberTheseDetails(showRememberDetails())
                 .setCheckoutShopperHost(getCheckoutShopperHost())
@@ -887,7 +915,17 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
                 .setCardHolderNameRequired(getHolderNameRequired())
                 .setSepaDirectDebit(sepaDirectDebit)
                 .setAmountDecimal(cartData.getTotalPriceWithTax().getValue())
-                .build();
+                .setMerchantDisplayName(baseStore.getName())
+                .setShopperEmail(customerModel.getContactEmail());
+
+        ExpressPaymentConfigModel expressPaymentConfigModel = baseStore.getExpressPaymentConfig();
+        if (expressPaymentConfigModel != null) {
+            ExpressPaymentConfigDto expressPaymentConfigDto = getExpressPaymentConfigDto(expressPaymentConfigModel);
+
+            checkoutConfigDTOBuilder.setExpressPaymentConfig(expressPaymentConfigDto);
+        }
+
+        return checkoutConfigDTOBuilder.build();
     }
 
     @Deprecated
@@ -979,10 +1017,10 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         return new HashMap<>();
     }
 
-    protected CreateCheckoutSessionResponse getAdyenSessionData() throws ApiException {
+    protected CreateCheckoutSessionResponse getAdyenSessionData(final boolean storePaymentMethod) throws ApiException {
         try {
             final CartData cartData = getCheckoutFacade().getCheckoutCart();
-            return getAdyenPaymentService().getPaymentSessionData(cartData);
+            return getAdyenPaymentService().getPaymentSessionData(cartData,storePaymentMethod);
         } catch (JsonProcessingException e) {
             LOGGER.error("Processing json failed. ", e);
             return null;
@@ -1022,7 +1060,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         model.addAttribute(MODEL_AMAZONPAY_CONFIGURATION, gson.toJson(cartData.getAdyenAmazonPayConfiguration()));
         model.addAttribute(MODEL_COUNTRY_CODE, countryCode);
         model.addAttribute(MODEL_DELIVERY_ADDRESS, gson.toJson(cartData.getDeliveryAddress()));
-        model.addAttribute(SESSION_DATA, getAdyenSessionData());
+        model.addAttribute(SESSION_DATA, getAdyenSessionData(showRememberDetails()));
         model.addAttribute(LOCALE, gson.toJson(setLocale(cartData.getAdyenAmazonPayConfiguration(), shopperLocale)));
     }
 
@@ -1087,6 +1125,9 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         model.addAttribute(MODEL_AMOUNT_DECIMAL, amountValue);
         model.addAttribute(MODEL_DF_URL, getAdyenPaymentService().getDeviceFingerprintUrl());
         model.addAttribute(MODEL_CHECKOUT_SHOPPER_HOST, getCheckoutShopperHost());
+        if(baseStore.getExpressPaymentConfig()!=null) {
+            model.addAttribute(EXPRESS_PAYMENT_CONFIG, getExpressPaymentConfigDto(baseStore.getExpressPaymentConfig()));
+        }
     }
 
     protected BigDecimal getExpressDeliveryModeValue(final String currencyIso) {

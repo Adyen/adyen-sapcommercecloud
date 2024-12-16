@@ -30,6 +30,11 @@
         environment: '${environmentMode}',
         clientKey: '${clientKey}',
         countryCode: 'US',
+        googlePayExpressEnabledOnCart: ${expressPaymentConfig.googlePayExpressEnabledOnCart},
+        applePayExpressEnabledOnCart: ${expressPaymentConfig.applePayExpressEnabledOnCart},
+        googlePayExpressEnabledOnProduct: ${expressPaymentConfig.googlePayExpressEnabledOnProduct},
+        applePayExpressEnabledOnProduct: ${expressPaymentConfig.applePayExpressEnabledOnProduct},
+
     }
 
     window.onload = function() {

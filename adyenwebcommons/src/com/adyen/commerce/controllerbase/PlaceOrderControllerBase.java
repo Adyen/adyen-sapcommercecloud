@@ -128,7 +128,7 @@ public abstract class PlaceOrderControllerBase {
                 placeOrderRequest.getBillingAddress(), placeOrderRequest.isUseAdyenDeliveryAddress());
     }
 
-    private boolean isCartValid() {
+    protected boolean isCartValid() {
 
         if (getCheckoutFlowFacade().hasNoDeliveryAddress()) {
             LOGGER.error("No delivery address.");

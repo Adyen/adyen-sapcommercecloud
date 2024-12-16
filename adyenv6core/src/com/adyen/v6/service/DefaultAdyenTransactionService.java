@@ -23,6 +23,7 @@ package com.adyen.v6.service;
 import com.adyen.model.checkout.PaymentDetailsResponse;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
 import com.adyen.v6.model.AdyenNotificationModel;
+import com.adyen.v6.repository.PaymentTransactionRepository;
 import com.adyen.v6.util.AmountUtil;
 import de.hybris.platform.core.model.c2l.CurrencyModel;
 import de.hybris.platform.core.model.order.AbstractOrderModel;
@@ -53,6 +54,7 @@ public class DefaultAdyenTransactionService implements AdyenTransactionService {
     private AdyenPaymentServiceFactory adyenPaymentServiceFactory;
     private BaseStoreService baseStoreService;
     private TransactionOperations transactionTemplate;
+    private PaymentTransactionRepository adyenPaymentTransactionRepository;
 
 
     @Override
@@ -102,21 +104,7 @@ public class DefaultAdyenTransactionService implements AdyenTransactionService {
 
     @Override
     public PaymentTransactionModel authorizeOrderModel(final AbstractOrderModel abstractOrderModel, final String merchantTransactionCode, final String pspReference) {
-        return transactionTemplate.execute(transactionStatus -> {
-
-            //First save the transactions to the CartModel < AbstractOrderModel
-            final PaymentTransactionModel paymentTransactionModel = createPaymentTransaction(merchantTransactionCode, pspReference, abstractOrderModel);
-
-            modelService.save(paymentTransactionModel);
-
-            PaymentTransactionEntryModel authorisedTransaction = createAuthorizationPaymentTransactionEntryModel(paymentTransactionModel, merchantTransactionCode, abstractOrderModel);
-
-            LOG.info("Saving AUTH transaction entry with psp reference: " + pspReference);
-            modelService.save(authorisedTransaction);
-
-            modelService.refresh(paymentTransactionModel); //refresh is needed by order-process
-            return paymentTransactionModel;
-        });
+        return authorizeOrderModel(abstractOrderModel, merchantTransactionCode, pspReference, AmountUtil.calculateAmountWithTaxes(abstractOrderModel));
     }
 
     @Override
@@ -124,9 +112,12 @@ public class DefaultAdyenTransactionService implements AdyenTransactionService {
         return transactionTemplate.execute(transactionStatus -> {
 
             //First save the transactions to the CartModel < AbstractOrderModel
-            final PaymentTransactionModel paymentTransactionModel = createPaymentTransaction(merchantTransactionCode, pspReference, abstractOrderModel, paymentAmount);
+            PaymentTransactionModel paymentTransactionModel = adyenPaymentTransactionRepository.getTransactionModel(pspReference);
 
-            modelService.save(paymentTransactionModel);
+            if(paymentTransactionModel == null) {
+                paymentTransactionModel = createPaymentTransaction(merchantTransactionCode, pspReference, abstractOrderModel, paymentAmount);
+                modelService.save(paymentTransactionModel);
+            }
 
             PaymentTransactionEntryModel authorisedTransaction = createAuthorizationPaymentTransactionEntryModel(paymentTransactionModel, merchantTransactionCode, abstractOrderModel, paymentAmount);
 
@@ -218,6 +209,10 @@ public class DefaultAdyenTransactionService implements AdyenTransactionService {
     }
 
     protected PaymentTransactionModel createPaymentTransaction(final String merchantCode, final String pspReference, final AbstractOrderModel abstractOrderModel) {
+        return createPaymentTransaction(merchantCode, pspReference, abstractOrderModel, AmountUtil.calculateAmountWithTaxes(abstractOrderModel));
+    }
+
+    protected PaymentTransactionModel createPaymentTransaction(final String merchantCode, final String pspReference, final AbstractOrderModel abstractOrderModel, final BigDecimal paymentAmount) {
         final PaymentTransactionModel paymentTransactionModel = modelService.create(PaymentTransactionModel.class);
         paymentTransactionModel.setCode(pspReference);
         paymentTransactionModel.setRequestId(pspReference);
@@ -226,13 +221,6 @@ public class DefaultAdyenTransactionService implements AdyenTransactionService {
         paymentTransactionModel.setOrder(abstractOrderModel);
         paymentTransactionModel.setCurrency(abstractOrderModel.getCurrency());
         paymentTransactionModel.setInfo(abstractOrderModel.getPaymentInfo());
-        paymentTransactionModel.setPlannedAmount(AmountUtil.calculateAmountWithTaxes(abstractOrderModel));
-
-        return paymentTransactionModel;
-    }
-
-    protected PaymentTransactionModel createPaymentTransaction(final String merchantCode, final String pspReference, final AbstractOrderModel abstractOrderModel, final BigDecimal paymentAmount) {
-        final PaymentTransactionModel paymentTransactionModel = createPaymentTransaction(merchantCode, pspReference, abstractOrderModel);
         paymentTransactionModel.setPlannedAmount(paymentAmount);
         return paymentTransactionModel;
     }
@@ -261,9 +249,13 @@ public class DefaultAdyenTransactionService implements AdyenTransactionService {
     public PaymentTransactionModel createPaymentTransactionFromResultCode(final AbstractOrderModel abstractOrderModel, final String merchantTransactionCode, final String pspReference, final PaymentDetailsResponse.ResultCodeEnum resultCodeEnum) {
         return transactionTemplate.execute(transactionStatus -> {
 
-            final PaymentTransactionModel paymentTransactionModel = createPaymentTransaction(merchantTransactionCode, pspReference, abstractOrderModel);
+            PaymentTransactionModel paymentTransactionModel = adyenPaymentTransactionRepository.getTransactionModel(pspReference);
 
-            modelService.save(paymentTransactionModel);
+            if(paymentTransactionModel == null) {
+                paymentTransactionModel = createPaymentTransaction(merchantTransactionCode, pspReference, abstractOrderModel);
+
+                modelService.save(paymentTransactionModel);
+            }
 
             PaymentTransactionEntryModel paymentTransactionEntryModel = createPaymentTransactionEntryModelFromResultCode(paymentTransactionModel, merchantTransactionCode, abstractOrderModel, resultCodeEnum);
 
@@ -357,5 +349,9 @@ public class DefaultAdyenTransactionService implements AdyenTransactionService {
 
     public void setTransactionTemplate(TransactionOperations transactionTemplate) {
         this.transactionTemplate = transactionTemplate;
+    }
+
+    public void setAdyenPaymentTransactionRepository(PaymentTransactionRepository adyenPaymentTransactionRepository) {
+        this.adyenPaymentTransactionRepository = adyenPaymentTransactionRepository;
     }
 }
