@@ -138,7 +138,7 @@ class Payment extends React.Component<Props, State> {
             clickToPayConfiguration: {
                 merchantDisplayName: this.props.adyenConfig.merchantDisplayName,
                 shopperEmail:  this.props.adyenConfig.shopperEmail,
-                locale: this.props.adyenConfig.clicktoPayLocale,
+                locale: this.props.adyenConfig.clickToPayLocale,
             }
         }
     }
