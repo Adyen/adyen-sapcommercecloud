@@ -57,7 +57,7 @@
 					<editorArea:attribute qualifier="adyenNotificationPassword" editor="com.hybris.cockpitng.editor.defaultpassword"/>
 					<editorArea:attribute qualifier="adyenNotificationHMACKey"/>
 				</editorArea:section>
-                <editorArea:section name="hmc.adyen.clicktopat">
+                <editorArea:section name="hmc.adyen.clicktopay">
                     <editorArea:attribute qualifier="clickToPayLocale" />
                 </editorArea:section>
 				<editorArea:section name="hmc.adyen.amazonpay">
