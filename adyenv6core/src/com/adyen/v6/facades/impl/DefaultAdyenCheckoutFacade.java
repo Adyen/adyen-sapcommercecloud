@@ -117,7 +117,17 @@ import org.springframework.validation.Errors;
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -225,7 +235,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     public static final String MODEL_CONNECTED_TERMINAL_LIST = "connectedTerminalList";
     public static final String MODEL_ENVIRONMENT_MODE = "environmentMode";
     public static final String MODEL_AMOUNT = "amount";
-    public static final String MODEL_AMOUNT_DECIMAL= "amountDecimal";
+    public static final String MODEL_AMOUNT_DECIMAL = "amountDecimal";
     public static final String MODEL_IMMEDIATE_CAPTURE = "immediateCapture";
     public static final String MODEL_PAYPAL_MERCHANT_ID = "paypalMerchantId";
     public static final String MODEL_COUNTRY_CODE = "countryCode";
@@ -433,7 +443,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         RequestInfo requestInfo = new RequestInfo(request);
         requestInfo.setShopperLocale(getShopperLocale());
 
-        PaymentResponse paymentResponse = getAdyenPaymentService().processPaymentRequest(cartData,null, requestInfo, customer);
+        PaymentResponse paymentResponse = getAdyenPaymentService().processPaymentRequest(cartData, null, requestInfo, customer);
         PaymentResponse.ResultCodeEnum resultCode = paymentResponse.getResultCode();
         PaymentResponseAction action = paymentResponse.getAction();
 
@@ -765,7 +775,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
 
         CheckoutConfigDTOBuilder checkoutConfigDTOBuilder = new CheckoutConfigDTOBuilder();
 
-         checkoutConfigDTOBuilder
+        checkoutConfigDTOBuilder
                 .setPaymentMethods(paymentMethods)
                 .setConnectedTerminalList(connectedTerminalList)
                 .setStoredPaymentMethodList(storedPaymentMethodList)
@@ -789,7 +799,8 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
                 .setCardHolderNameRequired(getHolderNameRequired())
                 .setAmountDecimal(cartData.getTotalPriceWithTax().getValue())
                 .setMerchantDisplayName(baseStore.getName())
-                .setShopperEmail(customerModel.getContactEmail());
+                .setShopperEmail(customerModel.getContactEmail())
+                .setClickToPayLocale(baseStore.getClickToPayLocale());
 
         ExpressPaymentConfigModel expressPaymentConfigModel = baseStore.getExpressPaymentConfig();
         if (expressPaymentConfigModel != null) {
@@ -935,7 +946,8 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
                 .setSepaDirectDebit(sepaDirectDebit)
                 .setAmountDecimal(cartData.getTotalPriceWithTax().getValue())
                 .setMerchantDisplayName(baseStore.getName())
-                .setShopperEmail(customerModel.getContactEmail());
+                .setShopperEmail(customerModel.getContactEmail())
+                .setClickToPayLocale(baseStore.getClickToPayLocale());
 
         ExpressPaymentConfigModel expressPaymentConfigModel = baseStore.getExpressPaymentConfig();
         if (expressPaymentConfigModel != null) {
@@ -1031,7 +1043,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     protected CreateCheckoutSessionResponse getAdyenSessionData(final boolean storePaymentMethod) throws ApiException {
         try {
             final CartData cartData = getCheckoutFacade().getCheckoutCart();
-            return getAdyenPaymentService().getPaymentSessionData(cartData,storePaymentMethod);
+            return getAdyenPaymentService().getPaymentSessionData(cartData, storePaymentMethod);
         } catch (JsonProcessingException e) {
             LOGGER.error("Processing json failed. ", e);
             return null;
@@ -1142,7 +1154,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         model.addAttribute(MODEL_AMOUNT_DECIMAL, amountValue);
         model.addAttribute(MODEL_DF_URL, getAdyenPaymentService().getDeviceFingerprintUrl());
         model.addAttribute(MODEL_CHECKOUT_SHOPPER_HOST, getCheckoutShopperHost());
-        if(baseStore.getExpressPaymentConfig()!=null) {
+        if (baseStore.getExpressPaymentConfig() != null) {
             model.addAttribute(EXPRESS_PAYMENT_CONFIG, getExpressPaymentConfigDto(baseStore.getExpressPaymentConfig()));
         }
     }
@@ -1636,7 +1648,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         restoreCartFromOrderInternal(orderModel);
     }
 
-    protected void restoreCartFromOrderInternal(final OrderModel orderModel) throws CalculationException, InvalidCartException{
+    protected void restoreCartFromOrderInternal(final OrderModel orderModel) throws CalculationException, InvalidCartException {
 
         // Get cart from session
         CartModel cartModel;

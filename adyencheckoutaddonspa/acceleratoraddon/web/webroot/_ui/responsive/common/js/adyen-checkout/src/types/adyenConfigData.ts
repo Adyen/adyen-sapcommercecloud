@@ -28,6 +28,7 @@ export interface AdyenConfigData {
     sepaDirectDebit: boolean;
     merchantDisplayName: string,
     shopperEmail: string,
+    clickToPayLocale: string,
 }
 
 interface SessionData {
