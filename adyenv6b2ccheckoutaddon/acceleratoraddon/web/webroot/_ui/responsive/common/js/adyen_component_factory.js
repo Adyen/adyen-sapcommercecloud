@@ -64,10 +64,6 @@ class PaymentComponentFactory {
             enableStoreDetails: showRememberDetails,
             brands: allowedCards,
             onBrand: copyCardBrand,
-            clickToPayConfiguration: {
-                merchantDisplayName: merchantDisplayName,
-                shopperEmail:  shopperEmail
-            }
         }).mount("#card-div");
 
     }
