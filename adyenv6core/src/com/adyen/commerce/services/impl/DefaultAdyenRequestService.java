@@ -43,8 +43,8 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
         if (cartData.getTotalTax() != null) {
             additionalData.put(TOTAL_TAX_AMOUNT, String.valueOf(cartData.getTotalTax().getValue()));
         }
-        if (StringUtils.isNotEmpty(cartData.getMerchantCustomerId())) {
-            additionalData.put(CUSTOMER_REFERENCE, cartData.getMerchantCustomerId());
+        if (StringUtils.isNotEmpty(cartData.getUser().getUid())) {
+            additionalData.put(CUSTOMER_REFERENCE, cartData.getUser().getUid());
         }
         // not required but available
         if (cartData.getDeliveryCost() != null) {
