@@ -21,7 +21,13 @@ import {routes} from "../../router/routes";
 import {Navigate} from "react-router-dom";
 import {PaymentError} from "./PaymentError";
 import {ScrollHere} from "../common/ScrollTo";
-import {CoreConfiguration,CardConfiguration, UIElement} from "@adyen/adyen-web";
+import {
+    CoreConfiguration,
+    CardConfiguration,
+    UIElement,
+    SubmitActions,
+    AdditionalDetailsActions
+} from "@adyen/adyen-web";
 
 interface State {
     useDifferentBillingAddress: boolean
@@ -124,8 +130,8 @@ class Payment extends React.Component<Props, State> {
             onError: (error: AdyenCheckoutError, element?: UIElement) => {
                 this.handleError()
             },
-            onSubmit: (state: any, element: UIElement) => this.handlePayment(state.data),
-            onAdditionalDetails: (state: any, element?: UIElement) => this.handleAdditionalDetails(state.data)
+            onSubmit: (state: any, element: UIElement, actions: SubmitActions) => this.handlePayment(state.data, actions),
+            onAdditionalDetails: (state: any, element: UIElement,actions: AdditionalDetailsActions) => this.handleAdditionalDetails(state.data, actions)
         }
     }
 
@@ -176,22 +182,22 @@ class Payment extends React.Component<Props, State> {
         this.resetDropInComponent();
     }
 
-    private async handlePayment(data: any) {
+    private async handlePayment(data: any, actions: SubmitActions) {
         let adyenPaymentForm = PaymentService.preparePlaceOrderRequest(data,
             this.state.useDifferentBillingAddress, this.isSaveInAddressBook(), this.props.billingAddress);
 
-        await this.executePaymentRequest(adyenPaymentForm)
+        await this.executePaymentRequest(adyenPaymentForm, actions)
     }
 
-    private async handleAdditionalDetails(data: any) {
-        await this.executeAdditionalDetails(data)
+    private async handleAdditionalDetails(data: any,actions: AdditionalDetailsActions) {
+        await this.executeAdditionalDetails(data,actions)
     }
 
     private isSaveInAddressBook(): boolean {
         return this.state.saveInAddressBook && this.state.useDifferentBillingAddress
     }
 
-    private async handleResponse(response: Promise<void | PlaceOrderResponse>) {
+    private async handleResponse(response: Promise<void | PlaceOrderResponse>, actions: SubmitActions) {
         this.setState({errorFieldCodes: []})
 
         let responseData = await response;
@@ -200,6 +206,9 @@ class Payment extends React.Component<Props, State> {
                 if (responseData.executeAction) {
                     this.dropIn.handleAction(responseData.paymentsAction)
                 } else {
+                    actions.resolve({
+                        resultCode: 'Authorised'
+                    });
                     this.setState({orderNumber: responseData.orderNumber})
                     this.setState({redirectToNextStep: true})
                 }
@@ -211,12 +220,12 @@ class Payment extends React.Component<Props, State> {
         }
     }
 
-    private async executePaymentRequest(adyenPaymentForm: PlaceOrderRequest) {
-        await this.handleResponse(PaymentService.placeOrder(adyenPaymentForm));
+    private async executePaymentRequest(adyenPaymentForm: PlaceOrderRequest, actions: SubmitActions) {
+        await this.handleResponse(PaymentService.placeOrder(adyenPaymentForm), actions);
     }
 
-    private async executeAdditionalDetails(details: any) {
-        await this.handleResponse(PaymentService.sendAdditionalDetails(details));
+    private async executeAdditionalDetails(details: any, actions: AdditionalDetailsActions) {
+        await this.handleResponse(PaymentService.sendAdditionalDetails(details), actions);
     }
 
     private resetDropInComponent() {
