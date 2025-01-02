@@ -783,7 +783,6 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
                 .setAdyenClientKey(baseStore.getAdyenClientKey())
                 .setAdyenPaypalMerchantId(baseStore.getAdyenPaypalMerchantId())
                 .setDeviceFingerPrintUrl(adyenPaymentService.getDeviceFingerprintUrl())
-                .setSessionData(getAdyenSessionData(showRememberDetails()))
                 .setSelectedPaymentMethod(cartData.getAdyenPaymentMethod())
                 .setShowRememberTheseDetails(showRememberDetails())
                 .setCheckoutShopperHost(getCheckoutShopperHost())
@@ -929,7 +928,6 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
                 .setAdyenClientKey(baseStore.getAdyenClientKey())
                 .setAdyenPaypalMerchantId(baseStore.getAdyenPaypalMerchantId())
                 .setDeviceFingerPrintUrl(adyenCheckoutApiService.getDeviceFingerprintUrl())
-                .setSessionData(getAdyenSessionData(showRememberDetails()))
                 .setSelectedPaymentMethod(cartData.getAdyenPaymentMethod())
                 .setShowRememberTheseDetails(showRememberDetails())
                 .setCheckoutShopperHost(getCheckoutShopperHost())
@@ -1040,19 +1038,6 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         return new HashMap<>();
     }
 
-    protected CreateCheckoutSessionResponse getAdyenSessionData(final boolean storePaymentMethod) throws ApiException {
-        try {
-            final CartData cartData = getCheckoutFacade().getCheckoutCart();
-            return getAdyenPaymentService().getPaymentSessionData(cartData, storePaymentMethod);
-        } catch (JsonProcessingException e) {
-            LOGGER.error("Processing json failed. ", e);
-            return null;
-        } catch (IOException e) {
-            LOGGER.error("Exception during geting Adyen session data. ", e);
-            return null;
-        }
-    }
-
     protected CreateCheckoutSessionResponse getAdyenSessionData(Amount amount) throws ApiException {
         try {
             return getAdyenPaymentService().getPaymentSessionData(amount);
@@ -1095,7 +1080,6 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         model.addAttribute(MODEL_AMAZONPAY_CONFIGURATION, gson.toJson(cartData.getAdyenAmazonPayConfiguration()));
         model.addAttribute(MODEL_COUNTRY_CODE, countryCode);
         model.addAttribute(MODEL_DELIVERY_ADDRESS, gson.toJson(cartData.getDeliveryAddress()));
-        model.addAttribute(SESSION_DATA, getAdyenSessionData(showRememberDetails()));
         model.addAttribute(LOCALE, gson.toJson(setLocale(cartData.getAdyenAmazonPayConfiguration(), shopperLocale)));
     }
 

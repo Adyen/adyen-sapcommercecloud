@@ -116,10 +116,6 @@ class Payment extends React.Component<Props, State> {
             environment: this.castToEnvironment(this.props.adyenConfig.environmentMode),
             clientKey: this.props.adyenConfig.adyenClientKey,
             countryCode: this.props.adyenConfig.countryCode,
-            session: {
-                id: this.props.adyenConfig.sessionData.id,
-                sessionData: this.props.adyenConfig.sessionData.sessionData
-            },
             analytics: {
                 enabled: false
             },
