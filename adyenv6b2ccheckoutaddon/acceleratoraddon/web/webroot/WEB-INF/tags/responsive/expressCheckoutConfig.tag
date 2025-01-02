@@ -21,7 +21,11 @@
         merchantAccount: '${merchantAccount}',
         label: ['visible-xs', 'hidden-xs'],
         pageType: '${pageType}',
-        productCode: '${product.code}'
+        productCode: '${product.code}',
+        googlePayExpressEnabledOnCart: ${expressPaymentConfig.googlePayExpressEnabledOnCart},
+        applePayExpressEnabledOnCart: ${expressPaymentConfig.applePayExpressEnabledOnCart},
+        googlePayExpressEnabledOnProduct: ${expressPaymentConfig.googlePayExpressEnabledOnProduct},
+        applePayExpressEnabledOnProduct: ${expressPaymentConfig.applePayExpressEnabledOnProduct},
     }
 
     var checkoutConfig = {
@@ -32,12 +36,7 @@
             id: '${sessionData.id}',
             sessionData: '${sessionData.sessionData}'
         },
-        countryCode: 'US',
-        googlePayExpressEnabledOnCart: ${expressPaymentConfig.googlePayExpressEnabledOnCart},
-        applePayExpressEnabledOnCart: ${expressPaymentConfig.applePayExpressEnabledOnCart},
-        googlePayExpressEnabledOnProduct: ${expressPaymentConfig.googlePayExpressEnabledOnProduct},
-        applePayExpressEnabledOnProduct: ${expressPaymentConfig.applePayExpressEnabledOnProduct},
-
+        countryCode: 'US'
     }
 
     window.onload = function() {
