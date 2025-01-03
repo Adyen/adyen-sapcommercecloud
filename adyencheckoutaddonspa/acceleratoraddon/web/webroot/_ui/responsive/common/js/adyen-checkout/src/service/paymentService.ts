@@ -2,7 +2,7 @@ import {AxiosError, AxiosResponse} from "axios";
 import {CSRFToken, urlContextPath} from "../util/baseUrlUtil";
 import {AddressData, PlaceOrderRequest} from "../types/paymentForm";
 import {AddressModel} from "../reducers/types";
-import {PaymentAction} from "@adyen/adyen-web";
+import {PaymentAction,PaymentResponseData} from "@adyen/adyen-web";
 import {ErrorResponse} from "../types/errorResponse";
 import {adyenAxios} from "../axios/AdyenAxios";
 
@@ -10,6 +10,7 @@ export interface PlaceOrderResponse {
     success: boolean,
     executeAction?: boolean,
     paymentsAction?: PaymentAction,
+    paymentsResponse?: PaymentResponseData,
     error?: string,
     errorFieldCodes?: string[]
     orderNumber?: string
@@ -30,7 +31,8 @@ export class PaymentService {
                     success: true,
                     executeAction: placeOrderData.executeAction,
                     paymentsAction: placeOrderData.paymentsAction,
-                    orderNumber: placeOrderData.orderNumber
+                    orderNumber: placeOrderData.orderNumber,
+                    paymentsResponse: placeOrderData.paymentsResponse
                 }
             })
             .catch((errorResponse: AxiosError<ErrorResponse>): PlaceOrderResponse | void => {

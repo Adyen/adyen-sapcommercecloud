@@ -1,5 +1,6 @@
 package com.adyen.v6.facades.impl;
 
+import com.adyen.commerce.dto.OrderPaymentResult;
 import com.adyen.commerce.facades.AdyenCheckoutApiFacade;
 import com.adyen.model.checkout.PaymentRequest;
 import com.adyen.model.checkout.PaymentResponse;
@@ -215,14 +216,14 @@ public class DefaultAdyenExpressCheckoutFacade implements AdyenExpressCheckoutFa
 
             CartData cartData = cartConverter.convert(cart);
 
-            OrderData orderData = adyenCheckoutApiFacade.placeOrderWithPayment(request, cartData, paymentRequest);
+            OrderPaymentResult orderPaymentResult = adyenCheckoutApiFacade.placeOrderWithPayment(request, cartData, paymentRequest);
 
 
             if (sessionCart != null) {
                 cartService.setSessionCart(sessionCart);
             }
 
-            return orderData;
+            return orderPaymentResult.getOrderData();
         } else {
             throw new InvalidCartException("Checkout attempt on empty cart");
         }
@@ -293,7 +294,8 @@ public class DefaultAdyenExpressCheckoutFacade implements AdyenExpressCheckoutFa
         if (cartHasEntries(cart)) {
             CartData cartData = cartConverter.convert(cart);
 
-            return adyenCheckoutApiFacade.placeOrderWithPayment(request, cartData, paymentRequest);
+            OrderPaymentResult orderPaymentResult = adyenCheckoutApiFacade.placeOrderWithPayment(request, cartData, paymentRequest);
+            return orderPaymentResult.getOrderData();
         } else {
             throw new InvalidCartException("Checkout attempt on empty cart");
         }

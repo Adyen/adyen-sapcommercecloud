@@ -1,5 +1,6 @@
 package com.adyen.commerce.response;
 
+import com.adyen.model.checkout.PaymentResponse;
 import de.hybris.platform.commercefacades.order.data.OrderData;
 
 public class OCCPlaceOrderResponse extends PlaceOrderResponse {

@@ -203,7 +203,7 @@ class Payment extends React.Component<Props, State> {
                     this.dropIn.handleAction(responseData.paymentsAction)
                 } else {
                     actions.resolve({
-                        resultCode: 'Authorised'
+                        resultCode: responseData.paymentsResponse.resultCode
                     });
                     this.setState({orderNumber: responseData.orderNumber})
                     this.setState({redirectToNextStep: true})
