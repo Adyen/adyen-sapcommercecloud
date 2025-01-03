@@ -25,12 +25,6 @@
         <json:property name="shopperLocale" value="${shopperLocale}"/>
         <json:property name="environment" value="${environmentMode}"/>
         <json:property name="clientKey" value="${clientKey}"/>
-        <json:property name="sessionId" value="${sessionData.id}"/>
-        <json:property name="sessionData" value="${sessionData.sessionData}"/>
-        <json:object escapeXml="false" name="session">
-        <json:property name="id" value="${sessionData.id}"/>
-        <json:property name="sessionData" value="${sessionData.sessionData}"/>
-        </json:object>
         </json:object>
         </c:set>
 
