@@ -25,6 +25,7 @@
         <json:property name="shopperLocale" value="${shopperLocale}"/>
         <json:property name="environment" value="${environmentMode}"/>
         <json:property name="clientKey" value="${clientKey}"/>
+        <json:property name="countryCode" value="${countryCode}"/>
         </json:object>
         </c:set>
 
