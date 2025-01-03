@@ -32,10 +32,6 @@
         shopperLocale: '${shopperLocale}',
         environment: '${environmentMode}',
         clientKey: '${clientKey}',
-        session: {
-            id: '${sessionData.id}',
-            sessionData: '${sessionData.sessionData}'
-        },
         countryCode: 'US'
     }
 

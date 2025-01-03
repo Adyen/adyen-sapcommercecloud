@@ -25,7 +25,6 @@ public class CheckoutConfigDTO {
     private String adyenClientKey;
     private String adyenPaypalMerchantId;
     private String deviceFingerPrintUrl;
-    private CreateCheckoutSessionResponse sessionData;
     private String selectedPaymentMethod;
     private boolean showRememberTheseDetails;
     private String checkoutShopperHost;
@@ -133,14 +132,6 @@ public class CheckoutConfigDTO {
 
     public void setDeviceFingerPrintUrl(String deviceFingerPrintUrl) {
         this.deviceFingerPrintUrl = deviceFingerPrintUrl;
-    }
-
-    public CreateCheckoutSessionResponse getSessionData() {
-        return sessionData;
-    }
-
-    public void setSessionData(CreateCheckoutSessionResponse sessionData) {
-        this.sessionData = sessionData;
     }
 
     public String getSelectedPaymentMethod() {

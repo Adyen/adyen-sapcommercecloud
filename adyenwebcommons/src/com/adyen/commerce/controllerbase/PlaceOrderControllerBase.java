@@ -1,5 +1,6 @@
 package com.adyen.commerce.controllerbase;
 
+import com.adyen.commerce.dto.OrderPaymentResult;
 import com.adyen.commerce.exception.AdyenControllerException;
 import com.adyen.commerce.facades.AdyenCheckoutApiFacade;
 import com.adyen.commerce.request.PlaceOrderRequest;
@@ -171,13 +172,14 @@ public abstract class PlaceOrderControllerBase {
 
         try {
             cartData.setAdyenReturnUrl(getPaymentRedirectReturnUrl());
-            OrderData orderData = getAdyenCheckoutApiFacade().placeOrderWithPayment(request, cartData, placeOrderRequest.getPaymentRequest());
-
+            OrderPaymentResult orderPaymentResult = getAdyenCheckoutApiFacade().placeOrderWithPayment(request, cartData, placeOrderRequest.getPaymentRequest());
+            OrderData orderData = orderPaymentResult.getOrderData();
             String orderCode = getCheckoutCustomerStrategy().isAnonymousCheckout() ? orderData.getGuid() : orderData.getCode();
 
             OCCPlaceOrderResponse placeOrderResponse = new OCCPlaceOrderResponse();
             placeOrderResponse.setOrderNumber(orderCode);
             placeOrderResponse.setOrderData(orderData);
+            placeOrderResponse.setPaymentsResponse(orderPaymentResult.getPaymentResponse());
             return placeOrderResponse;
 
         } catch (ApiException e) {
