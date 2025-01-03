@@ -1,7 +1,6 @@
 package com.adyen.v6.dto;
 
 import com.adyen.model.checkout.Amount;
-import com.adyen.model.checkout.CreateCheckoutSessionResponse;
 
 import java.math.BigDecimal;
 
@@ -44,11 +43,6 @@ public class ExpressCheckoutConfigDTOBuilder {
 
     public ExpressCheckoutConfigDTOBuilder setMerchantAccount(String merchantAccount) {
         expressCheckoutConfigDTO.setMerchantAccount(merchantAccount);
-        return this;
-    }
-
-    public ExpressCheckoutConfigDTOBuilder setSessionData(CreateCheckoutSessionResponse sessionData) {
-        expressCheckoutConfigDTO.setSessionData(sessionData);
         return this;
     }
 
