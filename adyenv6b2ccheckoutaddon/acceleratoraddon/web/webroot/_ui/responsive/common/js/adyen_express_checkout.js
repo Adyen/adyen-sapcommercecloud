@@ -33,10 +33,10 @@ var AdyenExpressCheckoutHybris = (function () {
         initExpressCheckout: async function (params, config) {
             var checkoutPromise = this.initiateCheckout(config);
             checkoutPromise.then((checkout) => {
-                if(params.pageType === 'cart' && config.googlePayExpressEnabledOnCart || params.pageType === 'PDP' && config.googlePayExpressEnabledOnProduct) {
+                if (params.pageType === 'cart' && params.googlePayExpressEnabledOnCart || params.pageType === 'PDP' && params.googlePayExpressEnabledOnProduct) {
                     this.initiateGooglePayExpress(checkout, params)
                 }
-                if(params.pageType=== 'cart' && config.applePayExpressEnabledOnCart || params.pageType === 'PDP' && config.applePayExpressEnabledOnProduct) {
+                if (params.pageType === 'cart' && params.applePayExpressEnabledOnCart || params.pageType === 'PDP' && params.applePayExpressEnabledOnProduct) {
                     this.initiateApplePayExpress(checkout, params)
                 }
             });
