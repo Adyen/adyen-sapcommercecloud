@@ -22,17 +22,7 @@ package com.adyen.v6.facades.impl;
 
 
 import com.adyen.commerce.data.PaymentMethodsCartData;
-import com.adyen.model.checkout.Amount;
-import com.adyen.model.checkout.CreateCheckoutSessionResponse;
-import com.adyen.model.checkout.PaymentCompletionDetails;
-import com.adyen.model.checkout.PaymentDetailsRequest;
-import com.adyen.model.checkout.PaymentDetailsResponse;
-import com.adyen.model.checkout.PaymentMethod;
-import com.adyen.model.checkout.PaymentMethodsResponse;
-import com.adyen.model.checkout.PaymentRequest;
-import com.adyen.model.checkout.PaymentResponse;
-import com.adyen.model.checkout.PaymentResponseAction;
-import com.adyen.model.checkout.StoredPaymentMethod;
+import com.adyen.model.checkout.*;
 import com.adyen.model.nexo.ErrorConditionType;
 import com.adyen.model.nexo.ResultType;
 import com.adyen.model.recurring.Recurring;
@@ -111,43 +101,20 @@ import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Required;
 import org.springframework.transaction.support.TransactionOperations;
 import org.springframework.ui.Model;
+import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
 import org.springframework.validation.Errors;
 
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.adyen.constants.ApiConstants.ThreeDS2Property.THREEDS2_CHALLENGE_TOKEN;
 import static com.adyen.constants.ApiConstants.ThreeDS2Property.THREEDS2_FINGERPRINT_TOKEN;
-import static com.adyen.v6.constants.Adyenv6coreConstants.ISSUER_PAYMENT_METHODS;
-import static com.adyen.v6.constants.Adyenv6coreConstants.OPENINVOICE_METHODS_ALLOW_SOCIAL_SECURITY_NUMBER;
-import static com.adyen.v6.constants.Adyenv6coreConstants.OPENINVOICE_METHODS_API;
-import static com.adyen.v6.constants.Adyenv6coreConstants.PAYBRIGHT;
-import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD;
-import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHODS_ALLOW_SOCIAL_SECURITY_NUMBER;
-import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_AMAZONPAY;
-import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_APPLEPAY;
-import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_BOLETO;
-import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_KLARNA;
-import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_ONLINEBANKING_IN;
-import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_ONLINEBANKING_PL;
-import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_SCHEME;
-import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_SEPA_DIRECTDEBIT;
-import static com.adyen.v6.constants.Adyenv6coreConstants.SHOPPER_LOCALE;
+import static com.adyen.v6.constants.Adyenv6coreConstants.*;
 import static de.hybris.platform.order.impl.DefaultCartService.SESSION_CART_PARAMETER_NAME;
 
 /**
@@ -715,6 +682,8 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         PaymentMethodsResponse response = new PaymentMethodsResponse();
         CartModel cartModel = cartService.getSessionCart();
 
+        Assert.notNull(cartModel.getDeliveryAddress(), "Delivery address is required");
+
         //to remove unwanted payment methods insert them here
         List<String> excludedPaymentMethods = getExcludedPaymentMethodsFromConfiguration();
         LOGGER.info(excludedPaymentMethods.toString());
@@ -847,6 +816,8 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         CustomerModel customerModel = getCheckoutCustomerStrategy().getCurrentUserForCheckout();
         PaymentMethodsResponse response = new PaymentMethodsResponse();
         CartModel cartModel = cartService.getSessionCart();
+
+        Assert.notNull(cartModel.getDeliveryAddress(), "Delivery address is required");
 
         try {
             if (showPos()) {
