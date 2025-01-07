@@ -236,6 +236,7 @@
         <property name="configurationService" ref="configurationService"/>
         <property name="adyenMerchantAccountStrategy" ref="adyenMerchantStrategy"/>
         <property name="adyenOrderFacade" ref="adyenOrderFacade"/>
+        <property name="productFacade" ref="productFacade"/>
     </bean>
 
     <alias name="defaultAdyenCheckoutApiFacade" alias="adyenCheckoutApiFacade" />

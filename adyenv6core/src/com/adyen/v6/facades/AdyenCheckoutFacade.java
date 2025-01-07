@@ -20,27 +20,20 @@
  */
 package com.adyen.v6.facades;
 
-import com.adyen.model.checkout.CheckoutPaymentMethod;
-import com.adyen.model.checkout.PaymentCompletionDetails;
-import com.adyen.model.checkout.PaymentDetailsRequest;
-import com.adyen.model.checkout.PaymentDetailsResponse;
-import com.adyen.model.checkout.PaymentRequest;
-import com.adyen.model.checkout.PaymentResponse;
+import com.adyen.model.checkout.*;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.controllers.dtos.PaymentResultDTO;
 import com.adyen.v6.dto.CheckoutConfigDTO;
+import com.adyen.v6.dto.ExpressCheckoutConfigDTO;
 import com.adyen.v6.forms.AdyenPaymentForm;
 import de.hybris.platform.commercefacades.order.data.CartData;
 import de.hybris.platform.commercefacades.order.data.OrderData;
-import de.hybris.platform.commercefacades.product.data.ProductData;
-import de.hybris.platform.commercefacades.user.data.AddressData;
 import de.hybris.platform.commercewebservicescommons.dto.order.PaymentDetailsWsDTO;
 import de.hybris.platform.core.model.order.CartModel;
 import de.hybris.platform.core.model.order.payment.PaymentInfoModel;
 import de.hybris.platform.order.InvalidCartException;
 import de.hybris.platform.order.exceptions.CalculationException;
 import org.springframework.ui.Model;
-import org.springframework.validation.BindingResult;
 import org.springframework.validation.Errors;
 
 import javax.servlet.http.HttpServletRequest;
@@ -149,9 +142,13 @@ public interface AdyenCheckoutFacade {
 
     void initializeSummaryData(Model model) throws ApiException;
 
-    void initializeApplePayExpressCartPageData(Model model) throws ApiException;
+    void initializeExpressCheckoutCartPageData(Model model) throws ApiException;
 
-    void initializeApplePayExpressPDPData(Model model, ProductData productData) throws ApiException;
+    void initializeExpressCheckoutPDPData(Model model, String productCode) throws ApiException;
+
+    ExpressCheckoutConfigDTO initializeExpressCheckoutCartPageDataOCC() throws ApiException;
+
+    ExpressCheckoutConfigDTO initializeExpressCheckoutPDPDataOCC(String productCode) throws ApiException;
 
     /**
      * Returns whether Boleto should be shown as an available payment method on the checkout page
