@@ -137,6 +137,7 @@ class Payment extends React.Component<Props, State> {
             hasHolderName: true,
             holderNameRequired: this.props.adyenConfig.cardHolderNameRequired,
             enableStoreDetails: this.props.adyenConfig.showRememberTheseDetails,
+            amount: this.props.adyenConfig.amount,
             clickToPayConfiguration: {
                 merchantDisplayName: this.props.adyenConfig.merchantDisplayName,
                 shopperEmail:  this.props.adyenConfig.shopperEmail,
