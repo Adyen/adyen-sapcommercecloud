@@ -101,6 +101,7 @@ import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Required;
 import org.springframework.transaction.support.TransactionOperations;
 import org.springframework.ui.Model;
+import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
 import org.springframework.validation.Errors;
 
@@ -680,6 +681,8 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         PaymentMethodsResponse response = new PaymentMethodsResponse();
         CartModel cartModel = cartService.getSessionCart();
 
+        Assert.notNull(cartModel.getDeliveryAddress(), "Delivery address is required");
+
         //to remove unwanted payment methods insert them here
         List<String> excludedPaymentMethods = getExcludedPaymentMethodsFromConfiguration();
         LOGGER.info(excludedPaymentMethods.toString());
@@ -811,6 +814,8 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         CustomerModel customerModel = getCheckoutCustomerStrategy().getCurrentUserForCheckout();
         PaymentMethodsResponse response = new PaymentMethodsResponse();
         CartModel cartModel = cartService.getSessionCart();
+
+        Assert.notNull(cartModel.getDeliveryAddress(), "Delivery address is required");
 
         try {
             if (showPos()) {
