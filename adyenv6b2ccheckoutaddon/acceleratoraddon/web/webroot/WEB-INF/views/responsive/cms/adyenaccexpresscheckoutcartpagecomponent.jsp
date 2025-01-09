@@ -4,15 +4,17 @@
 
 <adyen:expressCheckoutConfig pageType="cart"/>
 
-<div class="cart__actions border">
-    <div class="row">
-        <div class="col-sm-4 col-md-3 pull-right">
-            <div class="adyen-google-pay-button">
+<c:if test="${not empty cartData.rootGroups}">
+    <div class="cart__actions border">
+        <div class="row">
+            <div class="col-sm-4 col-md-3 pull-right">
+                <div class="adyen-google-pay-button">
+                </div>
             </div>
-        </div>
-        <div class="col-sm-4 col-md-3 pull-right">
-            <div class="adyen-apple-pay-button">
+            <div class="col-sm-4 col-md-3 pull-right">
+                <div class="adyen-apple-pay-button">
+                </div>
             </div>
         </div>
     </div>
-</div>
+</c:if>
