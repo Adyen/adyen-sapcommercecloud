@@ -31,7 +31,6 @@
     }
 
     var checkoutConfig = {
-        shopperLocale: '${shopperLocale}',
         environment: '${environmentMode}',
         clientKey: '${clientKey}',
         countryCode: 'US'
