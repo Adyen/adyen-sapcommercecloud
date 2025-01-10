@@ -9,7 +9,7 @@ import {AddressData} from "../../types/addressData";
 import {InputCheckbox} from "../controls/InputCheckbox";
 import {AddressService} from "../../service/addressService";
 import {AdyenConfigService} from "../../service/adyenConfigService";
-import { AdyenCheckout, Dropin,AdyenCheckoutError, ICore } from '@adyen/adyen-web/auto'
+import {AdyenCheckout, AdyenCheckoutError, Dropin, ICore} from '@adyen/adyen-web/auto'
 import '@adyen/adyen-web/styles/adyen.css';
 import {AdyenConfigData} from "../../types/adyenConfigData";
 import {isEmpty, isNotEmpty} from "../../util/stringUtil";
@@ -22,12 +22,13 @@ import {Navigate} from "react-router-dom";
 import {PaymentError} from "./PaymentError";
 import {ScrollHere} from "../common/ScrollTo";
 import {
-    CoreConfiguration,
+    AdditionalDetailsActions,
     CardConfiguration,
-    UIElement,
+    CoreConfiguration,
     SubmitActions,
-    AdditionalDetailsActions
+    UIElement
 } from "@adyen/adyen-web";
+import {adyenConfigInitialState} from "../../reducers/adyenConfigReducer";
 
 interface State {
     useDifferentBillingAddress: boolean
@@ -61,6 +62,7 @@ interface DispatchProps {
     setPostCode: (postCode: string) => void
     setPhoneNumber: (phoneNumber: string) => void
     setSelectedAddress: (address: AddressModel) => void
+    removeAdyenConfigFromStore: () => void
 }
 
 type Props = StoreProps & DispatchProps & ComponentProps
@@ -98,6 +100,10 @@ class Payment extends React.Component<Props, State> {
         if (isNotEmpty(this.props.adyenConfig.adyenClientKey)) {
             await this.initializeWebComponentsCheckout()
         }
+    }
+
+    componentWillUnmount() {
+        this.props.removeAdyenConfigFromStore();
     }
 
     private async initializeWebComponentsCheckout() {
@@ -342,7 +348,8 @@ function mapDispatchToProps(dispatch: StoreDispatch): DispatchProps {
             type: "billingAddress/setPhoneNumber",
             payload: phoneNumber
         }),
-        setSelectedAddress: (address: AddressModel) => dispatch({type: "billingAddress/setAddress", payload: address})
+        setSelectedAddress: (address: AddressModel) => dispatch({type: "billingAddress/setAddress", payload: address}),
+        removeAdyenConfigFromStore: () => dispatch(({type: "adyenConfig/setAdyenConfig", payload: adyenConfigInitialState}))
     }
 }
 
