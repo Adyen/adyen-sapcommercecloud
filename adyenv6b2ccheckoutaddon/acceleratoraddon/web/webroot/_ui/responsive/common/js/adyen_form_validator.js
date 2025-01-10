@@ -45,7 +45,7 @@ class AdyenFormValidator {
         }
         $('input[name="txvariant"]').remove();
 
-        if (['eps', 'ideal', 'onlinebanking_IN', 'onlineBanking_PL'].indexOf(paymentMethod) >= 0) {
+        if (['eps','onlinebanking_IN', 'onlineBanking_PL'].indexOf(paymentMethod) >= 0) {
             var issuerIdField = document.getElementById('issuerId');
             if (issuerIdField.value === "") {
                 window.alert("Please select an issuer");

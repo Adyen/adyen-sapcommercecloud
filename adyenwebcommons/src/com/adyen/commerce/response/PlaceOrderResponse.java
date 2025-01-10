@@ -1,5 +1,6 @@
 package com.adyen.commerce.response;
 
+import com.adyen.model.checkout.PaymentDetailsResponse;
 import com.adyen.model.checkout.PaymentResponse;
 import com.adyen.model.checkout.PaymentResponseAction;
 
@@ -9,6 +10,7 @@ public class PlaceOrderResponse {
     private boolean executeAction;
     private PaymentResponseAction paymentsAction;
     private PaymentResponse paymentsResponse;
+    private PaymentDetailsResponse paymentDetailsResponse;
 
     public String getOrderNumber() {
         return orderNumber;
@@ -48,5 +50,13 @@ public class PlaceOrderResponse {
 
     public void setPaymentsResponse(PaymentResponse paymentsResponse) {
         this.paymentsResponse = paymentsResponse;
+    }
+
+    public PaymentDetailsResponse getPaymentDetailsResponse() {
+        return paymentDetailsResponse;
+    }
+
+    public void setPaymentDetailsResponse(PaymentDetailsResponse paymentDetailsResponse) {
+        this.paymentDetailsResponse = paymentDetailsResponse;
     }
 }

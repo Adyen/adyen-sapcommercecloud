@@ -11,7 +11,6 @@ export interface AdyenConfigData {
     adyenClientKey: string;
     adyenPaypalMerchantId: string;
     deviceFingerPrintUrl: string;
-    sessionData: SessionData;
     selectedPaymentMethod: string;
     showRememberTheseDetails: boolean;
     checkoutShopperHost: string;
@@ -29,11 +28,6 @@ export interface AdyenConfigData {
     merchantDisplayName: string,
     shopperEmail: string,
     clickToPayLocale: string,
-}
-
-interface SessionData {
-    id: string,
-    sessionData: string
 }
 
 interface StoredPaymentMethodData {

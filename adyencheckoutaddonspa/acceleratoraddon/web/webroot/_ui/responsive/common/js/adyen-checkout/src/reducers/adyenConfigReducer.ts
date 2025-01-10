@@ -9,7 +9,6 @@ export const adyenConfigInitialState : AdyenConfigData = {
     immediateCapture: false,
     openInvoiceMethods: [],
     selectedPaymentMethod: "",
-    sessionData: undefined,
     shopperLocale: "",
     showBoleto: false,
     showComboCard: false,

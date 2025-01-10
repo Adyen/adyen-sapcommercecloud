@@ -124,7 +124,7 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
     }
 
     @Override
-    public OrderData placeOrderWithAdditionalDetails(PaymentDetailsRequest detailsRequest) throws Exception {
+    public OrderPaymentResult placeOrderWithAdditionalDetails(PaymentDetailsRequest detailsRequest) throws Exception {
 
         PaymentDetailsResponse paymentsDetailsResponse = this.componentDetails(detailsRequest);
 
@@ -142,7 +142,7 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
             LOGGER.info("Creating authorized order");
             String orderCode = paymentsDetailsResponse.getMerchantReference();
             OrderModel orderModel = retrievePendingOrder(orderCode);
-            return getOrderConverter().convert(orderModel);
+            return new OrderPaymentResult(getOrderConverter().convert(orderModel), paymentsDetailsResponse);
         }
 
         throw new AdyenNonAuthorizedPaymentException(paymentsDetailsResponse);

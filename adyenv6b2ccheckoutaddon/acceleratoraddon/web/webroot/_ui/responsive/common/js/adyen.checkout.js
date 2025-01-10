@@ -59,11 +59,6 @@ class AdyenCheckoutHelper {
             },
             onError: (error, component) => {
                 console.error(error.name, error.message, error.stack, component);
-            },
-            paymentMethodsConfiguration:{
-                card: {
-                    enableStoreDetails: paymentMethodConfigs.enableStoreDetails,
-                },
             }
         };
         this.checkout = await AdyenWeb.AdyenCheckout(configuration);
@@ -227,7 +222,7 @@ class AdyenCheckoutHelper {
         });
     }
 
-    makePayment(data, component, handleResult, label) {
+    makePayment(data, component, handleResult) {
         $.ajax({
             url: ACC.config.encodedContextPath + '/adyen/component/payment',
             type: "POST",

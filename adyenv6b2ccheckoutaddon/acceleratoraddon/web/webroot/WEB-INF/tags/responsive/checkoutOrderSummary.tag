@@ -11,7 +11,7 @@
 <spring:url value="/checkout/multi/termsAndConditions" var="getTermsAndConditionsUrl"/>
 
 <c:set var="componentsWithPayButton"
-       value="[amazonpay],[applepay],[paypal],[paywithgoogle],[googlepay],[pix],[bcmc_mobile],[upi],[paysafecard]"/>
+       value="[amazonpay],[applepay],[paypal],[paywithgoogle],[googlepay],[pix],[bcmc_mobile],[upi],[paysafecard],[klarna],[ideal]"/>
 <c:set var="componentPaymentMethod" value="[${selectedPaymentMethod}]" />
 
 <%-- Components --%>
@@ -29,7 +29,6 @@
         </div>
     </c:if>
     </div>
-
     <c:choose>
         <c:when test="${componentPaymentMethod eq '[pix]' || componentPaymentMethod eq '[bcmc_mobile]'}">
             <%-- Render QR code --%>
