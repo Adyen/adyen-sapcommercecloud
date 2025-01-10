@@ -45,7 +45,9 @@ var AdyenExpressCheckoutHybris = (function () {
             const {
                 amount,
                 pageType,
-                productCode
+                productCode,
+                applePayMerchantName,
+                applePayMerchantId
             } = params;
 
             const applePayNodes = document.getElementsByClassName('adyen-apple-pay-button');
@@ -59,6 +61,10 @@ var AdyenExpressCheckoutHybris = (function () {
                     amount: {
                         currency: amount.currency,
                         value: amount.value
+                    },
+                    configuration: {
+                        merchantName: applePayMerchantName,
+                        merchantId: applePayMerchantId,
                     },
                     // Button config
                     buttonType: "check-out",

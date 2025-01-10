@@ -22,6 +22,8 @@
         label: ['visible-xs', 'hidden-xs'],
         pageType: '${pageType}',
         productCode: '${product.code}',
+        applePayMerchantName: '${applePayMerchantName}',
+        applePayMerchantId: '${applePayMerchantIdentifier}',
         googlePayExpressEnabledOnCart: ${expressPaymentConfig.googlePayExpressEnabledOnCart},
         applePayExpressEnabledOnCart: ${expressPaymentConfig.applePayExpressEnabledOnCart},
         googlePayExpressEnabledOnProduct: ${expressPaymentConfig.googlePayExpressEnabledOnProduct},
