@@ -11,6 +11,7 @@ export interface PlaceOrderResponse {
     executeAction?: boolean,
     paymentsAction?: PaymentAction,
     paymentsResponse?: PaymentResponseData,
+    paymentDetailsResponse?: PaymentResponseData,
     error?: string,
     errorFieldCodes?: string[]
     orderNumber?: string
@@ -61,7 +62,8 @@ export class PaymentService {
                     success: true,
                     executeAction: placeOrderData.executeAction,
                     paymentsAction: placeOrderData.paymentsAction,
-                    orderNumber: placeOrderData.orderNumber
+                    orderNumber: placeOrderData.orderNumber,
+                    paymentsResponse: placeOrderData.paymentDetailsResponse
                 }
             })
             .catch((errorResponse: AxiosError<ErrorResponse>): PlaceOrderResponse | void => {

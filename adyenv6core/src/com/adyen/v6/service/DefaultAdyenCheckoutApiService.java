@@ -278,42 +278,6 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
     }
 
     @Override
-    public CreateCheckoutSessionResponse getPaymentSessionData(final CartData cartData, final boolean storePaymentMethod) throws IOException, ApiException {
-        final PaymentsApi checkout = new PaymentsApi(client);
-        final PriceData totalPriceWithTax = cartData.getTotalPriceWithTax();
-
-        final CreateCheckoutSessionRequest createCheckoutSessionRequest = new CreateCheckoutSessionRequest();
-        createCheckoutSessionRequest.amount(AmountUtil.createAmount(totalPriceWithTax.getValue(), totalPriceWithTax.getCurrencyIso()));
-        createCheckoutSessionRequest.merchantAccount(merchantAccount);
-        if (cartData.getDeliveryAddress() != null) {
-            createCheckoutSessionRequest.countryCode(cartData.getDeliveryAddress().getCountry().getIsocode());
-        }
-        createCheckoutSessionRequest.returnUrl(Optional.ofNullable(cartData.getAdyenReturnUrl()).orElse("returnUrl"));
-        createCheckoutSessionRequest.reference(cartData.getCode());
-        createCheckoutSessionRequest.setStorePaymentMethod(storePaymentMethod);
-        createCheckoutSessionRequest.setStorePaymentMethodMode(ASKFORCONSENT);
-        createCheckoutSessionRequest.enableOneClick(true);
-        createCheckoutSessionRequest.shopperEmail(cartData.getUser().getUid());
-        createCheckoutSessionRequest.recurringProcessingModel(CreateCheckoutSessionRequest.RecurringProcessingModelEnum.CARDONFILE);
-        createCheckoutSessionRequest.shopperReference(cartData.getUser().getUid());
-        
-        return checkout.sessions(createCheckoutSessionRequest);
-    }
-
-    @Override
-    public CreateCheckoutSessionResponse getPaymentSessionData(final Amount amount) throws IOException, ApiException {
-        final PaymentsApi checkout = new PaymentsApi(client);
-
-        final CreateCheckoutSessionRequest createCheckoutSessionRequest = new CreateCheckoutSessionRequest();
-        createCheckoutSessionRequest.amount(amount);
-        createCheckoutSessionRequest.merchantAccount(merchantAccount);
-        createCheckoutSessionRequest.returnUrl("returnUrl"); //dummy url because it's required by api
-        createCheckoutSessionRequest.reference("reference"); //dummy reference because it's required by api
-
-        return checkout.sessions(createCheckoutSessionRequest);
-    }
-
-    @Override
     public String getDeviceFingerprintUrl() {
         DateFormat df = new SimpleDateFormat("yyyyMMdd");
         Date today = Calendar.getInstance().getTime();

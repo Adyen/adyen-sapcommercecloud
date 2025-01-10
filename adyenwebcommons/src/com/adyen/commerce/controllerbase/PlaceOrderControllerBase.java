@@ -76,13 +76,14 @@ public abstract class PlaceOrderControllerBase {
 
     public OCCPlaceOrderResponse handleAdditionalDetailsOCC(final PaymentDetailsRequest paymentDetailsRequest) {
         try {
-            OrderData orderData = getAdyenCheckoutApiFacade().placeOrderWithAdditionalDetails(paymentDetailsRequest);
+            OrderPaymentResult orderPaymentResult = getAdyenCheckoutApiFacade().placeOrderWithAdditionalDetails(paymentDetailsRequest);
 
-            String orderCode = getCheckoutCustomerStrategy().isAnonymousCheckout() ? orderData.getGuid() : orderData.getCode();
+            String orderCode = getCheckoutCustomerStrategy().isAnonymousCheckout() ? orderPaymentResult.getOrderData().getGuid() : orderPaymentResult.getOrderData().getCode();
 
             OCCPlaceOrderResponse placeOrderResponse = new OCCPlaceOrderResponse();
             placeOrderResponse.setOrderNumber(orderCode);
-            placeOrderResponse.setOrderData(orderData);
+            placeOrderResponse.setOrderData(orderPaymentResult.getOrderData());
+            placeOrderResponse.setPaymentDetailsResponse(orderPaymentResult.getPaymentDetailsResponse());
             return placeOrderResponse;
         } catch (Exception e) {
             LOGGER.error("Exception", e);

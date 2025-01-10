@@ -16,5 +16,5 @@ public interface AdyenCheckoutApiFacade extends AdyenCheckoutFacade {
 
     OrderPaymentResult placeOrderWithPayment(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest) throws Exception;
 
-    OrderData placeOrderWithAdditionalDetails(PaymentDetailsRequest detailsRequest) throws Exception;
+    OrderPaymentResult placeOrderWithAdditionalDetails(PaymentDetailsRequest detailsRequest) throws Exception;
 }
