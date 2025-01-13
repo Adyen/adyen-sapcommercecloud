@@ -53,7 +53,6 @@ import com.adyen.v6.service.AdyenTransactionService;
 import com.adyen.v6.strategy.AdyenMerchantAccountStrategy;
 import com.adyen.v6.util.AmountUtil;
 import com.adyen.v6.util.TerminalAPIUtil;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.gson.Gson;
 import de.hybris.platform.commercefacades.i18n.I18NFacade;
 import de.hybris.platform.commercefacades.order.CheckoutFacade;
@@ -1138,7 +1137,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         model.addAttribute(MODEL_MERCHANT_ACCOUNT,expressCheckoutConfigDTO.getMerchantAccount());
         model.addAttribute(MODEL_AMOUNT, expressCheckoutConfigDTO.getAmount());
         model.addAttribute(MODEL_AMOUNT_DECIMAL, expressCheckoutConfigDTO.getAmountDecimal());
-        model.addAttribute(MODEL_DF_URL, expressCheckoutConfigDTO.getExpressPaymentConfig());
+        model.addAttribute(MODEL_DF_URL, expressCheckoutConfigDTO.getDfUrl());
         model.addAttribute(MODEL_CHECKOUT_SHOPPER_HOST, expressCheckoutConfigDTO.getCheckoutShopperHost());
     }
 
