@@ -122,6 +122,7 @@ class Payment extends React.Component<Props, State> {
             environment: this.castToEnvironment(this.props.adyenConfig.environmentMode),
             clientKey: this.props.adyenConfig.adyenClientKey,
             countryCode: this.props.adyenConfig.countryCode,
+            amount: this.props.adyenConfig.amount,
             analytics: {
                 enabled: false
             },
@@ -143,7 +144,6 @@ class Payment extends React.Component<Props, State> {
             hasHolderName: true,
             holderNameRequired: this.props.adyenConfig.cardHolderNameRequired,
             enableStoreDetails: this.props.adyenConfig.showRememberTheseDetails,
-            amount: this.props.adyenConfig.amount,
             clickToPayConfiguration: {
                 merchantDisplayName: this.props.adyenConfig.merchantDisplayName,
                 shopperEmail:  this.props.adyenConfig.shopperEmail,
