@@ -142,11 +142,11 @@ public interface AdyenCheckoutFacade {
 
     void initializeSummaryData(Model model) throws ApiException;
 
-    void initializeExpressCheckoutCartPageData(Model model) throws ApiException;
+    void initializeExpressCheckoutCartPageData(Model model) throws ApiException, CalculationException;
 
     void initializeExpressCheckoutPDPData(Model model, String productCode) throws ApiException;
 
-    ExpressCheckoutConfigDTO initializeExpressCheckoutCartPageDataOCC() throws ApiException;
+    ExpressCheckoutConfigDTO initializeExpressCheckoutCartPageDataOCC() throws ApiException, CalculationException;
 
     ExpressCheckoutConfigDTO initializeExpressCheckoutPDPDataOCC(String productCode) throws ApiException;
 

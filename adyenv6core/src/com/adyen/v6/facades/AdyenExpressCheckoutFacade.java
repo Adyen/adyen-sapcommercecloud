@@ -5,7 +5,6 @@ import com.adyen.model.checkout.PaymentResponse;
 import de.hybris.platform.commercefacades.order.data.OrderData;
 import de.hybris.platform.commercefacades.user.data.AddressData;
 import de.hybris.platform.deliveryzone.model.ZoneDeliveryModeValueModel;
-import de.hybris.platform.order.exceptions.CalculationException;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.Optional;
@@ -25,7 +24,5 @@ public interface AdyenExpressCheckoutFacade {
                                      HttpServletRequest request) throws Exception;
 
     Optional<ZoneDeliveryModeValueModel> getExpressDeliveryModePrice();
-
-    void removeDeliveryModeFromSessionCart() throws CalculationException;
 
 }
