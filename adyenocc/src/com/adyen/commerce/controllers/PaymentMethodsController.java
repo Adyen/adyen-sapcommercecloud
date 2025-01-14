@@ -6,10 +6,12 @@ package com.adyen.commerce.controllers;
 import com.adyen.commerce.constants.AdyenoccConstants;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.facades.AdyenCheckoutFacade;
+import com.adyen.v6.facades.AdyenExpressCheckoutFacade;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import de.hybris.platform.commerceservices.request.mapping.annotation.ApiVersion;
+import de.hybris.platform.order.exceptions.CalculationException;
 import de.hybris.platform.webservicescommons.swagger.ApiBaseSiteIdAndUserIdParam;
 import de.hybris.platform.webservicescommons.swagger.ApiBaseSiteIdUserIdAndCartIdParam;
 import io.swagger.v3.oas.annotations.Operation;
@@ -36,6 +38,9 @@ public class PaymentMethodsController
     @Autowired
     private AdyenCheckoutFacade adyenCheckoutFacade;
 
+    @Autowired
+    private AdyenExpressCheckoutFacade adyenExpressCheckoutFacade;
+
     @Secured({ "ROLE_CUSTOMERGROUP", "ROLE_TRUSTED_CLIENT", "ROLE_CUSTOMERMANAGERGROUP" })
     @GetMapping(value = AdyenoccConstants.ADYEN_USER_CART_PREFIX + "/checkout-configuration")
     @Operation(operationId = "getCheckoutConfiguration", summary = "Get checkout configuration", description =
@@ -61,7 +66,7 @@ public class PaymentMethodsController
     @Operation(operationId = "getExpressCartCheckoutConfiguration", summary = "Get express cart page checkout configuration", description =
             "Returns configuration for express payments on cart")
     @ApiBaseSiteIdUserIdAndCartIdParam
-    public ResponseEntity<String> getExpressCartCheckoutConfiguration() throws ApiException, JsonProcessingException {
+    public ResponseEntity<String> getExpressCartCheckoutConfiguration() throws ApiException, JsonProcessingException, CalculationException {
         String response = objectMapper.writeValueAsString(adyenCheckoutFacade.initializeExpressCheckoutCartPageDataOCC());
         return ResponseEntity.ok().body(response);
     }

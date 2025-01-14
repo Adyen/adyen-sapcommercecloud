@@ -1040,7 +1040,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         model.addAttribute(LOCALE, gson.toJson(setLocale(cartData.getAdyenAmazonPayConfiguration(), shopperLocale)));
     }
 
-    public void initializeExpressCheckoutCartPageData(Model model) throws ApiException {
+    public void initializeExpressCheckoutCartPageData(Model model) throws ApiException, CalculationException {
         ExpressCheckoutConfigDTO expressCheckoutConfigDTO = initializeExpressCheckoutCartPageDataOCC();
         populateExpressCheckoutConfigModel(model, expressCheckoutConfigDTO);
     }
@@ -1050,7 +1050,9 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         populateExpressCheckoutConfigModel(model, expressCheckoutConfigDTO);
     }
 
-    public ExpressCheckoutConfigDTO initializeExpressCheckoutCartPageDataOCC() throws ApiException {
+    public ExpressCheckoutConfigDTO initializeExpressCheckoutCartPageDataOCC() throws ApiException, CalculationException {
+        removeDeliveryModeFromSessionCart();
+        
         final CartData cartData = getCheckoutFacade().getCheckoutCart();
         if (cartData != null && cartData.getTotalPriceWithTax() != null && cartData.getTotalPriceWithTax().getCurrencyIso() != null) {
             final String currencyIso = cartData.getTotalPriceWithTax().getCurrencyIso();
@@ -1141,6 +1143,16 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         model.addAttribute(MODEL_CHECKOUT_SHOPPER_HOST, expressCheckoutConfigDTO.getCheckoutShopperHost());
     }
 
+    protected void removeDeliveryModeFromSessionCart() throws CalculationException {
+        if (cartService.hasSessionCart()) {
+            CartModel sessionCart = cartService.getSessionCart();
+            sessionCart.setDeliveryMode(null);
+            modelService.save(sessionCart);
+            
+            calculationService.recalculate(sessionCart);
+        }
+    }
+    
     protected BigDecimal getExpressDeliveryModeValue(final String currencyIso) {
         Optional<ZoneDeliveryModeValueModel> expressDeliveryModePrice = adyenExpressCheckoutFacade.getExpressDeliveryModePrice();
 
