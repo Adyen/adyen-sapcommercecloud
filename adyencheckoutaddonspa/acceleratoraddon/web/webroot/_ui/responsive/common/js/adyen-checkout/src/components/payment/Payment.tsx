@@ -174,6 +174,9 @@ class Payment extends React.Component<Props, State> {
                          firstName: this.props.shippingAddressFromCart.firstName,
                          lastName: this.props.shippingAddressFromCart.lastName,
                      }
+                 },
+                 econtext_stores: {
+                     personalDetailsRequired: false // Optional. Set to **false** to hide the input fields for shopper name, email, and telephone number.
                  }
             },
         }).mount(this.paymentRef.current);

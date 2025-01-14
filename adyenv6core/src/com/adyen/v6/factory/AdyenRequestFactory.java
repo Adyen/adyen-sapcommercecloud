@@ -172,12 +172,22 @@ public class AdyenRequestFactory {
         //Set Boleto parameters
         else if (cartData.getAdyenPaymentMethod().indexOf(PAYMENT_METHOD_BOLETO) == 0) {
             setBoletoData(paymentsRequest, cartData, originPaymentsRequest.getSocialSecurityNumber());
+        } else {
+            Object actualInstance = paymentsRequest.getPaymentMethod().getActualInstance();
+            if(actualInstance instanceof EcontextVoucherDetails){
+                EcontextVoucherDetails econtextVoucherDetails = (EcontextVoucherDetails) actualInstance;
+                econtextVoucherDetails.setFirstName(paymentsRequest.getDeliveryAddress().getFirstName());
+                econtextVoucherDetails.setLastName(paymentsRequest.getDeliveryAddress().getLastName());
+                econtextVoucherDetails.setShopperEmail(paymentsRequest.getShopperEmail());
+                econtextVoucherDetails.setTelephoneNumber(paymentsRequest.getTelephoneNumber());
+                paymentsRequest.setShopperName(getShopperNameFromAddress(cartData.getDeliveryAddress()));
+                paymentsRequest.setReturnUrl(cartData.getAdyenReturnUrl());
+            }
+            //For alternate payment methods like iDeal, Paypal etc.
+            else {
+                updatePaymentRequestForAlternateMethod(paymentsRequest, cartData);
+            }
         }
-        //For alternate payment methods like iDeal, Paypal etc.
-        else {
-            updatePaymentRequestForAlternateMethod(paymentsRequest, cartData);
-        }
-
         return paymentsRequest;
     }
 
