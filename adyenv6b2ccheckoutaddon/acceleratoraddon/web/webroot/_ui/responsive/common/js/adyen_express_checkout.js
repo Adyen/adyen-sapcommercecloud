@@ -198,6 +198,9 @@ var AdyenExpressCheckoutHybris = (function () {
 
                 // Step 7: Configure the callback to get the shopper's information.
 
+                onSubmit: (state, element, actions) => {
+                    actions.resolve();
+                },
                 onAuthorized: (paymentData, actions) => {
                     this.makePayment(this.prepareDataGoogle(paymentData), this.getGoogleUrl(), actions.resolve, actions.reject)
                 },
