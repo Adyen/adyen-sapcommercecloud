@@ -115,6 +115,8 @@ var AdyenExpressCheckoutHybris = (function () {
 
             const googlePayNodes = document.getElementsByClassName('adyen-google-pay-button');
 
+            let paymentData;
+
             const googlePayConfig = {
 
                 // Step 2: Set the callback intents.
@@ -199,10 +201,11 @@ var AdyenExpressCheckoutHybris = (function () {
                 // Step 7: Configure the callback to get the shopper's information.
 
                 onSubmit: (state, element, actions) => {
-                    actions.resolve();
-                },
-                onAuthorized: (paymentData, actions) => {
                     this.makePayment(this.prepareDataGoogle(paymentData), this.getGoogleUrl(), actions.resolve, actions.reject)
+                },
+                onAuthorized: (data, actions) => {
+                    paymentData = data;
+                    actions.resolve();
                 },
                 onError: function (error) {
                     console.log(error)
