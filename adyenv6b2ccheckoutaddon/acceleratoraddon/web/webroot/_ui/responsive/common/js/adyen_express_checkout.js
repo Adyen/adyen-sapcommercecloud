@@ -230,7 +230,9 @@ var AdyenExpressCheckoutHybris = (function () {
                 success: function (response) {
                     try {
                         if (response.resultCode && (response.resultCode === 'Authorised' || response.resultCode === 'RedirectShopper')) {
-                            resolve();
+                            resolve({
+                                resultCode: response.resultCode
+                            });
                             AdyenExpressCheckoutHybris.handleResult(response, false);
                         } else {
                             reject();
