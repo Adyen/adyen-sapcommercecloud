@@ -66,6 +66,8 @@ import de.hybris.platform.commercefacades.user.UserFacade;
 import de.hybris.platform.commercefacades.user.data.AddressData;
 import de.hybris.platform.commercefacades.user.data.CountryData;
 import de.hybris.platform.commercefacades.user.data.RegionData;
+import de.hybris.platform.commerceservices.order.CommerceCartService;
+import de.hybris.platform.commerceservices.service.data.CommerceCartParameter;
 import de.hybris.platform.commerceservices.strategies.CheckoutCustomerStrategy;
 import de.hybris.platform.commercewebservicescommons.dto.order.PaymentDetailsWsDTO;
 import de.hybris.platform.converters.Populator;
@@ -165,6 +167,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     private AdyenMerchantAccountStrategy adyenMerchantAccountStrategy;
     private AdyenOrderFacade adyenOrderFacade;
     private ProductFacade productFacade;
+    private CommerceCartService commerceCartService;
 
     public static final Logger LOGGER = Logger.getLogger(DefaultAdyenCheckoutFacade.class);
 
@@ -1149,7 +1152,9 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
             sessionCart.setDeliveryMode(null);
             modelService.save(sessionCart);
             
-            calculationService.recalculate(sessionCart);
+            CommerceCartParameter commerceCartParameter = new CommerceCartParameter();
+            commerceCartParameter.setCart(sessionCart);
+            commerceCartService.recalculateCart(commerceCartParameter);
         }
     }
     
@@ -1974,5 +1979,9 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
 
     public void setProductFacade(ProductFacade productFacade) {
         this.productFacade = productFacade;
+    }
+
+    public void setCommerceCartService(CommerceCartService commerceCartService) {
+        this.commerceCartService = commerceCartService;
     }
 }
