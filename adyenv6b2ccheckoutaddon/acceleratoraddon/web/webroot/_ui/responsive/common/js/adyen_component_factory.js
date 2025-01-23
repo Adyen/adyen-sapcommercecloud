@@ -76,10 +76,7 @@ class PaymentComponentFactory {
         if (storedCardList && storedCardList.length) {
             for (const storedCard of storedCardList) {
                 const oneClickCardNode = document.getElementById("one-click-card_" + storedCard.storedPaymentMethodId);
-                const oneClickCard = new AdyenWeb.Card(this.checkout, {
-                    showPayButton: false,
-                    storedPaymentMethods: storedCard,
-                }).mount(oneClickCardNode);
+                const oneClickCard = new AdyenWeb.Card(this.checkout, {...storedCard, showPayButton: false}).mount(oneClickCardNode);
                 this.helper.oneClickCards[storedCard.storedPaymentMethodId] = oneClickCard;
             }
         }
@@ -581,7 +578,10 @@ class PaymentComponentFactory {
                     return;
                 }
                 this.helper.makePayment(state.data, component, this.helper.handleResult);
-            }
+            },
+            onAdditionalDetails: (state, component) => {
+                this.helper.submitDetails(state.data, this.helper.handleResult);
+            },
         }).mount('#adyen-component-button-container-' + paymentMethod.label);
     }
 
