@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<widget xmlns="http://www.zkoss.org/2005/zul"
+		xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+		xmlns:h="http://www.w3.org/1999/xhtml"
+		xmlns:w="http://www.zkoss.org/2005/zk/client"
+		xmlns:zk="http://www.zkoss.org/2005/zk"
+		xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.hybris.com/schema/cockpitng/zul/zul.xsd"
+ 		height="100%">
+
+	<script src="${wr}/react/adyen-widget/build/static/js/main.dfedaae7.js" defer="true"/>
+
+
+	<div height="100%" class="adyenmanagementbackoffice-container">
+		<div class="adyen-react"/>
+
+		<textbox id="request" class="class" sclass="sclass" zclass="zclass"/>
+		<textbox id="response" class="class" sclass="sclass" zclass="zclass"/>
+
+		<button id="adyen_execute">EXECUTE</button>
+	</div>
+</widget>

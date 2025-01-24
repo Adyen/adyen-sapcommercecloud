@@ -1,0 +1,13 @@
+@charset "utf-8";
+@import "./support/adyenmanagementbackofficewidget-variables.scss";
+
+.yw-labelstyle
+{
+	color: $adyenmanagementbackoffice-label-text-color;
+}
+
+.adyenmanagementbackoffice-container {
+	background: $adyenmanagementbackoffice-container-background;
+	font-family: $adyenmanagementbackoffice-container-font-family;
+	font-size: $adyenmanagementbackoffice-container-font-size;
+}

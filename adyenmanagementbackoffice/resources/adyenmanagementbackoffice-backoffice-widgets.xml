@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+ Copyright (c) 2020 SAP SE or an SAP affiliate company. All rights reserved
+-->
+<widgets xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:noNamespaceSchemaLocation="http://www.hybris.com/schema/cockpitng/widgets.xsd">
+
+    <widget-extension widgetId="backofficeMainSlot">
+<!--        <widget id="adyenmanagementbackoffice-perspective" widgetDefinitionId="com.adyen.commerce.widgets.adyenmanagementbackofficewidget"-->
+<!--            template="false" slotId="perspectives" title="Hello adyenmanagementbackoffice">-->
+<!--        </widget>-->
+
+        <widget id="adyenmanagementbackoffice-perspective" widgetDefinitionId="com.hybris.cockpitng.borderlayout" slotId="perspectives" title="Adyen Test" template="false">
+            <widget id="adyenmanagementwidget" widgetDefinitionId="com.adyen.commerce.widgets.adyenmanagementbackofficewidget" slotId="centerSlot" template="false">
+                <setting key="widgetStyleClass" type="String"></setting>
+                <setting key="widgetStyleAttribute" type="String"></setting>
+                <virtual-sockets/>
+            </widget>
+            <setting key="westDisabled" type="Boolean">true</setting>
+            <setting key="widgetStyleClass" type="String"></setting>
+            <setting key="widgetStyleAttribute" type="String"></setting>
+            <setting key="eastDisabled" type="Boolean">true</setting>
+            <virtual-sockets/>
+        </widget>
+    </widget-extension>
+
+
+
+</widgets>
