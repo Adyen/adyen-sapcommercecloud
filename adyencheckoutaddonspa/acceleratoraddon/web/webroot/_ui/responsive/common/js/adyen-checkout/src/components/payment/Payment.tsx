@@ -9,7 +9,7 @@ import {AddressData} from "../../types/addressData";
 import {InputCheckbox} from "../controls/InputCheckbox";
 import {AddressService} from "../../service/addressService";
 import {AdyenConfigService} from "../../service/adyenConfigService";
-import { AdyenCheckout, Dropin,AdyenCheckoutError, ICore } from '@adyen/adyen-web/auto'
+import {AdyenCheckout, AdyenCheckoutError, Dropin, ICore} from '@adyen/adyen-web/auto'
 import '@adyen/adyen-web/styles/adyen.css';
 import {AdyenConfigData} from "../../types/adyenConfigData";
 import {isEmpty, isNotEmpty} from "../../util/stringUtil";
@@ -21,7 +21,14 @@ import {routes} from "../../router/routes";
 import {Navigate} from "react-router-dom";
 import {PaymentError} from "./PaymentError";
 import {ScrollHere} from "../common/ScrollTo";
-import {CoreConfiguration,CardConfiguration, UIElement} from "@adyen/adyen-web";
+import {
+    AdditionalDetailsActions,
+    CardConfiguration,
+    CoreConfiguration,
+    SubmitActions,
+    UIElement
+} from "@adyen/adyen-web";
+import {adyenConfigInitialState} from "../../reducers/adyenConfigReducer";
 
 interface State {
     useDifferentBillingAddress: boolean
@@ -55,6 +62,7 @@ interface DispatchProps {
     setPostCode: (postCode: string) => void
     setPhoneNumber: (phoneNumber: string) => void
     setSelectedAddress: (address: AddressModel) => void
+    removeAdyenConfigFromStore: () => void
 }
 
 type Props = StoreProps & DispatchProps & ComponentProps
@@ -94,6 +102,10 @@ class Payment extends React.Component<Props, State> {
         }
     }
 
+    componentWillUnmount() {
+        this.props.removeAdyenConfigFromStore();
+    }
+
     private async initializeWebComponentsCheckout() {
         let adyenCheckout = await AdyenCheckout(this.getAdyenCheckoutConfig());
 
@@ -110,10 +122,7 @@ class Payment extends React.Component<Props, State> {
             environment: this.castToEnvironment(this.props.adyenConfig.environmentMode),
             clientKey: this.props.adyenConfig.adyenClientKey,
             countryCode: this.props.adyenConfig.countryCode,
-            session: {
-                id: this.props.adyenConfig.sessionData.id,
-                sessionData: this.props.adyenConfig.sessionData.sessionData
-            },
+            amount: this.props.adyenConfig.amount,
             analytics: {
                 enabled: false
             },
@@ -124,8 +133,8 @@ class Payment extends React.Component<Props, State> {
             onError: (error: AdyenCheckoutError, element?: UIElement) => {
                 this.handleError()
             },
-            onSubmit: (state: any, element: UIElement) => this.handlePayment(state.data),
-            onAdditionalDetails: (state: any, element?: UIElement) => this.handleAdditionalDetails(state.data)
+            onSubmit: (state: any, element: UIElement, actions: SubmitActions) => this.handlePayment(state.data, actions),
+            onAdditionalDetails: (state: any, element: UIElement,actions: AdditionalDetailsActions) => this.handleAdditionalDetails(state.data, actions)
         }
     }
 
@@ -137,7 +146,8 @@ class Payment extends React.Component<Props, State> {
             enableStoreDetails: this.props.adyenConfig.showRememberTheseDetails,
             clickToPayConfiguration: {
                 merchantDisplayName: this.props.adyenConfig.merchantDisplayName,
-                shopperEmail:  this.props.adyenConfig.shopperEmail
+                shopperEmail:  this.props.adyenConfig.shopperEmail,
+                locale: this.props.adyenConfig.clickToPayLocale,
             }
         }
     }
@@ -175,22 +185,22 @@ class Payment extends React.Component<Props, State> {
         this.resetDropInComponent();
     }
 
-    private async handlePayment(data: any) {
+    private async handlePayment(data: any, actions: SubmitActions) {
         let adyenPaymentForm = PaymentService.preparePlaceOrderRequest(data,
             this.state.useDifferentBillingAddress, this.isSaveInAddressBook(), this.props.billingAddress);
 
-        await this.executePaymentRequest(adyenPaymentForm)
+        await this.executePaymentRequest(adyenPaymentForm, actions)
     }
 
-    private async handleAdditionalDetails(data: any) {
-        await this.executeAdditionalDetails(data)
+    private async handleAdditionalDetails(data: any,actions: AdditionalDetailsActions) {
+        await this.executeAdditionalDetails(data,actions)
     }
 
     private isSaveInAddressBook(): boolean {
         return this.state.saveInAddressBook && this.state.useDifferentBillingAddress
     }
 
-    private async handleResponse(response: Promise<void | PlaceOrderResponse>) {
+    private async handleResponse(response: Promise<void | PlaceOrderResponse>, actions: SubmitActions) {
         this.setState({errorFieldCodes: []})
 
         let responseData = await response;
@@ -199,6 +209,9 @@ class Payment extends React.Component<Props, State> {
                 if (responseData.executeAction) {
                     this.dropIn.handleAction(responseData.paymentsAction)
                 } else {
+                    actions.resolve({
+                        resultCode: responseData.paymentsResponse.resultCode
+                    });
                     this.setState({orderNumber: responseData.orderNumber})
                     this.setState({redirectToNextStep: true})
                 }
@@ -210,12 +223,12 @@ class Payment extends React.Component<Props, State> {
         }
     }
 
-    private async executePaymentRequest(adyenPaymentForm: PlaceOrderRequest) {
-        await this.handleResponse(PaymentService.placeOrder(adyenPaymentForm));
+    private async executePaymentRequest(adyenPaymentForm: PlaceOrderRequest, actions: SubmitActions) {
+        await this.handleResponse(PaymentService.placeOrder(adyenPaymentForm), actions);
     }
 
-    private async executeAdditionalDetails(details: any) {
-        await this.handleResponse(PaymentService.sendAdditionalDetails(details));
+    private async executeAdditionalDetails(details: any, actions: AdditionalDetailsActions) {
+        await this.handleResponse(PaymentService.sendAdditionalDetails(details), actions);
     }
 
     private resetDropInComponent() {
@@ -335,7 +348,8 @@ function mapDispatchToProps(dispatch: StoreDispatch): DispatchProps {
             type: "billingAddress/setPhoneNumber",
             payload: phoneNumber
         }),
-        setSelectedAddress: (address: AddressModel) => dispatch({type: "billingAddress/setAddress", payload: address})
+        setSelectedAddress: (address: AddressModel) => dispatch({type: "billingAddress/setAddress", payload: address}),
+        removeAdyenConfigFromStore: () => dispatch(({type: "adyenConfig/setAdyenConfig", payload: adyenConfigInitialState}))
     }
 }
 

@@ -37,10 +37,10 @@ var AdyenExpressCheckoutHybris = (function () {
                 this.adyenConfig.pageType = params.pageType;
                 this.adyenConfig.productCode = params.productCode;
 
-                if (params.pageType === 'cart' && config.googlePayExpressEnabledOnCart || params.pageType === 'PDP' && config.googlePayExpressEnabledOnProduct) {
+                if (params.pageType === 'cart' && params.googlePayExpressEnabledOnCart || params.pageType === 'PDP' && params.googlePayExpressEnabledOnProduct) {
                     this.initiateGooglePayExpress(checkout, params)
                 }
-                if (params.pageType === 'cart' && config.applePayExpressEnabledOnCart || params.pageType === 'PDP' && config.applePayExpressEnabledOnProduct) {
+                if (params.pageType === 'cart' && params.applePayExpressEnabledOnCart || params.pageType === 'PDP' && params.applePayExpressEnabledOnProduct) {
                     this.initiateApplePayExpress(checkout, params)
                 }
                 if (params.pageType === 'cart' && params.payPalExpressEnabledOnCart || params.pageType === 'PDP' && params.payPalExpressEnabledOnProduct) {
@@ -51,6 +51,10 @@ var AdyenExpressCheckoutHybris = (function () {
         initiateApplePayExpress: async function (checkout, params) {
             const {
                 amount,
+                pageType,
+                productCode,
+                applePayMerchantName,
+                applePayMerchantId
             } = params;
 
             const applePayNodes = document.getElementsByClassName('adyen-apple-pay-button');
@@ -60,6 +64,10 @@ var AdyenExpressCheckoutHybris = (function () {
                     amount: {
                         currency: amount.currency,
                         value: amount.value
+                    },
+                    configuration: {
+                        merchantName: applePayMerchantName,
+                        merchantId: applePayMerchantId,
                     },
                     // Button config
                     buttonType: "check-out",
@@ -104,6 +112,8 @@ var AdyenExpressCheckoutHybris = (function () {
             } = params;
 
             const googlePayNodes = document.getElementsByClassName('adyen-google-pay-button');
+
+            let paymentData;
 
             const googlePayConfig = {
 
@@ -188,8 +198,12 @@ var AdyenExpressCheckoutHybris = (function () {
 
                 // Step 7: Configure the callback to get the shopper's information.
 
-                onAuthorized: (paymentData, actions) => {
+                onSubmit: (state, element, actions) => {
                     this.makePayment(this.prepareDataGoogle(paymentData), this.getGoogleUrl(), actions.resolve, actions.reject)
+                },
+                onAuthorized: (data, actions) => {
+                    paymentData = data;
+                    actions.resolve();
                 },
                 onError: function (error) {
                     console.log(error)
@@ -325,7 +339,9 @@ var AdyenExpressCheckoutHybris = (function () {
                 success: function (response) {
                     try {
                         if (response.resultCode && (response.resultCode === 'Authorised' || response.resultCode === 'RedirectShopper')) {
-                            resolve();
+                            resolve({
+                                resultCode: response.resultCode
+                            });
                             AdyenExpressCheckoutHybris.handleResult(response, false);
                         } else {
                             reject();

@@ -67,6 +67,9 @@
 					<editorArea:attribute qualifier="expressPaymentConfig.paypalExpressEnabledOnProduct" editor="com.hybris.cockpitng.editor.defaultboolean"/>
 					<editorArea:attribute qualifier="expressPaymentConfig.amazonPayExpressEnabledOnProduct" editor="com.hybris.cockpitng.editor.defaultboolean"/>
 				</editorArea:section>
+				<editorArea:section name="hmc.adyen.clicktopay">
+					<editorArea:attribute qualifier="clickToPayLocale" />
+				</editorArea:section>
 				<editorArea:section name="hmc.adyen.amazonpay">
 					<editorArea:attribute qualifier="amazonpayPublicKey"/>
 					<editorArea:attribute qualifier="amazonpayEnvironment"/>

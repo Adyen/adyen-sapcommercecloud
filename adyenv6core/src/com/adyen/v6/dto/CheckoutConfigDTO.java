@@ -25,7 +25,6 @@ public class CheckoutConfigDTO {
     private String adyenClientKey;
     private String adyenPaypalMerchantId;
     private String deviceFingerPrintUrl;
-    private CreateCheckoutSessionResponse sessionData;
     private String selectedPaymentMethod;
     private boolean showRememberTheseDetails;
     private String checkoutShopperHost;
@@ -37,13 +36,14 @@ public class CheckoutConfigDTO {
     private boolean showComboCard;
     private boolean showPos;
     private boolean immediateCapture;
-    private  String countryCode;
+    private String countryCode;
     private boolean cardHolderNameRequired;
     private boolean sepaDirectDebit;
     private BigDecimal amountDecimal;
     private ExpressPaymentConfigDto expressPaymentConfig;
     private String merchantDisplayName;
     private String shopperEmail;
+    private String clickToPayLocale;
 
     // Getters and setters for the new field
     public ExpressPaymentConfigDto getExpressPaymentConfig() {
@@ -53,9 +53,6 @@ public class CheckoutConfigDTO {
     public void setExpressPaymentConfig(ExpressPaymentConfigDto expressPaymentConfigDto) {
         this.expressPaymentConfig = expressPaymentConfigDto;
     }
-
-
-
 
     public List<PaymentMethod> getAlternativePaymentMethods() {
         return alternativePaymentMethods;
@@ -135,14 +132,6 @@ public class CheckoutConfigDTO {
 
     public void setDeviceFingerPrintUrl(String deviceFingerPrintUrl) {
         this.deviceFingerPrintUrl = deviceFingerPrintUrl;
-    }
-
-    public CreateCheckoutSessionResponse getSessionData() {
-        return sessionData;
-    }
-
-    public void setSessionData(CreateCheckoutSessionResponse sessionData) {
-        this.sessionData = sessionData;
     }
 
     public String getSelectedPaymentMethod() {
@@ -287,5 +276,13 @@ public class CheckoutConfigDTO {
 
     public void setShopperEmail(String shopperEmail) {
         this.shopperEmail = shopperEmail;
+    }
+
+    public String getClickToPayLocale() {
+        return clickToPayLocale;
+    }
+
+    public void setClickToPayLocale(String clickToPayLocale) {
+        this.clickToPayLocale = clickToPayLocale;
     }
 }

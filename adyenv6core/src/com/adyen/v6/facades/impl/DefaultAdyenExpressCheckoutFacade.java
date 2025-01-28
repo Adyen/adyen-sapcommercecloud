@@ -1,5 +1,6 @@
 package com.adyen.v6.facades.impl;
 
+import com.adyen.commerce.dto.OrderPaymentResult;
 import com.adyen.commerce.facades.AdyenCheckoutApiFacade;
 import com.adyen.model.checkout.PaymentRequest;
 import com.adyen.model.checkout.PaymentResponse;
@@ -29,7 +30,6 @@ import de.hybris.platform.order.CartFactory;
 import de.hybris.platform.order.CartService;
 import de.hybris.platform.order.DeliveryModeService;
 import de.hybris.platform.order.InvalidCartException;
-import de.hybris.platform.order.exceptions.CalculationException;
 import de.hybris.platform.product.ProductService;
 import de.hybris.platform.servicelayer.dto.converter.Converter;
 import de.hybris.platform.servicelayer.i18n.CommonI18NService;
@@ -187,14 +187,14 @@ public class DefaultAdyenExpressCheckoutFacade implements AdyenExpressCheckoutFa
 
             CartData cartData = cartConverter.convert(cart);
 
-            OrderData orderData = adyenCheckoutApiFacade.placeOrderWithPayment(request, cartData, paymentRequest);
+            OrderPaymentResult orderPaymentResult = adyenCheckoutApiFacade.placeOrderWithPayment(request, cartData, paymentRequest);
 
 
             if (sessionCart != null) {
                 cartService.setSessionCart(sessionCart);
             }
 
-            return orderData;
+            return orderPaymentResult.getOrderData();
         } else {
             throw new InvalidCartException("Checkout attempt on empty cart");
         }
@@ -241,7 +241,8 @@ public class DefaultAdyenExpressCheckoutFacade implements AdyenExpressCheckoutFa
         if (cartHasEntries(cart)) {
             CartData cartData = cartConverter.convert(cart);
 
-            return adyenCheckoutApiFacade.placeOrderWithPayment(request, cartData, paymentRequest);
+            OrderPaymentResult orderPaymentResult = adyenCheckoutApiFacade.placeOrderWithPayment(request, cartData, paymentRequest);
+            return orderPaymentResult.getOrderData();
         } else {
             throw new InvalidCartException("Checkout attempt on empty cart");
         }

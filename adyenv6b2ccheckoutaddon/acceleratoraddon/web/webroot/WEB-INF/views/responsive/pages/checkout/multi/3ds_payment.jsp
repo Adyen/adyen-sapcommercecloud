@@ -10,8 +10,6 @@
             <json:property name="locale" value="${shopperLocale}"/>
             <json:property name="environment" value="${environmentMode}"/>
             <json:property name="clientKey" value="${clientKey}"/>
-            <json:property name="sessionId" value="${sessionData.id}"/>
-            <json:property name="sessionData" value="${sessionData.sessionData}"/>
             <json:property name="countryCode" value="${countryCode}"/>
             <json:object name="risk" escapeXml="false">
                 <json:property name="enabled" value="${false}"/>

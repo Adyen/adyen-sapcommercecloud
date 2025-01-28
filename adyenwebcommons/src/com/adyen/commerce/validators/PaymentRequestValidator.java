@@ -54,11 +54,17 @@ public class PaymentRequestValidator implements Validator {
                 if (StringUtils.isEmpty(cardDetails.getEncryptedSecurityCode())) {
                     errors.reject("checkout.error.paymentmethod.cse.missing");
                 }
-            } else if (StringUtils.isEmpty(cardDetails.getEncryptedCardNumber())
-                    || StringUtils.isEmpty(cardDetails.getEncryptedExpiryMonth())
-                    || StringUtils.isEmpty(cardDetails.getEncryptedExpiryYear())
-                    || (cardHolderNameRequired && StringUtils.isEmpty(cardDetails.getHolderName()))) {
-                errors.reject("checkout.error.paymentmethod.cse.missing");
+            } else if(StringUtils.isNotEmpty(cardDetails.getSrcScheme())){
+                if (StringUtils.isEmpty(cardDetails.getSrcCorrelationId()) || StringUtils.isEmpty(cardDetails.getSrcDigitalCardId())) {
+                    errors.reject("checkout.error.paymentmethod.cse.missing");
+                }
+
+            } else if(StringUtils.isNotEmpty(cardDetails.getEncryptedCardNumber())) {
+                if (StringUtils.isEmpty(cardDetails.getEncryptedExpiryMonth())
+                        || StringUtils.isEmpty(cardDetails.getEncryptedExpiryYear())
+                        || (cardHolderNameRequired && StringUtils.isEmpty(cardDetails.getHolderName()))) {
+                    errors.reject("checkout.error.paymentmethod.cse.missing");
+                }
             }
 
             //Check remember these details
@@ -86,9 +92,9 @@ public class PaymentRequestValidator implements Validator {
     protected void validateCountrySpecificFields(Errors errors) {
         String countryIso = (String) errors.getFieldValue("billingAddress.countryIso");
         if (countryIso != null) {
-            switch (countryIso){
+            switch (countryIso) {
                 case "US", "CA", "JP", "CN":
-                    ValidationUtils.rejectIfEmptyOrWhitespace(errors, "billingAddress.regionIso","address.regionIso.invalid");
+                    ValidationUtils.rejectIfEmptyOrWhitespace(errors, "billingAddress.regionIso", "address.regionIso.invalid");
                     break;
                 default:
                     break;

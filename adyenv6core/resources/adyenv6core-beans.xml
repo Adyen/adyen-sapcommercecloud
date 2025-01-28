@@ -94,7 +94,6 @@
 
     <bean class="com.adyen.v6.controllers.dtos.PaymentResultDTO">
         <property name="resultCode" type="String" />
-        <property name="sessionData" type="String" />
     </bean>
 
     <bean class="de.hybris.platform.commercewebservicescommons.dto.order.AbstractOrderWsDTO">

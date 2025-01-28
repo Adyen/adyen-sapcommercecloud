@@ -32,10 +32,7 @@
                 shopperLocale: "${shopperLocale}",
                 environment: "${environmentMode}",
                 clientKey: "${clientKey}",
-                session: {
-                    id: "${sessionData.id}",
-                    sessionData: "${sessionData.sessionData}",
-                }
+                countryCode: "${countryCode}"
             };
             const paymentMethodConfigs = {};
 
@@ -57,7 +54,7 @@
             </c:if>
 
             <c:if test="${not empty issuerLists['ideal']}">
-            paymentMethodConfigs['createIdeal'] = ${issuerLists['ideal']};
+                paymentMethodConfigs['createIdeal'] = ${issuerLists['ideal']};
             </c:if>
 
             <c:if test="${not empty issuerLists['onlinebanking_IN']}">

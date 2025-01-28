@@ -30,7 +30,6 @@ import de.hybris.platform.deliveryzone.model.ZoneDeliveryModeValueModel;
 import de.hybris.platform.order.CartFactory;
 import de.hybris.platform.order.CartService;
 import de.hybris.platform.order.DeliveryModeService;
-import de.hybris.platform.order.exceptions.CalculationException;
 import de.hybris.platform.product.ProductService;
 import de.hybris.platform.servicelayer.dto.converter.Converter;
 import de.hybris.platform.servicelayer.i18n.CommonI18NService;
@@ -337,29 +336,6 @@ public class DefaultAdyenExpressCheckoutFacadeTest {
 
         //when
         defaultAdyenExpressCheckoutFacade.expressCheckoutCartOCC(paymentRequest, paymentMethod, addressData, request);
-    }
-
-    @Test
-    public void removeDeliveryModeFromSessionCart() throws CalculationException {
-        //given
-        CartModel cartModel = new CartModel();
-        DeliveryModeModel deliveryModeModel = new DeliveryModeModel();
-        cartModel.setDeliveryMode(deliveryModeModel);
-
-        when(cartService.getSessionCart()).thenReturn(cartModel);
-        when(cartService.hasSessionCart()).thenReturn(true);
-
-        ArgumentCaptor<CartModel> cartCaptor = ArgumentCaptor.forClass(CartModel.class);
-
-        //when
-        defaultAdyenExpressCheckoutFacade.removeDeliveryModeFromSessionCart();
-
-        //then
-        verify(modelService).save(cartCaptor.capture());
-        CartModel capturedCart = cartCaptor.getValue();
-        assertNull(capturedCart.getDeliveryMode());
-
-        verify(commerceCartService).recalculateCart((CommerceCartParameter) any());
     }
 
     @Test

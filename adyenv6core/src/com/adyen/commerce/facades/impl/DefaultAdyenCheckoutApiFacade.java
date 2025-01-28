@@ -1,5 +1,6 @@
 package com.adyen.commerce.facades.impl;
 
+import com.adyen.commerce.dto.OrderPaymentResult;
 import com.adyen.commerce.facades.AdyenCheckoutApiFacade;
 import com.adyen.model.checkout.AfterpayDetails;
 import com.adyen.model.checkout.ApplePayDetails;
@@ -96,7 +97,7 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
 
 
     @Override
-    public OrderData placeOrderWithPayment(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest) throws Exception {
+    public OrderPaymentResult placeOrderWithPayment(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest) throws Exception {
 
         RequestInfo requestInfo = new RequestInfo(request);
         requestInfo.setShopperLocale(getShopperLocale());
@@ -114,14 +115,16 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
         }
         if (PaymentResponse.ResultCodeEnum.AUTHORISED == paymentResponse.getResultCode()) {
             LOGGER.info("Creating authorized order");
-            return createAuthorizedOrder(paymentResponse);
+            OrderData authorizedOrder = createAuthorizedOrder(paymentResponse);
+            return new OrderPaymentResult(authorizedOrder, paymentResponse);
+
         }
 
         throw new AdyenNonAuthorizedPaymentException(paymentResponse);
     }
 
     @Override
-    public OrderData placeOrderWithAdditionalDetails(PaymentDetailsRequest detailsRequest) throws Exception {
+    public OrderPaymentResult placeOrderWithAdditionalDetails(PaymentDetailsRequest detailsRequest) throws Exception {
 
         PaymentDetailsResponse paymentsDetailsResponse = this.componentDetails(detailsRequest);
 
@@ -139,7 +142,7 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
             LOGGER.info("Creating authorized order");
             String orderCode = paymentsDetailsResponse.getMerchantReference();
             OrderModel orderModel = retrievePendingOrder(orderCode);
-            return getOrderConverter().convert(orderModel);
+            return new OrderPaymentResult(getOrderConverter().convert(orderModel), paymentsDetailsResponse);
         }
 
         throw new AdyenNonAuthorizedPaymentException(paymentsDetailsResponse);

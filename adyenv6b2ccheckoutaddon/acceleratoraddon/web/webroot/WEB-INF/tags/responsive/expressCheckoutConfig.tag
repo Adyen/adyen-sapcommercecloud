@@ -22,20 +22,21 @@
         label: ['visible-xs', 'hidden-xs'],
         pageType: '${pageType}',
         productCode: '${product.code}',
+        applePayMerchantName: '${applePayMerchantName}',
+        applePayMerchantId: '${applePayMerchantIdentifier}',
         payPalIntent: '${paypalIntent}',
         payPalExpressEnabledOnProduct: ${expressPaymentConfig.paypalExpressEnabledOnProduct},
         payPalExpressEnabledOnCart: ${expressPaymentConfig.paypalExpressEnabledOnCart},
-    }
-
-    var checkoutConfig = {
-        shopperLocale: '${shopperLocale}',
-        environment: '${environmentMode}',
-        clientKey: '${clientKey}',
-        countryCode: 'US',
         googlePayExpressEnabledOnCart: ${expressPaymentConfig.googlePayExpressEnabledOnCart},
         applePayExpressEnabledOnCart: ${expressPaymentConfig.applePayExpressEnabledOnCart},
         googlePayExpressEnabledOnProduct: ${expressPaymentConfig.googlePayExpressEnabledOnProduct},
         applePayExpressEnabledOnProduct: ${expressPaymentConfig.applePayExpressEnabledOnProduct},
+    }
+
+    var checkoutConfig = {
+        environment: '${environmentMode}',
+        clientKey: '${clientKey}',
+        countryCode: 'US'
     }
 
     window.onload = function() {

@@ -9,7 +9,6 @@ export const adyenConfigInitialState : AdyenConfigData = {
     immediateCapture: false,
     openInvoiceMethods: [],
     selectedPaymentMethod: "",
-    sessionData: undefined,
     shopperLocale: "",
     showBoleto: false,
     showComboCard: false,
@@ -29,6 +28,7 @@ export const adyenConfigInitialState : AdyenConfigData = {
     storedPaymentMethodList: [],
     merchantDisplayName: "",
     shopperEmail: "",
+    clickToPayLocale: "",
 }
 
 export function adyenConfigReducer(adyenConfig: AdyenConfigData, action: RootAction): AdyenConfigData {

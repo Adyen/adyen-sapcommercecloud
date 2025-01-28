@@ -6,10 +6,10 @@ class PaymentComponentFactory {
 
     }
 
-    paymentConfiguration(label)  {
+    paymentConfiguration(label) {
         return {
             showPayButton: false,
-            onChange: (state, component) =>{
+            onChange: (state, component) => {
                 if (!state.isValid) {
                     this.helper.enablePlaceOrder(label);
                 }
@@ -19,9 +19,9 @@ class PaymentComponentFactory {
                     this.helper.enablePlaceOrder(label);
                     return;
                 }
-                this.helper.makePayment(state.data, component, this.helper.handleResult, label);
+                this.helper.makePayment(state.data, component, this.helper.handleResult);
             },
-            onAdditionalDetails:  (state, component) => {
+            onAdditionalDetails: (state, component) => {
                 this.helper.submitDetails(state.data, this.helper.handleResult);
             },
             onError: (error, component) => {
@@ -49,9 +49,9 @@ class PaymentComponentFactory {
     }
 
     createCard(params) {
-        const {allowedCards, showRememberDetails, cardHolderNameRequired,merchantDisplayName,shopperEmail} = params;
+        const {allowedCards, showRememberDetails, cardHolderNameRequired, merchantDisplayName, shopperEmail} = params;
 
-        const copyCardBrand= (event) => {
+        const copyCardBrand = (event) => {
             this.helper.selectedCardBrand = event.brand;
         }
 
@@ -60,13 +60,13 @@ class PaymentComponentFactory {
             type: 'card',
             hasHolderName: true,
             holderNameRequired: cardHolderNameRequired,
-            storePaymentMethod: showRememberDetails ? 'askForConsent': 'disabled',
+            storePaymentMethod: showRememberDetails ? 'askForConsent' : 'disabled',
             enableStoreDetails: showRememberDetails,
             brands: allowedCards,
             onBrand: copyCardBrand,
             clickToPayConfiguration: {
                 merchantDisplayName: merchantDisplayName,
-                shopperEmail:  shopperEmail
+                shopperEmail: shopperEmail
             }
         }).mount("#card-div");
 
@@ -76,10 +76,7 @@ class PaymentComponentFactory {
         if (storedCardList && storedCardList.length) {
             for (const storedCard of storedCardList) {
                 const oneClickCardNode = document.getElementById("one-click-card_" + storedCard.storedPaymentMethodId);
-                const oneClickCard = new AdyenWeb.Card(this.checkout, {
-                    showPayButton: false,
-                    storedPaymentMethods: storedCard,
-                }).mount(oneClickCardNode);
+                const oneClickCard = new AdyenWeb.Card(this.checkout, {...storedCard, showPayButton: false}).mount(oneClickCardNode);
                 this.helper.oneClickCards[storedCard.storedPaymentMethodId] = oneClickCard;
             }
         }
@@ -98,7 +95,7 @@ class PaymentComponentFactory {
             sepaIbanNumberField.value = sepaIbanNumber;
         }
 
-        this.helper.sepaDirectDebit = new AdyenWeb.Sepa(this.checkout, {
+        this.helper.sepaDirectDebit = new AdyenWeb.SepaDirectDebit(this.checkout, {
             showPayButton: false,
             onChange: handleOnChange
         }).mount('#adyen_hpp_sepadirectdebit_container')
@@ -130,10 +127,9 @@ class PaymentComponentFactory {
                 type: "POST",
                 data: JSON.stringify({
                     resultCode: result.resultCode,
-                    sessionData: result.sessionData
                 }),
                 contentType: "application/json; charset=utf-8",
-                success:  (data) => {
+                success: (data) => {
                     try {
                         window.location.href = ACC.config.encodedContextPath + "/" + data.replace("redirect:/", "");
                     } catch (e) {
@@ -181,7 +177,7 @@ class PaymentComponentFactory {
             blockPayPalPayLaterButton: true,
             onInit: (data, actions) => {
                 actions.enable();
-                $(document).on('change', '.adyen-terms-conditions-check',  (event) => {
+                $(document).on('change', '.adyen-terms-conditions-check', (event) => {
                     const checked = (event.target.checked)
                     $('.adyen-terms-conditions-check').prop('checked', checked)
                     if (checked) {
@@ -192,27 +188,27 @@ class PaymentComponentFactory {
                     this.helper.showCheckTermsAndConditionsError();
                 });
             },
-            onClick:  ()=> {
+            onClick: () => {
                 // Show a validation error if the checkbox is not checked
                 this.helper.showCheckTermsAndConditionsError();
             },
-            onChange:  (state, component)=> {
+            onChange: (state, component) => {
                 if (!state.isValid) {
                     this.helper.enablePlaceOrder(label);
                 }
             },
-            onSubmit:  (state, component)=> {
+            onSubmit: (state, component) => {
                 if (!state.isValid) {
                     this.helper.enablePlaceOrder(label);
                     return false;
                 }
-                this.helper.makePayment(state.data, component, this.helper.handleResult, label);
+                this.helper.makePayment(state.data, component, this.helper.handleResult);
             },
-            onCancel:  (data, component) => {
+            onCancel: (data, component) => {
                 // Sets your prefered status of the component when a PayPal payment is cancelled.
                 this.helper.handleResult({resultCode: ErrorMessages.PaymentCancelled}, true);
             },
-            onError:  (error, component) =>{
+            onError: (error, component) => {
                 // Sets your prefered status of the component when an error occurs.
                 if (error.name === 'CANCEL') {
                     this.helper.handleResult({resultCode: ErrorMessages.PaymentCancelled}, true);
@@ -220,7 +216,7 @@ class PaymentComponentFactory {
                     this.helper.handleResult({resultCode: ErrorMessages.PaymentError}, true);
                 }
             },
-            onAdditionalDetails:  (state, component) => {
+            onAdditionalDetails: (state, component) => {
                 this.helper.submitDetails(state.data, this.helper.handleResult);
             }
         }).mount('#adyen-component-button-container-' + label);
@@ -265,19 +261,19 @@ class PaymentComponentFactory {
             // Button config
             buttonType: "plain",
             buttonColor: "black",
-            onChange:  (state, component) => {
+            onChange: (state, component) => {
                 if (!state.isValid) {
                     this.helper.enablePlaceOrder(label);
                 }
             },
-            onSubmit:  (state, component) => {
+            onSubmit: (state, component) => {
                 if (!state.isValid) {
                     this.helper.enablePlaceOrder(label);
                     return false;
                 }
-                this.helper.makePayment(state.data, component, this.helper.handleResult, label);
+                this.helper.makePayment(state.data, component, this.helper.handleResult);
             },
-            onClick:  (resolve, reject) => {
+            onClick: (resolve, reject) => {
                 if (this.helper.isTermsAccepted(label)) {
                     resolve();
                 } else {
@@ -288,10 +284,10 @@ class PaymentComponentFactory {
         }).mount('adyen-component-button-container-' + label);
 
         adyenComponent.isAvailable()
-            .then( () => {
+            .then(() => {
                 adyenComponent.mount(applePayNode);
             })
-            .catch( (e) => {
+            .catch((e) => {
                 // Apple Pay is not available
                 console.log('Something went wrong trying to mount the Apple Pay component: ' + e);
                 this.helper.handleResult({resultCode: ErrorMessages.PaymentNotAvailable}, true);
@@ -301,7 +297,7 @@ class PaymentComponentFactory {
     createGooglePay(params) {
         const {amount, merchantAccount, label} = params;
         const googlePayNode = document.getElementById('adyen-component-button-container-' + label);
-        const adyenComponent = new AdyenWeb.GooglePay (this.checkout, {
+        const adyenComponent = new AdyenWeb.GooglePay(this.checkout, {
             environment: this.checkout.options.environment,
             amount: {
                 currency: amount.currency,
@@ -317,13 +313,13 @@ class PaymentComponentFactory {
                     this.helper.hideSpinner();
                 }
             },
-            onSubmit:  (state, component) => {
+            onSubmit: (state, component) => {
                 if (!state.isValid) {
                     this.helper.hideSpinner();
                     return false;
                 }
                 this.helper.showSpinner();
-                this.helper.makePayment(state.data, component, this.helper.handleResult, label);
+                this.helper.makePayment(state.data, component, this.helper.handleResult);
             },
             onClick: (resolve, reject) => {
                 if (this.helper.isTermsAccepted(label)) {
@@ -336,13 +332,13 @@ class PaymentComponentFactory {
         });
 
         adyenComponent.isAvailable()
-            .then( () => {
+            .then(() => {
                 adyenComponent.mount(googlePayNode);
             })
-            .catch( (e) => {
+            .catch((e) => {
                 // Google Pay is not available
                 console.log('Something went wrong trying to mount the Google Pay component: ' + e);
-                this.helper.handleResult({resultCode: ErrorMessages.PaymentNotAvailable }, true);
+                this.helper.handleResult({resultCode: ErrorMessages.PaymentNotAvailable}, true);
             });
     }
 
@@ -385,7 +381,7 @@ class PaymentComponentFactory {
             }
         };
         const amazonPayNode = document.getElementById('adyen-component-button-container-' + label);
-        const adyenComponent = new AdyenWeb.AmazonPay(this.checkout,componentConfiguration);
+        const adyenComponent = new AdyenWeb.AmazonPay(this.checkout, componentConfiguration);
         try {
             adyenComponent.mount(amazonPayNode);
         } catch (e) {
@@ -406,9 +402,10 @@ class PaymentComponentFactory {
         this.helper.configureButton(adyenComponent, false, label);
     }
 
-    createGiftCard (params) {
+    createGiftCard(params) {
         const {label} = params;
-        const adyenComponent = new AdyenWeb.Giftcard(this.checkout, this.paymentConfiguration(label)).mount('#adyen-component-container-' + label);;
+        const adyenComponent = new AdyenWeb.Giftcard(this.checkout, this.paymentConfiguration(label)).mount('#adyen-component-container-' + label);
+        ;
         this.helper.configureButton(adyenComponent, false, label);
 
     }
@@ -432,7 +429,7 @@ class PaymentComponentFactory {
 
     createPix(params) {
         const {label, issuers} = params;
-        $("#generateqr-" + label).click( () => {
+        $("#generateqr-" + label).click(() => {
             this.helper.showSpinner();
             if (!this.helper.isTermsAccepted(label)) {
                 this.helper.handleResult({resultCode: ErrorMessages.TermsNotAccepted}, true)
@@ -443,7 +440,7 @@ class PaymentComponentFactory {
                     handleAction: (action) => {
                         this.helper.checkout.createFromAction(action, { //TODO FXIME: check if this is correct
                             issuers: issuers,
-                            onAdditionalDetails:  (state) => {
+                            onAdditionalDetails: (state) => {
                                 this.helper.hideSpinner();
                                 this.helper.submitDetails(state.data, this.helper.handleResult);
                             }
@@ -451,7 +448,7 @@ class PaymentComponentFactory {
                         this.helper.hideSpinner();
                     }
                 };
-                this.helper.makePayment({type: "pix"}, actionHandler, this.helper.handleResult, label);
+                this.helper.makePayment({type: "pix"}, actionHandler, this.helper.handleResult);
             }
         });
     }
@@ -471,7 +468,7 @@ class PaymentComponentFactory {
 
     createBcmcMobile(params) {
         const {label} = params;
-        $("#generateqr-" + label).click( () => {
+        $("#generateqr-" + label).click(() => {
             this.helper.showSpinner();
             if (!this.helper.isTermsAccepted(label)) {
                 this.helper.handleResult({resultCode: ErrorMessages.TermsNotAccepted}, true)
@@ -479,9 +476,9 @@ class PaymentComponentFactory {
                 $("#generateqr-" + label).hide();
                 $(".checkbox").hide();
                 var actionHandler = {
-                    handleAction:  (action) => {
+                    handleAction: (action) => {
                         this.helper.checkout.createFromAction(action, { //TODO FXIME: check if this is correct
-                            onAdditionalDetails:  (state) => {
+                            onAdditionalDetails: (state) => {
                                 this.helper.hideSpinner();
                                 this.helper.submitDetails(state.data, this.helper.handleResult);
                             }
@@ -489,7 +486,7 @@ class PaymentComponentFactory {
                         this.helper.hideSpinner();
                     }
                 };
-                this.helper.makePayment({type: "bcmc_mobile"}, actionHandler, this.helper.handleResult, label);
+                this.helper.makePayment({type: "bcmc_mobile"}, actionHandler, this.helper.handleResult);
             }
         });
     }
@@ -497,8 +494,8 @@ class PaymentComponentFactory {
     createBizum(params) {
         const {label} = params;
 
-        $(document).ready( () => {
-            $("#placeOrder-" + label).click( () => {
+        $(document).ready(() => {
+            $("#placeOrder-" + label).click(() => {
                 $(this).prop('disabled', true);
 
                 this.helper.showSpinner();
@@ -567,27 +564,38 @@ class PaymentComponentFactory {
 
     // Redirect payment methods
     createIdeal(idealDetails) {
-        new Redirect(this.checkout,
-            {
-                details: idealDetails,
-                type: 'ideal',
-                showPayButton: false,
-                onChange: this.handleOnChange
-            })
+        new AdyenWeb.Redirect(checkout, { type: 'ideal' })
             .mount("#adyen_hpp_ideal_container");
     }
 
     createRedirectPaymentMethod(paymentMethod) {
-        new Redirect(this.checkout, {type: paymentMethod.paymentType, onChange: this.handleOnChange}).mount('#adyen-component-button-container-' + paymentMethod.label);
+        new AdyenWeb.Redirect(this.checkout, {
+            type: paymentMethod.paymentType,
+            onChange: this.handleOnChange,
+            onSubmit: (state, component) => {
+                if (!state.isValid) {
+                    this.helper.enablePlaceOrder(label);
+                    return;
+                }
+                this.helper.makePayment(state.data, component, this.helper.handleResult);
+            },
+            onAdditionalDetails: (state, component) => {
+                this.helper.submitDetails(state.data, this.helper.handleResult);
+            },
+        }).mount('#adyen-component-button-container-' + paymentMethod.label);
     }
 
     initiateWalletIN() {
-        new Redirect(this.checkout, {type: 'wallet_IN', onChange: this.handleOnChange
+        new AdyenWeb.Redirect(this.checkout, {
+            type: 'wallet_IN', onChange: this.handleOnChange
         }).mount('#adyen_hpp_wallet_IN_container');
     }
 
     initiatePaytm() {
-        const paytm = new AdyenWeb.Redirect(this.checkout, {type: 'paytm', onChange: this.handleOnChange}).mount('#adyen_hpp_paytm_container');
+        const paytm = new AdyenWeb.Redirect(this.checkout, {
+            type: 'paytm',
+            onChange: this.handleOnChange
+        }).mount('#adyen_hpp_paytm_container');
     }
 
     // Helper methods

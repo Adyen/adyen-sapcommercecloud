@@ -35,6 +35,8 @@ public class AdyenOrderEntryPopulator extends OrderEntryPopulator {
     public void populate(@Nonnull final AbstractOrderEntryModel source, @Nonnull final OrderEntryData target)
     {
         target.setTaxValues(source.getTaxValues());
-        target.setUnitOfMeasure(source.getUnit().getName());
+        if (source.getUnit() != null) {
+            target.setUnitOfMeasure(source.getUnit().getName());
+        }
     }
 }

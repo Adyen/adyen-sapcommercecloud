@@ -75,11 +75,6 @@ public class CheckoutConfigDTOBuilder {
         return this;
     }
 
-    public CheckoutConfigDTOBuilder setSessionData(CreateCheckoutSessionResponse sessionData) {
-        checkoutConfigDTO.setSessionData(sessionData);
-        return this;
-    }
-
     public CheckoutConfigDTOBuilder setSelectedPaymentMethod(String selectedPaymentMethod) {
         checkoutConfigDTO.setSelectedPaymentMethod(selectedPaymentMethod);
         return this;
@@ -169,6 +164,10 @@ public class CheckoutConfigDTOBuilder {
         return this;
     }
 
+    public CheckoutConfigDTOBuilder setClickToPayLocale(String clickToPayLocale) {
+        checkoutConfigDTO.setClickToPayLocale(clickToPayLocale);
+        return this;
+    }
 
     public CheckoutConfigDTO build() {
         return checkoutConfigDTO;
