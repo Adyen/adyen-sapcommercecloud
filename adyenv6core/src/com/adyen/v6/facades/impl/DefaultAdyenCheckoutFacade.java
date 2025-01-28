@@ -1118,7 +1118,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
 
             Map<String, String> payPalConfig = getPayPalConfigFromPaymentMethods(paymentMethodsResponse.getPaymentMethods());
             if (!CollectionUtils.isEmpty(payPalConfig)) {
-                expressCheckoutConfigDTOBuilder.setPayPalIntent(payPalConfig.get("intent"))
+                expressCheckoutConfigDTOBuilder.setPayPalIntent(payPalConfig.get("intent"));
             } else {
                 LOGGER.warn("Empty PayPal config");
             }
@@ -1145,21 +1145,24 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         return expressCheckoutConfigDTOBuilder.build();
     }
 
-    protected void populateExpressCheckoutConfigModel(final Model model, final ExpressCheckoutConfigDTO expressCheckoutConfigDTO){
-        if(StringUtils.isNotEmpty(expressCheckoutConfigDTO.getApplePayMerchantId())){
+    protected void populateExpressCheckoutConfigModel(final Model model, final ExpressCheckoutConfigDTO expressCheckoutConfigDTO) {
+        if (StringUtils.isNotEmpty(expressCheckoutConfigDTO.getApplePayMerchantId())) {
             model.addAttribute(MODEL_APPLEPAY_MERCHANT_IDENTIFIER, expressCheckoutConfigDTO.getApplePayMerchantId());
         }
-        if(StringUtils.isNotEmpty(expressCheckoutConfigDTO.getApplePayMerchantName())){
+        if (StringUtils.isNotEmpty(expressCheckoutConfigDTO.getApplePayMerchantName())) {
             model.addAttribute(MODEL_APPLEPAY_MERCHANT_NAME, expressCheckoutConfigDTO.getApplePayMerchantName());
         }
-        if(expressCheckoutConfigDTO.getExpressPaymentConfig() != null){
+        if (expressCheckoutConfigDTO.getExpressPaymentConfig() != null) {
             model.addAttribute(EXPRESS_PAYMENT_CONFIG, expressCheckoutConfigDTO.getExpressPaymentConfig());
+        }
+        if (expressCheckoutConfigDTO.getPayPalIntent() != null) {
+            model.addAttribute(MODEL_PAYPAL_INTENT, expressCheckoutConfigDTO.getPayPalIntent());
         }
 
         model.addAttribute(SHOPPER_LOCALE, expressCheckoutConfigDTO.getShopperLocale());
         model.addAttribute(MODEL_ENVIRONMENT_MODE, expressCheckoutConfigDTO.getEnvironmentMode());
         model.addAttribute(MODEL_CLIENT_KEY, expressCheckoutConfigDTO.getClientKey());
-        model.addAttribute(MODEL_MERCHANT_ACCOUNT,expressCheckoutConfigDTO.getMerchantAccount());
+        model.addAttribute(MODEL_MERCHANT_ACCOUNT, expressCheckoutConfigDTO.getMerchantAccount());
         model.addAttribute(MODEL_AMOUNT, expressCheckoutConfigDTO.getAmount());
         model.addAttribute(MODEL_AMOUNT_DECIMAL, expressCheckoutConfigDTO.getAmountDecimal());
         model.addAttribute(MODEL_DF_URL, expressCheckoutConfigDTO.getDfUrl());

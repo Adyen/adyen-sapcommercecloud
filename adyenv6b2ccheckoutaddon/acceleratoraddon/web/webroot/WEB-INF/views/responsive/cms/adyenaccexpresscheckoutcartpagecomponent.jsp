@@ -15,9 +15,9 @@
                 <div class="adyen-apple-pay-button">
                 </div>
             </div>
-        </div>
-        <div class="col-sm-4 col-md-3 pull-right">
-            <div class="adyen-paypal-button">
+            <div class="col-sm-4 col-md-3 pull-right">
+                <div class="adyen-paypal-button">
+                </div>
             </div>
         </div>
     </div>
