@@ -26,8 +26,8 @@ import javax.servlet.http.HttpServletResponse;
 
 @Controller
 @RequestMapping("/express-checkout/paypal/")
-public class AdyenPayPalExpressCheckoutController extends  AdyenExpressCheckoutControllerBase {
-    private static final Logger LOG = Logger.getLogger(AdyenApplePayExpressCheckoutController.class);
+public class AdyenPayPalExpressCheckoutController extends AdyenExpressCheckoutControllerBase {
+    private static final Logger LOG = Logger.getLogger(AdyenPayPalExpressCheckoutController.class);
 
     @Autowired
     private AdyenPayPalExpressCheckoutFacade adyenPayPalExpressCheckoutFacade;
@@ -59,7 +59,7 @@ public class AdyenPayPalExpressCheckoutController extends  AdyenExpressCheckoutC
             LOG.error(e.getError());
             LOG.error(e.getMessage());
 
-            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
+            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
         }
 
     }
@@ -81,7 +81,7 @@ public class AdyenPayPalExpressCheckoutController extends  AdyenExpressCheckoutC
             LOG.error(e.getError());
             LOG.error(e.getMessage());
 
-            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
+            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
         }
 
     }

@@ -33,17 +33,9 @@ import static de.hybris.platform.servicelayer.util.ServicesUtil.validateParamete
 public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpressCheckoutFacade implements AdyenPayPalExpressCheckoutFacade {
     private static final Logger LOG = Logger.getLogger(DefaultAdyenPayPalExpressCheckoutFacade.class);
 
-    //    private ProductService productService;
-//    private CartFactory cartFactory;
-//    private CartService cartService;
-//    private ModelService modelService;
     private CalculationService calculationService;
-    //    private AdyenCheckoutFacade adyenCheckoutFacade;
-//    private UserService userService;
     private BaseSiteService baseSiteService;
-//    private CommerceCartService commerceCartService;
-//    private DeliveryModeService deliveryModeService;
-//    private SessionService sessionService;
+
 
 
     @Override
