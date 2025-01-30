@@ -26,6 +26,7 @@ import com.adyen.v6.controllers.dtos.PaymentResultDTO;
 import com.adyen.v6.dto.CheckoutConfigDTO;
 import com.adyen.v6.dto.ExpressCheckoutConfigDTO;
 import com.adyen.v6.forms.AdyenPaymentForm;
+import com.adyen.v6.service.AdyenCheckoutApiService;
 import de.hybris.platform.commercefacades.order.data.CartData;
 import de.hybris.platform.commercefacades.order.data.OrderData;
 import de.hybris.platform.commercewebservicescommons.dto.order.PaymentDetailsWsDTO;
@@ -215,4 +216,8 @@ public interface AdyenCheckoutFacade {
     CheckoutConfigDTO getCheckoutConfig() throws ApiException;
 
     CheckoutConfigDTO getReactCheckoutConfig() throws ApiException;
+
+    AdyenCheckoutApiService  getAdyenPaymentService();
+
+    OrderData placePendingOrder() throws InvalidCartException;
 }

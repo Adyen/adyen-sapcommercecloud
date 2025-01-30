@@ -21,15 +21,10 @@
 package com.adyen.v6.factory;
 
 import com.adyen.builders.terminal.TerminalAPIRequestBuilder;
+import com.adyen.model.checkout.Amount;
+import com.adyen.model.checkout.PaymentRequest;
 import com.adyen.model.checkout.*;
-import com.adyen.model.nexo.AmountsReq;
-import com.adyen.model.nexo.DocumentQualifierType;
-import com.adyen.model.nexo.MessageCategoryType;
-import com.adyen.model.nexo.MessageReference;
-import com.adyen.model.nexo.PaymentTransaction;
-import com.adyen.model.nexo.SaleData;
-import com.adyen.model.nexo.TransactionIdentification;
-import com.adyen.model.nexo.TransactionStatusRequest;
+import com.adyen.model.nexo.*;
 import com.adyen.model.recurring.DisableRequest;
 import com.adyen.model.recurring.Recurring;
 import com.adyen.model.recurring.RecurringDetailsRequest;
@@ -62,20 +57,7 @@ import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static com.adyen.v6.constants.Adyenv6coreConstants.AFTERPAY;
-import static com.adyen.v6.constants.Adyenv6coreConstants.CARD_TYPE_DEBIT;
-import static com.adyen.v6.constants.Adyenv6coreConstants.OPENINVOICE_METHODS_API;
-import static com.adyen.v6.constants.Adyenv6coreConstants.PAYBRIGHT;
-import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_BCMC;
-import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_BOLETO;
-import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_CC;
-import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_FACILPAY_PREFIX;
-import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_KLARNA;
-import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_PIX;
-import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_SCHEME;
-import static com.adyen.v6.constants.Adyenv6coreConstants.PLUGIN_NAME;
-import static com.adyen.v6.constants.Adyenv6coreConstants.PLUGIN_VERSION;
-import static com.adyen.v6.constants.Adyenv6coreConstants.RATEPAY;
+import static com.adyen.v6.constants.Adyenv6coreConstants.*;
 
 /**
  * Factory class to create Adyen API requests, do not add new code to this class.
@@ -120,7 +102,12 @@ public class AdyenRequestFactory {
 
         setRiskData(paymentsRequest, cartData, originPaymentsRequest);
 
-        paymentsRequest.setReturnUrl(cartData.getAdyenReturnUrl());
+        if (StringUtils.isNotEmpty(cartData.getAdyenReturnUrl()) || originPaymentsRequest == null) {
+            paymentsRequest.setReturnUrl(cartData.getAdyenReturnUrl());
+        } else {
+            paymentsRequest.setReturnUrl(originPaymentsRequest.getReturnUrl());
+        }
+
         paymentsRequest.setRedirectFromIssuerMethod(RequestMethod.POST.toString());
         paymentsRequest.setRedirectToIssuerMethod(RequestMethod.POST.toString());
         if (originPaymentsRequest != null) {
@@ -342,7 +329,6 @@ public class AdyenRequestFactory {
         final String adyenPaymentMethod = cartData.getAdyenPaymentMethod();
 
         paymentsRequest.setShopperName(getShopperNameFromAddress(cartData.getDeliveryAddress()));
-        paymentsRequest.setReturnUrl(cartData.getAdyenReturnUrl());
 
         if (adyenPaymentMethod.startsWith(PAYMENT_METHOD_KLARNA)
                 || adyenPaymentMethod.startsWith(PAYMENT_METHOD_FACILPAY_PREFIX)

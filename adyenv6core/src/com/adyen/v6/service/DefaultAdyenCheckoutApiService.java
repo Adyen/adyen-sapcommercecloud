@@ -21,25 +21,10 @@
 package com.adyen.v6.service;
 
 import com.adyen.commerce.services.AdyenRequestService;
-import com.adyen.commerce.services.impl.DefaultAdyenRequestService;
 import com.adyen.model.checkout.Amount;
-import com.adyen.model.checkout.CheckoutPaymentMethod;
-import com.adyen.model.checkout.CreateCheckoutSessionRequest;
-import com.adyen.model.checkout.CreateCheckoutSessionResponse;
-import com.adyen.model.checkout.PaymentCompletionDetails;
-import com.adyen.model.checkout.PaymentDetailsRequest;
-import com.adyen.model.checkout.PaymentDetailsResponse;
-import com.adyen.model.checkout.PaymentMethod;
-import com.adyen.model.checkout.PaymentMethodsRequest;
-import com.adyen.model.checkout.PaymentMethodsResponse;
-import com.adyen.model.checkout.PaymentRequest;
-import com.adyen.model.checkout.PaymentResponse;
-import com.adyen.model.recurring.DisableRequest;
-import com.adyen.model.recurring.DisableResult;
+import com.adyen.model.checkout.*;
 import com.adyen.model.recurring.RecurringDetail;
-import com.adyen.model.recurring.RecurringDetailWrapper;
-import com.adyen.model.recurring.RecurringDetailsRequest;
-import com.adyen.model.recurring.RecurringDetailsResult;
+import com.adyen.model.recurring.*;
 import com.adyen.model.terminal.ConnectedTerminalsRequest;
 import com.adyen.model.terminal.ConnectedTerminalsResponse;
 import com.adyen.model.terminal.TerminalAPIRequest;
@@ -51,30 +36,21 @@ import com.adyen.service.checkout.PaymentsApi;
 import com.adyen.service.exception.ApiException;
 import com.adyen.terminal.serialization.TerminalAPIGsonBuilder;
 import com.adyen.v6.enums.RecurringContractMode;
-import com.adyen.v6.factory.AdyenRequestFactory;
 import com.adyen.v6.model.RequestInfo;
-import com.adyen.v6.strategy.AdyenMerchantAccountStrategy;
 import com.adyen.v6.util.AmountUtil;
 import de.hybris.platform.commercefacades.order.data.CartData;
 import de.hybris.platform.commercefacades.product.data.PriceData;
-import de.hybris.platform.core.model.order.AbstractOrderModel;
 import de.hybris.platform.core.model.user.CustomerModel;
 import de.hybris.platform.store.BaseStoreModel;
-import de.hybris.platform.store.services.BaseStoreService;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.adyen.model.checkout.CreateCheckoutSessionRequest.StorePaymentMethodModeEnum.ASKFORCONSENT;
@@ -120,6 +96,18 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
 
         LOG.debug(paymentsRequest);
         PaymentResponse paymentsResponse = checkoutApi.payments(paymentsRequest);
+        LOG.debug(paymentsResponse);
+
+        return paymentsResponse;
+    }
+
+    public PaymentResponse sendPaymentRequest(final PaymentRequest paymentRequest) throws IOException, ApiException {
+        PaymentsApi checkoutApi = new PaymentsApi(client);
+
+        paymentRequest.setMerchantAccount(merchantAccount);
+
+        LOG.debug(paymentRequest);
+        PaymentResponse paymentsResponse = checkoutApi.payments(paymentRequest);
         LOG.debug(paymentsResponse);
 
         return paymentsResponse;
