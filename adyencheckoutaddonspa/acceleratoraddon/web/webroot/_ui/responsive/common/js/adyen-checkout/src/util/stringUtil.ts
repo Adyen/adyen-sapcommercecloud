@@ -14,3 +14,7 @@ export function formatStringWithPlaceholders(stringWithPlaceholders: string, ...
         return placeholderWithDelimiters;
     })
 }
+
+export function valOrEmptyStr(str: string){
+    return str ? str : ""
+}

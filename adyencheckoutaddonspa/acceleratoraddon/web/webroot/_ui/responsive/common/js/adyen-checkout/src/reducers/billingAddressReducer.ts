@@ -1,6 +1,13 @@
 import {PayloadAction, RootAction} from "./rootReducer";
 import {AddressModel} from "./types";
+import {shippingAddressInitialState} from "./shippingAddressReducer";
 
+export const billingAddressInitialState: AddressModel = {
+    ...shippingAddressInitialState,
+    companyName: "",
+    taxNumber: "",
+    registrationNumber: ""
+}
 
 export function billingAddressReducer(addressState: AddressModel, action: RootAction): AddressModel {
     switch (action.type) {
@@ -65,6 +72,24 @@ export function billingAddressReducer(addressState: AddressModel, action: RootAc
                 phoneNumber: action.payload
             }
 
+        case "billingAddress/setCompanyName":
+            return {
+                ...addressState,
+                companyName: action.payload
+            }
+
+        case "billingAddress/setTaxNumber":
+            return {
+                ...addressState,
+                taxNumber: action.payload
+            }
+
+        case "billingAddress/setRegistrationNumber":
+            return {
+                ...addressState,
+                registrationNumber: action.payload
+            }
+
         case "billingAddress/setAddress":
             return action.payload
 
@@ -104,6 +129,15 @@ interface SetBAPostCodeAction extends PayloadAction<"billingAddress/setPostCode"
 interface SetBAPhoneNumberAction extends PayloadAction<"billingAddress/setPhoneNumber"> {
 }
 
+interface SetBACompanyNameAction extends PayloadAction<"billingAddress/setCompanyName"> {
+}
+
+interface SetBATaxNumberAction extends PayloadAction<"billingAddress/setTaxNumber"> {
+}
+
+interface SetBARegistrationNumberAction extends PayloadAction<"billingAddress/setRegistrationNumber"> {
+}
+
 interface SetBAAddress extends PayloadAction<"billingAddress/setAddress", AddressModel> {
 }
 
@@ -119,4 +153,7 @@ export type BillingAddressAction =
     | SetBACityAction
     | SetBAPostCodeAction
     | SetBAPhoneNumberAction
+    | SetBACompanyNameAction
+    | SetBATaxNumberAction
+    | SetBARegistrationNumberAction
     | SetBAAddress

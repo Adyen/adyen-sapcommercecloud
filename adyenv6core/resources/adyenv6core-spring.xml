@@ -454,4 +454,17 @@
     <!-- To support getCheckoutCart for non credit cards (CreditCardPaymentInfoModel) -->
     <alias name="adyenCheckoutFlowFacade" alias="checkoutFlowFacade"/>
     <bean id="adyenCheckoutFlowFacade" class="com.adyen.v6.acceleratorfacades.flow.impl.AdyenCheckoutFlowFacade" parent="defaultCheckoutFlowFacade" />
+
+    <alias name="adyenReverseAddressPopulator" alias="addressReversePopulator"/>
+    <bean id="adyenReverseAddressPopulator" class="com.adyen.v6.populator.AdyenReverseAddressPopulator" >
+        <property name="commonI18NService" ref="commonI18NService"/>
+        <property name="flexibleSearchService" ref="flexibleSearchService"/>
+    </bean>
+
+    <bean id="adyenAddressPopulator" class="com.adyen.v6.populator.AdyenAddressPopulator"/>
+
+    <bean parent="modifyPopulatorList">
+        <property name="list" ref="addressConverter"/>
+        <property name="add" ref="adyenAddressPopulator"/>
+    </bean>
 </beans>

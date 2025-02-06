@@ -1,5 +1,5 @@
 import {Reducer} from "@reduxjs/toolkit";
-import {addressInitialState, ShippingAddressAction, shippingAddressReducer} from "./shippingAddressReducer";
+import {shippingAddressInitialState, ShippingAddressAction, shippingAddressReducer} from "./shippingAddressReducer";
 import {Action} from "redux";
 import {
     AddressConfigAction,
@@ -12,7 +12,7 @@ import {AddressBookAction, addressBookInitialState, addressBookReducer} from "./
 import {shippingMethodInitialState, shippingMethodReducer, ShippingModeAction} from "./shippingMethodReducer";
 import {CartData} from "../types/cartData";
 import {CartDataAction, cartDataInitialState, cartDataReducer} from "./cartDataReducer";
-import {BillingAddressAction, billingAddressReducer} from "./billingAddressReducer";
+import {BillingAddressAction, billingAddressInitialState, billingAddressReducer} from "./billingAddressReducer";
 import {AdyenConfigAction, adyenConfigInitialState, adyenConfigReducer} from "./adyenConfigReducer";
 import {AdyenConfigData} from "../types/adyenConfigData";
 import {LoadingAction, loadingReducer, loadingStateInitialState} from "./loadingReducer";
@@ -20,12 +20,12 @@ import {LoadingState} from "../types/loadingState";
 import {NotificationAction, notificationInitialState, notificationReducer} from "./notificationReducer";
 
 export const initialState: AppState = {
-    shippingAddress: addressInitialState,
+    shippingAddress: shippingAddressInitialState,
     addressConfig: addressConfigInitialState,
     addressBook: addressBookInitialState,
     shippingMethod: shippingMethodInitialState,
     cartData: cartDataInitialState,
-    billingAddress: addressInitialState,
+    billingAddress: billingAddressInitialState,
     adyenConfig: adyenConfigInitialState,
     loadingState: loadingStateInitialState,
     notifications: notificationInitialState

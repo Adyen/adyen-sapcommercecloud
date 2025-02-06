@@ -243,6 +243,14 @@ public class AdyenRequestFactory {
         final String reference = cartData.getCode();
         final AddressData billingAddress = cartData.getPaymentInfo() != null ? cartData.getPaymentInfo().getBillingAddress() : null;
         final AddressData deliveryAddress = cartData.getDeliveryAddress();
+        Company company = null;
+
+        if (billingAddress != null && StringUtils.isNotEmpty(billingAddress.getCompanyName())) {
+            company = new Company();
+            company.setName(billingAddress.getCompanyName());
+            company.setRegistrationNumber(billingAddress.getRegistrationNumber());
+            company.setTaxId(billingAddress.getTaxNumber());
+        }
 
         //Get details from HttpServletRequest to set in PaymentRequest.
         final String userAgent = requestInfo.getUserAgent();
@@ -264,7 +272,8 @@ public class AdyenRequestFactory {
                 .deliveryAddress(convertToDeliveryAddress(deliveryAddress))
                 .billingAddress(convertToBillingAddress(billingAddress))
                 .telephoneNumber(billingAddress != null ? billingAddress.getPhone() : "")
-                .setCountryCode(getCountryCode(cartData));
+                .countryCode(getCountryCode(cartData))
+                .setCompany(company);
     }
 
     protected void updatePaymentRequestForCC(final PaymentRequest paymentsRequest, final CartData cartData, final RecurringContractMode recurringContractMode) {

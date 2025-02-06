@@ -100,6 +100,9 @@ export class PaymentService {
             postcode: address.postalCode,
             titleCode: address.titleCode,
             townCity: address.city,
+            companyName: address.companyName,
+            taxNumber: address.taxNumber,
+            registrationNumber: address.registrationNumber,
             saveInAddressBook: saveInAddressBook,
         }
     }

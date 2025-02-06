@@ -116,4 +116,9 @@
         <property name="adyenAmazonPayConfiguration" type="java.util.Map"/>
     </bean>
 
+    <bean class="de.hybris.platform.commercefacades.user.data.AddressData">
+        <property name="taxNumber" type="String"/>
+        <property name="registrationNumber" type="String"/>
+    </bean>
+
 </beans>
