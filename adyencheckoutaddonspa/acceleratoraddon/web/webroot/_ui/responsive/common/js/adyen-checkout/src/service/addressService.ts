@@ -2,7 +2,7 @@ import {AxiosError} from "axios";
 import {CSRFToken, urlContextPath} from "../util/baseUrlUtil";
 import {AddressModel, RegionModel} from "../reducers/types";
 import {store} from "../store/store";
-import {isNotEmpty} from "../util/stringUtil";
+import {isNotEmpty, valOrEmptyStr} from "../util/stringUtil";
 import {AddressConfigModel} from "../reducers/addressConfigReducer";
 import {AddressData, RegionData} from "../types/addressData";
 import {ErrorResponse} from "../types/errorResponse";
@@ -97,10 +97,13 @@ export class AddressService {
             regionCode: responseData.region ? responseData.region.isocode : null,
             region: responseData.region ? responseData.region.name : null,
             line1: responseData.line1,
-            line2: responseData.line2,
+            line2: valOrEmptyStr(responseData.line2),
             city: responseData.town,
             postalCode: responseData.postalCode,
-            phoneNumber: responseData.phone
+            phoneNumber: valOrEmptyStr(responseData.phone),
+            companyName: valOrEmptyStr(responseData.companyName),
+            taxNumber: valOrEmptyStr(responseData.taxNumber),
+            registrationNumber: valOrEmptyStr(responseData.registrationNumber)
         }
     }
 

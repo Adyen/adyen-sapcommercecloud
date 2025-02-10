@@ -1495,6 +1495,9 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         addressData.setBillingAddress(true);
         addressData.setCountry(countryData);
         addressData.setPhone(addressForm.getPhoneNumber());
+        addressData.setCompanyName(addressForm.getCompanyName());
+        addressData.setTaxNumber(addressForm.getTaxNumber());
+        addressData.setRegistrationNumber(addressForm.getRegistrationNumber());
 
         if (addressForm.getRegionIso() != null && !org.apache.commons.lang.StringUtils.isEmpty(addressForm.getRegionIso())) {
             final RegionData regionData = getI18NFacade().getRegion(addressForm.getCountryIso(), addressForm.getRegionIso());

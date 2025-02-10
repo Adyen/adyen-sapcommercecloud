@@ -18,6 +18,9 @@ public class AddressForm {
     private String postcode;
     private String countryIso;
     private String phoneNumber;
+    private String companyName;
+    private String taxNumber;
+    private String registrationNumber;
     private boolean saveInAddressBook;
 
 
@@ -132,36 +135,49 @@ public class AddressForm {
         this.saveInAddressBook = saveInAddressBook;
     }
 
+    public String getCompanyName() {
+        return companyName;
+    }
+
+    public void setCompanyName(String companyName) {
+        this.companyName = companyName;
+    }
+
+    public String getTaxNumber() {
+        return taxNumber;
+    }
+
+    public void setTaxNumber(String taxNumber) {
+        this.taxNumber = taxNumber;
+    }
+
+    public String getRegistrationNumber() {
+        return registrationNumber;
+    }
+
+    public void setRegistrationNumber(String registrationNumber) {
+        this.registrationNumber = registrationNumber;
+    }
+
     @Override
     public String toString() {
-        return "AddressForm{"
-                + "titleCode='"
-                + titleCode
-                + '\''
-                + ", firstName='"
-                + firstName
-                + '\''
-                + ", lastName='"
-                + lastName
-                + '\''
-                + ", line1='"
-                + line1
-                + '\''
-                + ", line2='"
-                + line2
-                + '\''
-                + ", townCity='"
-                + townCity
-                + '\''
-                + ", postcode='"
-                + postcode
-                + '\''
-                + ", countryIso='"
-                + countryIso
-                + '\''
-                + ", phoneNumber='"
-                + phoneNumber
-                + '}';
+        return "AddressForm{" +
+                "addressId='" + addressId + '\'' +
+                ", titleCode='" + titleCode + '\'' +
+                ", firstName='" + firstName + '\'' +
+                ", lastName='" + lastName + '\'' +
+                ", line1='" + line1 + '\'' +
+                ", line2='" + line2 + '\'' +
+                ", townCity='" + townCity + '\'' +
+                ", regionIso='" + regionIso + '\'' +
+                ", postcode='" + postcode + '\'' +
+                ", countryIso='" + countryIso + '\'' +
+                ", phoneNumber='" + phoneNumber + '\'' +
+                ", companyName='" + companyName + '\'' +
+                ", taxNumber='" + taxNumber + '\'' +
+                ", registrationNumber='" + registrationNumber + '\'' +
+                ", saveInAddressBook=" + saveInAddressBook +
+                '}';
     }
 
 }
