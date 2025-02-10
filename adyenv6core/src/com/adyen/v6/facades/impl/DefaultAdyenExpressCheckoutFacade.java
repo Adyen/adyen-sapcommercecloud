@@ -30,6 +30,7 @@ import de.hybris.platform.order.CartFactory;
 import de.hybris.platform.order.CartService;
 import de.hybris.platform.order.DeliveryModeService;
 import de.hybris.platform.order.InvalidCartException;
+import de.hybris.platform.order.exceptions.CalculationException;
 import de.hybris.platform.product.ProductService;
 import de.hybris.platform.servicelayer.dto.converter.Converter;
 import de.hybris.platform.servicelayer.i18n.CommonI18NService;
@@ -53,30 +54,31 @@ import static de.hybris.platform.servicelayer.util.ServicesUtil.validateParamete
 public class DefaultAdyenExpressCheckoutFacade implements AdyenExpressCheckoutFacade {
     private static final Logger LOG = Logger.getLogger(DefaultAdyenExpressCheckoutFacade.class);
     protected static final String USER_NAME = "ExpressCheckoutGuest";
-    private static final String DELIVERY_MODE_CODE = "adyen-express-checkout";
+    protected static final String DELIVERY_MODE_CODE = "adyen-express-checkout";
     protected static final String ANONYMOUS_CHECKOUT_GUID = "anonymous_checkout_guid";
     protected static final String ANONYMOUS_CHECKOUT = "anonymous_checkout";
 
-    private CartFactory cartFactory;
-    private CartService cartService;
-    private ProductService productService;
-    private ModelService modelService;
-    private CustomerFacade customerFacade;
-    private CommonI18NService commonI18NService;
-    private I18NFacade i18NFacade;
-    private CustomerAccountService customerAccountService;
-    private CommerceCartService commerceCartService;
-    private DeliveryModeService deliveryModeService;
-    private AdyenCheckoutFacade adyenCheckoutFacade;
-    private SessionService sessionService;
-    private UserService userService;
-    private AdyenCheckoutApiFacade adyenCheckoutApiFacade;
-    private Converter<AddressData, AddressModel> addressReverseConverter;
-    private Converter<CartModel, CartData> cartConverter;
+    protected CartFactory cartFactory;
+    protected CartService cartService;
+    protected ProductService productService;
+    protected ModelService modelService;
+    protected CustomerFacade customerFacade;
+    protected CommonI18NService commonI18NService;
+    protected I18NFacade i18NFacade;
+    protected CustomerAccountService customerAccountService;
+    protected CommerceCartService commerceCartService;
+    protected DeliveryModeService deliveryModeService;
+    protected AdyenCheckoutFacade adyenCheckoutFacade;
+    protected SessionService sessionService;
+    protected UserService userService;
+    protected AdyenCheckoutApiFacade adyenCheckoutApiFacade;
+    protected Converter<AddressData, AddressModel> addressReverseConverter;
+    protected Converter<CartModel, CartData> cartConverter;
 
     public PaymentResponse expressCheckoutPDP(String productCode, PaymentRequest paymentRequest, String paymentMethod, AddressData addressData,
                                               HttpServletRequest request) throws Exception {
         Assert.notNull(paymentMethod, "Payment method must not be null");
+        validateAddress(addressData);
 
         PaymentInfoModel paymentInfoModel = modelService.create(PaymentInfoModel.class);
         paymentInfoModel.setAdyenPaymentMethod(paymentMethod);
@@ -89,6 +91,7 @@ public class DefaultAdyenExpressCheckoutFacade implements AdyenExpressCheckoutFa
     public OrderData expressCheckoutPDPOCC(String productCode, PaymentRequest paymentRequest, String paymentMethod, AddressData addressData,
                                             HttpServletRequest request) throws Exception {
         Assert.notNull(paymentMethod, "Payment method must not be null");
+        validateAddress(addressData);
 
         PaymentInfoModel paymentInfoModel = modelService.create(PaymentInfoModel.class);
         paymentInfoModel.setAdyenPaymentMethod(paymentMethod);
@@ -102,6 +105,7 @@ public class DefaultAdyenExpressCheckoutFacade implements AdyenExpressCheckoutFa
     public PaymentResponse expressCheckoutCart(PaymentRequest paymentRequest, String paymentMethod, AddressData addressData,
                                                HttpServletRequest request) throws Exception {
         Assert.notNull(paymentMethod, "Payment method must not be null");
+        validateAddress(addressData);
 
         PaymentInfoModel paymentInfoModel = modelService.create(PaymentInfoModel.class);
         paymentInfoModel.setAdyenPaymentMethod(paymentMethod);
@@ -114,6 +118,7 @@ public class DefaultAdyenExpressCheckoutFacade implements AdyenExpressCheckoutFa
     public OrderData expressCheckoutCartOCC(PaymentRequest paymentRequest, String paymentMethod, AddressData addressData,
                                              HttpServletRequest request) throws Exception {
         Assert.notNull(paymentMethod, "Payment method must not be null");
+        validateAddress(addressData);
 
         PaymentInfoModel paymentInfoModel = modelService.create(PaymentInfoModel.class);
         paymentInfoModel.setAdyenPaymentMethod(paymentMethod);
@@ -125,10 +130,6 @@ public class DefaultAdyenExpressCheckoutFacade implements AdyenExpressCheckoutFa
 
     protected PaymentResponse expressPDPCheckout(PaymentRequest paymentRequest, AddressData addressData, PaymentInfoModel paymentInfoModel, String productCode,
                                               HttpServletRequest request) throws Exception {
-        validateParameterNotNull(addressData, "Empty address");
-        if (StringUtils.isEmpty(addressData.getEmail())) {
-            throw new IllegalArgumentException("Empty email address");
-        }
         CustomerModel user = (CustomerModel) userService.getCurrentUser();
         boolean isGuestUser = false;
         if (userService.isAnonymousUser(user)) {
@@ -136,22 +137,10 @@ public class DefaultAdyenExpressCheckoutFacade implements AdyenExpressCheckoutFa
             isGuestUser = true;
         }
 
-        CartModel cart = createCartForExpressCheckout(user);
-
-        DeliveryModeModel deliveryMode = deliveryModeService.getDeliveryModeForCode(DELIVERY_MODE_CODE);
-        validateParameterNotNull(deliveryMode, "Delivery mode for Adyen express checkout not configured");
-
-        AddressModel addressModel = prepareAddressModel(addressData, user);
-        updatePaymentInfoWithCartAndUser(paymentInfoModel, user,addressModel,cart);
-
-        prepareCart(cart, deliveryMode, addressModel, paymentInfoModel);
-
-        addProductToCart(productCode, cart);
+        CartModel cart = prepareCartForPDPExpressCheckout(addressData, paymentInfoModel, productCode, user);
 
         if (cartHasEntries(cart)) {
-            CommerceCartParameter commerceCartParameter = new CommerceCartParameter();
-            commerceCartParameter.setCart(cart);
-            commerceCartService.calculateCart(commerceCartParameter);
+            recalculateCart(cart);
 
             CartModel sessionCart = null;
             if (cartService.hasSessionCart()) {
@@ -181,31 +170,15 @@ public class DefaultAdyenExpressCheckoutFacade implements AdyenExpressCheckoutFa
 
     protected OrderData expressPDPCheckoutOCC(PaymentRequest paymentRequest, AddressData addressData, PaymentInfoModel paymentInfoModel, String productCode,
                                               HttpServletRequest request) throws Exception {
-        validateParameterNotNull(addressData, "Empty address");
-        if (StringUtils.isEmpty(addressData.getEmail())) {
-            throw new IllegalArgumentException("Empty email address");
-        }
         CustomerModel user = (CustomerModel) userService.getCurrentUser();
         if (userService.isAnonymousUser(user)) {
             user = createGuestCustomer(addressData.getEmail());
         }
 
-        CartModel cart = createCartForExpressCheckout(user);
-
-        DeliveryModeModel deliveryMode = deliveryModeService.getDeliveryModeForCode(DELIVERY_MODE_CODE);
-        validateParameterNotNull(deliveryMode, "Delivery mode for Adyen express checkout not configured");
-
-        AddressModel addressModel = prepareAddressModel(addressData, user);
-        updatePaymentInfoWithCartAndUser(paymentInfoModel, user,addressModel,cart);
-
-        prepareCart(cart, deliveryMode, addressModel, paymentInfoModel);
-
-        addProductToCart(productCode, cart);
+        CartModel cart = prepareCartForPDPExpressCheckout(addressData, paymentInfoModel, productCode, user);
 
         if (cartHasEntries(cart)) {
-            CommerceCartParameter commerceCartParameter = new CommerceCartParameter();
-            commerceCartParameter.setCart(cart);
-            commerceCartService.calculateCart(commerceCartParameter);
+            recalculateCart(cart);
 
             CartModel sessionCart = null;
             if (cartService.hasSessionCart()) {
@@ -238,19 +211,7 @@ public class DefaultAdyenExpressCheckoutFacade implements AdyenExpressCheckoutFa
             isGuestUser = true;
         }
 
-        CartModel cart = cartService.getSessionCart();
-
-        DeliveryModeModel deliveryMode = deliveryModeService.getDeliveryModeForCode(DELIVERY_MODE_CODE);
-        validateParameterNotNull(deliveryMode, "Delivery mode for Adyen express checkout not configured");
-
-        AddressModel addressModel = prepareAddressModel(addressData, user);
-        updatePaymentInfoWithCartAndUser(paymentInfoModel, user,addressModel,cart);
-
-        prepareCart(cart, deliveryMode, addressModel, paymentInfoModel);
-
-        CommerceCartParameter commerceCartParameter = new CommerceCartParameter();
-        commerceCartParameter.setCart(cart);
-        commerceCartService.recalculateCart(commerceCartParameter);
+        CartModel cart = prepareCartForCartExpressCheckout(addressData, paymentInfoModel, user);
 
         if (cartHasEntries(cart)) {
             CartData cartData = cartConverter.convert(cart);
@@ -276,19 +237,7 @@ public class DefaultAdyenExpressCheckoutFacade implements AdyenExpressCheckoutFa
             cartService.changeCurrentCartUser(user);
         }
 
-        CartModel cart = cartService.getSessionCart();
-
-        DeliveryModeModel deliveryMode = deliveryModeService.getDeliveryModeForCode(DELIVERY_MODE_CODE);
-        validateParameterNotNull(deliveryMode, "Delivery mode for Adyen express checkout not configured");
-
-        AddressModel addressModel = prepareAddressModel(addressData, user);
-        updatePaymentInfoWithCartAndUser(paymentInfoModel, user,addressModel,cart);
-
-        prepareCart(cart, deliveryMode, addressModel, paymentInfoModel);
-
-        CommerceCartParameter commerceCartParameter = new CommerceCartParameter();
-        commerceCartParameter.setCart(cart);
-        commerceCartService.recalculateCart(commerceCartParameter);
+        CartModel cart = prepareCartForCartExpressCheckout(addressData, paymentInfoModel, user);
 
         if (cartHasEntries(cart)) {
             CartData cartData = cartConverter.convert(cart);
@@ -300,7 +249,64 @@ public class DefaultAdyenExpressCheckoutFacade implements AdyenExpressCheckoutFa
         }
     }
 
-    protected void prepareCart(CartModel cart, DeliveryModeModel deliveryMode, AddressModel addressModel, PaymentInfoModel paymentInfo) {
+    public void removeDeliveryModeFromSessionCart() throws CalculationException {
+        if (cartService.hasSessionCart()) {
+            CartModel sessionCart = cartService.getSessionCart();
+            sessionCart.setDeliveryMode(null);
+            modelService.save(sessionCart);
+
+            CommerceCartParameter commerceCartParameter = new CommerceCartParameter();
+            commerceCartParameter.setCart(sessionCart);
+            commerceCartService.recalculateCart(commerceCartParameter);
+        }
+    }
+
+    protected void validateAddress(AddressData addressData) {
+        validateParameterNotNull(addressData, "Empty address");
+        if (StringUtils.isEmpty(addressData.getEmail())) {
+            throw new IllegalArgumentException("Empty email address");
+        }
+    }
+
+    protected CartModel prepareCartForCartExpressCheckout(AddressData addressData, PaymentInfoModel paymentInfoModel, CustomerModel user) throws CalculationException {
+        CartModel cart = cartService.getSessionCart();
+
+        DeliveryModeModel deliveryMode = deliveryModeService.getDeliveryModeForCode(DELIVERY_MODE_CODE);
+        validateParameterNotNull(deliveryMode, "Delivery mode for Adyen express checkout not configured");
+
+        AddressModel addressModel = prepareAddressModel(addressData, user);
+        updatePaymentInfoWithCartAndUser(paymentInfoModel, user,addressModel,cart);
+
+        updateCart(cart, deliveryMode, addressModel, paymentInfoModel);
+
+        CommerceCartParameter commerceCartParameter = new CommerceCartParameter();
+        commerceCartParameter.setCart(cart);
+        commerceCartService.recalculateCart(commerceCartParameter);
+        return cart;
+    }
+
+    protected CartModel prepareCartForPDPExpressCheckout(AddressData addressData, PaymentInfoModel paymentInfoModel, String productCode, CustomerModel user) {
+        CartModel cart = createCartForExpressCheckout(user);
+
+        DeliveryModeModel deliveryMode = deliveryModeService.getDeliveryModeForCode(DELIVERY_MODE_CODE);
+        validateParameterNotNull(deliveryMode, "Delivery mode for Adyen express checkout not configured");
+
+        AddressModel addressModel = prepareAddressModel(addressData, user);
+        updatePaymentInfoWithCartAndUser(paymentInfoModel, user,addressModel,cart);
+
+        updateCart(cart, deliveryMode, addressModel, paymentInfoModel);
+
+        addProductToCart(productCode, cart);
+        return cart;
+    }
+
+    protected void recalculateCart(CartModel cart) {
+        CommerceCartParameter commerceCartParameter = new CommerceCartParameter();
+        commerceCartParameter.setCart(cart);
+        commerceCartService.calculateCart(commerceCartParameter);
+    }
+
+    protected void updateCart(CartModel cart, DeliveryModeModel deliveryMode, AddressModel addressModel, PaymentInfoModel paymentInfo) {
         cart.setDeliveryMode(deliveryMode);
         cart.setDeliveryAddress(addressModel);
         cart.setPaymentAddress(addressModel);
@@ -390,7 +396,7 @@ public class DefaultAdyenExpressCheckoutFacade implements AdyenExpressCheckoutFa
         Assert.notNull(paymentInfo, "Payment info must not be null");
 
         paymentInfo.setUser(customerModel);
-        paymentInfo.setCode(generateCcPaymentInfoCode(cartModel));
+        paymentInfo.setCode(generatePaymentInfoCode(cartModel));
         paymentInfo.setBillingAddress(addressModel);
 
         modelService.save(paymentInfo);
@@ -398,22 +404,7 @@ public class DefaultAdyenExpressCheckoutFacade implements AdyenExpressCheckoutFa
         return paymentInfo;
     }
 
-    protected PaymentInfoModel createPaymentInfoForCart(CustomerModel customerModel, AddressModel addressModel, CartModel cartModel, String paymentMethod, String merchantId, String merchantName) {
-        final PaymentInfoModel paymentInfo = modelService.create(PaymentInfoModel.class);
-        paymentInfo.setUser(customerModel);
-        paymentInfo.setCode(generateCcPaymentInfoCode(cartModel));
-        paymentInfo.setBillingAddress(addressModel);
-        paymentInfo.setAdyenPaymentMethod(paymentMethod);
-
-        paymentInfo.setAdyenApplePayMerchantName(merchantName);
-        paymentInfo.setAdyenApplePayMerchantIdentifier(merchantId);
-
-        modelService.save(paymentInfo);
-
-        return paymentInfo;
-    }
-
-    protected String generateCcPaymentInfoCode(final CartModel cartModel) {
+    protected String generatePaymentInfoCode(final CartModel cartModel) {
         return cartModel.getCode() + "_" + UUID.randomUUID();
     }
 

@@ -207,6 +207,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     public static final String MODEL_AMOUNT_DECIMAL = "amountDecimal";
     public static final String MODEL_IMMEDIATE_CAPTURE = "immediateCapture";
     public static final String MODEL_PAYPAL_MERCHANT_ID = "paypalMerchantId";
+    public static final String MODEL_PAYPAL_INTENT = "paypalIntent";
     public static final String MODEL_COUNTRY_CODE = "countryCode";
     public static final String MODEL_APPLEPAY_MERCHANT_IDENTIFIER = "applePayMerchantIdentifier";
     public static final String MODEL_APPLEPAY_MERCHANT_NAME = "applePayMerchantName";
@@ -527,6 +528,10 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
 
         restoreCartFromOrder(orderCode);
         throw new AdyenNonAuthorizedPaymentException(paymentsDetailsResponse);
+    }
+
+    public OrderData placePendingOrder() throws InvalidCartException {
+        return placePendingOrder(PaymentDetailsResponse.ResultCodeEnum.PENDING.getValue());
     }
 
     /**
@@ -994,15 +999,23 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
 
 
     protected Map<String, String> getApplePayConfigFromPaymentMethods(List<PaymentMethod> paymentMethods) {
+        return getPaymentMethodConfigFromPaymentMethods(paymentMethods, PAYMENT_METHOD_APPLEPAY);
+    }
+
+    protected Map<String, String> getPayPalConfigFromPaymentMethods(List<PaymentMethod> paymentMethods) {
+        return getPaymentMethodConfigFromPaymentMethods(paymentMethods, PAYMENT_METHOD_PAYPAL);
+    }
+
+    protected Map<String, String> getPaymentMethodConfigFromPaymentMethods(List<PaymentMethod> paymentMethods, String paymentMethodName) {
         if (paymentMethods != null) {
-            Optional<PaymentMethod> applePayMethod = paymentMethods.stream()
-                    .filter(paymentMethod -> !paymentMethod.getType().isEmpty()
-                            && PAYMENT_METHOD_APPLEPAY.contains(paymentMethod.getType()))
+            Optional<PaymentMethod> paymentMethod = paymentMethods.stream()
+                    .filter(pm -> !pm.getType().isEmpty()
+                            && paymentMethodName.contains(pm.getType()))
                     .findFirst();
-            if (applePayMethod.isPresent()) {
-                Map<String, String> applePayConfiguration = applePayMethod.get().getConfiguration();
-                if (!CollectionUtils.isEmpty(applePayConfiguration)) {
-                    return applePayConfiguration;
+            if (paymentMethod.isPresent()) {
+                Map<String, String> paymentMethodConfiguration = paymentMethod.get().getConfiguration();
+                if (!CollectionUtils.isEmpty(paymentMethodConfiguration)) {
+                    return paymentMethodConfiguration;
                 }
             }
         }
@@ -1055,7 +1068,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
 
     public ExpressCheckoutConfigDTO initializeExpressCheckoutCartPageDataOCC() throws ApiException, CalculationException {
         removeDeliveryModeFromSessionCart();
-        
+
         final CartData cartData = getCheckoutFacade().getCheckoutCart();
         if (cartData != null && cartData.getTotalPriceWithTax() != null && cartData.getTotalPriceWithTax().getCurrencyIso() != null) {
             final String currencyIso = cartData.getTotalPriceWithTax().getCurrencyIso();
@@ -1103,6 +1116,13 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
                 LOGGER.warn("Empty apple pay config");
             }
 
+            Map<String, String> payPalConfig = getPayPalConfigFromPaymentMethods(paymentMethodsResponse.getPaymentMethods());
+            if (!CollectionUtils.isEmpty(payPalConfig)) {
+                expressCheckoutConfigDTOBuilder.setPayPalIntent(payPalConfig.get("intent"));
+            } else {
+                LOGGER.warn("Empty PayPal config");
+            }
+
         } catch (IOException e) {
             LOGGER.error("Payment methods request failed", e);
         }
@@ -1125,21 +1145,24 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         return expressCheckoutConfigDTOBuilder.build();
     }
 
-    protected void populateExpressCheckoutConfigModel(final Model model, final ExpressCheckoutConfigDTO expressCheckoutConfigDTO){
-        if(StringUtils.isNotEmpty(expressCheckoutConfigDTO.getApplePayMerchantId())){
+    protected void populateExpressCheckoutConfigModel(final Model model, final ExpressCheckoutConfigDTO expressCheckoutConfigDTO) {
+        if (StringUtils.isNotEmpty(expressCheckoutConfigDTO.getApplePayMerchantId())) {
             model.addAttribute(MODEL_APPLEPAY_MERCHANT_IDENTIFIER, expressCheckoutConfigDTO.getApplePayMerchantId());
         }
-        if(StringUtils.isNotEmpty(expressCheckoutConfigDTO.getApplePayMerchantName())){
+        if (StringUtils.isNotEmpty(expressCheckoutConfigDTO.getApplePayMerchantName())) {
             model.addAttribute(MODEL_APPLEPAY_MERCHANT_NAME, expressCheckoutConfigDTO.getApplePayMerchantName());
         }
-        if(expressCheckoutConfigDTO.getExpressPaymentConfig() != null){
+        if (expressCheckoutConfigDTO.getExpressPaymentConfig() != null) {
             model.addAttribute(EXPRESS_PAYMENT_CONFIG, expressCheckoutConfigDTO.getExpressPaymentConfig());
+        }
+        if (expressCheckoutConfigDTO.getPayPalIntent() != null) {
+            model.addAttribute(MODEL_PAYPAL_INTENT, expressCheckoutConfigDTO.getPayPalIntent());
         }
 
         model.addAttribute(SHOPPER_LOCALE, expressCheckoutConfigDTO.getShopperLocale());
         model.addAttribute(MODEL_ENVIRONMENT_MODE, expressCheckoutConfigDTO.getEnvironmentMode());
         model.addAttribute(MODEL_CLIENT_KEY, expressCheckoutConfigDTO.getClientKey());
-        model.addAttribute(MODEL_MERCHANT_ACCOUNT,expressCheckoutConfigDTO.getMerchantAccount());
+        model.addAttribute(MODEL_MERCHANT_ACCOUNT, expressCheckoutConfigDTO.getMerchantAccount());
         model.addAttribute(MODEL_AMOUNT, expressCheckoutConfigDTO.getAmount());
         model.addAttribute(MODEL_AMOUNT_DECIMAL, expressCheckoutConfigDTO.getAmountDecimal());
         model.addAttribute(MODEL_DF_URL, expressCheckoutConfigDTO.getDfUrl());
@@ -1151,13 +1174,13 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
             CartModel sessionCart = cartService.getSessionCart();
             sessionCart.setDeliveryMode(null);
             modelService.save(sessionCart);
-            
+
             CommerceCartParameter commerceCartParameter = new CommerceCartParameter();
             commerceCartParameter.setCart(sessionCart);
             commerceCartService.recalculateCart(commerceCartParameter);
         }
     }
-    
+
     protected BigDecimal getExpressDeliveryModeValue(final String currencyIso) {
         Optional<ZoneDeliveryModeValueModel> expressDeliveryModePrice = adyenExpressCheckoutFacade.getExpressDeliveryModePrice();
 

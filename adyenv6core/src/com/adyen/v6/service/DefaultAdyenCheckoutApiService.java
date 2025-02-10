@@ -100,6 +100,18 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
         return paymentsResponse;
     }
 
+    public PaymentResponse sendPaymentRequest(final PaymentRequest paymentRequest) throws IOException, ApiException {
+        PaymentsApi checkoutApi = new PaymentsApi(client);
+
+        paymentRequest.setMerchantAccount(merchantAccount);
+
+        LOG.debug(paymentRequest);
+        PaymentResponse paymentsResponse = checkoutApi.payments(paymentRequest);
+        LOG.debug(paymentsResponse);
+
+        return paymentsResponse;
+    }
+
     @Override
     public PaymentDetailsResponse authorise3DSPayment(PaymentDetailsRequest paymentsDetailsRequest) throws Exception {
         LOG.debug("Authorize 3DS payment");

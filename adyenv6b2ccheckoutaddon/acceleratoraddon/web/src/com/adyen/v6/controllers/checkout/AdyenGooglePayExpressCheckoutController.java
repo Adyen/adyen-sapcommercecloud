@@ -22,7 +22,7 @@ import javax.servlet.http.HttpServletResponse;
 @Controller
 @RequestMapping("/express-checkout/google/")
 public class AdyenGooglePayExpressCheckoutController {
-    private static final Logger LOG = Logger.getLogger(AdyenApplePayExpressCheckoutController.class);
+    private static final Logger LOG = Logger.getLogger(AdyenGooglePayExpressCheckoutController.class);
 
     @Autowired
     private AdyenExpressCheckoutFacade adyenExpressCheckoutFacade;

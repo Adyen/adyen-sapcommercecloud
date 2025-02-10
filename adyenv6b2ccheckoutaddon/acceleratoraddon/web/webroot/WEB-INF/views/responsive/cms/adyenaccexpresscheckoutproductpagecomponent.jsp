@@ -8,3 +8,5 @@
 </div>
 <div class="adyen-apple-pay-button">
 </div>
+<div class="adyen-paypal-button">
+</div>
