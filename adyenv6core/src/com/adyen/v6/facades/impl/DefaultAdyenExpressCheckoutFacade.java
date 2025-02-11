@@ -150,7 +150,7 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
         CartModel cart = prepareCartForPDPExpressCheckout(addressData, paymentInfoModel, cartId, user);
 
         if (cartHasEntries(cart)) {
-            recalculateCart(cart);
+            calculateCart(cart);
 
             CartModel sessionCart = null;
             if (cartService.hasSessionCart()) {
@@ -188,7 +188,7 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
         CartModel cart = prepareCartForPDPExpressCheckout(addressData, paymentInfoModel, productCode, user);
 
         if (cartHasEntries(cart)) {
-            recalculateCart(cart);
+            calculateCart(cart);
 
             CartModel sessionCart = null;
             if (cartService.hasSessionCart()) {
@@ -259,18 +259,6 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
         }
     }
 
-    public void removeDeliveryModeFromSessionCart() throws CalculationException {
-        if (cartService.hasSessionCart()) {
-            CartModel sessionCart = cartService.getSessionCart();
-            sessionCart.setDeliveryMode(null);
-            getModelService().save(sessionCart);
-
-            CommerceCartParameter commerceCartParameter = new CommerceCartParameter();
-            commerceCartParameter.setCart(sessionCart);
-            commerceCartService.recalculateCart(commerceCartParameter);
-        }
-    }
-
     protected void validateAddress(AddressData addressData) {
         validateParameterNotNull(addressData, "Empty address");
         if (StringUtils.isEmpty(addressData.getEmail())) {
@@ -281,42 +269,43 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
     protected CartModel prepareCartForCartExpressCheckout(AddressData addressData, PaymentInfoModel paymentInfoModel, CustomerModel user) throws CalculationException {
         CartModel cart = cartService.getSessionCart();
 
-        DeliveryModeModel deliveryMode = deliveryModeService.getDeliveryModeForCode(DELIVERY_MODE_CODE);
-        validateParameterNotNull(deliveryMode, "Delivery mode for Adyen express checkout not configured");
-
         AddressModel addressModel = prepareAddressModel(addressData, user);
         updatePaymentInfoWithCartAndUser(paymentInfoModel, user, addressModel, cart);
 
-        updateCart(cart, deliveryMode, addressModel, paymentInfoModel);
-
-        CommerceCartParameter commerceCartParameter = new CommerceCartParameter();
-        commerceCartParameter.setCart(cart);
-        commerceCartService.recalculateCart(commerceCartParameter);
+        updateCart(cart, addressModel, paymentInfoModel);
+        updateCartForLegacyExpressSupport(cart);
+        calculateCart(cart);
         return cart;
     }
 
     protected CartModel prepareCartForPDPExpressCheckout(AddressData addressData, PaymentInfoModel paymentInfoModel, String cartId, CustomerModel user) {
         CartModel cart = cartRepository.getCart(cartId);
 
-        DeliveryModeModel deliveryMode = deliveryModeService.getDeliveryModeForCode(DELIVERY_MODE_CODE);
-        validateParameterNotNull(deliveryMode, "Delivery mode for Adyen express checkout not configured");
-
         AddressModel addressModel = prepareAddressModel(addressData, user);
         updatePaymentInfoWithCartAndUser(paymentInfoModel, user, addressModel, cart);
 
-        updateCart(cart, deliveryMode, addressModel, paymentInfoModel);
+        updateCart(cart, addressModel, paymentInfoModel);
+        updateCartForLegacyExpressSupport(cart);
 
         return cart;
     }
 
-    protected void recalculateCart(CartModel cart) {
+    /* Prevent breaking current implementation. To be removed when implementation will be completed. */
+    private void updateCartForLegacyExpressSupport(CartModel cart) {
+        if(cart.getDeliveryMode() == null) {
+            DeliveryModeModel deliveryMode = deliveryModeService.getDeliveryModeForCode(DELIVERY_MODE_CODE);
+            validateParameterNotNull(deliveryMode, "Delivery mode for Adyen express checkout not configured");
+            cart.setDeliveryMode(deliveryMode);
+        }
+    }
+
+    protected void calculateCart(CartModel cart) {
         CommerceCartParameter commerceCartParameter = new CommerceCartParameter();
         commerceCartParameter.setCart(cart);
         commerceCartService.calculateCart(commerceCartParameter);
     }
 
-    protected void updateCart(CartModel cart, DeliveryModeModel deliveryMode, AddressModel addressModel, PaymentInfoModel paymentInfo) {
-        //cart.setDeliveryMode(deliveryMode);
+    protected void updateCart(CartModel cart, AddressModel addressModel, PaymentInfoModel paymentInfo) {
         cart.setDeliveryAddress(addressModel);
         cart.setPaymentAddress(addressModel);
         cart.setPaymentInfo(paymentInfo);
@@ -436,7 +425,7 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
     }
 
     @Override
-    public CartData prepearCartForExpressCheckutWithProduct(String cartId, String productCode, Integer quantity) throws InvalidCartException {
+    public CartData prepareCartForExpressCheckoutWithProduct(String cartId, String productCode, Integer quantity) throws CalculationException {
         final CartModel cartModel = cartRepository.getCart(cartId);
 
         // Remove all entries from the cart
@@ -448,14 +437,8 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
             cartService.addNewEntry(cartModel, product, quantity, product.getUnit());
         }
         getModelService().save(cartModel);
-        CommerceCartParameter commerceCartParameter = new CommerceCartParameter();
-        commerceCartParameter.setCart(cartModel);
-        boolean calculateCart = commerceCartService.calculateCart(commerceCartParameter);
-        if (calculateCart) {
-            return cartConverter.convert(cartModel);
-        }
-
-        throw new InvalidCartException("Failed to prepare cart for express checkout");
+        calculateCart(cartModel);
+        return cartConverter.convert(cartModel);
     }
 
     @Override

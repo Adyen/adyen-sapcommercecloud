@@ -34,7 +34,7 @@ public interface AdyenExpressCheckoutFacade {
 
     CartData createOrGetCartForExpressCheckout();
 
-    CartData prepearCartForExpressCheckutWithProduct(String cartId, String productCode, Integer quantiry) throws InvalidCartException;
+    CartData prepareCartForExpressCheckoutWithProduct(String cartId, String productCode, Integer quantiry) throws CalculationException;
 
     List<DeliveryModeData> getDeliveryModes(final String cartId);
 

@@ -9,6 +9,9 @@ import com.adyen.v6.facades.AdyenExpressCheckoutFacade;
 import com.adyen.v6.request.ApplePayExpressCartRequest;
 import com.adyen.v6.request.ApplePayExpressPDPRequest;
 import de.hybris.platform.acceleratorstorefrontcommons.security.GUIDCookieStrategy;
+import de.hybris.platform.commercefacades.order.data.CartData;
+import de.hybris.platform.order.InvalidCartException;
+import de.hybris.platform.order.exceptions.CalculationException;
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -34,8 +37,8 @@ public class AdyenApplePayExpressCheckoutController {
     public ResponseEntity applePayExpressPDP(final HttpServletRequest request, final HttpServletResponse response, @RequestBody ApplePayExpressPDPRequest applePayExpressPDPRequest) throws Exception {
 
         PaymentRequest paymentRequest = getPaymentRequest(applePayExpressPDPRequest);
-
-        PaymentResponse paymentsResponse = adyenExpressCheckoutFacade.expressCheckoutPDP(applePayExpressPDPRequest.getProductCode(),
+        String cartId = createCartWithProduct(applePayExpressPDPRequest.getProductCode());
+        PaymentResponse paymentsResponse = adyenExpressCheckoutFacade.expressCheckoutPDP(cartId,
                 paymentRequest, Adyenv6coreConstants.PAYMENT_METHOD_APPLEPAY, applePayExpressPDPRequest.getAddressData(), request);
 
         guidCookieStrategy.setCookie(request, response);
@@ -54,6 +57,13 @@ public class AdyenApplePayExpressCheckoutController {
         guidCookieStrategy.setCookie(request, response);
 
         return new ResponseEntity<>(paymentsResponse, HttpStatus.OK);
+    }
+
+    /* Prevent breaking current implementation. To be removed when implementation will be completed. */
+    private String createCartWithProduct(String productCode) throws CalculationException {
+        CartData cart = adyenExpressCheckoutFacade.createOrGetCartForExpressCheckout();
+        adyenExpressCheckoutFacade.prepareCartForExpressCheckoutWithProduct(cart.getCode(), productCode, 1);
+        return cart.getCode();
     }
 
     private static <T extends ApplePayExpressCartRequest> PaymentRequest getPaymentRequest(T request) {

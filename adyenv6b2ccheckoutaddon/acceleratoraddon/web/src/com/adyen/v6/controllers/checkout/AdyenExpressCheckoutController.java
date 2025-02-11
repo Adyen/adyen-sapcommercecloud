@@ -49,8 +49,8 @@ public class AdyenExpressCheckoutController {
     }
 
     @PostMapping("{cartId}/product/{productCode}/quantity/{quantity}")
-    public ResponseEntity setProductForExpressCheckout(final HttpServletRequest request, final HttpServletResponse response, @PathVariable("cartId")  String cartId, @PathVariable("productCode")  String productCode, @PathVariable("quantity") Integer quantity) throws InvalidCartException {
-        adyenExpressCheckoutFacade.prepearCartForExpressCheckutWithProduct(cartId, productCode, quantity);
+    public ResponseEntity setProductForExpressCheckout(final HttpServletRequest request, final HttpServletResponse response, @PathVariable("cartId")  String cartId, @PathVariable("productCode")  String productCode, @PathVariable("quantity") Integer quantity) throws CalculationException {
+        adyenExpressCheckoutFacade.prepareCartForExpressCheckoutWithProduct(cartId, productCode, quantity);
         return ResponseEntity.ok().build();
     }
 

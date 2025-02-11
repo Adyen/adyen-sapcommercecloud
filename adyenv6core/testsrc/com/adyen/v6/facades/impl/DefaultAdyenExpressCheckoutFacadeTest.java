@@ -342,14 +342,13 @@ public class DefaultAdyenExpressCheckoutFacadeTest {
     public void updateCart() {
         //given
         CartModel cartModel = new CartModel();
-        DeliveryModeModel deliveryModeModel = new DeliveryModeModel();
         AddressModel addressModel = new AddressModel();
         PaymentInfoModel paymentInfo = new PaymentInfoModel();
 
         ArgumentCaptor<CartModel> cartCaptor = ArgumentCaptor.forClass(CartModel.class);
 
         //when
-        defaultAdyenExpressCheckoutFacade.updateCart(cartModel, deliveryModeModel, addressModel, paymentInfo);
+        defaultAdyenExpressCheckoutFacade.updateCart(cartModel, addressModel, paymentInfo);
 
         //then
         verify(modelService).save(cartCaptor.capture());
