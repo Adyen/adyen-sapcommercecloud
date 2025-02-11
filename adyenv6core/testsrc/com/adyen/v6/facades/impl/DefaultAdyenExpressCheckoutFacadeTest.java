@@ -618,7 +618,7 @@ public class DefaultAdyenExpressCheckoutFacadeTest {
     }
 
     @Test
-    public void createCartForExpressCheckout() {
+    public void createOrGetCartForExpressCheckout() {
         //given
         CustomerModel customerModel = new CustomerModel();
         CartModel cartModel = new CartModel();

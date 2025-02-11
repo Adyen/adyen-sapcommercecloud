@@ -427,6 +427,7 @@
         <property name="addressReverseConverter" ref="addressReverseConverter"/>
         <property name="modelService" ref="modelService"/>
         <property name="customerFacade" ref="customerFacade"/>
+        <property name="userFacade" ref="userFacade" />
         <property name="commonI18NService" ref="commonI18NService"/>
         <property name="i18NFacade" ref="i18NFacade"/>
         <property name="customerAccountService" ref="customerAccountService"/>
@@ -437,15 +438,36 @@
         <property name="cartConverter" ref="cartConverter"/>
         <property name="sessionService" ref="sessionService"/>
         <property name="userService" ref="userService"/>
+        <property name="cartRepository" ref="adyenCartRepository" />
+        <property name="cartFacade" ref="commerceCheckoutCartFacade"/>
+        <property name="commerceCheckoutService" ref="commerceCheckoutService"/>
+        <property name="addressConverter" ref="addressConverter"/>
+        <property name="deliveryService" ref="deliveryService"/>
+        <property name="addressReversePopulator" ref="addressReversePopulator"/>
+        <property name="priceDataFactory" ref="priceDataFactory"/>
+        <property name="enumerationService" ref="enumerationService"/>
+        <property name="commerceCardTypeService" ref="commerceCardTypeService"/>
+        <property name="creditCardPaymentInfoConverter" ref="creditCardPaymentInfoConverter"/>
+        <property name="deliveryModeConverter" ref="deliveryModeConverter"/>
+        <property name="zoneDeliveryModeConverter" ref="zoneDeliveryModeConverter"/>
+        <property name="orderConverter" ref="orderConverter"/>
+        <property name="cardTypeConverter" ref="paymentCardTypeConverter"/>
+        <property name="baseStoreService" ref="baseStoreService"/>
+        <property name="checkoutCustomerStrategy" ref="checkoutCustomerStrategy"/>
+        <property name="countryConverter" ref="countryConverter"/>
+        <property name="impersonationService" ref="impersonationService"/>
     </bean>
 
     <bean id="adyenPayPalExpressCheckoutFacade" class="com.adyen.v6.facades.impl.DefaultAdyenPayPalExpressCheckoutFacade">
+        <property name="calculationService" ref="calculationService"/>
+        <property name="baseSiteService" ref="baseSiteService"/>
         <property name="cartFactory" ref="cartFactory"/>
         <property name="cartService" ref="cartService"/>
         <property name="productService" ref="productService"/>
         <property name="addressReverseConverter" ref="addressReverseConverter"/>
         <property name="modelService" ref="modelService"/>
         <property name="customerFacade" ref="customerFacade"/>
+        <property name="userFacade" ref="userFacade" />
         <property name="commonI18NService" ref="commonI18NService"/>
         <property name="i18NFacade" ref="i18NFacade"/>
         <property name="customerAccountService" ref="customerAccountService"/>
@@ -456,8 +478,24 @@
         <property name="cartConverter" ref="cartConverter"/>
         <property name="sessionService" ref="sessionService"/>
         <property name="userService" ref="userService"/>
-        <property name="calculationService" ref="calculationService"/>
-        <property name="baseSiteService" ref="baseSiteService"/>
+        <property name="cartRepository" ref="adyenCartRepository" />
+        <property name="cartFacade" ref="commerceCheckoutCartFacade"/>
+        <property name="commerceCheckoutService" ref="commerceCheckoutService"/>
+        <property name="addressConverter" ref="addressConverter"/>
+        <property name="deliveryService" ref="deliveryService"/>
+        <property name="addressReversePopulator" ref="addressReversePopulator"/>
+        <property name="priceDataFactory" ref="priceDataFactory"/>
+        <property name="enumerationService" ref="enumerationService"/>
+        <property name="commerceCardTypeService" ref="commerceCardTypeService"/>
+        <property name="creditCardPaymentInfoConverter" ref="creditCardPaymentInfoConverter"/>
+        <property name="deliveryModeConverter" ref="deliveryModeConverter"/>
+        <property name="zoneDeliveryModeConverter" ref="zoneDeliveryModeConverter"/>
+        <property name="orderConverter" ref="orderConverter"/>
+        <property name="cardTypeConverter" ref="paymentCardTypeConverter"/>
+        <property name="baseStoreService" ref="baseStoreService"/>
+        <property name="checkoutCustomerStrategy" ref="checkoutCustomerStrategy"/>
+        <property name="countryConverter" ref="countryConverter"/>
+        <property name="impersonationService" ref="impersonationService"/>
     </bean>
 
     <bean id="adyenOrderFacade" class="com.adyen.v6.facades.impl.DefaultAdyenOrderFacade">
