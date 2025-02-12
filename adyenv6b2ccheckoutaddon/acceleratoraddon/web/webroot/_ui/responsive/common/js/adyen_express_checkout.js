@@ -8,7 +8,6 @@ var AdyenExpressCheckoutHybris = (function () {
         TermsNotAccepted: 'checkout.error.terms.not.accepted'
     };
 
-
     async function updateDeliveryAddress(cartId, addressData) {
         return new Promise((resolve, reject) => {
             $.ajax({
@@ -61,8 +60,7 @@ var AdyenExpressCheckoutHybris = (function () {
                             type: 'POST',
                             contentType: "application/json; charset=utf-8",
                             data: JSON.stringify({}),
-                            success: function (cartData) {
-                                console.log('Cart created:', cartData);
+                            success: function (response) {
                                 resolve(cartData);
                             },
                             error: function (error) {
@@ -95,14 +93,13 @@ var AdyenExpressCheckoutHybris = (function () {
         }
     }
 
-    async function handleShippingAddressUpdate(shippingAddress, paymentDataRequestUpdate) {
+    async function handleShippingAddressUpdate(shippingAddress, paymentDataRequestUpdate, cartId) {
         const addressData = {
             postalCode: shippingAddress.postalCode,
-            country: { isocode: shippingAddress.countryCode }
+            country: {isocode: shippingAddress.countryCode}
         };
-        await updateDeliveryAddress(this.cartData.responseJSON.code, addressData);
-        const deliveryMethodsResponse = await fetchDeliveryMethods(this.cartData.responseJSON.code);
-        const cartDataResponse = await setDeliveryMethod(this.cartData.responseJSON.code, deliveryMethodsResponse[0]?.code || "");
+        await updateDeliveryAddress(cartId, addressData);
+        const deliveryMethodsResponse = await fetchDeliveryMethods(cartId);
 
         paymentDataRequestUpdate.newShippingOptionParameters = {
             defaultSelectedOptionId: deliveryMethodsResponse[0]?.code || "",
@@ -112,19 +109,11 @@ var AdyenExpressCheckoutHybris = (function () {
                 description: mode.description || ""
             }))
         };
-        paymentDataRequestUpdate.newTransactionInfo = {
-            countryCode: countryCode,
-            currencyCode: cartDataResponse.totalPriceWithTax?.currencyIso ?? '',
-            totalPriceStatus: 'FINAL',
-            totalPrice: (cartDataResponse.totalPriceWithTax?.value ?? 0).toString(),
-            totalPriceLabel: 'Total'
-        };
+
     }
 
-
-
-    async function handleShippingOptionUpdate(shippingOptionData, paymentDataRequestUpdate) {
-        const cartDataResponse = await setDeliveryMethod(this.cartData.responseJSON.code, shippingOptionData.id);
+    async function handleShippingOptionUpdate(shippingOptionId, paymentDataRequestUpdate, cartId,countryCode) {
+        const cartDataResponse = await setDeliveryMethod(cartId, shippingOptionId);
 
         paymentDataRequestUpdate.newTransactionInfo = {
             countryCode: countryCode,
@@ -243,7 +232,8 @@ var AdyenExpressCheckoutHybris = (function () {
             const googlePayNodes = document.getElementsByClassName('adyen-google-pay-button');
 
             let paymentData;
-            let cartData
+            let cartData;
+
             const googlePayConfig = {
 
                 buttonSizeMode: "fill",
@@ -275,20 +265,21 @@ var AdyenExpressCheckoutHybris = (function () {
                 paymentDataCallbacks: {
                     onPaymentDataChanged(intermediatePaymentData) {
                         return new Promise(async resolve => {
-                            const { callbackTrigger, shippingAddress, shippingOptionData } = intermediatePaymentData;
+                            const {callbackTrigger, shippingAddress, shippingOptionData} = intermediatePaymentData;
                             const paymentDataRequestUpdate = {};
 
                             try {
                                 if (callbackTrigger === 'INITIALIZE') {
-                                    this.cartData = await getCartData(pageType, productCode);
+                                    cartData = await getCartData(pageType, productCode);
                                 }
 
                                 if (callbackTrigger === 'INITIALIZE' || callbackTrigger === 'SHIPPING_ADDRESS') {
-                                    await handleShippingAddressUpdate(shippingAddress, paymentDataRequestUpdate);
+                                    await handleShippingAddressUpdate(shippingAddress, paymentDataRequestUpdate, cartData.code);
+                                    await handleShippingOptionUpdate(paymentDataRequestUpdate.newShippingOptionParameters.defaultSelectedOptionId, paymentDataRequestUpdate, cartData.code,countryCode);
                                 }
 
                                 if (callbackTrigger === 'SHIPPING_OPTION') {
-                                    await handleShippingOptionUpdate(shippingOptionData, paymentDataRequestUpdate);
+                                    await handleShippingOptionUpdate(shippingOptionData.id, paymentDataRequestUpdate, cartData.code,countryCode);
                                 }
 
                                 resolve(paymentDataRequestUpdate);
@@ -300,7 +291,7 @@ var AdyenExpressCheckoutHybris = (function () {
                 },
 
                 onSubmit: (state, element, actions) => {
-                    this.makePayment(this.prepareDataGoogle(paymentData,cartData), this.getGoogleUrl(), actions.resolve, actions.reject)
+                    this.makePayment(this.prepareDataGoogle(paymentData, cartData), this.getGoogleUrl(), actions.resolve, actions.reject)
                 },
                 onAuthorized: (data, actions) => {
                     paymentData = data;
@@ -541,7 +532,7 @@ var AdyenExpressCheckoutHybris = (function () {
             if (this.adyenConfig.pageType === 'PDP') {
                 return {
                     productCode: this.adyenConfig.productCode,
-                    cartId : cartData.responseJSON.code,
+                    cartId: cartData.code,
                     ...baseData
                 }
             }
