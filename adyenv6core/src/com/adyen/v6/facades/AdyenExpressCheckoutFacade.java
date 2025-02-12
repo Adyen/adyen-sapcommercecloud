@@ -32,7 +32,7 @@ public interface AdyenExpressCheckoutFacade {
 
     boolean setDeliveryAddressForCart(final AddressData addressData, final String cartId);
 
-    CartData createOrGetCartForExpressCheckout();
+    CartData createOrGetCartForExpressCheckout(String productCode);
 
     CartData prepareCartForExpressCheckoutWithProduct(String cartId, String productCode, Integer quantiry) throws CalculationException;
 

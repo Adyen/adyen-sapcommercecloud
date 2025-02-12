@@ -47,6 +47,94 @@ var AdyenExpressCheckoutHybris = (function () {
         });
     }
 
+    async function getCartData(pageType, productCode) {
+        if (pageType === 'PDP') {
+            return new Promise((resolve, reject) => {
+                $.ajax({
+                    url: ACC.config.encodedContextPath + `/express-checkout/configure/create-cart/${productCode}`,
+                    type: 'POST',
+                    contentType: "application/json; charset=utf-8",
+                    data: JSON.stringify({}),
+                    success: function (cartData) {
+                        $.ajax({
+                            url: ACC.config.encodedContextPath + `/express-checkout/configure/${cartData.code}/product/${productCode}/quantity/1`,
+                            type: 'POST',
+                            contentType: "application/json; charset=utf-8",
+                            data: JSON.stringify({}),
+                            success: function (cartData) {
+                                console.log('Cart created:', cartData);
+                                resolve(cartData);
+                            },
+                            error: function (error) {
+                                console.error('Error creating cart:', error);
+                                reject(error);
+                            }
+                        });
+                    },
+                    error: function (error) {
+                        console.error('Error creating cart:', error);
+                        reject(error);
+                    }
+                });
+            });
+        } else {
+            return new Promise((resolve, reject) => {
+                $.ajax({
+                    url: ACC.config.encodedContextPath + '/express-checkout/configure/cart',
+                    type: 'GET',
+                    contentType: "application/json; charset=utf-8",
+                    success: function (cartData) {
+                        resolve(cartData);
+                    },
+                    error: function (error) {
+                        console.error('Error creating cart:', error);
+                        reject(error);
+                    }
+                });
+            });
+        }
+    }
+
+    async function handleShippingAddressUpdate(shippingAddress, paymentDataRequestUpdate) {
+        const addressData = {
+            postalCode: shippingAddress.postalCode,
+            country: { isocode: shippingAddress.countryCode }
+        };
+        await updateDeliveryAddress(this.cartData.responseJSON.code, addressData);
+        const deliveryMethodsResponse = await fetchDeliveryMethods(this.cartData.responseJSON.code);
+        const cartDataResponse = await setDeliveryMethod(this.cartData.responseJSON.code, deliveryMethodsResponse[0]?.code || "");
+
+        paymentDataRequestUpdate.newShippingOptionParameters = {
+            defaultSelectedOptionId: deliveryMethodsResponse[0]?.code || "",
+            shippingOptions: deliveryMethodsResponse.map(mode => ({
+                id: mode.code || "",
+                label: mode.name || "",
+                description: mode.description || ""
+            }))
+        };
+        paymentDataRequestUpdate.newTransactionInfo = {
+            countryCode: countryCode,
+            currencyCode: cartDataResponse.totalPriceWithTax?.currencyIso ?? '',
+            totalPriceStatus: 'FINAL',
+            totalPrice: (cartDataResponse.totalPriceWithTax?.value ?? 0).toString(),
+            totalPriceLabel: 'Total'
+        };
+    }
+
+
+
+    async function handleShippingOptionUpdate(shippingOptionData, paymentDataRequestUpdate) {
+        const cartDataResponse = await setDeliveryMethod(this.cartData.responseJSON.code, shippingOptionData.id);
+
+        paymentDataRequestUpdate.newTransactionInfo = {
+            countryCode: countryCode,
+            currencyCode: cartDataResponse.totalPriceWithTax?.currencyIso ?? '',
+            totalPriceStatus: 'FINAL',
+            totalPrice: (cartDataResponse.totalPriceWithTax?.value ?? 0).toString(),
+            totalPriceLabel: 'Total'
+        };
+    }
+
     return {
 
         adyenConfig: {
@@ -156,52 +244,6 @@ var AdyenExpressCheckoutHybris = (function () {
 
             let paymentData;
             let cartData
-            if(pageType === 'PDP') {
-                cartData = $.ajax({
-                    url: ACC.config.encodedContextPath + '/express-checkout/configure/create-cart',
-                    type: 'POST',
-                    contentType: "application/json; charset=utf-8",
-                    data: JSON.stringify({}),
-                    success: function (cartData) {
-                        $.ajax({
-                            url: ACC.config.encodedContextPath + `/express-checkout/configure/${cartData.code}/product/${productCode}/quantity/1`,
-                            type: 'POST',
-                            contentType: "application/json; charset=utf-8",
-                            data: JSON.stringify({}),
-                            success: function (cartData) {
-                                // Handle the response data
-                                console.log('Cart created:', cartData);
-                                return cartData;
-                            },
-                            error: function (error) {
-                                // Handle any errors
-                                console.error('Error creating cart:', error);
-                            }
-                        });
-                        console.log('Cart created:', cartData);
-                        return cartData;
-                    },
-                    error: function (error) {
-                        // Handle any errors
-                        console.error('Error creating cart:', error);
-                    }
-                });
-            }else{
-                cartData = $.ajax({
-                    url: ACC.config.encodedContextPath + '/express-checkout/configure/cart',
-                    type: 'GET',
-                    contentType: "application/json; charset=utf-8",
-                    success: function (cartData) {
-                        return cartData;
-                    },
-                    error: function (error) {
-                        // Handle any errors
-                        console.error('Error creating cart:', error);
-                    }
-                });
-            }
-
-
             const googlePayConfig = {
 
                 buttonSizeMode: "fill",
@@ -236,57 +278,25 @@ var AdyenExpressCheckoutHybris = (function () {
                             const { callbackTrigger, shippingAddress, shippingOptionData } = intermediatePaymentData;
                             const paymentDataRequestUpdate = {};
 
-                            if (callbackTrigger === 'INITIALIZE' || callbackTrigger === 'SHIPPING_ADDRESS') {
-                                try {
-                                    const addressData = {
-                                        postalCode: shippingAddress.postalCode,
-                                        country: { isocode: shippingAddress.countryCode }
-                                    };
-                                    await updateDeliveryAddress(cartData.responseJSON.code, addressData);
-                                    const deliveryMethodsResponse = await fetchDeliveryMethods(cartData.responseJSON.code);
-                                    const cartDataResponse = await setDeliveryMethod(cartData.responseJSON.code, deliveryMethodsResponse[0]?.code || "");
-
-                                    paymentDataRequestUpdate.newShippingOptionParameters = {
-                                        defaultSelectedOptionId: deliveryMethodsResponse[0]?.code || "",
-                                        shippingOptions: deliveryMethodsResponse.map(mode => ({
-                                            id: mode.code || "",
-                                            label: mode.name || "",
-                                            description: mode.description || ""
-                                        }))
-                                    };
-                                    paymentDataRequestUpdate.newTransactionInfo = {
-                                        countryCode: countryCode,
-                                        currencyCode: cartDataResponse.totalPriceWithTax?.currencyIso ?? '',
-                                        totalPriceStatus: 'FINAL',
-                                        totalPrice: (cartDataResponse.totalPriceWithTax?.value ?? 0).toString(),
-                                        totalPriceLabel: 'Total'
-                                    };
-
-                                    resolve(paymentDataRequestUpdate);
-                                } catch (error) {
-                                    console.error(error);
+                            try {
+                                if (callbackTrigger === 'INITIALIZE') {
+                                    this.cartData = await getCartData(pageType, productCode);
                                 }
-                            }
 
-                            if (callbackTrigger === 'SHIPPING_OPTION') {
-                                try {
-                                    const cartDataResponse = await setDeliveryMethod(cartData.responseJSON.code, shippingOptionData.id);
-
-                                    paymentDataRequestUpdate.newTransactionInfo = {
-                                        countryCode: countryCode,
-                                        currencyCode: cartDataResponse.totalPriceWithTax?.currencyIso ?? '',
-                                        totalPriceStatus: 'FINAL',
-                                        totalPrice: (cartDataResponse.totalPriceWithTax?.value ?? 0).toString(),
-                                        totalPriceLabel: 'Total'
-                                    };
-
-                                    resolve(paymentDataRequestUpdate);
-                                } catch (error) {
-                                    console.error('Error fetching delivery modes:', error);
+                                if (callbackTrigger === 'INITIALIZE' || callbackTrigger === 'SHIPPING_ADDRESS') {
+                                    await handleShippingAddressUpdate(shippingAddress, paymentDataRequestUpdate);
                                 }
+
+                                if (callbackTrigger === 'SHIPPING_OPTION') {
+                                    await handleShippingOptionUpdate(shippingOptionData, paymentDataRequestUpdate);
+                                }
+
+                                resolve(paymentDataRequestUpdate);
+                            } catch (error) {
+                                console.error(error);
                             }
                         });
-                    }
+                    },
                 },
 
                 onSubmit: (state, element, actions) => {
@@ -298,7 +308,8 @@ var AdyenExpressCheckoutHybris = (function () {
                 },
                 onError: function (error) {
                     console.log(error)
-                }
+                },
+
             }
 
             for (let googlePayNode of googlePayNodes) {

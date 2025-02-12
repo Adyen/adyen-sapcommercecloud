@@ -34,9 +34,9 @@ public class AdyenExpressCheckoutController {
         return ResponseEntity.ok(populateCartDataDto(cartForExpressCheckout));
     }
 
-    @PostMapping("create-cart")
-    public ResponseEntity<CartDataDTO> createCartForExpressCheckout(final HttpServletRequest request, final HttpServletResponse response){
-        CartData cartForExpressCheckout = adyenExpressCheckoutFacade.createOrGetCartForExpressCheckout();
+    @PostMapping("create-cart/{productCode}")
+    public ResponseEntity<CartDataDTO> createCartForExpressCheckout(final HttpServletRequest request, final HttpServletResponse response, @PathVariable("productCode")  String productCode){
+        CartData cartForExpressCheckout = adyenExpressCheckoutFacade.createOrGetCartForExpressCheckout(productCode);
         return ResponseEntity.ok(populateCartDataDto(cartForExpressCheckout));
     }
 

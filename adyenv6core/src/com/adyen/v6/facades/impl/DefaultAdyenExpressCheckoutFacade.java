@@ -410,9 +410,9 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
         return cartModel != null && !CollectionUtils.isEmpty(cartModel.getEntries());
     }
 
-    public CartData createOrGetCartForExpressCheckout() {
+    public CartData createOrGetCartForExpressCheckout(String productCode) {
         UserModel currentUser = userService.getCurrentUser();
-        String expressCartCode = sessionService.getCurrentSession().getAttribute("expressCartCode");
+        String expressCartCode = sessionService.getCurrentSession().getAttribute("expressCartCode-" + productCode);
         if (expressCartCode != null) {
             CartModel cartForExpressCheckout = cartRepository.getCart(expressCartCode);
             if(cartForExpressCheckout != null){
@@ -420,7 +420,7 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
             }
         }
         CartModel cartForExpressCheckout = createCartForExpressCheckout((CustomerModel) currentUser);
-        sessionService.getCurrentSession().setAttribute("expressCartCode",cartForExpressCheckout.getCode());
+        sessionService.getCurrentSession().setAttribute("expressCartCode-" + productCode,cartForExpressCheckout.getCode());
         return cartConverter.convert(cartForExpressCheckout);
     }
 
@@ -429,7 +429,7 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
         final CartModel cartModel = cartRepository.getCart(cartId);
 
         // Remove all entries from the cart
-        cartModel.getEntries().clear();
+        cartModel.setEntries(new ArrayList<>());
         getModelService().save(cartModel);
 
         ProductModel product = productService.getProductForCode(productCode);

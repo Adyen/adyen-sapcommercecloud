@@ -61,7 +61,7 @@ public class AdyenApplePayExpressCheckoutController {
 
     /* Prevent breaking current implementation. To be removed when implementation will be completed. */
     private String createCartWithProduct(String productCode) throws CalculationException {
-        CartData cart = adyenExpressCheckoutFacade.createOrGetCartForExpressCheckout();
+        CartData cart = adyenExpressCheckoutFacade.createOrGetCartForExpressCheckout(productCode);
         adyenExpressCheckoutFacade.prepareCartForExpressCheckoutWithProduct(cart.getCode(), productCode, 1);
         return cart.getCode();
     }
