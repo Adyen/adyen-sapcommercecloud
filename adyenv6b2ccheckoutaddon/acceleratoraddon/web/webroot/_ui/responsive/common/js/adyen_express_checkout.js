@@ -112,11 +112,11 @@ var AdyenExpressCheckoutHybris = (function () {
 
     }
 
-    async function handleShippingOptionUpdate(shippingOptionId, paymentDataRequestUpdate, cartId,countryCode) {
+    async function handleShippingOptionUpdate(shippingOptionId, paymentDataRequestUpdate, cartId) {
         const cartDataResponse = await setDeliveryMethod(cartId, shippingOptionId);
 
         paymentDataRequestUpdate.newTransactionInfo = {
-            countryCode: countryCode,
+            countryCode: undefined,
             currencyCode: cartDataResponse.totalPriceWithTax?.currencyIso ?? '',
             totalPriceStatus: 'FINAL',
             totalPrice: (cartDataResponse.totalPriceWithTax?.value ?? 0).toString(),
@@ -255,7 +255,7 @@ var AdyenExpressCheckoutHybris = (function () {
 
 
                 transactionInfo: {
-                    countryCode: countryCode,
+                    countryCode: undefined,
                     currencyCode: amount.currency,
                     totalPriceStatus: 'FINAL',
                     totalPrice: amountDecimal,
@@ -275,11 +275,11 @@ var AdyenExpressCheckoutHybris = (function () {
 
                                 if (callbackTrigger === 'INITIALIZE' || callbackTrigger === 'SHIPPING_ADDRESS') {
                                     await handleShippingAddressUpdate(shippingAddress, paymentDataRequestUpdate, cartData.code);
-                                    await handleShippingOptionUpdate(paymentDataRequestUpdate.newShippingOptionParameters.defaultSelectedOptionId, paymentDataRequestUpdate, cartData.code,countryCode);
+                                    await handleShippingOptionUpdate(paymentDataRequestUpdate.newShippingOptionParameters.defaultSelectedOptionId, paymentDataRequestUpdate, cartData.code);
                                 }
 
                                 if (callbackTrigger === 'SHIPPING_OPTION') {
-                                    await handleShippingOptionUpdate(shippingOptionData.id, paymentDataRequestUpdate, cartData.code,countryCode);
+                                    await handleShippingOptionUpdate(shippingOptionData.id, paymentDataRequestUpdate, cartData.code);
                                 }
 
                                 resolve(paymentDataRequestUpdate);
