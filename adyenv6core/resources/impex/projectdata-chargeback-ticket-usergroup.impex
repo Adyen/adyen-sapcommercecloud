@@ -1,0 +1,3 @@
+INSERT_UPDATE CsAgentGroup; uid[unique = true]        ; name                         ; locName[lang = en]
+                          ; adyenChargebackAgentGroup ; Adyen Chargeback Agent Group ; Adyen Chargeback Agent Group
+

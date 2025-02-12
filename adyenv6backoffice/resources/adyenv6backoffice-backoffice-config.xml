@@ -101,6 +101,17 @@
 		</editorArea:editorArea>
 	</context>
 
-
+	<context merge-by="type" type="CsTicket" component="editor-area">
+		<editorArea:editorArea xmlns:editorArea="http://www.hybris.com/cockpitng/component/editorArea">
+			<editorArea:tab name="hmc.adyen">
+				<editorArea:section name="hmc.adyen.details">
+					<editorArea:attribute qualifier="pspReference"/>
+					<editorArea:attribute qualifier="originalReference"/>
+					<editorArea:attribute qualifier="amount"/>
+					<editorArea:attribute qualifier="currency"/>
+				</editorArea:section>
+			</editorArea:tab>
+		</editorArea:editorArea>
+	</context>
 
 </config>

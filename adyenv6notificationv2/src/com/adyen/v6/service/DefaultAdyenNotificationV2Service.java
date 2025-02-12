@@ -29,6 +29,7 @@ public class DefaultAdyenNotificationV2Service implements AdyenNotificationV2Ser
         eventTemplateMap.put(NotificationRequestItem.EVENT_CODE_CAPTURE, new CaptureEventBuilder());
         eventTemplateMap.put(NotificationRequestItem.EVENT_CODE_OFFER_CLOSED, new OfferClosedEventBuilder());
         eventTemplateMap.put(NotificationRequestItem.EVENT_CODE_REFUND, new RefundEventBuilder());
+        eventTemplateMap.put(NotificationRequestItem.EVENT_CODE_CHARGEBACK, new ChargebackEventBuilder());
     }
 
     @Override

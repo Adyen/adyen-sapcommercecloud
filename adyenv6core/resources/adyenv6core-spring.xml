@@ -160,6 +160,9 @@
                 <property name="transactionManager" ref="txManager"/>
             </bean>
         </property>
+        <property name="ticketBusinessService" ref="ticketBusinessService"/>
+        <property name="ticketService" ref="ticketService"/>
+        <property name="configurationService" ref="configurationService"/>
     </bean>
 
     <bean id="adyenOrderCancelPaymentServiceAdapter" class="com.adyen.v6.service.AdyenOrderCancelPaymentServiceAdapter">
@@ -316,6 +319,11 @@
         <property name="add" ref="adyenOrderEntryPopulator"/>
     </bean>
 
+    <bean parent="modifyPopulatorList">
+        <property name="list" ref="ticketParameterConverter"/>
+        <property name="add" ref="adyenCsTicketParameterPopulator"/>
+    </bean>
+
     <bean name="adyenCartPopulator" class="com.adyen.v6.populator.CartPopulator" />
 
     <bean name="adyenProductPopulator" class="com.adyen.v6.populator.ProductPopulator" />
@@ -329,6 +337,8 @@
     <alias name="adyenOrderCancelPopulator" alias="orderCancelPopulator"/>
     <bean id="adyenOrderCancelPopulator" parent="defaultOrderCancelPopulator"
           class="com.adyen.v6.populator.AdyenOrderCancelPopulator"/>
+
+    <bean id="adyenCsTicketParameterPopulator" class="com.adyen.v6.populator.AdyenCsTicketParameterPopulator"/>
 
     <alias name="defaultAdyenPartialOrderCancelDenialStrategy"
            alias="adyenPartialOrderCancelDenialStrategy"/>
@@ -415,6 +425,12 @@
     </bean>
 
     <bean id="offerClosedNotificationEventListener" class="com.adyen.v6.listeners.OfferClosedNotificationEventListener" parent="abstractEventListener">
+        <property name="modelService" ref="modelService"/>
+        <property name="paymentTransactionRepository" ref="adyenPaymentTransactionRepository"/>
+        <property name="adyenNotificationService" ref="adyenNotificationService"/>
+    </bean>
+
+    <bean id="chargebackNotificationEventListener" class="com.adyen.v6.listeners.ChargebackNotificationEventListener" parent="abstractEventListener">
         <property name="modelService" ref="modelService"/>
         <property name="paymentTransactionRepository" ref="adyenPaymentTransactionRepository"/>
         <property name="adyenNotificationService" ref="adyenNotificationService"/>

@@ -38,14 +38,25 @@ import de.hybris.platform.payment.dto.TransactionStatusDetails;
 import de.hybris.platform.payment.enums.PaymentTransactionType;
 import de.hybris.platform.payment.model.PaymentTransactionEntryModel;
 import de.hybris.platform.payment.model.PaymentTransactionModel;
+import de.hybris.platform.sap.productconfig.runtime.interf.impl.CsticParameter;
+import de.hybris.platform.servicelayer.config.ConfigurationService;
 import de.hybris.platform.servicelayer.model.ModelService;
 import de.hybris.platform.servicelayer.session.SessionService;
+import de.hybris.platform.ticket.enums.CsTicketCategory;
+import de.hybris.platform.ticket.enums.CsTicketPriority;
+import de.hybris.platform.ticket.jalo.CsTicket;
+import de.hybris.platform.ticket.model.CsAgentGroupModel;
+import de.hybris.platform.ticket.model.CsTicketModel;
+import de.hybris.platform.ticket.service.TicketBusinessService;
+import de.hybris.platform.ticket.service.TicketService;
+import de.hybris.platform.ticketsystem.data.CsTicketParameter;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.log4j.Logger;
 import org.springframework.transaction.support.TransactionOperations;
 
 import java.io.IOException;
 import java.util.Date;
+import java.util.Optional;
 import java.util.UUID;
 
 public class DefaultAdyenNotificationService implements AdyenNotificationService {
@@ -53,6 +64,12 @@ public class DefaultAdyenNotificationService implements AdyenNotificationService
     public static final String ORDER_WITH_ORDER_CODE = "Order with orderCode: ";
     public static final String CAUSE_AN_EXCEPTION = " cause an exception. \n";
     public static final String EXCEPTION_DURING_PROCESSING_NOTIFICATION = "Exception during processing notification: ";
+
+    private static final String CHARGEBACK_TICKETS_ENABLED="adyen.notification.chargeback.tickets.enabled";
+    private static final String CHARGEBACK_TICKETS_PRIORITY="adyen.notification.chargeback.tickets.priority";
+    private static final String CHARGEBACK_TICKETS_CATEGORY="adyen.notification.chargeback.tickets.category";
+    private static final String CHARGEBACK_TICKETS_AGENT_GROUP="adyen.notification.chargeback.tickets.agentGroup";
+
     private ModelService modelService;
     private AdyenTransactionService adyenTransactionService;
     private AdyenBusinessProcessService adyenBusinessProcessService;
@@ -62,6 +79,9 @@ public class DefaultAdyenNotificationService implements AdyenNotificationService
     private CommercePlaceOrderStrategy commercePlaceOrderStrategy;
     private SessionService sessionService;
     private TransactionOperations transactionTemplate;
+    private TicketBusinessService ticketBusinessService;
+    private TicketService ticketService;
+    private ConfigurationService configurationService;
 
 
     private static final Logger LOG = Logger.getLogger(DefaultAdyenNotificationService.class);
@@ -289,6 +309,63 @@ public class DefaultAdyenNotificationService implements AdyenNotificationService
         }
     }
 
+    @Override
+    public void processChargebackEvent(AdyenNotificationModel notificationItemModel) {
+        String orderCode = notificationItemModel.getMerchantReference();
+        if (BooleanUtils.isFalse(notificationItemModel.getSuccess())) {
+            LOG.error("Order " + orderCode + " received unexpected CHARGEBACK event with success=false");
+        }
+
+        OrderModel orderModel = orderRepository.getOrderModel(orderCode);
+        if (orderModel == null) {
+            LOG.error("Order " + orderCode + " was not found, skipping CHARGEBACK event...");
+            return;
+        }
+
+        orderModel.setStatus(OrderStatus.CHARGEBACK);
+        orderModel.setStatusInfo("Adyen CHARGEBACK: " + notificationItemModel.getPspReference());
+        getModelService().save(orderModel);
+
+        boolean ticketsEnabled = configurationService.getConfiguration().getBoolean(CHARGEBACK_TICKETS_ENABLED, false);
+
+        if (ticketsEnabled) {
+            createChargebackTicket(notificationItemModel, orderModel);
+        }
+    }
+
+    private void createChargebackTicket(AdyenNotificationModel notificationItemModel, OrderModel orderModel) {
+        String priorityString = configurationService.getConfiguration().getString(CHARGEBACK_TICKETS_PRIORITY);
+        String categoryString = configurationService.getConfiguration().getString(CHARGEBACK_TICKETS_CATEGORY);
+        String agentGroupString = configurationService.getConfiguration().getString(CHARGEBACK_TICKETS_AGENT_GROUP);
+
+        CsTicketPriority priority = CsTicketPriority.valueOf(priorityString);
+        CsTicketCategory category = CsTicketCategory.valueOf(categoryString);
+
+        Optional<CsAgentGroupModel> adyenAgentGroup = ticketService.getAgentGroups().stream()
+                .filter(agentGroup -> agentGroup.getUid().equals(agentGroupString))
+                .findFirst();
+
+        CsTicketParameter ticketParameter = new CsTicketParameter();
+        ticketParameter.setAssociatedTo(orderModel);
+        ticketParameter.setCustomer(orderModel.getUser());
+        ticketParameter.setHeadline("Adyen CHARGEBACK " + notificationItemModel.getPspReference());
+        ticketParameter.setCreationNotes("Adyen CHARGEBACK " + notificationItemModel.getPspReference());
+        ticketParameter.setPriority(priority);
+        ticketParameter.setCategory(category);
+        ticketParameter.setPspReference(notificationItemModel.getPspReference());
+        ticketParameter.setOriginalReference(notificationItemModel.getOriginalReference());
+        ticketParameter.setAmount(notificationItemModel.getAmountValue());
+        ticketParameter.setCurrency(notificationItemModel.getAmountCurrency());
+
+        if (adyenAgentGroup.isPresent()) {
+            ticketParameter.setAssignedGroup(adyenAgentGroup.get());
+        } else {
+            LOG.warn("Agent group for chargeback notification ticket not defined");
+        }
+
+        ticketBusinessService.createTicket(ticketParameter);
+    }
+
     protected boolean isTransactionAuthorized(final PaymentTransactionModel paymentTransactionModel) {
         for (final PaymentTransactionEntryModel entry : paymentTransactionModel.getEntries()) {
             if (entry.getType().equals(PaymentTransactionType.AUTHORIZATION)
@@ -430,5 +507,17 @@ public class DefaultAdyenNotificationService implements AdyenNotificationService
 
     public void setTransactionTemplate(TransactionOperations transactionTemplate) {
         this.transactionTemplate = transactionTemplate;
+    }
+
+    public void setTicketBusinessService(TicketBusinessService ticketBusinessService) {
+        this.ticketBusinessService = ticketBusinessService;
+    }
+
+    public void setTicketService(TicketService ticketService) {
+        this.ticketService = ticketService;
+    }
+
+    public void setConfigurationService(ConfigurationService configurationService) {
+        this.configurationService = configurationService;
     }
 }
