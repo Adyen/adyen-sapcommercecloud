@@ -16,6 +16,9 @@ export interface AddressModel {
     city: string
     postalCode: string
     phoneNumber: string
+    companyName?: string
+    taxNumber?: string
+    registrationNumber?: string
 }
 
 export interface RegionModel {

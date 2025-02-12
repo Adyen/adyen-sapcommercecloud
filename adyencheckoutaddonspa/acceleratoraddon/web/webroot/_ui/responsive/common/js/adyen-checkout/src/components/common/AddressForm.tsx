@@ -19,7 +19,11 @@ interface Props {
     onLine2Change: (line2: string) => void,
     onCityChange: (city: string) => void,
     onPostCodeChange: (postCode: string) => void,
-    onPhoneNumberChange: (phoneNumber: string) => void
+    onPhoneNumberChange: (phoneNumber: string) => void,
+    onCompanyNameChange?: (companyName: string) => void,
+    onTaxNumberChange?: (taxNumebr: string) => void,
+    onRegistrationNumberChange?: (phoneNumber: string) => void,
+    isBillingAddress?: boolean
 }
 
 export class AddressForm extends React.Component<Props, any> {
@@ -49,6 +53,37 @@ export class AddressForm extends React.Component<Props, any> {
             return region.regions
         }
         return []
+    }
+
+    private renderCompanyFields() {
+        if(this.props.isBillingAddress){
+            return <>
+                <br/>
+                <br/>
+                <InputText testId={"address.companyName"}
+                           fieldName={translationsStore.get("address.companyName")}
+                           onChange={(companyName) => this.props.onCompanyNameChange(companyName)}
+                           value={this.props.address.companyName}
+                           fieldErrorId={this.props.errorFieldCodePrefix + "companyName"}
+                           fieldErrorTextCode="address.companyName.invalid"
+                           fieldErrors={this.props.errorFieldCodes}/>
+                <InputText testId={"address.taxNumber"}
+                           fieldName={translationsStore.get("address.taxNumber")}
+                           onChange={(taxNumber) => this.props.onTaxNumberChange(taxNumber)}
+                           value={this.props.address.taxNumber}
+                           fieldErrorId={this.props.errorFieldCodePrefix + "taxNumber"}
+                           fieldErrorTextCode="address.taxNumber.invalid"
+                           fieldErrors={this.props.errorFieldCodes}/>
+                <InputText testId={"address.registrationNumber"}
+                           fieldName={translationsStore.get("address.registrationNumber")}
+                           onChange={(registrationNumber) => this.props.onRegistrationNumberChange(registrationNumber)}
+                           value={this.props.address.registrationNumber}
+                           fieldErrorId={this.props.errorFieldCodePrefix + "registrationNumber"}
+                           fieldErrorTextCode="address.registrationNumber.invalid"
+                           fieldErrors={this.props.errorFieldCodes}/>
+            </>
+        }
+        return <></>
     }
 
     render() {
@@ -117,6 +152,7 @@ export class AddressForm extends React.Component<Props, any> {
                        fieldName={translationsStore.get("address.phone")}
                        onChange={(phoneNumber) => this.props.onPhoneNumberChange(phoneNumber)}
                        value={this.props.address.phoneNumber}/>
+            {this.renderCompanyFields()}
         </>;
     }
 }

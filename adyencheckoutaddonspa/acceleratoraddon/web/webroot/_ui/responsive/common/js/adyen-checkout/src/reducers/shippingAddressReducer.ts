@@ -2,7 +2,7 @@ import {PayloadAction, RootAction} from "./rootReducer";
 import {AddressModel} from "./types";
 
 
-export const addressInitialState: AddressModel = {
+export const shippingAddressInitialState: AddressModel = {
     id: "",
     firstName: "",
     line1: "",

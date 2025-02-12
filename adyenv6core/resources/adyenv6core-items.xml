@@ -718,6 +718,16 @@
                 </attribute>
             </attributes>
         </itemtype>
+        <itemtype code="Address" autocreate="false" generate="false">
+            <attributes>
+                <attribute qualifier="taxNumber" type="java.lang.String">
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="registrationNumber" type="java.lang.String">
+                    <persistence type="property"/>
+                </attribute>
+            </attributes>
+        </itemtype>
         <itemtype code="CsTicket" autocreate="false" generate="false">
             <attributes>
                 <attribute qualifier="pspReference" type="java.lang.String">

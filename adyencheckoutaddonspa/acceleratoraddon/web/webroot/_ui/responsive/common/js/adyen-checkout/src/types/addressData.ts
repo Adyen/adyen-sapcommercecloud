@@ -26,6 +26,8 @@ export interface AddressData {
     city: CityData;
     cityDistrict: DistrictData;
     fullnameWithTitle: string
+    taxNumber: string
+    registrationNumber: string
 }
 
 export interface RegionData {

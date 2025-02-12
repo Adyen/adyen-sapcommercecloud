@@ -61,6 +61,9 @@ interface DispatchProps {
     setCity: (city: string) => void
     setPostCode: (postCode: string) => void
     setPhoneNumber: (phoneNumber: string) => void
+    setCompanyName: (companyName: string) => void
+    setTaxNumber: (taxNumber: string) => void
+    setRegistrationNumber: (registrationNumber: string) => void
     setSelectedAddress: (address: AddressModel) => void
     removeAdyenConfigFromStore: () => void
 }
@@ -266,6 +269,10 @@ class Payment extends React.Component<Props, State> {
                                     onPhoneNumberChange={(phoneNumber) => this.props.setPhoneNumber(phoneNumber)}
                                     onChangeSaveInAddressBook={(saveInAddressBook) => this.onChangeSaveInAddressBook(saveInAddressBook)}
                                     onSelectAddress={(address) => this.props.setSelectedAddress(address)}
+                                    onCompanyNameChange={(companyName) => this.props.setCompanyName(companyName)}
+                                    onRegistrationNumberChange={(registrationNumber)=> this.props.setRegistrationNumber(registrationNumber)}
+                                    onTaxNumberChange={(taxNumber)=> this.props.setTaxNumber(taxNumber)}
+                                    isBillingAddress={true}
                     />
                     <hr/>
                 </>
@@ -347,6 +354,18 @@ function mapDispatchToProps(dispatch: StoreDispatch): DispatchProps {
         setPhoneNumber: (phoneNumber: string) => dispatch({
             type: "billingAddress/setPhoneNumber",
             payload: phoneNumber
+        }),
+        setCompanyName: (companyName: string) => dispatch({
+            type: "billingAddress/setCompanyName",
+            payload: companyName
+        }),
+        setTaxNumber: (taxNumber: string) => dispatch({
+            type: "billingAddress/setTaxNumber",
+            payload: taxNumber
+        }),
+        setRegistrationNumber: (registrationNumber: string) => dispatch({
+            type: "billingAddress/setRegistrationNumber",
+            payload: registrationNumber
         }),
         setSelectedAddress: (address: AddressModel) => dispatch({type: "billingAddress/setAddress", payload: address}),
         removeAdyenConfigFromStore: () => dispatch(({type: "adyenConfig/setAdyenConfig", payload: adyenConfigInitialState}))

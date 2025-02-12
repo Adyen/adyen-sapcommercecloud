@@ -35,6 +35,10 @@ interface ComponentProps {
     onPostCodeChange: (postCode: string) => void,
     onPhoneNumberChange: (phoneNumber: string) => void
     onChangeSaveInAddressBook: (value: boolean) => void
+    onCompanyNameChange?: (companyName: string) => void,
+    onTaxNumberChange?: (taxNumebr: string) => void,
+    onRegistrationNumberChange?: (phoneNumber: string) => void,
+    isBillingAddress?: boolean
 }
 
 type Props = ComponentProps & StoreProps
@@ -111,7 +115,12 @@ class AddressSection extends React.Component<Props, State> {
                              onLine2Change={(line2) => this.props.onLine2Change(line2)}
                              onCityChange={(city) => this.props.onCityChange(city)}
                              onPostCodeChange={(postCode) => this.props.onPostCodeChange(postCode)}
-                             onPhoneNumberChange={(phoneNumber) => this.props.onPhoneNumberChange(phoneNumber)}/>
+                             onPhoneNumberChange={(phoneNumber) => this.props.onPhoneNumberChange(phoneNumber)}
+                             onCompanyNameChange={(companyName) => this.props.onCompanyNameChange(companyName)}
+                             onRegistrationNumberChange={(registrationNumber)=> this.props.onRegistrationNumberChange(registrationNumber)}
+                             onTaxNumberChange={(taxNumber)=> this.props.onTaxNumberChange(taxNumber)}
+                             isBillingAddress={this.props.isBillingAddress}
+                />
                 {this.renderSaveAddressCheckbox()}
             </>
         )
