@@ -167,8 +167,6 @@ var AdyenExpressCheckoutHybris = (function () {
         initiateApplePayExpress: async function (checkout, params) {
             const {
                 amount,
-                pageType,
-                productCode,
                 applePayMerchantName,
                 applePayMerchantId
             } = params;
@@ -203,11 +201,20 @@ var AdyenExpressCheckoutHybris = (function () {
 //                    }
 //                    resolve(shippingMethodUpdate);
 //                },
+                    onShippingContactSelected: function(resolve, reject, event){
+                        console.log('shipping contact selected')
+                        console.log(event)
+                        reject();
+                    },
                     //onValidateMerchant is required if you're using your own Apple Pay certificate
-                    onSubmit: function (state, component) {
+                    onSubmit: function (data, component, actions) {
+                        console.log('submit')
+                        console.log(data);
+                        actions.resolve()
                         // empty to block session flow, submit logic done in onAuthorized
                     },
                     onAuthorized: (paymentData, actions) => {
+                        console.log('authorized')
                         this.makePayment(this.prepareDataApple(paymentData), this.getAppleUrl(), actions.resolve, actions.reject);
                     }
                 });
