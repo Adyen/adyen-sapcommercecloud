@@ -35,7 +35,7 @@ public class AdyenGooglePayExpressCheckoutController {
 
         PaymentRequest paymentRequest = getPaymentRequest(googlePayExpressPDPRequest);
 
-        PaymentResponse paymentsResponse = adyenExpressCheckoutFacade.expressCheckoutPDP(googlePayExpressPDPRequest.getProductCode(),
+        PaymentResponse paymentsResponse = adyenExpressCheckoutFacade.expressCheckoutPDP(googlePayExpressPDPRequest.getCartId(),
                 paymentRequest, Adyenv6coreConstants.PAYMENT_METHOD_GOOGLE_PAY, googlePayExpressPDPRequest.getAddressData(), request);
 
         guidCookieStrategy.setCookie(request, response);

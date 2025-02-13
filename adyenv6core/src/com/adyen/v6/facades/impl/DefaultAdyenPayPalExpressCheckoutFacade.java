@@ -49,7 +49,7 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
         expressCart.setDeliveryMode(getExpressDeliveryMode());
 
         cartService.addNewEntry(expressCart, productModel, 1L, productModel.getUnit());
-        modelService.save(expressCart);
+        getModelService().save(expressCart);
 
         try {
             calculationService.calculate(expressCart);
@@ -93,7 +93,7 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
 
         updateRegionData(addressData);
 
-        PaymentInfoModel paymentInfoModel = modelService.create(PaymentInfoModel.class);
+        PaymentInfoModel paymentInfoModel = getModelService().create(PaymentInfoModel.class);
         paymentInfoModel.setAdyenPaymentMethod(paymentMethod);
 
         CustomerModel user = (CustomerModel) userService.getCurrentUser();
@@ -134,7 +134,7 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
     public void onPayPalAuthorizedCart(AddressData addressData, String paymentMethod) throws DuplicateUidException, InvalidCartException, CalculationException {
         validateAddress(addressData);
 
-        PaymentInfoModel paymentInfoModel = modelService.create(PaymentInfoModel.class);
+        PaymentInfoModel paymentInfoModel = getModelService().create(PaymentInfoModel.class);
         paymentInfoModel.setAdyenPaymentMethod(paymentMethod);
 
         updateRegionData(addressData);
@@ -173,7 +173,7 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
         sessionCart.setDeliveryAddress(addressModel);
         sessionCart.setPaymentAddress(addressModel);
         sessionCart.setPaymentInfo(paymentInfoModel);
-        modelService.save(sessionCart);
+        getModelService().save(sessionCart);
 
         calculationService.recalculate(sessionCart);
     }

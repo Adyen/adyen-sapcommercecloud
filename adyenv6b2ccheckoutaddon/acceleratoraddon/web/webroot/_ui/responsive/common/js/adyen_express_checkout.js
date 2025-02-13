@@ -8,6 +8,122 @@ var AdyenExpressCheckoutHybris = (function () {
         TermsNotAccepted: 'checkout.error.terms.not.accepted'
     };
 
+    async function updateDeliveryAddress(cartId, addressData) {
+        return new Promise((resolve, reject) => {
+            $.ajax({
+                url: `${ACC.config.encodedContextPath}/express-checkout/configure/${cartId}/addresses/delivery`,
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(addressData),
+                success: resolve,
+                error: reject
+            });
+        });
+    }
+
+    async function fetchDeliveryMethods(cartId) {
+        return new Promise((resolve, reject) => {
+            $.ajax({
+                url: `${ACC.config.encodedContextPath}/express-checkout/configure/${cartId}/delivery-methods`,
+                type: 'GET',
+                contentType: 'application/json',
+                success: resolve,
+                error: reject
+            });
+        });
+    }
+
+    async function setDeliveryMethod(cartId, deliveryMethodId) {
+        return new Promise((resolve, reject) => {
+            $.ajax({
+                url: `${ACC.config.encodedContextPath}/express-checkout/configure/${cartId}/delivery-method/${deliveryMethodId}`,
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({}),
+                success: resolve,
+                error: reject
+            });
+        });
+    }
+
+    async function getCartData(pageType, productCode) {
+        if (pageType === 'PDP') {
+            return new Promise((resolve, reject) => {
+                $.ajax({
+                    url: ACC.config.encodedContextPath + `/express-checkout/configure/create-cart/${productCode}`,
+                    type: 'POST',
+                    contentType: "application/json; charset=utf-8",
+                    data: JSON.stringify({}),
+                    success: function (cartData) {
+                        $.ajax({
+                            url: ACC.config.encodedContextPath + `/express-checkout/configure/${cartData.code}/product/${productCode}/quantity/1`,
+                            type: 'POST',
+                            contentType: "application/json; charset=utf-8",
+                            data: JSON.stringify({}),
+                            success: function (response) {
+                                resolve(cartData);
+                            },
+                            error: function (error) {
+                                console.error('Error creating cart:', error);
+                                reject(error);
+                            }
+                        });
+                    },
+                    error: function (error) {
+                        console.error('Error creating cart:', error);
+                        reject(error);
+                    }
+                });
+            });
+        } else {
+            return new Promise((resolve, reject) => {
+                $.ajax({
+                    url: ACC.config.encodedContextPath + '/express-checkout/configure/cart',
+                    type: 'GET',
+                    contentType: "application/json; charset=utf-8",
+                    success: function (cartData) {
+                        resolve(cartData);
+                    },
+                    error: function (error) {
+                        console.error('Error creating cart:', error);
+                        reject(error);
+                    }
+                });
+            });
+        }
+    }
+
+    async function handleShippingAddressUpdate(shippingAddress, paymentDataRequestUpdate, cartId) {
+        const addressData = {
+            postalCode: shippingAddress.postalCode,
+            country: {isocode: shippingAddress.countryCode}
+        };
+        await updateDeliveryAddress(cartId, addressData);
+        const deliveryMethodsResponse = await fetchDeliveryMethods(cartId);
+
+        paymentDataRequestUpdate.newShippingOptionParameters = {
+            defaultSelectedOptionId: deliveryMethodsResponse[0]?.code || "",
+            shippingOptions: deliveryMethodsResponse.map(mode => ({
+                id: mode.code || "",
+                label: mode.name || "",
+                description: mode.description || ""
+            }))
+        };
+
+    }
+
+    async function handleShippingOptionUpdate(shippingOptionId, paymentDataRequestUpdate, cartId) {
+        const cartDataResponse = await setDeliveryMethod(cartId, shippingOptionId);
+
+        paymentDataRequestUpdate.newTransactionInfo = {
+            countryCode: undefined,
+            currencyCode: cartDataResponse.totalPriceWithTax?.currencyIso ?? '',
+            totalPriceStatus: 'FINAL',
+            totalPrice: (cartDataResponse.totalPriceWithTax?.value ?? 0).toString(),
+            totalPriceLabel: 'Total'
+        };
+    }
+
     return {
 
         adyenConfig: {
@@ -107,6 +223,8 @@ var AdyenExpressCheckoutHybris = (function () {
         initiateGooglePayExpress: function (checkout, params) {
             const {
                 amount,
+                pageType,
+                productCode,
                 amountDecimal,
                 countryCode,
             } = params;
@@ -114,16 +232,14 @@ var AdyenExpressCheckoutHybris = (function () {
             const googlePayNodes = document.getElementsByClassName('adyen-google-pay-button');
 
             let paymentData;
+            let cartData;
 
             const googlePayConfig = {
 
-                // Step 2: Set the callback intents.
                 buttonSizeMode: "fill",
                 buttonType: "checkout",
 
-                callbackIntents: ['SHIPPING_ADDRESS'],
-
-                // Step 3: Set shipping configurations.
+                callbackIntents: ['SHIPPING_ADDRESS', 'SHIPPING_OPTION'],
 
                 shippingAddressRequired: true,
                 emailRequired: true,
@@ -133,73 +249,49 @@ var AdyenExpressCheckoutHybris = (function () {
                     phoneNumberRequired: false
                 },
 
-                // Shipping options configurations.
-                shippingOptionRequired: false,
+                shippingOptionRequired: true,
 
-                // Step 4: Pass the default shipping options.
-
-                // shippingOptions: {
-                //     defaultSelectedOptionId: 'shipping-001',
-                //     shippingOptions: [
-                //         {
-                //             id: 'shipping-001',
-                //             label: '$0.00: Free shipping',
-                //             description: 'Free shipping: delivered in 10 business days.'
-                //         },
-                //         {
-                //             id: 'shipping-002',
-                //             label: '$1.99: Standard shipping',
-                //             description: 'Standard shipping: delivered in 3 business days.'
-                //         },
-                //     ]
-                // },
-
-                // Step 5: Set the transaction information.
-
-                //Required for v6.0.0 or later.
                 isExpress: true,
 
 
                 transactionInfo: {
-                    countryCode: countryCode,
+                    countryCode: undefined,
                     currencyCode: amount.currency,
                     totalPriceStatus: 'FINAL',
                     totalPrice: amountDecimal,
                     totalPriceLabel: 'Total'
                 },
 
-                // Step 6: Update the payment data.
-
                 paymentDataCallbacks: {
                     onPaymentDataChanged(intermediatePaymentData) {
                         return new Promise(async resolve => {
-                            const {
-                                callbackTrigger,
-                                shippingAddress,
-                                shippingOptionData
-                            } = intermediatePaymentData;
+                            const {callbackTrigger, shippingAddress, shippingOptionData} = intermediatePaymentData;
                             const paymentDataRequestUpdate = {};
 
-                                // If it initializes or changes the shipping address, calculate the shipping options and transaction info.
-                                if (callbackTrigger === 'INITIALIZE' || callbackTrigger === 'SHIPPING_ADDRESS') {
-                                    // paymentDataRequestUpdate.newShippingOptionParameters = await fetchNewShippingOptions(shippingAddress.countryCode);
-                                    // paymentDataRequestUpdate.newTransactionInfo = calculateNewTransactionInfo(/* ... */);
+                            try {
+                                if (callbackTrigger === 'INITIALIZE') {
+                                    cartData = await getCartData(pageType, productCode);
                                 }
 
-                            // If SHIPPING_OPTION changes, calculate the new shipping amount.
-                            if (callbackTrigger === 'SHIPPING_OPTION') {
-                                // paymentDataRequestUpdate.newTransactionInfo = calculateNewTransactionInfo(/* ... */);
-                            }
+                                if (callbackTrigger === 'INITIALIZE' || callbackTrigger === 'SHIPPING_ADDRESS') {
+                                    await handleShippingAddressUpdate(shippingAddress, paymentDataRequestUpdate, cartData.code);
+                                    await handleShippingOptionUpdate(paymentDataRequestUpdate.newShippingOptionParameters.defaultSelectedOptionId, paymentDataRequestUpdate, cartData.code);
+                                }
 
-                            resolve(paymentDataRequestUpdate);
+                                if (callbackTrigger === 'SHIPPING_OPTION') {
+                                    await handleShippingOptionUpdate(shippingOptionData.id, paymentDataRequestUpdate, cartData.code);
+                                }
+
+                                resolve(paymentDataRequestUpdate);
+                            } catch (error) {
+                                console.error(error);
+                            }
                         });
-                    }
+                    },
                 },
 
-                // Step 7: Configure the callback to get the shopper's information.
-
                 onSubmit: (state, element, actions) => {
-                    this.makePayment(this.prepareDataGoogle(paymentData), this.getGoogleUrl(), actions.resolve, actions.reject)
+                    this.makePayment(this.prepareDataGoogle(paymentData, cartData), this.getGoogleUrl(), actions.resolve, actions.reject)
                 },
                 onAuthorized: (data, actions) => {
                     paymentData = data;
@@ -207,7 +299,8 @@ var AdyenExpressCheckoutHybris = (function () {
                 },
                 onError: function (error) {
                     console.log(error)
-                }
+                },
+
             }
 
             for (let googlePayNode of googlePayNodes) {
@@ -330,7 +423,9 @@ var AdyenExpressCheckoutHybris = (function () {
                 }
             })
         },
-        makePayment: function (data, url, resolve = () => {}, reject = () => {}) {
+        makePayment: function (data, url, resolve = () => {
+        }, reject = () => {
+        }) {
             $.ajax({
                 url: url,
                 type: "POST",
@@ -411,7 +506,7 @@ var AdyenExpressCheckoutHybris = (function () {
             console.error('unknown page type')
             return {};
         },
-        prepareDataGoogle: function (paymentData) {
+        prepareDataGoogle: function (paymentData, cartData) {
             let baseData = {
                 googlePayDetails: {
                     googlePayToken: paymentData.authorizedEvent.paymentMethodData.tokenizationData.token,
@@ -437,6 +532,7 @@ var AdyenExpressCheckoutHybris = (function () {
             if (this.adyenConfig.pageType === 'PDP') {
                 return {
                     productCode: this.adyenConfig.productCode,
+                    cartId: cartData.code,
                     ...baseData
                 }
             }
