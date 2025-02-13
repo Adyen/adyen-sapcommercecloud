@@ -464,9 +464,6 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
 
         final CustomerModel currentCustomer = getCurrentUserForCheckout();
 
-        final boolean makeThisAddressTheDefault = addressData.isDefaultAddress()
-                || (currentCustomer.getDefaultShipmentAddress() == null && addressData.isVisibleInAddressBook());
-
         // Create the new address model
         final AddressModel newAddress = getModelService().create(AddressModel.class);
         getAddressReversePopulator().populate(addressData, newAddress);
@@ -477,9 +474,6 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
         // Update the address ID in the newly created address
         addressData.setId(newAddress.getPk().toString());
 
-        if (makeThisAddressTheDefault) {
-            getCustomerAccountService().setDefaultAddressEntry(currentCustomer, newAddress);
-        }
         return newAddress;
     }
 

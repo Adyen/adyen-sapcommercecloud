@@ -8,6 +8,7 @@ import java.io.Serializable;
 public class GooglePayExpressCartRequest implements Serializable {
     private GooglePayDetails googlePayDetails;
     private AddressData addressData;
+    private String cartId;
 
     public GooglePayDetails getGooglePayDetails() {
         return googlePayDetails;
@@ -23,5 +24,13 @@ public class GooglePayExpressCartRequest implements Serializable {
 
     public void setAddressData(AddressData addressData) {
         this.addressData = addressData;
+    }
+
+    public String getCartId() {
+        return cartId;
+    }
+
+    public void setCartId(String cartId) {
+        this.cartId = cartId;
     }
 }

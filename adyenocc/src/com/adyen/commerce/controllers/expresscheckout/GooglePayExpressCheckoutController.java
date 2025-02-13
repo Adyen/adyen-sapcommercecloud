@@ -56,7 +56,7 @@ public class GooglePayExpressCheckoutController extends ExpressCheckoutControlle
 
         PaymentRequest paymentRequest = getPaymentRequest(googlePayExpressPDPRequest);
 
-        OCCPlaceOrderResponse placeOrderResponse = handlePayment(request, paymentRequest, Adyenv6coreConstants.PAYMENT_METHOD_GOOGLE_PAY, googlePayExpressPDPRequest.getAddressData(), googlePayExpressPDPRequest.getProductCode(), true);
+        OCCPlaceOrderResponse placeOrderResponse = handlePayment(request, paymentRequest, Adyenv6coreConstants.PAYMENT_METHOD_GOOGLE_PAY, googlePayExpressPDPRequest.getAddressData(), googlePayExpressPDPRequest.getCartId(), true);
         String response = objectMapper.writeValueAsString(placeOrderResponse);
         return ResponseEntity.ok(response);
     }
