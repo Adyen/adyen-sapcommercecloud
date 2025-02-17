@@ -121,4 +121,11 @@
         <property name="registrationNumber" type="String"/>
     </bean>
 
+    <bean class="de.hybris.platform.ticketsystem.data.CsTicketParameter">
+        <property name="pspReference" type="String"/>
+        <property name="originalReference" type="String"/>
+        <property name="amount" type="java.math.BigDecimal"/>
+        <property name="currency" type="String"/>
+    </bean>
+
 </beans>

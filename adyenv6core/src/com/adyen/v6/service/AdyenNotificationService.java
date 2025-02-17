@@ -87,4 +87,10 @@ public interface AdyenNotificationService {
      */
     PaymentTransactionModel processOfferClosedEvent(AdyenNotificationModel notificationItem);
 
+    /**
+     * Process notification with eventCode=CHARGEBACK
+     * @return
+     */
+    void processChargebackEvent(AdyenNotificationModel notificationItem);
+
 }

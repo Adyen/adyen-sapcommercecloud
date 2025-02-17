@@ -49,6 +49,7 @@
         </enumtype>
         <enumtype code="OrderStatus" autocreate="false" generate="true" dynamic="true">
             <value code="PAYMENT_PENDING"/>
+            <value code="CHARGEBACK"/>
         </enumtype>
         <enumtype code="AdyenRegions" dynamic="true">
             <value code="EU"/>
@@ -727,5 +728,22 @@
                 </attribute>
             </attributes>
         </itemtype>
+        <itemtype code="CsTicket" autocreate="false" generate="false">
+            <attributes>
+                <attribute qualifier="pspReference" type="java.lang.String">
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="originalReference" type="java.lang.String">
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="amount" type="java.math.BigDecimal">
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="currency" type="java.lang.String">
+                    <persistence type="property"/>
+                </attribute>
+            </attributes>
+        </itemtype>
+
     </itemtypes>
 </items>

@@ -22,6 +22,7 @@
       <requires-extension name="acceleratorfacades"/>
       <requires-extension name="commercefacades"/>
       <requires-extension name="basecommerce"/>
+      <requires-extension name="ticketsystem"/>
 
       <coremodule generated="true" manager="com.adyen.v6.jalo.Adyenv6coreManager" packageroot="com.adyen.v6"/>
    </extension>
