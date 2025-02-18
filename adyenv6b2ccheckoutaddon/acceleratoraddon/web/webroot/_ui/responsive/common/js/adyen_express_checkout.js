@@ -46,8 +46,9 @@ var AdyenExpressCheckoutHybris = (function () {
         });
     }
 
-    async function getCartData(pageType, productCode) {
-        if (pageType === 'PDP') {
+    async function getCartData() {
+        const productCode = AdyenExpressCheckoutHybris.adyenConfig.productCode;
+        if (AdyenExpressCheckoutHybris.adyenConfig.pageType === 'PDP') {
             return new Promise((resolve, reject) => {
                 $.ajax({
                     url: ACC.config.encodedContextPath + `/express-checkout/configure/create-cart/${productCode}`,
@@ -93,35 +94,14 @@ var AdyenExpressCheckoutHybris = (function () {
         }
     }
 
-    async function handleShippingAddressUpdate(shippingAddress, paymentDataRequestUpdate, cartId) {
+    async function handleShippingAddressUpdate(shippingAddress, cartId) {
         const addressData = {
             postalCode: shippingAddress.postalCode,
             country: {isocode: shippingAddress.countryCode}
         };
         await updateDeliveryAddress(cartId, addressData);
-        const deliveryMethodsResponse = await fetchDeliveryMethods(cartId);
+        return await fetchDeliveryMethods(cartId);
 
-        paymentDataRequestUpdate.newShippingOptionParameters = {
-            defaultSelectedOptionId: deliveryMethodsResponse[0]?.code || "",
-            shippingOptions: deliveryMethodsResponse.map(mode => ({
-                id: mode.code || "",
-                label: mode.name || "",
-                description: mode.description || ""
-            }))
-        };
-
-    }
-
-    async function handleShippingOptionUpdate(shippingOptionId, paymentDataRequestUpdate, cartId) {
-        const cartDataResponse = await setDeliveryMethod(cartId, shippingOptionId);
-
-        paymentDataRequestUpdate.newTransactionInfo = {
-            countryCode: undefined,
-            currencyCode: cartDataResponse.totalPriceWithTax?.currencyIso ?? '',
-            totalPriceStatus: 'FINAL',
-            totalPrice: (cartDataResponse.totalPriceWithTax?.value ?? 0).toString(),
-            totalPriceLabel: 'Total'
-        };
     }
 
     return {
@@ -172,6 +152,8 @@ var AdyenExpressCheckoutHybris = (function () {
             } = params;
 
             const applePayNodes = document.getElementsByClassName('adyen-apple-pay-button');
+            let paymentData;
+            let cartData;
 
             for (let applePayNode of applePayNodes) {
                 let applePayComponent = new AdyenWeb.ApplePay(checkout, {
@@ -183,6 +165,7 @@ var AdyenExpressCheckoutHybris = (function () {
                         merchantName: applePayMerchantName,
                         merchantId: applePayMerchantId,
                     },
+                    isExpress: true,
                     // Button config
                     buttonType: "check-out",
                     buttonColor: "black",
@@ -191,31 +174,73 @@ var AdyenExpressCheckoutHybris = (function () {
                         "name",
                         "email"
                     ],
-                    //might be used to recalculate cart with shipping method
-//                  onShippingContactSelected: function(resolve, reject, event){
-//
-//                    var shippingMethodUpdate = {
-//                        newTotal: {
-//                            amount: amount.value
-//                        }
-//                    }
-//                    resolve(shippingMethodUpdate);
-//                },
-                    onShippingContactSelected: function(resolve, reject, event){
-                        console.log('shipping contact selected')
-                        console.log(event)
-                        reject();
+                    onShippingContactSelected: async function (resolve, reject, event) {
+                        let paymentDataRequestUpdate = {}
+                        const shippingAddress = {
+                            postalCode: event.shippingContact.postalCode,
+                            countryCode: event.shippingContact.countryCode
+                        }
+
+                        cartData = await getCartData();
+                        let deliveryMethods = await handleShippingAddressUpdate(shippingAddress, cartData.code);
+
+                        if (deliveryMethods.length > 0) {
+                            const defaultDeliveryMethod = deliveryMethods[0];
+
+                            const cartDataResponse = await setDeliveryMethod(cartData.code, defaultDeliveryMethod.code);
+
+                            try {
+                                const shippingContactUpdate = {
+                                    newTotal: {
+                                        label: applePayMerchantName,
+                                        type: 'final',
+                                        amount: cartDataResponse.totalPriceWithTax.value.toString()
+                                    },
+                                    newShippingMethods: deliveryMethods.map(shippingOption => ({
+                                        identifier: shippingOption.code || "",
+                                        label: shippingOption.name || "",
+                                        detail: shippingOption.description || "",
+                                        amount: shippingOption.deliveryCost.value.toString()
+                                    }))
+                                }
+                                resolve(shippingContactUpdate);
+                            } catch (e) {
+                                console.error("Delivery mode mapping issue")
+                                reject();
+                            }
+
+                        } else {
+                            console.error("No delivery methods available")
+                            reject();
+                        }
+                    },
+                    onShippingMethodSelected: async function (resolve, reject, event) {
+                        let paymentDataRequestUpdate = {}
+
+                        const cartDataResponse = await setDeliveryMethod(cartData.code, event.shippingMethod.identifier);
+
+                        try {
+                            const shippingMethodUpdate = {
+                                newTotal: {
+                                    label: applePayMerchantName,
+                                    type: 'final',
+                                    amount: cartDataResponse.totalPriceWithTax.value.toString()
+                                }
+                            }
+
+                            resolve(shippingMethodUpdate)
+                        } catch (e) {
+                            console.error("Delivery mode selection issue")
+                            reject();
+                        }
                     },
                     //onValidateMerchant is required if you're using your own Apple Pay certificate
-                    onSubmit: function (data, component, actions) {
-                        console.log('submit')
-                        console.log(data);
-                        actions.resolve()
-                        // empty to block session flow, submit logic done in onAuthorized
+                    onSubmit: (data, component, actions) => {
+                        this.makePayment(this.prepareDataApple(paymentData), this.getAppleUrl(), actions.resolve, actions.reject)
                     },
-                    onAuthorized: (paymentData, actions) => {
-                        console.log('authorized')
-                        this.makePayment(this.prepareDataApple(paymentData), this.getAppleUrl(), actions.resolve, actions.reject);
+                    onAuthorized: (data, actions) => {
+                        paymentData = data;
+                        actions.resolve()
                     }
                 });
                 applePayComponent.isAvailable()
@@ -230,10 +255,7 @@ var AdyenExpressCheckoutHybris = (function () {
         initiateGooglePayExpress: function (checkout, params) {
             const {
                 amount,
-                pageType,
-                productCode,
                 amountDecimal,
-                countryCode,
             } = params;
 
             const googlePayNodes = document.getElementsByClassName('adyen-google-pay-button');
@@ -271,27 +293,68 @@ var AdyenExpressCheckoutHybris = (function () {
 
                 paymentDataCallbacks: {
                     onPaymentDataChanged(intermediatePaymentData) {
-                        return new Promise(async resolve => {
+                        return new Promise(async (resolve, reject) => {
                             const {callbackTrigger, shippingAddress, shippingOptionData} = intermediatePaymentData;
                             const paymentDataRequestUpdate = {};
 
                             try {
                                 if (callbackTrigger === 'INITIALIZE') {
-                                    cartData = await getCartData(pageType, productCode);
+                                    cartData = await getCartData();
                                 }
 
                                 if (callbackTrigger === 'INITIALIZE' || callbackTrigger === 'SHIPPING_ADDRESS') {
-                                    await handleShippingAddressUpdate(shippingAddress, paymentDataRequestUpdate, cartData.code);
-                                    await handleShippingOptionUpdate(paymentDataRequestUpdate.newShippingOptionParameters.defaultSelectedOptionId, paymentDataRequestUpdate, cartData.code);
+                                    let deliveryMethods = await handleShippingAddressUpdate(shippingAddress, cartData.code);
+                                    if (deliveryMethods.length > 0) {
+                                        const defaultDeliveryMethod = deliveryMethods[0];
+
+                                        const cartDataResponse = await setDeliveryMethod(cartData.code, defaultDeliveryMethod.code);
+
+                                        try {
+                                            paymentDataRequestUpdate.newShippingOptionParameters = {
+                                                defaultSelectedOptionId: deliveryMethods[0].code || "",
+                                                shippingOptions: deliveryMethods.map(mode => ({
+                                                    id: mode.code || "",
+                                                    label: mode.name || "",
+                                                    description: mode.description || "",
+                                                }))
+                                            };
+                                            paymentDataRequestUpdate.newTransactionInfo = {
+                                                countryCode: undefined,
+                                                currencyCode: cartDataResponse.totalPriceWithTax.currencyIso,
+                                                totalPriceStatus: 'FINAL',
+                                                totalPrice: cartDataResponse.totalPriceWithTax.value.toString(),
+                                                totalPriceLabel: 'Total'
+                                            };
+                                        } catch (e) {
+                                            console.error("Delivery mode mapping issue")
+                                            reject("Delivery mode mapping issue")
+                                        }
+                                    } else {
+                                        console.error("No delivery methods available")
+                                        reject("No delivery methods available");
+                                    }
                                 }
 
                                 if (callbackTrigger === 'SHIPPING_OPTION') {
-                                    await handleShippingOptionUpdate(shippingOptionData.id, paymentDataRequestUpdate, cartData.code);
-                                }
+                                    const cartDataResponse = await setDeliveryMethod(cartData.code, shippingOptionData.id);
+                                    try {
+                                        paymentDataRequestUpdate.newTransactionInfo = {
+                                            countryCode: undefined,
+                                            currencyCode: cartDataResponse.totalPriceWithTax.currencyIso,
+                                            totalPriceStatus: 'FINAL',
+                                            totalPrice: cartDataResponse.totalPriceWithTax?.value.toString(),
+                                            totalPriceLabel: 'Total'
+                                        };
 
+                                    } catch (e) {
+                                        console.error("Delivery mode selection issue")
+                                        reject("Delivery mode selection issue")
+                                    }
+                                }
                                 resolve(paymentDataRequestUpdate);
                             } catch (error) {
                                 console.error(error);
+                                reject(error);
                             }
                         });
                     },
@@ -405,7 +468,6 @@ var AdyenExpressCheckoutHybris = (function () {
                 }),
                 contentType: "application/json; charset=utf-8",
                 success: function (response) {
-                    console.log(response)
                     AdyenExpressCheckoutHybris.adyenConfig.expressCartGuid = response.expressCartGuid;
                     if (response.paymentResponse.action) {
                         component.handleAction(response.paymentResponse.action)
