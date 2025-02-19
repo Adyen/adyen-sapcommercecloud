@@ -175,7 +175,6 @@ var AdyenExpressCheckoutHybris = (function () {
                         "email"
                     ],
                     onShippingContactSelected: async function (resolve, reject, event) {
-                        let paymentDataRequestUpdate = {}
                         const shippingAddress = {
                             postalCode: event.shippingContact.postalCode,
                             countryCode: event.shippingContact.countryCode
@@ -183,9 +182,11 @@ var AdyenExpressCheckoutHybris = (function () {
 
                         cartData = await getCartData();
                         let deliveryMethods = await handleShippingAddressUpdate(shippingAddress, cartData.code);
+                        const validDeliveryMethods = deliveryMethods.filter(mode => mode.code);
 
-                        if (deliveryMethods.length > 0) {
-                            const defaultDeliveryMethod = deliveryMethods[0];
+
+                        if (validDeliveryMethods.length > 0) {
+                            const defaultDeliveryMethod = validDeliveryMethods[0];
 
                             const cartDataResponse = await setDeliveryMethod(cartData.code, defaultDeliveryMethod.code);
 
@@ -196,8 +197,8 @@ var AdyenExpressCheckoutHybris = (function () {
                                         type: 'final',
                                         amount: cartDataResponse.totalPriceWithTax.value.toString()
                                     },
-                                    newShippingMethods: deliveryMethods.map(shippingOption => ({
-                                        identifier: shippingOption.code || "",
+                                    newShippingMethods: validDeliveryMethods.map(shippingOption => ({
+                                        identifier: shippingOption.code,
                                         label: shippingOption.name || "",
                                         detail: shippingOption.description || "",
                                         amount: shippingOption.deliveryCost.value.toString()
@@ -215,8 +216,6 @@ var AdyenExpressCheckoutHybris = (function () {
                         }
                     },
                     onShippingMethodSelected: async function (resolve, reject, event) {
-                        let paymentDataRequestUpdate = {}
-
                         const cartDataResponse = await setDeliveryMethod(cartData.code, event.shippingMethod.identifier);
 
                         try {
@@ -304,15 +303,18 @@ var AdyenExpressCheckoutHybris = (function () {
 
                                 if (callbackTrigger === 'INITIALIZE' || callbackTrigger === 'SHIPPING_ADDRESS') {
                                     let deliveryMethods = await handleShippingAddressUpdate(shippingAddress, cartData.code);
-                                    if (deliveryMethods.length > 0) {
-                                        const defaultDeliveryMethod = deliveryMethods[0];
+                                    const validDeliveryMethods = deliveryMethods.filter(mode => mode.code);
+
+
+                                    if (validDeliveryMethods.length > 0) {
+                                        const defaultDeliveryMethod = validDeliveryMethods[0];
 
                                         const cartDataResponse = await setDeliveryMethod(cartData.code, defaultDeliveryMethod.code);
 
                                         try {
                                             paymentDataRequestUpdate.newShippingOptionParameters = {
-                                                defaultSelectedOptionId: deliveryMethods[0].code || "",
-                                                shippingOptions: deliveryMethods.map(mode => ({
+                                                defaultSelectedOptionId: validDeliveryMethods[0].code || "",
+                                                shippingOptions: validDeliveryMethods.map(mode => ({
                                                     id: mode.code || "",
                                                     label: mode.name || "",
                                                     description: mode.description || "",
