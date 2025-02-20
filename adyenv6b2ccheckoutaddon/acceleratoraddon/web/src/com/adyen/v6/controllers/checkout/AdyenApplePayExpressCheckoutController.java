@@ -6,11 +6,9 @@ import com.adyen.model.checkout.PaymentRequest;
 import com.adyen.model.checkout.PaymentResponse;
 import com.adyen.v6.constants.Adyenv6coreConstants;
 import com.adyen.v6.facades.AdyenExpressCheckoutFacade;
-import com.adyen.v6.request.ApplePayExpressCartRequest;
-import com.adyen.v6.request.ApplePayExpressPDPRequest;
+import com.adyen.v6.request.ApplePayExpressRequest;
 import de.hybris.platform.acceleratorstorefrontcommons.security.GUIDCookieStrategy;
 import de.hybris.platform.commercefacades.order.data.CartData;
-import de.hybris.platform.order.InvalidCartException;
 import de.hybris.platform.order.exceptions.CalculationException;
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,11 +32,11 @@ public class AdyenApplePayExpressCheckoutController {
     private GUIDCookieStrategy guidCookieStrategy;
 
     @PostMapping("PDP")
-    public ResponseEntity applePayExpressPDP(final HttpServletRequest request, final HttpServletResponse response, @RequestBody ApplePayExpressPDPRequest applePayExpressPDPRequest) throws Exception {
+    public ResponseEntity applePayExpressPDP(final HttpServletRequest request, final HttpServletResponse response, @RequestBody ApplePayExpressRequest applePayExpressPDPRequest) throws Exception {
 
         PaymentRequest paymentRequest = getPaymentRequest(applePayExpressPDPRequest);
-        String cartId = createCartWithProduct(applePayExpressPDPRequest.getProductCode());
-        PaymentResponse paymentsResponse = adyenExpressCheckoutFacade.expressCheckoutPDP(cartId,
+
+        PaymentResponse paymentsResponse = adyenExpressCheckoutFacade.expressCheckoutPDP(applePayExpressPDPRequest.getCartId(),
                 paymentRequest, Adyenv6coreConstants.PAYMENT_METHOD_APPLEPAY, applePayExpressPDPRequest.getAddressData(), request);
 
         guidCookieStrategy.setCookie(request, response);
@@ -47,12 +45,12 @@ public class AdyenApplePayExpressCheckoutController {
     }
 
     @PostMapping("cart")
-    public ResponseEntity cartExpressCheckout(final HttpServletRequest request, final HttpServletResponse response, @RequestBody ApplePayExpressCartRequest applePayExpressCartRequest) throws Exception {
+    public ResponseEntity cartExpressCheckout(final HttpServletRequest request, final HttpServletResponse response, @RequestBody ApplePayExpressRequest applePayExpressRequest) throws Exception {
 
-        PaymentRequest paymentRequest = getPaymentRequest(applePayExpressCartRequest);
+        PaymentRequest paymentRequest = getPaymentRequest(applePayExpressRequest);
 
         PaymentResponse paymentsResponse = adyenExpressCheckoutFacade.expressCheckoutCart(paymentRequest, Adyenv6coreConstants.PAYMENT_METHOD_APPLEPAY,
-                applePayExpressCartRequest.getAddressData(), request);
+                applePayExpressRequest.getAddressData(), request);
 
         guidCookieStrategy.setCookie(request, response);
 
@@ -66,7 +64,7 @@ public class AdyenApplePayExpressCheckoutController {
         return cart.getCode();
     }
 
-    private static <T extends ApplePayExpressCartRequest> PaymentRequest getPaymentRequest(T request) {
+    private static PaymentRequest getPaymentRequest(ApplePayExpressRequest request) {
         PaymentRequest paymentRequest = new PaymentRequest();
         ApplePayDetails applePayDetails = request.getApplePayDetails();
         applePayDetails.setType(ApplePayDetails.TypeEnum.APPLEPAY);

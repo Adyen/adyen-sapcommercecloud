@@ -1,13 +1,22 @@
-package com.adyen.v6.request;
+package com.adyen.commerce.request;
 
 import com.adyen.model.checkout.ApplePayDetails;
 import de.hybris.platform.commercefacades.user.data.AddressData;
 
 import java.io.Serializable;
 
-public class ApplePayExpressCartRequest implements Serializable {
+public class ApplePayExpressRequest implements Serializable {
     private AddressData addressData;
     private ApplePayDetails applePayDetails;
+    private String cartId;
+
+    public String getCartId() {
+        return cartId;
+    }
+
+    public void setCartId(String cartId) {
+        this.cartId = cartId;
+    }
 
     public AddressData getAddressData() {
         return addressData;

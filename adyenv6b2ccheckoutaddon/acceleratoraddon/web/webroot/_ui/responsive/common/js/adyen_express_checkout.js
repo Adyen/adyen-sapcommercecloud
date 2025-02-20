@@ -543,10 +543,11 @@ var AdyenExpressCheckoutHybris = (function () {
             }
             document.querySelector("#handleComponentResultForm").submit();
         },
-        prepareDataApple: function (paymentData) {
+        prepareDataApple: function (paymentData, cartData) {
             const event = paymentData.authorizedEvent;
 
-            const baseData = {
+            return  {
+                cartId: cartData.code,
                 applePayDetails: {
                     applePayToken: btoa(JSON.stringify(event.payment.token.paymentData))
                 },
@@ -564,21 +565,10 @@ var AdyenExpressCheckoutHybris = (function () {
                     }
                 }
             }
-
-            if (this.adyenConfig.pageType === 'PDP') {
-                return {
-                    productCode: this.adyenConfig.productCode,
-                    ...baseData
-                }
-            }
-            if (this.adyenConfig.pageType === 'cart') {
-                return baseData
-            }
-            console.error('unknown page type')
-            return {};
         },
         prepareDataGoogle: function (paymentData, cartData) {
-            let baseData = {
+            return  {
+                cartId: cartData.code,
                 googlePayDetails: {
                     googlePayToken: paymentData.authorizedEvent.paymentMethodData.tokenizationData.token,
                     googlePayCardNetwork: paymentData.authorizedEvent.paymentMethodData.info.cardNetwork
@@ -599,19 +589,6 @@ var AdyenExpressCheckoutHybris = (function () {
                     }
                 }
             }
-
-            if (this.adyenConfig.pageType === 'PDP') {
-                return {
-                    productCode: this.adyenConfig.productCode,
-                    cartId: cartData.code,
-                    ...baseData
-                }
-            }
-            if (this.adyenConfig.pageType === 'cart') {
-                return baseData;
-            }
-            console.error('unknown page type')
-            return {};
         },
         prepareDataPayPal: function (paymentData) {
             let baseData = {

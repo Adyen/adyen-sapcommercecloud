@@ -1,8 +1,7 @@
 package com.adyen.commerce.controllers.expresscheckout;
 
 import com.adyen.commerce.constants.AdyenoccConstants;
-import com.adyen.commerce.request.GooglePayExpressCartRequest;
-import com.adyen.commerce.request.GooglePayExpressPDPRequest;
+import com.adyen.commerce.request.GooglePayExpressRequest;
 import com.adyen.commerce.resolver.PaymentRedirectReturnUrlResolver;
 import com.adyen.commerce.response.OCCPlaceOrderResponse;
 import com.adyen.model.checkout.CheckoutPaymentMethod;
@@ -52,11 +51,11 @@ public class GooglePayExpressCheckoutController extends ExpressCheckoutControlle
             "Places order based on request data")
     @ApiBaseSiteIdUserIdAndCartIdParam
     public ResponseEntity<String> googlePayCartExpressCheckoutPDP(final HttpServletRequest request, @RequestBody String googlePayExpressPDPRequestString) throws Exception {
-        GooglePayExpressPDPRequest googlePayExpressPDPRequest = objectMapper.readValue(googlePayExpressPDPRequestString, GooglePayExpressPDPRequest.class);
+        GooglePayExpressRequest googlePayExpressRequest = objectMapper.readValue(googlePayExpressPDPRequestString, GooglePayExpressRequest.class);
 
-        PaymentRequest paymentRequest = getPaymentRequest(googlePayExpressPDPRequest);
+        PaymentRequest paymentRequest = getPaymentRequest(googlePayExpressRequest);
 
-        OCCPlaceOrderResponse placeOrderResponse = handlePayment(request, paymentRequest, Adyenv6coreConstants.PAYMENT_METHOD_GOOGLE_PAY, googlePayExpressPDPRequest.getAddressData(), googlePayExpressPDPRequest.getCartId(), true);
+        OCCPlaceOrderResponse placeOrderResponse = handlePayment(request, paymentRequest, Adyenv6coreConstants.PAYMENT_METHOD_GOOGLE_PAY, googlePayExpressRequest.getAddressData(), googlePayExpressRequest.getCartId(), true);
         String response = objectMapper.writeValueAsString(placeOrderResponse);
         return ResponseEntity.ok(response);
     }
@@ -67,15 +66,15 @@ public class GooglePayExpressCheckoutController extends ExpressCheckoutControlle
             "Places order based on request data")
     @ApiBaseSiteIdUserIdAndCartIdParam
     public ResponseEntity<String> googlePayCartExpressCheckoutCart(final HttpServletRequest request, @RequestBody String googlePayExpressCartRequestString) throws Exception {
-        GooglePayExpressCartRequest googlePayExpressCartRequest = objectMapper.readValue(googlePayExpressCartRequestString, GooglePayExpressCartRequest.class);
-        PaymentRequest paymentRequest = getPaymentRequest(googlePayExpressCartRequest);
+        GooglePayExpressRequest googlePayExpressRequest = objectMapper.readValue(googlePayExpressCartRequestString, GooglePayExpressRequest.class);
+        PaymentRequest paymentRequest = getPaymentRequest(googlePayExpressRequest);
 
-        OCCPlaceOrderResponse placeOrderResponse = handlePayment(request, paymentRequest, Adyenv6coreConstants.PAYMENT_METHOD_GOOGLE_PAY, googlePayExpressCartRequest.getAddressData(), null, false);
+        OCCPlaceOrderResponse placeOrderResponse = handlePayment(request, paymentRequest, Adyenv6coreConstants.PAYMENT_METHOD_GOOGLE_PAY, googlePayExpressRequest.getAddressData(), null, false);
         String response = objectMapper.writeValueAsString(placeOrderResponse);
         return ResponseEntity.ok(response);
     }
 
-    private static <T extends GooglePayExpressCartRequest> PaymentRequest getPaymentRequest(T request) {
+    private static PaymentRequest getPaymentRequest(GooglePayExpressRequest request) {
         PaymentRequest paymentRequest = new PaymentRequest();
         GooglePayDetails googlePayDetails = request.getGooglePayDetails();
         googlePayDetails.setType(GooglePayDetails.TypeEnum.GOOGLEPAY);
