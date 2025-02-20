@@ -29,7 +29,7 @@ public abstract class ExpressCheckoutControllerBase {
 
 
     public ExpressCheckoutControllerBase() {
-        objectMapper.configure(DeserializationFeature.FAIL_ON_IGNORED_PROPERTIES, false);
+        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     }
 
     protected OCCPlaceOrderResponse handlePayment(HttpServletRequest request, PaymentRequest paymentRequest, String paymentMethod, AddressData addressData, String productCode, boolean isPDPCheckout) {
