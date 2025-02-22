@@ -23,7 +23,7 @@ import static com.adyen.commerce.util.ErrorMessageUtil.getErrorMessageByRefusalR
 import static com.adyen.model.checkout.PaymentResponse.ResultCodeEnum.*;
 
 public abstract class ExpressCheckoutControllerBase {
-    private static final Logger LOGGER = Logger.getLogger(ExpressCheckoutControllerBase.class);
+    protected static final Logger LOGGER = Logger.getLogger(ExpressCheckoutControllerBase.class);
     protected static final ObjectMapper objectMapper = new ObjectMapper();
 
 
