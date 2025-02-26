@@ -235,7 +235,7 @@ var AdyenExpressCheckoutHybris = (function () {
                     },
                     //onValidateMerchant is required if you're using your own Apple Pay certificate
                     onSubmit: (data, component, actions) => {
-                        this.makePayment(this.prepareDataApple(paymentData), this.getAppleUrl(), actions.resolve, actions.reject)
+                        this.makePayment(this.prepareDataApple(paymentData, cartData), this.getAppleUrl(), actions.resolve, actions.reject)
                     },
                     onAuthorized: (data, actions) => {
                         paymentData = data;

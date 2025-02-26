@@ -1088,9 +1088,6 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         if (productData != null) {
             final String currencyIso = productData.getPrice().getCurrencyIso();
             BigDecimal amountValue = productData.getPrice().getValue();
-            BigDecimal expressDeliveryModeValue = getExpressDeliveryModeValue(currencyIso);
-
-            amountValue = amountValue.add(expressDeliveryModeValue);
 
             return initializeExpressCheckoutDataInternal(amountValue, currencyIso);
         }
