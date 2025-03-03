@@ -98,7 +98,7 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
         return expressPDPCheckout(paymentRequest, addressData, paymentInfoModel, cartId, request);
     }
 
-    public OrderData expressCheckoutPDPOCC(String productCode, PaymentRequest paymentRequest, String paymentMethod, AddressData addressData,
+    public OrderData expressCheckoutPDPOCC(String cartId, PaymentRequest paymentRequest, String paymentMethod, AddressData addressData,
                                            HttpServletRequest request) throws Exception {
         Assert.notNull(paymentMethod, "Payment method must not be null");
         validateAddress(addressData);
@@ -108,7 +108,7 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
 
         updateRegionData(addressData);
 
-        return expressPDPCheckoutOCC(paymentRequest, addressData, paymentInfoModel, productCode, request);
+        return expressPDPCheckoutOCC(paymentRequest, addressData, paymentInfoModel, cartId, request);
     }
 
 
@@ -178,14 +178,14 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
         }
     }
 
-    protected OrderData expressPDPCheckoutOCC(PaymentRequest paymentRequest, AddressData addressData, PaymentInfoModel paymentInfoModel, String productCode,
+    protected OrderData expressPDPCheckoutOCC(PaymentRequest paymentRequest, AddressData addressData, PaymentInfoModel paymentInfoModel, String cartId,
                                               HttpServletRequest request) throws Exception {
         CustomerModel user = (CustomerModel) userService.getCurrentUser();
         if (userService.isAnonymousUser(user)) {
             user = createGuestCustomer(addressData.getEmail());
         }
 
-        CartModel cart = prepareCartForPDPExpressCheckout(addressData, paymentInfoModel, productCode, user);
+        CartModel cart = prepareCartForPDPExpressCheckout(addressData, paymentInfoModel, cartId, user);
 
         if (cartHasEntries(cart)) {
             calculateCart(cart);
@@ -280,6 +280,8 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
 
     protected CartModel prepareCartForPDPExpressCheckout(AddressData addressData, PaymentInfoModel paymentInfoModel, String cartId, CustomerModel user) {
         CartModel cart = cartRepository.getCart(cartId);
+        cart.setUser(user);
+        getModelService().save(cart);
 
         AddressModel addressModel = prepareAddressModel(addressData, user);
         updatePaymentInfoWithCartAndUser(paymentInfoModel, user, addressModel, cart);
@@ -462,7 +464,7 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
     public AddressModel addAddressForExpress(final AddressData addressData) {
         validateParameterNotNullStandardMessage("addressData", addressData);
 
-        final CustomerModel currentCustomer = getCurrentUserForCheckout();
+        final CustomerModel currentCustomer = (CustomerModel) userService.getCurrentUser();
 
         // Create the new address model
         final AddressModel newAddress = getModelService().create(AddressModel.class);
