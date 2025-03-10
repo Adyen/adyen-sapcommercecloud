@@ -551,7 +551,7 @@ var AdyenExpressCheckoutHybris = (function () {
                     return response;
                 },
                 error: function () {
-                    throw "Set shipping address error"
+                    throw "Set shipping method error"
 
                 }
             })
