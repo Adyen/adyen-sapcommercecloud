@@ -66,7 +66,7 @@ public class PayPalExpressCheckoutController extends ExpressCheckoutControllerBa
 
         PaymentRequest paymentRequest = getPaymentRequest(payPalExpressPDPRequest);
 
-        OCCPlaceOrderResponse placeOrderResponse = handlePayment(request, paymentRequest, Adyenv6coreConstants.PAYMENT_METHOD_PAYPAL, payPalExpressPDPRequest.getAddressData(), payPalExpressPDPRequest.getProductCode(), true);
+        OCCPlaceOrderResponse placeOrderResponse = handlePayment(request, paymentRequest, Adyenv6coreConstants.PAYMENT_METHOD_PAYPAL, payPalExpressPDPRequest.getAddressData(), payPalExpressPDPRequest.getCartId(), true);
         String response = objectMapper.writeValueAsString(placeOrderResponse);
         return ResponseEntity.ok(response);
     }
@@ -96,15 +96,15 @@ public class PayPalExpressCheckoutController extends ExpressCheckoutControllerBa
         PaymentRequest paymentRequest = new PaymentRequest();
         payPalDetails.setType(PayPalDetails.TypeEnum.PAYPAL);
         payPalDetails.setSubtype(PayPalDetails.SubtypeEnum.EXPRESS);
+        paymentRequest.setReference(payPalIntermediateRequest.getCartId());
 
         paymentRequest.setPaymentMethod(new CheckoutPaymentMethod(payPalDetails));
 
 
         try {
-            PayPalExpressSubmitResponse payPalExpressSubmitResponse = adyenPayPalExpressCheckoutFacade.onPayPalPDPSubmit(paymentRequest, payPalIntermediateRequest.getProductCode());
+            PayPalExpressSubmitResponse payPalExpressSubmitResponse = adyenPayPalExpressCheckoutFacade.onPayPalPDPSubmitOCC(paymentRequest);
             PayPalIntermediateResponse paymentResponse = new PayPalIntermediateResponse();
             paymentResponse.setPaymentResponse(payPalExpressSubmitResponse.getPaymentResponse());
-            paymentResponse.setExpressCartGuid(payPalExpressSubmitResponse.getExpressCartGuid().toString());
             String paymentResponseString = objectMapper.writeValueAsString(paymentResponse);
             return new ResponseEntity<>(paymentResponseString, HttpStatus.OK);
 
@@ -122,6 +122,7 @@ public class PayPalExpressCheckoutController extends ExpressCheckoutControllerBa
         PayPalDetails payPalDetails = request.getPayPalDetails();
         payPalDetails.setType(PayPalDetails.TypeEnum.PAYPAL);
         paymentRequest.setPaymentMethod(new CheckoutPaymentMethod(payPalDetails));
+        paymentRequest.setReturnUrl(request.getReturnUrl());
         return paymentRequest;
     }
 

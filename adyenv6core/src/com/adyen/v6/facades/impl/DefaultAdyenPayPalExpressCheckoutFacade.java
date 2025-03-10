@@ -36,7 +36,20 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
     private CalculationService calculationService;
     private BaseSiteService baseSiteService;
 
+    @Override
+    public PayPalExpressSubmitResponse onPayPalPDPSubmitOCC(PaymentRequest paymentRequest) throws IOException, ApiException {
 
+        UserModel currentUser = userService.getCurrentUser();
+        CartModel expressCart = commerceCartService.getCartForCodeAndUser(paymentRequest.getReference(), currentUser);
+        Amount amount = AmountUtil.createAmount(BigDecimal.valueOf(expressCart.getTotalPrice()), expressCart.getCurrency().getIsocode());
+
+        paymentRequest.setAmount(amount);
+
+        PaymentResponse paymentResponse = adyenCheckoutFacade.getAdyenPaymentService().sendPaymentRequest(paymentRequest);
+        PayPalExpressSubmitResponse payPalExpressSubmitResponse = new PayPalExpressSubmitResponse();
+        payPalExpressSubmitResponse.setPaymentResponse(paymentResponse);
+        return payPalExpressSubmitResponse;
+    }
 
     @Override
     public PayPalExpressSubmitResponse onPayPalPDPSubmit(PaymentRequest paymentRequest, String productCode) throws IOException, ApiException {

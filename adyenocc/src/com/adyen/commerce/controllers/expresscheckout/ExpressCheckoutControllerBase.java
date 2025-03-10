@@ -27,18 +27,16 @@ public abstract class ExpressCheckoutControllerBase {
     protected static final ObjectMapper objectMapper = new ObjectMapper();
 
 
-    protected OCCPlaceOrderResponse handlePayment(HttpServletRequest request, PaymentRequest paymentRequest, String paymentMethod, AddressData addressData, String productCode, boolean isPDPCheckout) {
-        final CartData cartData = getCartFacade().getSessionCart();
+    protected OCCPlaceOrderResponse handlePayment(HttpServletRequest request, PaymentRequest paymentRequest, String paymentMethod, AddressData addressData, String cartId, boolean isPDPCheckout) {
 
         String errorMessage = CHECKOUT_ERROR_AUTHORIZATION_FAILED;
 
         try {
-            cartData.setAdyenReturnUrl(getPaymentRedirectReturnUrl());
-
+            paymentRequest.setReturnUrl(getPaymentRedirectReturnUrl());
             OrderData orderData;
 
             if (isPDPCheckout) {
-                orderData = getAdyenCheckoutApiFacade().expressCheckoutPDPOCC(productCode, paymentRequest, paymentMethod, addressData, request);
+                orderData = getAdyenCheckoutApiFacade().expressCheckoutPDPOCC(cartId, paymentRequest, paymentMethod, addressData, request);
             } else {
                 orderData = getAdyenCheckoutApiFacade().expressCheckoutCartOCC(paymentRequest, paymentMethod, addressData, request);
             }

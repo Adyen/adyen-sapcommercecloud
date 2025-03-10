@@ -8,6 +8,8 @@ import java.io.Serializable;
 public class PayPalExpressCartRequest implements Serializable {
     private PayPalDetails payPalDetails;
     private AddressData addressData;
+    private String cartId;
+    private String returnUrl;
 
     public PayPalDetails getPayPalDetails() {
         return payPalDetails;
@@ -23,5 +25,21 @@ public class PayPalExpressCartRequest implements Serializable {
 
     public void setAddressData(AddressData addressData) {
         this.addressData = addressData;
+    }
+
+    public String getCartId() {
+        return cartId;
+    }
+
+    public void setCartId(String cartId) {
+        this.cartId = cartId;
+    }
+
+    public String getReturnUrl() {
+        return returnUrl;
+    }
+
+    public void setReturnUrl(String returnUrl) {
+        this.returnUrl = returnUrl;
     }
 }

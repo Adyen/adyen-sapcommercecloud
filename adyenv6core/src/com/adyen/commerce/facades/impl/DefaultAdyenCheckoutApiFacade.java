@@ -95,9 +95,17 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
         }
     }
 
+    @Override
+    public OrderPaymentResult placeOrderWithPayment(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest) throws Exception{
+        try {
+            return placeOrderWithPayment(request, cartData, paymentRequest, false);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     @Override
-    public OrderPaymentResult placeOrderWithPayment(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest) throws Exception {
+    public OrderPaymentResult placeOrderWithPayment(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest, boolean apiCall) throws Exception {
 
         RequestInfo requestInfo = new RequestInfo(request);
         requestInfo.setShopperLocale(getShopperLocale());
@@ -111,6 +119,9 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
             LOGGER.info("Placing pending order");
             OrderData orderData = placePendingOrder(paymentResponse.getResultCode().getValue());
             paymentResponse.setMerchantReference(orderData.getCode());
+            if (apiCall){
+                return new OrderPaymentResult(orderData, paymentResponse);
+            }
             throw new AdyenNonAuthorizedPaymentException(paymentResponse);
         }
         if (PaymentResponse.ResultCodeEnum.AUTHORISED == paymentResponse.getResultCode()) {
@@ -120,7 +131,7 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
 
         }
 
-        throw new AdyenNonAuthorizedPaymentException(paymentResponse);
+            throw new AdyenNonAuthorizedPaymentException(paymentResponse);
     }
 
     @Override

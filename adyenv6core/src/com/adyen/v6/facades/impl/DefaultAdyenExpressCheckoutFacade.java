@@ -98,7 +98,7 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
         return expressPDPCheckout(paymentRequest, addressData, paymentInfoModel, cartId, request);
     }
 
-    public OrderData expressCheckoutPDPOCC(String productCode, PaymentRequest paymentRequest, String paymentMethod, AddressData addressData,
+    public OrderData expressCheckoutPDPOCC(String cartId, PaymentRequest paymentRequest, String paymentMethod, AddressData addressData,
                                            HttpServletRequest request) throws Exception {
         Assert.notNull(paymentMethod, "Payment method must not be null");
         validateAddress(addressData);
@@ -108,7 +108,7 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
 
         updateRegionData(addressData);
 
-        return expressPDPCheckoutOCC(paymentRequest, addressData, paymentInfoModel, productCode, request);
+        return expressPDPCheckoutOCC(paymentRequest, addressData, paymentInfoModel, cartId, request);
     }
 
 
@@ -178,14 +178,14 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
         }
     }
 
-    protected OrderData expressPDPCheckoutOCC(PaymentRequest paymentRequest, AddressData addressData, PaymentInfoModel paymentInfoModel, String productCode,
+    protected OrderData expressPDPCheckoutOCC(PaymentRequest paymentRequest, AddressData addressData, PaymentInfoModel paymentInfoModel, String cartId,
                                               HttpServletRequest request) throws Exception {
         CustomerModel user = (CustomerModel) userService.getCurrentUser();
         if (userService.isAnonymousUser(user)) {
             user = createGuestCustomer(addressData.getEmail());
         }
 
-        CartModel cart = prepareCartForPDPExpressCheckout(addressData, paymentInfoModel, productCode, user);
+        CartModel cart = prepareCartForPDPExpressCheckout(addressData, paymentInfoModel, cartId, user);
 
         if (cartHasEntries(cart)) {
             calculateCart(cart);
@@ -197,10 +197,9 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
             cartService.setSessionCart(cart);
 
             CartData cartData = cartConverter.convert(cart);
-
-            OrderPaymentResult orderPaymentResult = adyenCheckoutApiFacade.placeOrderWithPayment(request, cartData, paymentRequest);
-
-
+            paymentRequest.setReturnUrl(paymentRequest.getReturnUrl());
+            OrderPaymentResult orderPaymentResult;
+            orderPaymentResult = adyenCheckoutApiFacade.placeOrderWithPayment(request, cartData, paymentRequest, true);
             if (sessionCart != null) {
                 cartService.setSessionCart(sessionCart);
             }

@@ -14,6 +14,8 @@ import java.io.IOException;
 public interface AdyenPayPalExpressCheckoutFacade {
     PayPalExpressSubmitResponse onPayPalPDPSubmit(PaymentRequest paymentRequest, String productCode) throws IOException, ApiException;
 
+    PayPalExpressSubmitResponse onPayPalPDPSubmitOCC(PaymentRequest paymentRequest) throws IOException, ApiException;
+
     PaymentResponse onPayPalCartSubmit(PaymentRequest paymentRequest) throws IOException, ApiException;
 
     void onPayPalAuthorizedPDP(String cartGuid, AddressData addressData, String paymentMethod) throws DuplicateUidException, InvalidCartException, CalculationException;
