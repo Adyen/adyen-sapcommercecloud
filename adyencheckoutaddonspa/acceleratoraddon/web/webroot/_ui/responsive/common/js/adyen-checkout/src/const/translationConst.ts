@@ -34,6 +34,9 @@ export const translationKeys: string[] = [
     "address.townCity",
     "address.postcode",
     "address.phone",
+    "address.companyName",
+    "address.taxNumber",
+    "address.registrationNumber",
 
     //address page
     "checkout.summary.shippingAddress",

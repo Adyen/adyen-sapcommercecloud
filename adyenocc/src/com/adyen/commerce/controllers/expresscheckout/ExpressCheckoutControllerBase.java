@@ -7,6 +7,7 @@ import com.adyen.model.checkout.PaymentResponse;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
 import com.adyen.v6.facades.AdyenExpressCheckoutFacade;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.hybris.platform.commercefacades.order.CartFacade;
 import de.hybris.platform.commercefacades.order.data.CartData;
@@ -26,6 +27,10 @@ public abstract class ExpressCheckoutControllerBase {
     protected static final Logger LOGGER = Logger.getLogger(ExpressCheckoutControllerBase.class);
     protected static final ObjectMapper objectMapper = new ObjectMapper();
 
+
+    public ExpressCheckoutControllerBase() {
+        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    }
 
     protected OCCPlaceOrderResponse handlePayment(HttpServletRequest request, PaymentRequest paymentRequest, String paymentMethod, AddressData addressData, String cartId, boolean isPDPCheckout) {
 

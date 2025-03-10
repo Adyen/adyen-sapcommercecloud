@@ -21,7 +21,6 @@
 package com.adyen.v6.service;
 
 import com.adyen.commerce.services.AdyenRequestService;
-import com.adyen.model.checkout.Amount;
 import com.adyen.model.checkout.*;
 import com.adyen.model.recurring.RecurringDetail;
 import com.adyen.model.recurring.*;
@@ -39,7 +38,6 @@ import com.adyen.v6.enums.RecurringContractMode;
 import com.adyen.v6.model.RequestInfo;
 import com.adyen.v6.util.AmountUtil;
 import de.hybris.platform.commercefacades.order.data.CartData;
-import de.hybris.platform.commercefacades.product.data.PriceData;
 import de.hybris.platform.core.model.user.CustomerModel;
 import de.hybris.platform.store.BaseStoreModel;
 import org.apache.commons.collections4.CollectionUtils;
@@ -50,10 +48,11 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.List;
 import java.util.stream.Collectors;
-
-import static com.adyen.model.checkout.CreateCheckoutSessionRequest.StorePaymentMethodModeEnum.ASKFORCONSENT;
 
 public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService implements AdyenCheckoutApiService {
 

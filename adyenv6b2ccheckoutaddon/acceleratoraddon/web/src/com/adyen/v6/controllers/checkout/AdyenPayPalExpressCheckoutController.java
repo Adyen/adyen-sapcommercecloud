@@ -1,18 +1,15 @@
 package com.adyen.v6.controllers.checkout;
 
-import com.adyen.model.checkout.CheckoutPaymentMethod;
-import com.adyen.model.checkout.PayPalDetails;
-import com.adyen.model.checkout.PaymentRequest;
-import com.adyen.model.checkout.PaymentResponse;
+import com.adyen.model.checkout.*;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.constants.Adyenv6coreConstants;
 import com.adyen.v6.facades.AdyenPayPalExpressCheckoutFacade;
-import com.adyen.v6.request.PayPalExpressCartRequest;
-import com.adyen.v6.request.PayPalExpressPDPRequest;
-import com.adyen.v6.request.PayPalExpressSubmitPDPRequest;
+import com.adyen.v6.request.*;
 import com.adyen.v6.response.PayPalExpressSubmitResponse;
 import de.hybris.platform.acceleratorservices.urlresolver.SiteBaseUrlResolutionService;
 import de.hybris.platform.acceleratorstorefrontcommons.security.GUIDCookieStrategy;
+import de.hybris.platform.commerceservices.customer.DuplicateUidException;
+import de.hybris.platform.order.exceptions.CalculationException;
 import de.hybris.platform.site.BaseSiteService;
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
 
 @Controller
 @RequestMapping("/express-checkout/paypal/")
@@ -51,16 +49,8 @@ public class AdyenPayPalExpressCheckoutController extends AdyenExpressCheckoutCo
         paymentRequest.setPaymentMethod(new CheckoutPaymentMethod(payPalDetails));
         paymentRequest.setReturnUrl(getReturnUrl(PayPalDetails.TypeEnum.PAYPAL.getValue()));
 
-        try {
-            PayPalExpressSubmitResponse paymentResponse = adyenPayPalExpressCheckoutFacade.onPayPalPDPSubmit(paymentRequest, payPalSubmitRequest.getProductCode());
-            return new ResponseEntity<>(paymentResponse, HttpStatus.OK);
-
-        } catch (ApiException e){
-            LOG.error(e.getError());
-            LOG.error(e.getMessage());
-
-            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-        }
+        PayPalExpressSubmitResponse paymentResponse = adyenPayPalExpressCheckoutFacade.onPayPalPDPSubmit(paymentRequest, payPalSubmitRequest.getProductCode());
+        return new ResponseEntity<>(paymentResponse, HttpStatus.OK);
 
     }
 
@@ -73,17 +63,8 @@ public class AdyenPayPalExpressCheckoutController extends AdyenExpressCheckoutCo
         paymentRequest.setPaymentMethod(new CheckoutPaymentMethod(payPalDetails));
         paymentRequest.setReturnUrl(getReturnUrl(PayPalDetails.TypeEnum.PAYPAL.getValue()));
 
-        try {
-            PaymentResponse paymentResponse = adyenPayPalExpressCheckoutFacade.onPayPalCartSubmit(paymentRequest);
-            return new ResponseEntity<>(paymentResponse, HttpStatus.OK);
-
-        } catch (ApiException e){
-            LOG.error(e.getError());
-            LOG.error(e.getMessage());
-
-            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-        }
-
+        PaymentResponse paymentResponse = adyenPayPalExpressCheckoutFacade.onPayPalCartSubmit(paymentRequest);
+        return new ResponseEntity<>(paymentResponse, HttpStatus.OK);
     }
 
     @PostMapping("PDP")
@@ -107,6 +88,27 @@ public class AdyenPayPalExpressCheckoutController extends AdyenExpressCheckoutCo
         return ResponseEntity.ok().build();
     }
 
+    @PostMapping("shipping-address")
+    public ResponseEntity<PaypalUpdateOrderResponse> paypalSetShippingAddress(@RequestBody PayPalExpressShippingAddressRequest payPalExpressShippingAddressRequest) throws IOException, ApiException, DuplicateUidException, CalculationException {
+        PaypalUpdateOrderResponse paypalUpdateOrderResponse = adyenPayPalExpressCheckoutFacade.updateShippingAddress(
+                payPalExpressShippingAddressRequest.getAddressData(),
+                payPalExpressShippingAddressRequest.getPspReference(),
+                payPalExpressShippingAddressRequest.getPaymentData(),
+                payPalExpressShippingAddressRequest.getCartGuid());
+
+        return ResponseEntity.ok(paypalUpdateOrderResponse);
+    }
+
+    @PostMapping("shipping-method")
+    public ResponseEntity<PaypalUpdateOrderResponse> paypalSetShippingMode(@RequestBody PayPalExpressShippingMethodRequest payPalExpressShippingMethodRequest) throws CalculationException, IOException, ApiException {
+        PaypalUpdateOrderResponse paypalUpdateOrderResponse = adyenPayPalExpressCheckoutFacade.updateShippingMethod(payPalExpressShippingMethodRequest.getShippingMethodCode(),
+                payPalExpressShippingMethodRequest.getPspReference(), payPalExpressShippingMethodRequest.getPaymentData(),
+                payPalExpressShippingMethodRequest.getCartGuid());
+
+        return ResponseEntity.ok(paypalUpdateOrderResponse);
+
+    }
+
     private <T extends PayPalExpressCartRequest> PaymentRequest getPaymentRequest(T request) {
         PaymentRequest paymentRequest = new PaymentRequest();
         PayPalDetails paypalDetails = request.getPayPalDetails();
@@ -120,6 +122,9 @@ public class AdyenPayPalExpressCheckoutController extends AdyenExpressCheckoutCo
     @ResponseStatus(value = HttpStatus.BAD_REQUEST)
     @ExceptionHandler(value = Exception.class)
     public void adyenComponentExceptionHandler(Exception e) {
+        if (e instanceof ApiException) {
+            LOG.error("Api Exception: " + ((ApiException) e).getResponseBody());
+        }
         LOG.error("Exception during PaypalExpress processing", e);
     }
 

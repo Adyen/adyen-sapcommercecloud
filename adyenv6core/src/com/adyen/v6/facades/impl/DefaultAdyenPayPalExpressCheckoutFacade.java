@@ -1,13 +1,15 @@
 package com.adyen.v6.facades.impl;
 
-import com.adyen.model.checkout.Amount;
-import com.adyen.model.checkout.PaymentRequest;
-import com.adyen.model.checkout.PaymentResponse;
+import com.adyen.model.checkout.*;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.facades.AdyenPayPalExpressCheckoutFacade;
+import com.adyen.v6.factory.AdyenPaymentServiceFactory;
 import com.adyen.v6.response.PayPalExpressSubmitResponse;
+import com.adyen.v6.service.AdyenUtilityApiService;
 import com.adyen.v6.util.AmountUtil;
 import de.hybris.platform.basecommerce.model.site.BaseSiteModel;
+import de.hybris.platform.commercefacades.order.data.CartData;
+import de.hybris.platform.commercefacades.order.data.DeliveryModeData;
 import de.hybris.platform.commercefacades.user.data.AddressData;
 import de.hybris.platform.commerceservices.customer.DuplicateUidException;
 import de.hybris.platform.core.model.order.CartModel;
@@ -21,12 +23,16 @@ import de.hybris.platform.order.CalculationService;
 import de.hybris.platform.order.InvalidCartException;
 import de.hybris.platform.order.exceptions.CalculationException;
 import de.hybris.platform.site.BaseSiteService;
+import de.hybris.platform.store.BaseStoreModel;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 import org.springframework.util.Assert;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 
 import static de.hybris.platform.servicelayer.util.ServicesUtil.validateParameterNotNull;
 
@@ -35,7 +41,7 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
 
     private CalculationService calculationService;
     private BaseSiteService baseSiteService;
-
+    private AdyenPaymentServiceFactory adyenPaymentServiceFactory;
     @Override
     public PayPalExpressSubmitResponse onPayPalPDPSubmitOCC(PaymentRequest paymentRequest) throws IOException, ApiException {
 
@@ -82,6 +88,7 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
 
         payPalExpressSubmitResponse.setPaymentResponse(paymentResponse);
         payPalExpressSubmitResponse.setExpressCartGuid(expressCart.getGuid());
+        payPalExpressSubmitResponse.setPspReference(paymentResponse.getPspReference());
 
         return payPalExpressSubmitResponse;
     }
@@ -177,7 +184,81 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
         throw new InvalidCartException("No cart for checkout or empty cart");
     }
 
-    private void prepareCartForPayPalExpressCheckout(AddressData addressData, CartModel sessionCart, CustomerModel user, PaymentInfoModel paymentInfoModel) throws CalculationException {
+    public PaypalUpdateOrderResponse updateShippingAddress(final AddressData addressData, final String pspReference, final String paymentData, final String cartGuid) throws IOException, ApiException, DuplicateUidException, CalculationException {
+        CartModel cart = getCartForPayPalCheckout(cartGuid);
+
+        Assert.notNull(cart, "No cart found for guid: " + cartGuid);
+
+        setDeliveryAddressForCart(addressData, cart.getCode());
+
+        return patchPaypalOrder(cart, null, paymentData, pspReference);
+    }
+
+    public PaypalUpdateOrderResponse updateShippingMethod(final String shippingMethodCode, final String pspReference, final String paymentData, final String cartGuid) throws IOException, ApiException, CalculationException {
+        CartModel cart = getCartForPayPalCheckout(cartGuid);
+
+        Assert.notNull(cart, "No cart found for guid: " + cartGuid);
+
+        return patchPaypalOrder(cart, shippingMethodCode, paymentData, pspReference);
+    }
+
+    protected CartModel getCartForPayPalCheckout(String cartGuid) {
+        if (StringUtils.isNotEmpty(cartGuid)) {
+            return getExpressCartForGuid(cartGuid);
+        } else {
+            return cartService.getSessionCart();
+        }
+    }
+
+    protected PaypalUpdateOrderResponse patchPaypalOrder(final CartModel cart, String shippingMethodCode, String paymentData, String pspReference) throws IOException, ApiException, CalculationException {
+        BaseStoreModel currentBaseStore = getBaseStoreService().getCurrentBaseStore();
+        AdyenUtilityApiService adyenUtilityApiService = adyenPaymentServiceFactory.createAdyenUtilityApiService(currentBaseStore);
+
+        List<DeliveryModeModel> deliveryModes = getDeliveryService().getSupportedDeliveryModeListForOrder(cart);
+
+        Optional<DeliveryModeModel> selectedDeliveryMethod;
+        if (StringUtils.isNotEmpty(shippingMethodCode)) {
+            selectedDeliveryMethod = deliveryModes.stream().filter(deliveryMode -> deliveryMode.getCode().equals(shippingMethodCode)).findFirst();
+        } else {
+            selectedDeliveryMethod = !deliveryModes.isEmpty() ? Optional.of(deliveryModes.get(0)) : Optional.empty();
+        }
+
+        if (selectedDeliveryMethod.isPresent()) {
+            List<DeliveryMethod> deliveryMethods = new ArrayList<>();
+
+            for (DeliveryModeModel methodModel : deliveryModes) {
+                DeliveryModeData method = convert(methodModel, cart);
+                Amount amount = null;
+                if (method.getDeliveryCost() != null) {
+                    amount = AmountUtil.createAmount(method.getDeliveryCost().getValue(), method.getDeliveryCost().getCurrencyIso());
+                } else {
+                    LOG.warn("No method delivery cost found for delivery mode: " + method.getCode());
+                }
+
+                DeliveryMethod deliveryMethod = new DeliveryMethod();
+                deliveryMethod.reference(method.getCode())
+                        .description(method.getDescription())
+                        .selected(selectedDeliveryMethod.get().getCode().equals(method.getCode()))
+                        .setAmount(amount);
+                deliveryMethods.add(deliveryMethod);
+            }
+
+            CartData cartData = setDeliveryModeForCart(selectedDeliveryMethod.get(), cart);
+
+            Amount amount = AmountUtil.createAmount(cartData.getTotalPrice().getValue(), cartData.getTotalPrice().getCurrencyIso());
+
+            PaypalUpdateOrderRequest paypalUpdateOrderRequest = new PaypalUpdateOrderRequest();
+            paypalUpdateOrderRequest.amount(amount)
+                    .deliveryMethods(deliveryMethods)
+                    .paymentData(paymentData)
+                    .setPspReference(pspReference);
+
+            return adyenUtilityApiService.paypalUpdateOrder(paypalUpdateOrderRequest);
+        }
+        throw new IllegalArgumentException("No delivery method found for express checkout cart:  " + cart.getCode());
+    }
+
+    protected void prepareCartForPayPalExpressCheckout(AddressData addressData, CartModel sessionCart, CustomerModel user, PaymentInfoModel paymentInfoModel) throws CalculationException {
         sessionCart.setUser(user);
 
         AddressModel addressModel = prepareAddressModel(addressData, user);
@@ -218,4 +299,7 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
         this.baseSiteService = baseSiteService;
     }
 
+    public void setAdyenPaymentServiceFactory(AdyenPaymentServiceFactory adyenPaymentServiceFactory) {
+        this.adyenPaymentServiceFactory = adyenPaymentServiceFactory;
+    }
 }

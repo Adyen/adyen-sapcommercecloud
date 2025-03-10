@@ -279,6 +279,8 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
 
     protected CartModel prepareCartForPDPExpressCheckout(AddressData addressData, PaymentInfoModel paymentInfoModel, String cartId, CustomerModel user) {
         CartModel cart = cartRepository.getCart(cartId);
+        cart.setUser(user);
+        getModelService().save(cart);
 
         AddressModel addressModel = prepareAddressModel(addressData, user);
         updatePaymentInfoWithCartAndUser(paymentInfoModel, user, addressModel, cart);
@@ -461,7 +463,7 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
     public AddressModel addAddressForExpress(final AddressData addressData) {
         validateParameterNotNullStandardMessage("addressData", addressData);
 
-        final CustomerModel currentCustomer = getCurrentUserForCheckout();
+        final CustomerModel currentCustomer = (CustomerModel) userService.getCurrentUser();
 
         // Create the new address model
         final AddressModel newAddress = getModelService().create(AddressModel.class);
@@ -506,8 +508,13 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
     public CartData setDeliveryModeForCart(final String deliveryModeCode, final String cartId) throws CalculationException {
         final CartModel cartModel = cartRepository.getCart(cartId);
         final DeliveryModeModel deliveryMode = deliveryModeService.getDeliveryModeForCode(deliveryModeCode);
+
+        return setDeliveryModeForCart(deliveryMode, cartModel);
+    }
+
+    public CartData setDeliveryModeForCart(final DeliveryModeModel deliveryModeModel, final CartModel cartModel) throws CalculationException {
         final CommerceCheckoutParameter parameter = createCommerceCheckoutParameter(cartModel, true);
-        parameter.setDeliveryMode(deliveryMode);
+        parameter.setDeliveryMode(deliveryModeModel);
         if(getCommerceCheckoutService().setDeliveryMode(parameter)){
             return cartConverter.convert(cartModel);
         }

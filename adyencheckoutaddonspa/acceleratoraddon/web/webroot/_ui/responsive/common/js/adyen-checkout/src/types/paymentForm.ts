@@ -18,5 +18,8 @@ export interface AddressData {
     postcode: string;
     countryIso: string;
     phoneNumber: string;
+    companyName: string;
+    taxNumber: string;
+    registrationNumber: string;
     saveInAddressBook: boolean;
 }

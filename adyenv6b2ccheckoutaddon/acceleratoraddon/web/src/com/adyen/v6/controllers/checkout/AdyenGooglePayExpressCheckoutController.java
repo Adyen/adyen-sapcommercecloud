@@ -4,10 +4,10 @@ import com.adyen.model.checkout.CheckoutPaymentMethod;
 import com.adyen.model.checkout.GooglePayDetails;
 import com.adyen.model.checkout.PaymentRequest;
 import com.adyen.model.checkout.PaymentResponse;
+import com.adyen.service.exception.ApiException;
 import com.adyen.v6.constants.Adyenv6coreConstants;
 import com.adyen.v6.facades.AdyenExpressCheckoutFacade;
-import com.adyen.v6.request.GooglePayExpressCartRequest;
-import com.adyen.v6.request.GooglePayExpressPDPRequest;
+import com.adyen.v6.request.GooglePayExpressRequest;
 import de.hybris.platform.acceleratorstorefrontcommons.security.GUIDCookieStrategy;
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,7 +31,7 @@ public class AdyenGooglePayExpressCheckoutController {
     private GUIDCookieStrategy guidCookieStrategy;
 
     @PostMapping("PDP")
-    public ResponseEntity googlePayExpressPDP(final HttpServletRequest request, final HttpServletResponse response, @RequestBody GooglePayExpressPDPRequest googlePayExpressPDPRequest) throws Exception {
+    public ResponseEntity googlePayExpressPDP(final HttpServletRequest request, final HttpServletResponse response, @RequestBody GooglePayExpressRequest googlePayExpressPDPRequest) throws Exception {
 
         PaymentRequest paymentRequest = getPaymentRequest(googlePayExpressPDPRequest);
 
@@ -44,19 +44,19 @@ public class AdyenGooglePayExpressCheckoutController {
     }
 
     @PostMapping("cart")
-    public ResponseEntity googlePayCartExpressCheckout(final HttpServletRequest request, final HttpServletResponse response, @RequestBody GooglePayExpressCartRequest googlePayExpressCartRequest) throws Exception {
+    public ResponseEntity googlePayCartExpressCheckout(final HttpServletRequest request, final HttpServletResponse response, @RequestBody GooglePayExpressRequest googlePayExpressRequest) throws Exception {
 
-        PaymentRequest paymentRequest = getPaymentRequest(googlePayExpressCartRequest);
+        PaymentRequest paymentRequest = getPaymentRequest(googlePayExpressRequest);
 
         PaymentResponse paymentsResponse = adyenExpressCheckoutFacade.expressCheckoutCart(paymentRequest, Adyenv6coreConstants.PAYMENT_METHOD_GOOGLE_PAY,
-                googlePayExpressCartRequest.getAddressData(), request);
+                googlePayExpressRequest.getAddressData(), request);
 
         guidCookieStrategy.setCookie(request, response);
 
         return new ResponseEntity<>(paymentsResponse, HttpStatus.OK);
     }
 
-    private static <T extends GooglePayExpressCartRequest> PaymentRequest getPaymentRequest(T request) {
+    private static PaymentRequest getPaymentRequest(GooglePayExpressRequest request) {
         PaymentRequest paymentRequest = new PaymentRequest();
         GooglePayDetails googlePayDetails = request.getGooglePayDetails();
         googlePayDetails.setType(GooglePayDetails.TypeEnum.GOOGLEPAY);
@@ -67,6 +67,9 @@ public class AdyenGooglePayExpressCheckoutController {
     @ResponseStatus(value = HttpStatus.BAD_REQUEST)
     @ExceptionHandler(value = Exception.class)
     public void adyenComponentExceptionHandler(Exception e) {
+        if (e instanceof ApiException) {
+            LOG.error("Api Exception: " + ((ApiException) e).getResponseBody());
+        }
         LOG.error("Exception during GooglePayExpress processing", e);
     }
 }

@@ -1,8 +1,7 @@
  package com.adyen.commerce.controllers.expresscheckout;
 
  import com.adyen.commerce.constants.AdyenoccConstants;
- import com.adyen.commerce.request.ApplePayExpressCartRequest;
- import com.adyen.commerce.request.ApplePayExpressPDPRequest;
+ import com.adyen.commerce.request.ApplePayExpressRequest;
  import com.adyen.commerce.resolver.PaymentRedirectReturnUrlResolver;
  import com.adyen.commerce.response.OCCPlaceOrderResponse;
  import com.adyen.model.checkout.ApplePayDetails;
@@ -52,11 +51,11 @@ public class ApplePayExpressCheckoutController extends ExpressCheckoutController
             "Places order based on request data")
     @ApiBaseSiteIdUserIdAndCartIdParam
     public ResponseEntity<String> applePayPDPExpressCheckout(final HttpServletRequest request, @RequestBody String applePayExpressPDPStringRequest) throws Exception {
-        ApplePayExpressPDPRequest applePayExpressPDPRequest = objectMapper.readValue(applePayExpressPDPStringRequest, ApplePayExpressPDPRequest.class);
+        ApplePayExpressRequest applePayExpressRequest = objectMapper.readValue(applePayExpressPDPStringRequest, ApplePayExpressRequest.class);
 
-        PaymentRequest paymentRequest = getPaymentRequest(applePayExpressPDPRequest);
+        PaymentRequest paymentRequest = getPaymentRequest(applePayExpressRequest);
 
-        OCCPlaceOrderResponse placeOrderResponse = handlePayment(request, paymentRequest, Adyenv6coreConstants.PAYMENT_METHOD_APPLEPAY, applePayExpressPDPRequest.getAddressData(), applePayExpressPDPRequest.getProductCode(), true);
+        OCCPlaceOrderResponse placeOrderResponse = handlePayment(request, paymentRequest, Adyenv6coreConstants.PAYMENT_METHOD_APPLEPAY, applePayExpressRequest.getAddressData(), applePayExpressRequest.getCartId(), true);
         String response = objectMapper.writeValueAsString(placeOrderResponse);
         return ResponseEntity.ok(response);
     }
@@ -67,16 +66,16 @@ public class ApplePayExpressCheckoutController extends ExpressCheckoutController
             "Places order based on request data")
     @ApiBaseSiteIdUserIdAndCartIdParam
     public ResponseEntity<String> applePayCartExpressCheckout(final HttpServletRequest request, @RequestBody String applePayExpressCartStringRequest) throws Exception {
-        ApplePayExpressCartRequest applePayExpressCartRequest = objectMapper.readValue(applePayExpressCartStringRequest, ApplePayExpressCartRequest.class);
+        ApplePayExpressRequest applePayExpressRequest = objectMapper.readValue(applePayExpressCartStringRequest, ApplePayExpressRequest.class);
 
-        PaymentRequest paymentRequest = getPaymentRequest(applePayExpressCartRequest);
+        PaymentRequest paymentRequest = getPaymentRequest(applePayExpressRequest);
 
-        OCCPlaceOrderResponse placeOrderResponse = handlePayment(request, paymentRequest, Adyenv6coreConstants.PAYMENT_METHOD_APPLEPAY, applePayExpressCartRequest.getAddressData(), null, false);
+        OCCPlaceOrderResponse placeOrderResponse = handlePayment(request, paymentRequest, Adyenv6coreConstants.PAYMENT_METHOD_APPLEPAY, applePayExpressRequest.getAddressData(), null, false);
         String response = objectMapper.writeValueAsString(placeOrderResponse);
         return ResponseEntity.ok(response);
     }
 
-    private static <T extends ApplePayExpressCartRequest> PaymentRequest getPaymentRequest(T request) {
+    private static PaymentRequest getPaymentRequest(ApplePayExpressRequest request) {
         PaymentRequest paymentRequest = new PaymentRequest();
         ApplePayDetails applePayDetails = request.getApplePayDetails();
         applePayDetails.setType(ApplePayDetails.TypeEnum.APPLEPAY);
