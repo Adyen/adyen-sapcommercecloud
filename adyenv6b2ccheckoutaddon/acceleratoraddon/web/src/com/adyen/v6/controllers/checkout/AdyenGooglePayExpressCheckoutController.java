@@ -4,6 +4,7 @@ import com.adyen.model.checkout.CheckoutPaymentMethod;
 import com.adyen.model.checkout.GooglePayDetails;
 import com.adyen.model.checkout.PaymentRequest;
 import com.adyen.model.checkout.PaymentResponse;
+import com.adyen.service.exception.ApiException;
 import com.adyen.v6.constants.Adyenv6coreConstants;
 import com.adyen.v6.facades.AdyenExpressCheckoutFacade;
 import com.adyen.v6.request.GooglePayExpressRequest;
@@ -66,6 +67,9 @@ public class AdyenGooglePayExpressCheckoutController {
     @ResponseStatus(value = HttpStatus.BAD_REQUEST)
     @ExceptionHandler(value = Exception.class)
     public void adyenComponentExceptionHandler(Exception e) {
+        if (e instanceof ApiException) {
+            LOG.error("Api Exception: " + ((ApiException) e).getResponseBody());
+        }
         LOG.error("Exception during GooglePayExpress processing", e);
     }
 }

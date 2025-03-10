@@ -7,6 +7,7 @@ import java.io.Serializable;
 public class PayPalExpressSubmitResponse implements Serializable {
     private PaymentResponse paymentResponse;
     private Serializable expressCartGuid;
+    private String pspReference;
 
     public PaymentResponse getPaymentResponse() {
         return paymentResponse;
@@ -22,5 +23,13 @@ public class PayPalExpressSubmitResponse implements Serializable {
 
     public void setExpressCartGuid(Serializable expressCartGuid) {
         this.expressCartGuid = expressCartGuid;
+    }
+
+    public String getPspReference() {
+        return pspReference;
+    }
+
+    public void setPspReference(String pspReference) {
+        this.pspReference = pspReference;
     }
 }
