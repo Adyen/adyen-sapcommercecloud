@@ -100,7 +100,10 @@
         </c:when>
 
         <c:when test="${selectedPaymentMethod eq 'giftcard'}">
-        paymentMethodConfigs['createGiftCard'] = callbackConfig;
+        paymentMethodConfigs['createGiftCard'] = {
+            ...callbackConfig,
+            brand: "${giftCardBrand}"
+        };
         </c:when>
 
         <c:when test="${selectedPaymentMethod eq 'blik'}">

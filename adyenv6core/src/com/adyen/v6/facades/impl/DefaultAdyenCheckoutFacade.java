@@ -213,6 +213,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     public static final String MODEL_APPLEPAY_MERCHANT_NAME = "applePayMerchantName";
     public static final String MODEL_AMAZONPAY_CONFIGURATION = "amazonPayConfiguration";
     public static final String MODEL_DELIVERY_ADDRESS = "deliveryAddress";
+    public static final String MODEL_GIFT_CARD_BRAND = "giftCardBrand";
     public static final String ECOMMERCE_SHOPPER_INTERACTION = "Ecommerce";
     public static final String MODEL_CARD_HOLDER_NAME_REQUIRED = "cardHolderNameRequired";
     public static final String IS_CARD_HOLDER_NAME_REQUIRED_PROPERTY = "isCardHolderNameRequired";
@@ -633,6 +634,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
 
         //Set payment methods
         model.addAttribute(MODEL_PAYMENT_METHODS, checkoutConfigDTO.getAlternativePaymentMethods());
+        LOGGER.info(checkoutConfigDTO.getAlternativePaymentMethods().stream().map(pm -> "["+pm.getName()+" : " + pm.getType()+"]").collect(Collectors.joining(",")));
 
         //Set allowed Credit Cards
         model.addAttribute(MODEL_CREDIT_CARD_LABEL, checkoutConfigDTO.getCreditCardLabel());
@@ -1051,6 +1053,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         model.addAttribute(MODEL_APPLEPAY_MERCHANT_IDENTIFIER, cartData.getAdyenApplePayMerchantIdentifier());
         model.addAttribute(MODEL_APPLEPAY_MERCHANT_NAME, cartData.getAdyenApplePayMerchantName());
         model.addAttribute(MODEL_AMAZONPAY_CONFIGURATION, gson.toJson(cartData.getAdyenAmazonPayConfiguration()));
+        model.addAttribute(MODEL_GIFT_CARD_BRAND, cartData.getAdyenGiftCardBrand());
         model.addAttribute(MODEL_COUNTRY_CODE, countryCode);
         model.addAttribute(MODEL_DELIVERY_ADDRESS, gson.toJson(cartData.getDeliveryAddress()));
         model.addAttribute(LOCALE, gson.toJson(setLocale(cartData.getAdyenAmazonPayConfiguration(), shopperLocale)));
