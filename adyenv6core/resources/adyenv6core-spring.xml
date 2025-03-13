@@ -512,6 +512,7 @@
         <property name="checkoutCustomerStrategy" ref="checkoutCustomerStrategy"/>
         <property name="countryConverter" ref="countryConverter"/>
         <property name="impersonationService" ref="impersonationService"/>
+        <property name="adyenPaymentServiceFactory" ref="adyenPaymentServiceFactory"/>
     </bean>
 
     <bean id="adyenOrderFacade" class="com.adyen.v6.facades.impl.DefaultAdyenOrderFacade">

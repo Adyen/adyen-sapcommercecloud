@@ -21,10 +21,7 @@
 package com.adyen.v6.factory;
 
 import com.adyen.commerce.services.impl.DefaultAdyenRequestService;
-import com.adyen.v6.service.AdyenCheckoutApiService;
-import com.adyen.v6.service.AdyenModificationsApiService;
-import com.adyen.v6.service.DefaultAdyenCheckoutApiService;
-import com.adyen.v6.service.DefaultAdyenModificationsApiService;
+import com.adyen.v6.service.*;
 import com.adyen.v6.strategy.AdyenMerchantAccountStrategy;
 import de.hybris.platform.store.BaseStoreModel;
 
@@ -54,6 +51,13 @@ public class AdyenPaymentServiceFactory {
         DefaultAdyenModificationsApiService adyenModificationsApiService = new DefaultAdyenModificationsApiService(baseStoreModel, webMerchantAccount, defaultAdyenRequestService);
         adyenModificationsApiService.setAdyenRequestFactory(adyenRequestFactory);
         return adyenModificationsApiService;
+    }
+
+    public AdyenUtilityApiService createAdyenUtilityApiService(final BaseStoreModel baseStoreModel) {
+        String webMerchantAccount = adyenMerchantAccountStrategy.getWebMerchantAccount(baseStoreModel);
+        DefaultAdyenUtilityApiService adyenUtilityApiService = new DefaultAdyenUtilityApiService(baseStoreModel, webMerchantAccount, defaultAdyenRequestService);
+        adyenUtilityApiService.setAdyenRequestFactory(adyenRequestFactory);
+        return adyenUtilityApiService;
     }
 
     public AdyenRequestFactory getAdyenRequestFactory() {

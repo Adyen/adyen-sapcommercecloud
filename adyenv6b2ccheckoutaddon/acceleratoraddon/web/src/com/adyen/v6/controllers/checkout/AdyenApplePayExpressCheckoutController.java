@@ -4,12 +4,11 @@ import com.adyen.model.checkout.ApplePayDetails;
 import com.adyen.model.checkout.CheckoutPaymentMethod;
 import com.adyen.model.checkout.PaymentRequest;
 import com.adyen.model.checkout.PaymentResponse;
+import com.adyen.service.exception.ApiException;
 import com.adyen.v6.constants.Adyenv6coreConstants;
 import com.adyen.v6.facades.AdyenExpressCheckoutFacade;
 import com.adyen.v6.request.ApplePayExpressRequest;
 import de.hybris.platform.acceleratorstorefrontcommons.security.GUIDCookieStrategy;
-import de.hybris.platform.commercefacades.order.data.CartData;
-import de.hybris.platform.order.exceptions.CalculationException;
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -57,13 +56,6 @@ public class AdyenApplePayExpressCheckoutController {
         return new ResponseEntity<>(paymentsResponse, HttpStatus.OK);
     }
 
-    /* Prevent breaking current implementation. To be removed when implementation will be completed. */
-    private String createCartWithProduct(String productCode) throws CalculationException {
-        CartData cart = adyenExpressCheckoutFacade.createOrGetCartForExpressCheckout(productCode);
-        adyenExpressCheckoutFacade.prepareCartForExpressCheckoutWithProduct(cart.getCode(), productCode, 1);
-        return cart.getCode();
-    }
-
     private static PaymentRequest getPaymentRequest(ApplePayExpressRequest request) {
         PaymentRequest paymentRequest = new PaymentRequest();
         ApplePayDetails applePayDetails = request.getApplePayDetails();
@@ -76,6 +68,9 @@ public class AdyenApplePayExpressCheckoutController {
     @ResponseStatus(value = HttpStatus.BAD_REQUEST)
     @ExceptionHandler(value = Exception.class)
     public void adyenComponentExceptionHandler(Exception e) {
+        if (e instanceof ApiException) {
+            LOG.error("Api Exception: " + ((ApiException) e).getResponseBody());
+        }
         LOG.error("Exception during ApplePayExpress processing", e);
     }
 }

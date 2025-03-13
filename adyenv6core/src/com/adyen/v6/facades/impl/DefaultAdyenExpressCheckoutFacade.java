@@ -509,8 +509,13 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
     public CartData setDeliveryModeForCart(final String deliveryModeCode, final String cartId) throws CalculationException {
         final CartModel cartModel = cartRepository.getCart(cartId);
         final DeliveryModeModel deliveryMode = deliveryModeService.getDeliveryModeForCode(deliveryModeCode);
+
+        return setDeliveryModeForCart(deliveryMode, cartModel);
+    }
+
+    public CartData setDeliveryModeForCart(final DeliveryModeModel deliveryModeModel, final CartModel cartModel) throws CalculationException {
         final CommerceCheckoutParameter parameter = createCommerceCheckoutParameter(cartModel, true);
-        parameter.setDeliveryMode(deliveryMode);
+        parameter.setDeliveryMode(deliveryModeModel);
         if(getCommerceCheckoutService().setDeliveryMode(parameter)){
             return cartConverter.convert(cartModel);
         }
