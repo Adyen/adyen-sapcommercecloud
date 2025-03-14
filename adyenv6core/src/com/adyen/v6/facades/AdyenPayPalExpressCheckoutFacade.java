@@ -2,6 +2,7 @@ package com.adyen.v6.facades;
 
 import com.adyen.model.checkout.PaymentRequest;
 import com.adyen.model.checkout.PaymentResponse;
+import com.adyen.model.checkout.PaypalUpdateOrderRequest;
 import com.adyen.model.checkout.PaypalUpdateOrderResponse;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.response.PayPalExpressSubmitResponse;
@@ -26,4 +27,6 @@ public interface AdyenPayPalExpressCheckoutFacade {
     PaypalUpdateOrderResponse updateShippingAddress(final AddressData addressData, final String pspReference, final String paymentData, final String cartGuid) throws IOException, ApiException, DuplicateUidException, CalculationException;
 
     PaypalUpdateOrderResponse updateShippingMethod(final String shippingMethodCode, final String pspReference, final String paymentData, final String cartGuid) throws IOException, ApiException, CalculationException;
+
+    PaypalUpdateOrderResponse getPaypalUpdateOrderResponse(PaypalUpdateOrderRequest paypalUpdateOrderRequest) throws IOException, ApiException;
 }

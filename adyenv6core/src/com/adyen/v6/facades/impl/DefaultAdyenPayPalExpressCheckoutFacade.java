@@ -202,6 +202,13 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
         return patchPaypalOrder(cart, shippingMethodCode, paymentData, pspReference);
     }
 
+    public PaypalUpdateOrderResponse getPaypalUpdateOrderResponse(PaypalUpdateOrderRequest paypalUpdateOrderRequest) throws IOException, ApiException {
+        BaseStoreModel currentBaseStore = getBaseStoreService().getCurrentBaseStore();
+        AdyenUtilityApiService adyenUtilityApiService = adyenPaymentServiceFactory.createAdyenUtilityApiService(currentBaseStore);
+        return adyenUtilityApiService.paypalUpdateOrder(paypalUpdateOrderRequest);
+
+    }
+
     protected CartModel getCartForPayPalCheckout(String cartGuid) {
         if (StringUtils.isNotEmpty(cartGuid)) {
             return getExpressCartForGuid(cartGuid);
@@ -257,6 +264,9 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
         }
         throw new IllegalArgumentException("No delivery method found for express checkout cart:  " + cart.getCode());
     }
+
+
+
 
     protected void prepareCartForPayPalExpressCheckout(AddressData addressData, CartModel sessionCart, CustomerModel user, PaymentInfoModel paymentInfoModel) throws CalculationException {
         sessionCart.setUser(user);

@@ -10,6 +10,8 @@ import com.adyen.commerce.response.PayPalIntermediateResponse;
 import com.adyen.model.checkout.CheckoutPaymentMethod;
 import com.adyen.model.checkout.PayPalDetails;
 import com.adyen.model.checkout.PaymentRequest;
+import com.adyen.model.checkout.PaypalUpdateOrderRequest;
+import com.adyen.model.checkout.PaypalUpdateOrderResponse;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.constants.Adyenv6coreConstants;
 import com.adyen.v6.facades.AdyenExpressCheckoutFacade;
@@ -18,6 +20,7 @@ import com.adyen.v6.response.PayPalExpressSubmitResponse;
 import de.hybris.platform.commercefacades.order.CartFacade;
 import de.hybris.platform.commerceservices.request.mapping.annotation.ApiVersion;
 import de.hybris.platform.commerceservices.strategies.CheckoutCustomerStrategy;
+import de.hybris.platform.webservicescommons.swagger.ApiBaseSiteIdAndUserIdParam;
 import de.hybris.platform.webservicescommons.swagger.ApiBaseSiteIdUserIdAndCartIdParam;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -31,11 +34,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 @RestController
-@RequestMapping(value = AdyenoccConstants.ADYEN_USER_CART_PREFIX + "/express-checkout/paypal")
 @ApiVersion("v2")
 @Tag(name = "Adyen")
 public class PayPalExpressCheckoutController extends ExpressCheckoutControllerBase {
@@ -57,7 +60,7 @@ public class PayPalExpressCheckoutController extends ExpressCheckoutControllerBa
 
 
     @Secured({"ROLE_CUSTOMERGROUP", "ROLE_CLIENT", "ROLE_CUSTOMERMANAGERGROUP", "ROLE_TRUSTED_CLIENT"})
-    @PostMapping(value = "/PDP", produces = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(value = AdyenoccConstants.ADYEN_USER_CART_PREFIX + "/express-checkout/paypal" + "/PDP", produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(operationId = "placeOrderPayPalExpressPDP", summary = "Handle PayPalExpress place order request", description =
             "Places order based on request data")
     @ApiBaseSiteIdUserIdAndCartIdParam
@@ -72,7 +75,7 @@ public class PayPalExpressCheckoutController extends ExpressCheckoutControllerBa
     }
 
     @Secured({"ROLE_CUSTOMERGROUP", "ROLE_CLIENT", "ROLE_CUSTOMERMANAGERGROUP", "ROLE_TRUSTED_CLIENT"})
-    @PostMapping(value = "/cart", produces = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(value = AdyenoccConstants.ADYEN_USER_CART_PREFIX + "/express-checkout/paypal" + "/cart", produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(operationId = "placeOrderPayPalExpressCart", summary = "Handle PayPalExpress place order request", description =
             "Places order based on request data")
     @ApiBaseSiteIdUserIdAndCartIdParam
@@ -86,7 +89,7 @@ public class PayPalExpressCheckoutController extends ExpressCheckoutControllerBa
     }
 
     @Secured({"ROLE_CUSTOMERGROUP", "ROLE_CLIENT", "ROLE_CUSTOMERMANAGERGROUP", "ROLE_TRUSTED_CLIENT"})
-    @PostMapping(value = "/submit/PDP", produces = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(value =  AdyenoccConstants.ADYEN_USER_CART_PREFIX + "/express-checkout/paypal" + "/submit/PDP", produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(operationId = "placeOrderPayPalExpressPDP", summary = "Handle PayPalExpress place order request", description =
             "Places order based on request data")
     @ApiBaseSiteIdUserIdAndCartIdParam
@@ -115,6 +118,18 @@ public class PayPalExpressCheckoutController extends ExpressCheckoutControllerBa
             return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
         }
 
+    }
+
+    @Secured({"ROLE_CUSTOMERGROUP", "ROLE_CLIENT", "ROLE_CUSTOMERMANAGERGROUP", "ROLE_TRUSTED_CLIENT"})
+    @PostMapping(value = AdyenoccConstants.ADYEN_USER_PREFIX + "/express-checkout/paypal" + "/update-order", produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(operationId = "placeOrderPayPalExpressPDP", summary = "Handle PayPalExpress place order request", description =
+            "Places order based on request data")
+    @ApiBaseSiteIdAndUserIdParam
+    public ResponseEntity<String> paypalUpdateOrder(final HttpServletRequest request, final HttpServletResponse response, @RequestBody String payPalpalUpdateOrderRequestString) throws Exception {
+        PaypalUpdateOrderRequest paypalUpdateOrderRequest = objectMapper.readValue(payPalpalUpdateOrderRequestString, PaypalUpdateOrderRequest.class);
+        PaypalUpdateOrderResponse paypalUpdateOrderResponse = adyenPayPalExpressCheckoutFacade.getPaypalUpdateOrderResponse(paypalUpdateOrderRequest);
+        String paymentResponseString = objectMapper.writeValueAsString(paypalUpdateOrderResponse);
+        return new ResponseEntity<>(paymentResponseString, HttpStatus.OK);
     }
 
     private static <T extends PayPalExpressCartRequest> PaymentRequest getPaymentRequest(T request) {
