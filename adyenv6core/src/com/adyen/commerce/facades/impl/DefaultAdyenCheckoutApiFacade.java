@@ -97,15 +97,32 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
 
     @Override
     public OrderPaymentResult placeOrderWithPayment(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest) throws Exception{
-        try {
-            return placeOrderWithPayment(request, cartData, paymentRequest, false);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+        RequestInfo requestInfo = new RequestInfo(request);
+        requestInfo.setShopperLocale(getShopperLocale());
+
+        PaymentResponse paymentResponse = getAdyenPaymentService().processPaymentRequest(cartData, paymentRequest, requestInfo, getCheckoutCustomerStrategy().getCurrentUserForCheckout());
+        if (PaymentResponse.ResultCodeEnum.PENDING == paymentResponse.getResultCode()
+                || PaymentResponse.ResultCodeEnum.REDIRECTSHOPPER == paymentResponse.getResultCode()
+                || PaymentResponse.ResultCodeEnum.CHALLENGESHOPPER == paymentResponse.getResultCode()
+                || PaymentResponse.ResultCodeEnum.IDENTIFYSHOPPER == paymentResponse.getResultCode()
+                || PaymentResponse.ResultCodeEnum.PRESENTTOSHOPPER == paymentResponse.getResultCode()) {
+            LOGGER.info("Placing pending order");
+            OrderData orderData = placePendingOrder(paymentResponse.getResultCode().getValue());
+            paymentResponse.setMerchantReference(orderData.getCode());
+            throw new AdyenNonAuthorizedPaymentException(paymentResponse);
         }
+        if (PaymentResponse.ResultCodeEnum.AUTHORISED == paymentResponse.getResultCode()) {
+            LOGGER.info("Creating authorized order");
+            OrderData authorizedOrder = createAuthorizedOrder(paymentResponse);
+            return new OrderPaymentResult(authorizedOrder, paymentResponse);
+
+        }
+
+        throw new AdyenNonAuthorizedPaymentException(paymentResponse);
     }
 
     @Override
-    public OrderPaymentResult placeOrderWithPayment(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest, boolean apiCall) throws Exception {
+    public OrderPaymentResult placeOrderWithPaymentOCC(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest) throws Exception {
 
         RequestInfo requestInfo = new RequestInfo(request);
         requestInfo.setShopperLocale(getShopperLocale());
@@ -119,10 +136,7 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
             LOGGER.info("Placing pending order");
             OrderData orderData = placePendingOrder(paymentResponse.getResultCode().getValue());
             paymentResponse.setMerchantReference(orderData.getCode());
-            if (apiCall){
-                return new OrderPaymentResult(orderData, paymentResponse);
-            }
-            throw new AdyenNonAuthorizedPaymentException(paymentResponse);
+            return new OrderPaymentResult(orderData, paymentResponse);
         }
         if (PaymentResponse.ResultCodeEnum.AUTHORISED == paymentResponse.getResultCode()) {
             LOGGER.info("Creating authorized order");
@@ -131,7 +145,7 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
 
         }
 
-            throw new AdyenNonAuthorizedPaymentException(paymentResponse);
+        return new OrderPaymentResult(null, paymentResponse);
     }
 
     @Override

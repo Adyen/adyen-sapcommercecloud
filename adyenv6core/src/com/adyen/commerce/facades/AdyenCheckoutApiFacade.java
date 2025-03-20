@@ -6,7 +6,6 @@ import com.adyen.model.checkout.PaymentRequest;
 import com.adyen.v6.facades.AdyenCheckoutFacade;
 import com.adyen.v6.forms.AddressForm;
 import de.hybris.platform.commercefacades.order.data.CartData;
-import de.hybris.platform.commercefacades.order.data.OrderData;
 
 import javax.servlet.http.HttpServletRequest;
 
@@ -16,7 +15,7 @@ public interface AdyenCheckoutApiFacade extends AdyenCheckoutFacade {
 
     OrderPaymentResult placeOrderWithPayment(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest) throws Exception;
 
-    OrderPaymentResult placeOrderWithPayment(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest, boolean apiCall) throws Exception;
+    OrderPaymentResult placeOrderWithPaymentOCC(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest) throws Exception;
 
     OrderPaymentResult placeOrderWithAdditionalDetails(PaymentDetailsRequest detailsRequest) throws Exception;
 }
