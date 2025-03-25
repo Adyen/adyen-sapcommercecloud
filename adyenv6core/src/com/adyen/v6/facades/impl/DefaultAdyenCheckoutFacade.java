@@ -634,7 +634,6 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
 
         //Set payment methods
         model.addAttribute(MODEL_PAYMENT_METHODS, checkoutConfigDTO.getAlternativePaymentMethods());
-        LOGGER.info(checkoutConfigDTO.getAlternativePaymentMethods().stream().map(pm -> "["+pm.getName()+" : " + pm.getType()+"]").collect(Collectors.joining(",")));
 
         //Set allowed Credit Cards
         model.addAttribute(MODEL_CREDIT_CARD_LABEL, checkoutConfigDTO.getCreditCardLabel());
