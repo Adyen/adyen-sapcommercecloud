@@ -11,7 +11,7 @@
 <spring:url value="/checkout/multi/termsAndConditions" var="getTermsAndConditionsUrl"/>
 
 <c:set var="componentsWithPayButton"
-       value="[amazonpay],[applepay],[paypal],[paywithgoogle],[googlepay],[pix],[bcmc_mobile],[upi],[paysafecard],[klarna],[ideal],[trustly],[swish],[twint],[klarna_b2b]"/>
+       value="[amazonpay],[applepay],[paypal],[paywithgoogle],[googlepay],[pix],[bcmc_mobile],[upi],[paysafecard],[klarna],[klarna_account],[klarna_paynow],[klarna_b2b],[ideal],[trustly],[swish],[twint],[paypo]"/>
 <c:set var="componentPaymentMethod" value="[${selectedPaymentMethod}]" />
 
 <%-- Components --%>

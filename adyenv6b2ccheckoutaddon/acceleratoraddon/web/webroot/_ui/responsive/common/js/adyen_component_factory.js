@@ -403,11 +403,9 @@ class PaymentComponentFactory {
     }
 
     createGiftCard(params) {
-        const {label} = params;
-        const adyenComponent = new AdyenWeb.Giftcard(this.checkout, this.paymentConfiguration(label)).mount('#adyen-component-container-' + label);
-        ;
+        const {label, brand} = params;
+        const adyenComponent = new AdyenWeb.Giftcard(this.checkout, {...this.paymentConfiguration(label), brand}).mount('#adyen-component-container-' + label);
         this.helper.configureButton(adyenComponent, false, label);
-
     }
 
     createAfterPay(countryCode) {
