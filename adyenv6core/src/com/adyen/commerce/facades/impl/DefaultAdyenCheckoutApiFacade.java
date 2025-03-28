@@ -95,10 +95,8 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
         }
     }
 
-
     @Override
-    public OrderPaymentResult placeOrderWithPayment(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest) throws Exception {
-
+    public OrderPaymentResult placeOrderWithPayment(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest) throws Exception{
         RequestInfo requestInfo = new RequestInfo(request);
         requestInfo.setShopperLocale(getShopperLocale());
 
@@ -121,6 +119,33 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
         }
 
         throw new AdyenNonAuthorizedPaymentException(paymentResponse);
+    }
+
+    @Override
+    public OrderPaymentResult placeOrderWithPaymentOCC(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest) throws Exception {
+
+        RequestInfo requestInfo = new RequestInfo(request);
+        requestInfo.setShopperLocale(getShopperLocale());
+
+        PaymentResponse paymentResponse = getAdyenPaymentService().processPaymentRequest(cartData, paymentRequest, requestInfo, getCheckoutCustomerStrategy().getCurrentUserForCheckout());
+        if (PaymentResponse.ResultCodeEnum.PENDING == paymentResponse.getResultCode()
+                || PaymentResponse.ResultCodeEnum.REDIRECTSHOPPER == paymentResponse.getResultCode()
+                || PaymentResponse.ResultCodeEnum.CHALLENGESHOPPER == paymentResponse.getResultCode()
+                || PaymentResponse.ResultCodeEnum.IDENTIFYSHOPPER == paymentResponse.getResultCode()
+                || PaymentResponse.ResultCodeEnum.PRESENTTOSHOPPER == paymentResponse.getResultCode()) {
+            LOGGER.info("Placing pending order");
+            OrderData orderData = placePendingOrder(paymentResponse.getResultCode().getValue());
+            paymentResponse.setMerchantReference(orderData.getCode());
+            return new OrderPaymentResult(orderData, paymentResponse);
+        }
+        if (PaymentResponse.ResultCodeEnum.AUTHORISED == paymentResponse.getResultCode()) {
+            LOGGER.info("Creating authorized order");
+            OrderData authorizedOrder = createAuthorizedOrder(paymentResponse);
+            return new OrderPaymentResult(authorizedOrder, paymentResponse);
+
+        }
+
+        return new OrderPaymentResult(null, paymentResponse);
     }
 
     @Override

@@ -197,10 +197,9 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
             cartService.setSessionCart(cart);
 
             CartData cartData = cartConverter.convert(cart);
-
-            OrderPaymentResult orderPaymentResult = adyenCheckoutApiFacade.placeOrderWithPayment(request, cartData, paymentRequest);
-
-
+            paymentRequest.setReturnUrl(paymentRequest.getReturnUrl());
+            OrderPaymentResult orderPaymentResult;
+            orderPaymentResult = adyenCheckoutApiFacade.placeOrderWithPaymentOCC(request, cartData, paymentRequest);
             if (sessionCart != null) {
                 cartService.setSessionCart(sessionCart);
             }

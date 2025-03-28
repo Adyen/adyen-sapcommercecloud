@@ -24,7 +24,7 @@ import static com.adyen.commerce.util.ErrorMessageUtil.getErrorMessageByRefusalR
 import static com.adyen.model.checkout.PaymentResponse.ResultCodeEnum.*;
 
 public abstract class ExpressCheckoutControllerBase {
-    private static final Logger LOGGER = Logger.getLogger(ExpressCheckoutControllerBase.class);
+    protected static final Logger LOGGER = Logger.getLogger(ExpressCheckoutControllerBase.class);
     protected static final ObjectMapper objectMapper = new ObjectMapper();
 
 
@@ -33,13 +33,11 @@ public abstract class ExpressCheckoutControllerBase {
     }
 
     protected OCCPlaceOrderResponse handlePayment(HttpServletRequest request, PaymentRequest paymentRequest, String paymentMethod, AddressData addressData, String cartId, boolean isPDPCheckout) {
-        final CartData cartData = getCartFacade().getSessionCart();
 
         String errorMessage = CHECKOUT_ERROR_AUTHORIZATION_FAILED;
 
         try {
-            cartData.setAdyenReturnUrl(getPaymentRedirectReturnUrl());
-
+            paymentRequest.setReturnUrl(getPaymentRedirectReturnUrl());
             OrderData orderData;
 
             if (isPDPCheckout) {

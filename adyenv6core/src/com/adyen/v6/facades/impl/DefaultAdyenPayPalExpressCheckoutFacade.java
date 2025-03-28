@@ -42,7 +42,20 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
     private CalculationService calculationService;
     private BaseSiteService baseSiteService;
     private AdyenPaymentServiceFactory adyenPaymentServiceFactory;
+    @Override
+    public PayPalExpressSubmitResponse onPayPalPDPSubmitOCC(PaymentRequest paymentRequest) throws IOException, ApiException {
 
+        UserModel currentUser = userService.getCurrentUser();
+        CartModel expressCart = commerceCartService.getCartForCodeAndUser(paymentRequest.getReference(), currentUser);
+        Amount amount = AmountUtil.createAmount(BigDecimal.valueOf(expressCart.getTotalPrice()), expressCart.getCurrency().getIsocode());
+
+        paymentRequest.setAmount(amount);
+
+        PaymentResponse paymentResponse = adyenCheckoutFacade.getAdyenPaymentService().sendPaymentRequest(paymentRequest);
+        PayPalExpressSubmitResponse payPalExpressSubmitResponse = new PayPalExpressSubmitResponse();
+        payPalExpressSubmitResponse.setPaymentResponse(paymentResponse);
+        return payPalExpressSubmitResponse;
+    }
 
     @Override
     public PayPalExpressSubmitResponse onPayPalPDPSubmit(PaymentRequest paymentRequest, String productCode) throws IOException, ApiException {
@@ -189,11 +202,48 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
         return patchPaypalOrder(cart, shippingMethodCode, paymentData, pspReference);
     }
 
+    public PaypalUpdateOrderResponse getPaypalUpdateOrderResponse(PaypalUpdateOrderRequest paypalUpdateOrderOriginRequest) throws IOException, ApiException {
+        BaseStoreModel currentBaseStore = getBaseStoreService().getCurrentBaseStore();
+        final CartModel sessionCart = cartService.getSessionCart();
+        if (sessionCart == null) {
+            LOG.warn("No session cart found for the current user.");
+            throw new IllegalStateException("Session cart is null and no cartGuid is provided.");
+        }
+
+        String selectedDeliveryMethodReference = paypalUpdateOrderOriginRequest.getDeliveryMethods()
+                .stream()
+                .filter(deliveryMethod ->
+                        deliveryMethod.getSelected()).map(DeliveryMethod::getReference)
+                .findFirst().orElse(StringUtils.EMPTY);
+        List<DeliveryModeModel> deliveryModes = getDeliveryService().getSupportedDeliveryModeListForOrder(sessionCart);
+
+        List<DeliveryMethod> deliveryMethods = deliveryModes.stream()
+                .map(deliveryModeModel -> convert(deliveryModeModel, sessionCart))
+                .map(deliveryModeData -> getDeliveryMethod(deliveryModeData, selectedDeliveryMethodReference)).toList();
+
+        Amount amount = AmountUtil.createAmount(BigDecimal.valueOf(sessionCart.getTotalPrice()), sessionCart.getCurrency().getIsocode());
+        PaypalUpdateOrderRequest paypalUpdateOrderRequest = getPaypalUpdateOrderRequest(paypalUpdateOrderOriginRequest.getPaymentData(),
+                paypalUpdateOrderOriginRequest.getPspReference(),
+                amount,
+                deliveryMethods
+        );
+
+        AdyenUtilityApiService adyenUtilityApiService = adyenPaymentServiceFactory.createAdyenUtilityApiService(currentBaseStore);
+
+        return adyenUtilityApiService.paypalUpdateOrder(paypalUpdateOrderRequest);
+
+    }
+
     protected CartModel getCartForPayPalCheckout(String cartGuid) {
         if (StringUtils.isNotEmpty(cartGuid)) {
             return getExpressCartForGuid(cartGuid);
         } else {
-            return cartService.getSessionCart();
+            CartModel sessionCart = cartService.getSessionCart();
+            if (sessionCart == null) {
+                LOG.warn("No session cart found for the current user.");
+                throw new IllegalStateException("Session cart is null and no cartGuid is provided.");
+            }
+            return sessionCart;
         }
     }
 
@@ -215,36 +265,46 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
 
             for (DeliveryModeModel methodModel : deliveryModes) {
                 DeliveryModeData method = convert(methodModel, cart);
-                Amount amount = null;
-                if (method.getDeliveryCost() != null) {
-                    amount = AmountUtil.createAmount(method.getDeliveryCost().getValue(), method.getDeliveryCost().getCurrencyIso());
-                } else {
-                    LOG.warn("No method delivery cost found for delivery mode: " + method.getCode());
-                }
-
-                DeliveryMethod deliveryMethod = new DeliveryMethod();
-                deliveryMethod.reference(method.getCode())
-                        .description(method.getDescription())
-                        .selected(selectedDeliveryMethod.get().getCode().equals(method.getCode()))
-                        .setAmount(amount);
+                DeliveryMethod deliveryMethod = getDeliveryMethod(method, selectedDeliveryMethod.get().getCode());
                 deliveryMethods.add(deliveryMethod);
             }
 
             CartData cartData = setDeliveryModeForCart(selectedDeliveryMethod.get(), cart);
-
             Amount amount = AmountUtil.createAmount(cartData.getTotalPrice().getValue(), cartData.getTotalPrice().getCurrencyIso());
-
-            PaypalUpdateOrderRequest paypalUpdateOrderRequest = new PaypalUpdateOrderRequest();
-            paypalUpdateOrderRequest.amount(amount)
-                    .deliveryMethods(deliveryMethods)
-                    .paymentData(paymentData)
-                    .setPspReference(pspReference);
+            PaypalUpdateOrderRequest paypalUpdateOrderRequest = getPaypalUpdateOrderRequest(paymentData, pspReference, amount, deliveryMethods);
 
             return adyenUtilityApiService.paypalUpdateOrder(paypalUpdateOrderRequest);
         }
         throw new IllegalArgumentException("No delivery method found for express checkout cart:  " + cart.getCode());
     }
-    
+
+    private static DeliveryMethod getDeliveryMethod(DeliveryModeData method, String selectedDeliveryMethodCode) {
+        Amount amount = null;
+        if (method.getDeliveryCost() != null) {
+            amount = AmountUtil.createAmount(method.getDeliveryCost().getValue(), method.getDeliveryCost().getCurrencyIso());
+        } else {
+            LOG.warn("No method delivery cost found for delivery mode: " + method.getCode());
+        }
+
+        DeliveryMethod deliveryMethod = new DeliveryMethod();
+        deliveryMethod.reference(method.getCode())
+                .description(method.getDescription())
+                .selected(selectedDeliveryMethodCode.equals(method.getCode()))
+                .setAmount(amount);
+        return deliveryMethod;
+    }
+
+    private static PaypalUpdateOrderRequest getPaypalUpdateOrderRequest(String paymentData, String pspReference, Amount amount, List<DeliveryMethod> deliveryMethods) {
+
+        PaypalUpdateOrderRequest paypalUpdateOrderRequest = new PaypalUpdateOrderRequest();
+        paypalUpdateOrderRequest.amount(amount)
+                .deliveryMethods(deliveryMethods)
+                .paymentData(paymentData)
+                .setPspReference(pspReference);
+        return paypalUpdateOrderRequest;
+    }
+
+
     protected void prepareCartForPayPalExpressCheckout(AddressData addressData, CartModel sessionCart, CustomerModel user, PaymentInfoModel paymentInfoModel) throws CalculationException {
         sessionCart.setUser(user);
 
