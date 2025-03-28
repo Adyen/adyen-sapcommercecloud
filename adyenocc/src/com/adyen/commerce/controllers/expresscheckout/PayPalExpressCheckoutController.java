@@ -42,7 +42,7 @@ import javax.servlet.http.HttpServletResponse;
 public class PayPalExpressCheckoutController extends ExpressCheckoutControllerBase {
 
     private static final String EXPRESS_CHECKOUT_PAYPAL = "/express-checkout/paypal";
-    private static final String UPDATE_ORDER_PAYPAL_EXPRESS_CHECKOUT_PATH = AdyenoccConstants.ADYEN_USER_PREFIX + EXPRESS_CHECKOUT_PAYPAL + "/update-order";
+    private static final String UPDATE_ORDER_PAYPAL_EXPRESS_CHECKOUT_PATH = AdyenoccConstants.ADYEN_USER_CART_PREFIX + EXPRESS_CHECKOUT_PAYPAL + "/update-order";
     private static final String ADYEN_USER_CART_PAYPAL_PREFIX = AdyenoccConstants.ADYEN_USER_CART_PREFIX + EXPRESS_CHECKOUT_PAYPAL;
     @Autowired
     private CartFacade cartFacade;
