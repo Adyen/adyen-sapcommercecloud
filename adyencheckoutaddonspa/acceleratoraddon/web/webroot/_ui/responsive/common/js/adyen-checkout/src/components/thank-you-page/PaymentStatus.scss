@@ -1,0 +1,14 @@
+.payment-status {
+  margin-top: 10px;
+  display: inline-flex;
+  align-items: center;
+
+  &_icon {
+    min-width: 50px;
+  }
+
+  &_text {
+    margin-left: 5px;
+    font-weight: bold;
+  }
+}

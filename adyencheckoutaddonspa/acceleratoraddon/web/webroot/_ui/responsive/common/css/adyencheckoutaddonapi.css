@@ -1,0 +1,41 @@
+.checkout-paymentmethod .checkout-shipping-items-header {
+    text-transform: uppercase;
+    padding: 25px 0 10px 0;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.checkout-paymentmethod .dropin-payment {
+    margin-top: 25px;
+}
+
+.checkout-paymentmethod .headline {
+    margin-top: 25px;
+}
+
+.adyen-checkout__card-input img {
+    vertical-align: unset;
+}
+
+.payment-error.alert {
+    margin-top: 30px;
+    padding: 15px;
+    border-radius: 12px;
+}
+
+.alert {
+    scroll-margin-top: 10px;
+}
+
+.checkout-order-summary .checkout-order-summary-list .thumb svg {
+    width: 100%;
+    height: auto;
+}
+
+.adyen-checkout__payment-method--boletobancario .adyen-checkout__field--firstName {
+    display: none;
+}
+
+.adyen-checkout__payment-method--boletobancario .adyen-checkout__field--lastName {
+    display: none;
+}

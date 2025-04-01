@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!--
+ Copyright (c) 2021 SAP SE or an SAP affiliate company. All rights reserved.
+-->
+<!--
+	ATTENTION: This is just an example file. You have to edit it according to your needs.
+-->
+
+<beans xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="beans.xsd">
+
+	<!--
+		Example Data POJO
+	
+	<bean class="com.adyen.commerce.data.AbstractPojo" abstract="true">
+		<property name="id" type="String"/>
+		<property name="flag" type="boolean"/>
+	</bean>
+
+	<bean class="com.adyen.commerce.data.MyPojo" extends="com.adyen.commerce.data.AbstractPojo">
+		<property name="message" type="String"/>
+	</bean>
+
+	<bean class="com.adyen.commerce.data.AnnotatedPojo">
+
+		<import type="javax.xml.bind.annotation.XmlRootElement"/>
+		<import type="javax.xml.bind.annotation.XmlElements"/>
+		<import type="javax.xml.bind.annotation.XmlElement"/>
+
+		<annotations>@XmlRootElement</annotations>
+		
+		<property name="someText" type="String">
+
+			<annotations scope="getter">
+			@XmlElements(value = {
+					@XmlElement(name="map",
+						type=ValueAsMap.class),
+					@XmlElement(name="string",
+						type=ValueAsString.class)
+			})
+			</annotations>
+
+		</property>
+
+	</bean>
+
+    <bean  class="de.hybris.platform.catalog.data.Equals1">
+    	<property name="a1" type="boolean" equals="true"/>
+    	<property name="a2" type="int" equals="true"/>
+    	<property name="a3" type="String" equals="true"/>
+    	<property name="a4" type="de.hybris.platform.catalog.data.AbstractValue" equals="true"/>
+    	<property name="not4Equals" type="java.lang.Double"/>
+    </bean>
+
+    <bean class="de.hybris.platform.catalog.data.Equals2" extends="de.hybris.platform.catalog.data.Equals1" superEquals="true">
+    	<property name="a5" type="java.lang.Integer" equals="true"/>
+    	<property name="a6" type="java.util.List" equals="true"/>
+    	<property name="not4Equals" type="java.lang.Double"/>
+    </bean>
+
+	-->
+
+</beans>

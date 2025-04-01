@@ -20,30 +20,24 @@
  */
 package com.adyen.v6.facades;
 
-import com.adyen.model.checkout.PaymentMethodDetails;
-import com.adyen.model.checkout.PaymentsDetailsResponse;
-import com.adyen.model.checkout.PaymentsResponse;
+import com.adyen.model.checkout.*;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.controllers.dtos.PaymentResultDTO;
+import com.adyen.v6.dto.CheckoutConfigDTO;
+import com.adyen.v6.dto.ExpressCheckoutConfigDTO;
 import com.adyen.v6.forms.AdyenPaymentForm;
 import de.hybris.platform.commercefacades.order.data.CartData;
 import de.hybris.platform.commercefacades.order.data.OrderData;
-import de.hybris.platform.commercefacades.product.data.ProductData;
-import de.hybris.platform.commercefacades.user.data.CountryData;
-import de.hybris.platform.commercewebservicescommons.dto.order.PaymentDetailsListWsDTO;
 import de.hybris.platform.commercewebservicescommons.dto.order.PaymentDetailsWsDTO;
 import de.hybris.platform.core.model.order.CartModel;
 import de.hybris.platform.core.model.order.payment.PaymentInfoModel;
 import de.hybris.platform.order.InvalidCartException;
 import de.hybris.platform.order.exceptions.CalculationException;
 import org.springframework.ui.Model;
-import org.springframework.validation.BindingResult;
+import org.springframework.validation.Errors;
 
 import javax.servlet.http.HttpServletRequest;
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.Set;
 
 /**
  * Adyen Checkout Facade for initiating payments using CC or APM
@@ -75,6 +69,10 @@ public interface AdyenCheckoutFacade {
      */
     CartModel restoreSessionCart() throws InvalidCartException;
 
+    Set<String> getStoredCards();
+
+    boolean getHolderNameRequired();
+
     /**
      * Handles Adyen Redirect Response
      * In case of authorized, it places an order from cart
@@ -82,7 +80,7 @@ public interface AdyenCheckoutFacade {
      * @param details consisting of parameters present in response query string
      * @return PaymentsResponse
      */
-    PaymentsDetailsResponse handleRedirectPayload(HashMap<String,String> details) throws Exception;
+    PaymentDetailsResponse handleRedirectPayload(PaymentCompletionDetails details) throws Exception;
 
     /**
      * Authorizes a payment using Adyen API
@@ -103,11 +101,10 @@ public interface AdyenCheckoutFacade {
      *
      * @param request               HTTP Request info
      * @param cartData              cartData object
-     * @param paymentMethodDetails  paymentMethodDetails object
      * @return PaymentsResponse
      * @throws Exception In case payment failed
      */
-    PaymentsResponse componentPayment(HttpServletRequest request, CartData cartData, PaymentMethodDetails paymentMethodDetails) throws Exception;
+    PaymentResponse componentPayment(HttpServletRequest request, CartData cartData, PaymentRequest paymentRequest) throws Exception;
 
     /**
      * Submit details from a payment made on an Adyen Checkout Component
@@ -119,12 +116,13 @@ public interface AdyenCheckoutFacade {
      * @return PaymentsResponse
      * @throws Exception In case request failed
      */
-    PaymentsDetailsResponse componentDetails(HttpServletRequest request, Map<String, String> details, String paymentData) throws Exception;
+    PaymentDetailsResponse componentDetails(PaymentDetailsRequest detailsRequest) throws Exception;
 
     /**
      * Add payment details to cart
      */
     PaymentDetailsWsDTO addPaymentDetails(PaymentDetailsWsDTO paymentDetails);
+
 
     /**
      * Handles an 3D response
@@ -135,7 +133,7 @@ public interface AdyenCheckoutFacade {
      * @throws Exception In case order failed to be created
      */
 
-    OrderData handle3DSResponse(Map<String, String> details) throws Exception;
+    OrderData handle3DSResponse(PaymentDetailsRequest paymentDetailsRequest) throws Exception;
 
     /**
      * Retrieve available payment methods
@@ -144,9 +142,13 @@ public interface AdyenCheckoutFacade {
 
     void initializeSummaryData(Model model) throws ApiException;
 
-    void initializeApplePayExpressCartPageData(Model model) throws ApiException;
+    void initializeExpressCheckoutCartPageData(Model model) throws ApiException, CalculationException;
 
-    void initializeApplePayExpressPDPData(Model model, ProductData productData) throws ApiException;
+    void initializeExpressCheckoutPDPData(Model model, String productCode) throws ApiException;
+
+    ExpressCheckoutConfigDTO initializeExpressCheckoutCartPageDataOCC() throws ApiException, CalculationException;
+
+    ExpressCheckoutConfigDTO initializeExpressCheckoutPDPDataOCC(String productCode) throws ApiException;
 
     /**
      * Returns whether Boleto should be shown as an available payment method on the checkout page
@@ -181,11 +183,7 @@ public interface AdyenCheckoutFacade {
      * Validates the form and updates the cart based on form data
      * Updates BindingResult
      */
-    void handlePaymentForm(AdyenPaymentForm adyenPaymentForm, BindingResult bindingResult);
-
-    List<CountryData> getBillingCountries();
-
-    PaymentDetailsListWsDTO getPaymentDetails(String userId) throws IOException, ApiException;
+    void handlePaymentForm(AdyenPaymentForm adyenPaymentForm, Errors errors);
 
     /**
      * Initiate POS Payment using Adyen Terminal API
@@ -206,9 +204,15 @@ public interface AdyenCheckoutFacade {
      * Handles payment result from component
      * Validates the result and updates the cart based on it
      */
-    OrderData handleComponentResult(String resultJson) throws Exception;
+    OrderData handleComponentResult(String resultCode,  String merchantReference) throws Exception;
 
     void restoreCartFromOrderCodeInSession() throws InvalidCartException, CalculationException;
 
+    void restoreCartFromOrderOCC(String orderCode) throws CalculationException, InvalidCartException;
+
     String getClientKey();
+
+    CheckoutConfigDTO getCheckoutConfig() throws ApiException;
+
+    CheckoutConfigDTO getReactCheckoutConfig() throws ApiException;
 }

@@ -20,7 +20,7 @@
  */
 package com.adyen.v6.service;
 
-import com.adyen.model.checkout.PaymentsResponse;
+import com.adyen.model.checkout.PaymentDetailsResponse;
 import com.adyen.v6.model.AdyenNotificationModel;
 import de.hybris.platform.core.model.order.AbstractOrderModel;
 import de.hybris.platform.payment.dto.TransactionStatus;
@@ -90,7 +90,7 @@ public interface AdyenTransactionService {
     /**
      * Creates a PaymentTransactionModel
      */
-    PaymentTransactionModel createPaymentTransactionFromResultCode(AbstractOrderModel abstractOrderModel, String merchantTransactionCode, String pspReference, PaymentsResponse.ResultCodeEnum resultCodeEnum);
+    PaymentTransactionModel createPaymentTransactionFromResultCode(AbstractOrderModel abstractOrderModel, String merchantTransactionCode, String pspReference, PaymentDetailsResponse.ResultCodeEnum resultCodeEnum);
 
     /**
      * Stores the authorization transactions for an order

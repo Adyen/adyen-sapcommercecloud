@@ -22,7 +22,8 @@ package com.adyen.v6.actions.order;
 
 import com.adyen.v6.actions.AbstractWaitableAction;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
-import com.adyen.v6.service.AdyenPaymentService;
+import com.adyen.v6.service.AdyenCheckoutApiService;
+import com.adyen.v6.util.AmountUtil;
 import de.hybris.platform.core.enums.OrderStatus;
 import de.hybris.platform.core.model.order.OrderModel;
 import de.hybris.platform.core.model.order.payment.PaymentInfoModel;
@@ -74,7 +75,7 @@ public class AdyenCheckAuthorizationAction extends AbstractWaitableAction<OrderP
         return processOrderAuthorization(process, order);
     }
 
-    private boolean isTransactionAuthorized(final PaymentTransactionModel paymentTransactionModel) {
+    protected boolean isTransactionAuthorized(final PaymentTransactionModel paymentTransactionModel) {
         for (final PaymentTransactionEntryModel entry : paymentTransactionModel.getEntries()) {
             if (entry.getType().equals(PaymentTransactionType.AUTHORIZATION)
                     && TransactionStatus.ACCEPTED.name().equals(entry.getTransactionStatus())) {
@@ -85,14 +86,14 @@ public class AdyenCheckAuthorizationAction extends AbstractWaitableAction<OrderP
         return false;
     }
 
-    private String processOrderAuthorization(final OrderProcessModel process, final OrderModel order) {
+    protected String processOrderAuthorization(final OrderProcessModel process, final OrderModel order) {
         //No transactions means that is not authorized yet
         if (order.getPaymentTransactions() == null || order.getPaymentTransactions().isEmpty()) {
             LOG.debug("Process: " + process.getCode() + " Order Waiting");
             return Transition.WAIT.toString();
         }
         
-        BigDecimal remainingAmount = getAdyenPaymentService(order).calculateAmountWithTaxes(order);
+        BigDecimal remainingAmount = AmountUtil.calculateAmountWithTaxes(order);
         for (final PaymentTransactionModel paymentTransactionModel : order.getPaymentTransactions()) {
             if (!isTransactionAuthorized(paymentTransactionModel)) {
                 //A single not authorized transaction means not authorized
@@ -122,9 +123,5 @@ public class AdyenCheckAuthorizationAction extends AbstractWaitableAction<OrderP
         modelService.save(order);
 
         return Transition.OK.toString();
-    }
-
-    public AdyenPaymentService getAdyenPaymentService(final OrderModel orderModel) {
-        return adyenPaymentServiceFactory.createFromBaseStore(orderModel.getStore());
     }
 }

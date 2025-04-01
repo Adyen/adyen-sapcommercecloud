@@ -20,22 +20,22 @@
  */
 package com.adyen.v6.exceptions;
 
-import com.adyen.model.PaymentResult;
-import com.adyen.model.checkout.PaymentsDetailsResponse;
-import com.adyen.model.checkout.PaymentsResponse;
+import com.adyen.model.checkout.PaymentDetailsResponse;
+import com.adyen.model.checkout.PaymentResponse;
+import com.adyen.model.payment.PaymentResult;
 import com.adyen.model.terminal.TerminalAPIResponse;
 
 public class AdyenNonAuthorizedPaymentException extends Exception {
     private PaymentResult paymentResult;
-    private PaymentsResponse paymentsResponse;
+    private PaymentResponse paymentsResponse;
     private TerminalAPIResponse terminalApiResponse;
-    private PaymentsDetailsResponse paymentsDetailsResponse;
+    private PaymentDetailsResponse paymentsDetailsResponse;
 
     public AdyenNonAuthorizedPaymentException(PaymentResult paymentResult) {
         this.paymentResult = paymentResult;
     }
 
-    public AdyenNonAuthorizedPaymentException(PaymentsResponse paymentsResponse) {
+    public AdyenNonAuthorizedPaymentException(PaymentResponse paymentsResponse) {
         this.paymentsResponse = paymentsResponse;
     }
 
@@ -43,7 +43,7 @@ public class AdyenNonAuthorizedPaymentException extends Exception {
         this.terminalApiResponse = terminalApiResponse;
     }
 
-    public AdyenNonAuthorizedPaymentException(PaymentsDetailsResponse paymentsDetailsResponse) {
+    public AdyenNonAuthorizedPaymentException(PaymentDetailsResponse paymentsDetailsResponse) {
         this.paymentsDetailsResponse = paymentsDetailsResponse;
     }
 
@@ -59,11 +59,11 @@ public class AdyenNonAuthorizedPaymentException extends Exception {
         this.paymentResult = paymentResult;
     }
 
-    public PaymentsResponse getPaymentsResponse() {
+    public PaymentResponse getPaymentsResponse() {
         return paymentsResponse;
     }
 
-    public void setPaymentsResponse(PaymentsResponse paymentsResponse) {
+    public void setPaymentResponse(PaymentResponse paymentsResponse) {
         this.paymentsResponse = paymentsResponse;
     }
 
@@ -75,11 +75,11 @@ public class AdyenNonAuthorizedPaymentException extends Exception {
         this.terminalApiResponse = terminalApiResponse;
     }
 
-    public PaymentsDetailsResponse getPaymentsDetailsResponse() {
+    public PaymentDetailsResponse getPaymentsDetailsResponse() {
         return paymentsDetailsResponse;
     }
 
-    public void setPaymentsDetailsResponse(PaymentsDetailsResponse paymentsDetailsResponse) {
+    public void setPaymentsDetailsResponse(PaymentDetailsResponse paymentsDetailsResponse) {
         this.paymentsDetailsResponse = paymentsDetailsResponse;
     }
 }

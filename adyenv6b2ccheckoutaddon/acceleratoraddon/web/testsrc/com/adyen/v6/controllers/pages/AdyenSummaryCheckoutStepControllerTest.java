@@ -1,15 +1,12 @@
 package com.adyen.v6.controllers.pages;
 
-import com.adyen.constants.ApiConstants;
-import com.adyen.model.PaymentResult;
-import com.adyen.model.checkout.CheckoutPaymentsAction;
-import com.adyen.model.checkout.PaymentsDetailsResponse;
-import com.adyen.model.checkout.PaymentsResponse;
+import com.adyen.model.checkout.PaymentDetailsResponse;
+import com.adyen.model.checkout.PaymentResponse;
 import com.adyen.model.terminal.TerminalAPIResponse;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.constants.AdyenControllerConstants;
-import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
 import com.adyen.v6.facades.AdyenCheckoutFacade;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import de.hybris.bootstrap.annotations.UnitTest;
 import de.hybris.platform.acceleratorfacades.flow.CheckoutFlowFacade;
 import de.hybris.platform.acceleratorfacades.order.AcceleratorCheckoutFacade;
@@ -55,12 +52,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.adyen.model.checkout.PaymentsResponse.ResultCodeEnum.*;
 import static com.adyen.v6.constants.AdyenControllerConstants.CART_PREFIX;
-import static com.adyen.v6.constants.Adyenv6coreConstants.*;
+import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_PAYPAL;
+import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_POS;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Matchers.*;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Matchers.anyObject;
+import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.when;
 
@@ -124,7 +123,7 @@ public class AdyenSummaryCheckoutStepControllerTest {
     @Mock
     private HttpServletRequest requestMock;
     @Mock
-    private PaymentsDetailsResponse responseMock;
+    private PaymentDetailsResponse responseMock;
     @Mock
     private RedirectAttributes redirectModelMock;
     @Mock
@@ -150,13 +149,9 @@ public class AdyenSummaryCheckoutStepControllerTest {
     @Mock
     private HashMap<String, String> details;
     @Mock
-    private PaymentResult paymentResultMock;
-    @Mock
-    private PaymentsResponse paymentsResponseMock;
+    private PaymentResponse paymentsResponseMock;
     @Mock
     private TerminalAPIResponse terminalApiResponseMock;
-    @Mock
-    private CheckoutPaymentsAction actionMock;
     private List<CartModificationData> modifications;
 
     @Before
@@ -187,7 +182,7 @@ public class AdyenSummaryCheckoutStepControllerTest {
         assertThat(result).isEqualTo(REDIRECT_PREFIX + CART_PREFIX);
     }
     @Test
-    public void placeOrder_shouldGoBackToStep_whenFormIsInvalid() throws CMSItemNotFoundException, CommerceCartModificationException {
+    public void placeOrder_shouldGoBackToStep_whenFormIsInvalid() throws CMSItemNotFoundException, CommerceCartModificationException, JsonProcessingException {
         mockElementsUsedInTestsForPlaceOrder();
         when(checkoutFlowFacadeMock.hasNoDeliveryAddress()).thenReturn(true);
         
@@ -197,7 +192,7 @@ public class AdyenSummaryCheckoutStepControllerTest {
     }
 
     @Test
-    public void placeOrder_shouldRedirectToCart_whenFormIsValidButCartIsNot() throws CMSItemNotFoundException, CommerceCartModificationException {
+    public void placeOrder_shouldRedirectToCart_whenFormIsValidButCartIsNot() throws CMSItemNotFoundException, CommerceCartModificationException, JsonProcessingException {
         mockElementsUsedInTestsForPlaceOrder();
         mockFormValidationOK();
         modifications.add(cartModificationDataMock);
@@ -249,21 +244,6 @@ public class AdyenSummaryCheckoutStepControllerTest {
     }
 
     @Test
-    public void placeOrder_shouldGoBackToStep_whenAdyenNonAuthorizedPaymentExceptionIsThrownRatepay() throws Exception {
-        mockElementsUsedInTestsForPlaceOrder();
-        mockFormValidationOK();
-        mockCartValidationOK();
-        when(cartDataMock.getAdyenPaymentMethod()).thenReturn(RATEPAY);
-        when(paymentResultMock.isRefused()).thenReturn(true);
-        when(paymentResultMock.getRefusalReason()).thenReturn(ApiConstants.RefusalReason.TRANSACTION_NOT_PERMITTED);
-        when(adyenCheckoutFacadeMock.authorisePayment(requestMock, cartDataMock)).thenThrow(new AdyenNonAuthorizedPaymentException(paymentResultMock));
-
-        final String result = testObj.placeOrder(placeOrderFormMock, modelMock, requestMock, redirectModelMock);
-
-        assertThat(result).isEqualTo(AdyenControllerConstants.Views.Pages.MultiStepCheckout.CheckoutSummaryPage);
-    }
-
-    @Test
     public void placeOrder_shouldGoToConfirmationPage_whenFormCartAreBothValidAndPaymentAuthorizedPOS() throws Exception {
         mockElementsUsedInTestsForPlaceOrder();
         mockFormValidationOK();
@@ -293,28 +273,6 @@ public class AdyenSummaryCheckoutStepControllerTest {
         final String result = testObj.placeOrder(placeOrderFormMock, modelMock, requestMock, redirectModelMock);
 
         assertThat(result).isEqualTo(REDIRECT_URL_ORDER_CONFIRMATION + ORDER_CODE);
-    }
-
-    @Test
-    public void placeOrder_shouldGoBackToStep_whenSocketTimeoutExceptionAndAdyenNonAuthorizedPaymentExceptionAreThrownPOS() throws Exception {
-        mockElementsUsedInTestsForPlaceOrder();
-        mockFormValidationOK();
-        mockCartValidationOK();
-        mockAnonymousCheckoutAndOrderGuid();
-        when(cartDataMock.getAdyenPaymentMethod()).thenReturn(PAYMENT_METHOD_POS);
-        when(adyenCheckoutFacadeMock.initiatePosPayment(requestMock, cartDataMock)).thenThrow(new SocketTimeoutException());
-        when(configurationServiceMock.getConfiguration()).thenReturn(configurationMock);
-        when(configurationMock.containsKey(POS_TOTAL_TIMEOUT_KEY)).thenReturn(true);
-        when(configurationMock.getInt(POS_TOTAL_TIMEOUT_KEY)).thenReturn(130);
-        when(paymentResultMock.isRefused()).thenReturn(true);
-        when(paymentResultMock.getRefusalReason()).thenReturn(ApiConstants.RefusalReason.TRANSACTION_NOT_PERMITTED);
-        AdyenNonAuthorizedPaymentException thisException = new AdyenNonAuthorizedPaymentException(paymentResultMock);
-        when(terminalApiResponseMock.getSaleToPOIResponse()).thenReturn(null);
-        thisException.setTerminalApiResponse(terminalApiResponseMock);
-        when(adyenCheckoutFacadeMock.checkPosPaymentStatus(requestMock, cartDataMock)).thenThrow(thisException);
-        final String result = testObj.placeOrder(placeOrderFormMock, modelMock, requestMock, redirectModelMock);
-
-        assertThat(result).isEqualTo(AdyenControllerConstants.Views.Pages.MultiStepCheckout.CheckoutSummaryPage);
     }
 
     @Test
@@ -365,24 +323,6 @@ public class AdyenSummaryCheckoutStepControllerTest {
     }
 
     @Test
-    public void placeOrder_shouldGoBackToStep_whenAdyenNonAuthorizedPaymentExceptionIsThrownPOS() throws Exception {
-        mockElementsUsedInTestsForPlaceOrder();
-        mockFormValidationOK();
-        mockCartValidationOK();
-        mockAnonymousCheckoutAndOrderGuid();
-        when(cartDataMock.getAdyenPaymentMethod()).thenReturn(PAYMENT_METHOD_POS);
-        when(paymentResultMock.isRefused()).thenReturn(true);
-        when(paymentResultMock.getRefusalReason()).thenReturn(ApiConstants.RefusalReason.TRANSACTION_NOT_PERMITTED);
-        AdyenNonAuthorizedPaymentException thisException = new AdyenNonAuthorizedPaymentException(paymentResultMock);
-        when(terminalApiResponseMock.getSaleToPOIResponse()).thenReturn(null);
-        thisException.setTerminalApiResponse(terminalApiResponseMock);
-        when(adyenCheckoutFacadeMock.initiatePosPayment(requestMock, cartDataMock)).thenThrow(thisException);
-        final String result = testObj.placeOrder(placeOrderFormMock, modelMock, requestMock, redirectModelMock);
-
-        assertThat(result).isEqualTo(AdyenControllerConstants.Views.Pages.MultiStepCheckout.CheckoutSummaryPage);
-    }
-
-    @Test
     public void placeOrder_shouldGoBackToStep_whenGenericExceptionIsThrownPOS() throws Exception {
         mockElementsUsedInTestsForPlaceOrder();
         mockFormValidationOK();
@@ -424,107 +364,6 @@ public class AdyenSummaryCheckoutStepControllerTest {
 
         assertThat(result).isEqualTo(AdyenControllerConstants.Views.Pages.MultiStepCheckout.CheckoutSummaryPage);
     }
-
-    @Test
-    public void placeOrder_shouldRedirectTo3DS_whenAdyenNonAuthorizedPaymentExceptionIsThrownAndRedirectShopper3DS() throws Exception {
-        mockElementsUsedInTestsForPlaceOrder();
-        mockFormValidationOK();
-        mockCartValidationOK();
-        when(cartDataMock.getAdyenPaymentMethod()).thenReturn(PAYMENT_METHOD_CC);
-        AdyenNonAuthorizedPaymentException thisException = new AdyenNonAuthorizedPaymentException(paymentResultMock);
-        when(paymentsResponseMock.getResultCode()).thenReturn(REDIRECTSHOPPER);
-        thisException.setPaymentsResponse(paymentsResponseMock);
-        when(adyenCheckoutFacadeMock.authorisePayment(requestMock, cartDataMock)).thenThrow(thisException);
-
-        final String result = testObj.placeOrder(placeOrderFormMock, modelMock, requestMock, redirectModelMock);
-
-        assertThat(result).isEqualTo(AdyenControllerConstants.Views.Pages.MultiStepCheckout.Validate3DSPaymentPage);
-    }
-
-    @Test
-    public void placeOrder_shouldRedirectTo3DS_whenAdyenNonAuthorizedPaymentExceptionIsThrownAndRedirectShopperAfterpayTouch() throws Exception {
-        mockElementsUsedInTestsForPlaceOrder();
-        mockFormValidationOK();
-        mockCartValidationOK();
-        when(cartDataMock.getAdyenPaymentMethod()).thenReturn(AFTERPAY_TOUCH);
-        AdyenNonAuthorizedPaymentException thisException = new AdyenNonAuthorizedPaymentException(paymentResultMock);
-        when(actionMock.getUrl()).thenReturn(ACTION_URL);
-        when(paymentsResponseMock.getResultCode()).thenReturn(REDIRECTSHOPPER);
-        when(paymentsResponseMock.getAction()).thenReturn(actionMock);
-        thisException.setPaymentsResponse(paymentsResponseMock);
-        when(adyenCheckoutFacadeMock.authorisePayment(requestMock, cartDataMock)).thenThrow(thisException);
-
-        final String result = testObj.placeOrder(placeOrderFormMock, modelMock, requestMock, redirectModelMock);
-
-        assertThat(result).isEqualTo(REDIRECT_PREFIX + ACTION_URL);
-    }
-
-    @Test
-    public void placeOrder_shouldRedirectTo3DS_whenAdyenNonAuthorizedPaymentExceptionIsThrownAndRedirectShopperAnotherMethod() throws Exception {
-        mockElementsUsedInTestsForPlaceOrder();
-        mockFormValidationOK();
-        mockCartValidationOK();
-        when(cartDataMock.getAdyenPaymentMethod()).thenReturn(COUNTRY_CODE_SWEDEN);
-        AdyenNonAuthorizedPaymentException thisException = new AdyenNonAuthorizedPaymentException(paymentResultMock);
-        when(actionMock.getUrl()).thenReturn(ACTION_URL);
-        when(paymentsResponseMock.getResultCode()).thenReturn(REDIRECTSHOPPER);
-        when(paymentsResponseMock.getAction()).thenReturn(actionMock);
-        thisException.setPaymentsResponse(paymentsResponseMock);
-        when(adyenCheckoutFacadeMock.authorisePayment(requestMock, cartDataMock)).thenThrow(thisException);
-
-        final String result = testObj.placeOrder(placeOrderFormMock, modelMock, requestMock, redirectModelMock);
-
-        assertThat(result).isEqualTo(REDIRECT_PREFIX + ACTION_URL);
-    }
-    
-    @Test
-    public void placeOrder_shouldGoBackToStep_whenAdyenNonAuthorizedPaymentExceptionIsThrownAndPaymentRefused() throws Exception {
-        mockElementsUsedInTestsForPlaceOrder();
-        mockFormValidationOK();
-        mockCartValidationOK();
-        when(cartDataMock.getAdyenPaymentMethod()).thenReturn(COUNTRY_CODE_SWEDEN);
-        AdyenNonAuthorizedPaymentException thisException = new AdyenNonAuthorizedPaymentException(paymentResultMock);
-        when(paymentsResponseMock.getResultCode()).thenReturn(REFUSED);
-        when(paymentsResponseMock.getRefusalReason()).thenReturn(ApiConstants.RefusalReason.TRANSACTION_NOT_PERMITTED);
-        thisException.setPaymentsResponse(paymentsResponseMock);
-        when(adyenCheckoutFacadeMock.authorisePayment(requestMock, cartDataMock)).thenThrow(thisException);
-
-        final String result = testObj.placeOrder(placeOrderFormMock, modelMock, requestMock, redirectModelMock);
-
-        assertThat(result).isEqualTo(AdyenControllerConstants.Views.Pages.MultiStepCheckout.CheckoutSummaryPage);
-    }
-
-    @Test
-    public void placeOrder_shouldRedirectTo3DS_whenAdyenNonAuthorizedPaymentExceptionIsThrownAndChallengeShopperAnotherMethod() throws Exception {
-        mockElementsUsedInTestsForPlaceOrder();
-        mockFormValidationOK();
-        mockCartValidationOK();
-        when(cartDataMock.getAdyenPaymentMethod()).thenReturn(PAYMENT_METHOD_CC);
-        AdyenNonAuthorizedPaymentException thisException = new AdyenNonAuthorizedPaymentException(paymentResultMock);
-        when(paymentsResponseMock.getResultCode()).thenReturn(CHALLENGESHOPPER);
-        thisException.setPaymentsResponse(paymentsResponseMock);
-        when(adyenCheckoutFacadeMock.authorisePayment(requestMock, cartDataMock)).thenThrow(thisException);
-
-        final String result = testObj.placeOrder(placeOrderFormMock, modelMock, requestMock, redirectModelMock);
-
-        assertThat(result).isEqualTo(AdyenControllerConstants.Views.Pages.MultiStepCheckout.Validate3DSPaymentPage);
-    }
-
-    @Test
-    public void placeOrder_shouldRedirectTo3DS_whenAdyenNonAuthorizedPaymentExceptionIsThrownAndIdentifyShopperAnotherMethod() throws Exception {
-        mockElementsUsedInTestsForPlaceOrder();
-        mockFormValidationOK();
-        mockCartValidationOK();
-        when(cartDataMock.getAdyenPaymentMethod()).thenReturn(PAYMENT_METHOD_CC);
-        AdyenNonAuthorizedPaymentException thisException = new AdyenNonAuthorizedPaymentException(paymentResultMock);
-        when(paymentsResponseMock.getResultCode()).thenReturn(IDENTIFYSHOPPER);
-        thisException.setPaymentsResponse(paymentsResponseMock);
-        when(adyenCheckoutFacadeMock.authorisePayment(requestMock, cartDataMock)).thenThrow(thisException);
-
-        final String result = testObj.placeOrder(placeOrderFormMock, modelMock, requestMock, redirectModelMock);
-
-        assertThat(result).isEqualTo(AdyenControllerConstants.Views.Pages.MultiStepCheckout.Validate3DSPaymentPage);
-    }
     
     private void mockAnonymousCheckoutAndOrderGuid() {
         when(checkoutCustomerStrategyMock.isAnonymousCheckout()).thenReturn(true);
@@ -548,9 +387,9 @@ public class AdyenSummaryCheckoutStepControllerTest {
     private void mockElementsUsedInTestsForHandleRedirectPayload() throws Exception {
         when(requestMock.getParameter(PAYLOAD)).thenReturn(PAYLOAD_VALUE);
         when(responseMock.getMerchantReference()).thenReturn(MERCHANT_REFERENCE);
-        when(responseMock.getResultCode()).thenReturn(PaymentsResponse.ResultCodeEnum.AUTHORISED);
+        when(responseMock.getResultCode()).thenReturn(PaymentDetailsResponse.ResultCodeEnum.AUTHORISED);
         when(orderDataMock.getCode()).thenReturn(ORDER_CODE);
-        when(adyenCheckoutFacadeMock.handleRedirectPayload((HashMap<String, String>) details)).thenReturn(responseMock);
+        when(adyenCheckoutFacadeMock.handleRedirectPayload((any()))).thenReturn(responseMock);
         when(orderFacadeMock.getOrderDetailsForCodeWithoutUser(responseMock.getMerchantReference())).thenReturn(orderDataMock);
         when(checkoutCustomerStrategyMock.isAnonymousCheckout()).thenReturn(false);
     }

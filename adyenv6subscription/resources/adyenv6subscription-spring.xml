@@ -4,23 +4,11 @@
 -->
 <beans xmlns="http://www.springframework.org/schema/beans"
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-       xmlns:aop="http://www.springframework.org/schema/aop" xmlns:util="http://www.springframework.org/schema/util"
+       xmlns:util="http://www.springframework.org/schema/util"
        xsi:schemaLocation="http://www.springframework.org/schema/beans
            http://www.springframework.org/schema/beans/spring-beans.xsd
-           http://www.springframework.org/schema/aop
-           http://www.springframework.org/schema/aop/spring-aop.xsd http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd">
 
-    <alias name="subscriptionAdyenPaymentServiceFactory" alias="adyenPaymentServiceFactory" />
-    <bean id="subscriptionAdyenPaymentServiceFactory" class="com.adyen.v6.factory.SubscriptionAdyenPaymentServiceFactory">
-        <constructor-arg name="adyenRequestFactory" ref="adyenRequestFactory"/>
-        <constructor-arg name="cartFacade" ref="cartFacade"/>
-        <constructor-arg name="baseStoreService" ref="baseStoreService"/>
-    </bean>
-
-    <alias name="subscriptionRequestFactory" alias="adyenRequestFactory" />
-    <bean id="subscriptionRequestFactory" class="com.adyen.v6.factory.SubscriptionPaymentRequestFactory">
-        <property name="cartFacade" ref="cartFacade" />
-    </bean>
+            http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd">
 
     <bean id="subscriptionRepository" class="com.adyen.v6.repository.SubscriptionRepository" >
         <property name="flexibleSearchService" ref="flexibleSearchService" />
@@ -37,7 +25,6 @@
         <property name="baseStoreService" ref="baseStoreService" />
         <property name="modelService" ref="modelService" />
         <property name="keyGenerator" ref="orderCodeGenerator" />
-        <property name="subscriptionAdyenPaymentServiceFactory" ref="subscriptionAdyenPaymentServiceFactory" />
     </bean>
 
     <alias alias="subscriptionCommercePlaceOrderMethodHook" name="adyenSubscriptionCommercePlaceOrderMethodHook"/>

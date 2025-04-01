@@ -20,10 +20,10 @@
  */
 package com.adyen.v6.commands;
 
-import com.adyen.model.checkout.PaymentRefundResource;
+import com.adyen.model.checkout.PaymentRefundResponse;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
 import com.adyen.v6.repository.BaseStoreRepository;
-import com.adyen.v6.service.AdyenPaymentService;
+import com.adyen.v6.service.AdyenModificationsApiService;
 import de.hybris.platform.payment.commands.FollowOnRefundCommand;
 import de.hybris.platform.payment.commands.request.FollowOnRefundRequest;
 import de.hybris.platform.payment.commands.result.RefundResult;
@@ -72,15 +72,15 @@ public class AdyenFollowOnRefundCommand implements FollowOnRefundCommand<FollowO
         if (baseStore == null) {
             return result;
         }
-        AdyenPaymentService adyenPaymentService = adyenPaymentServiceFactory.createFromBaseStore(baseStore);
+        AdyenModificationsApiService adyenModificationsApiService = adyenPaymentServiceFactory.createAdyenModificationsApiService(baseStore);
 
         try {
             //Do the /refund API call
-            final PaymentRefundResource refunds = adyenPaymentService.refunds(amount, currency, originalPSPReference, reference);
+            PaymentRefundResponse paymentRefundResponse = adyenModificationsApiService.refund(amount, currency, originalPSPReference, reference);
 
-            LOG.debug("Refund response: " + refunds.toString());
+            LOG.debug("Refund response: " + paymentRefundResponse.toString());
             //change status to ACCEPTED if there is no error
-            if (PaymentRefundResource.StatusEnum.RECEIVED.equals(refunds.getStatus())) {
+            if (PaymentRefundResponse.StatusEnum.RECEIVED.equals(paymentRefundResponse.getStatus())) {
                 result.setTransactionStatus(ACCEPTED);
                 result.setTransactionStatusDetails(REVIEW_NEEDED);
             }

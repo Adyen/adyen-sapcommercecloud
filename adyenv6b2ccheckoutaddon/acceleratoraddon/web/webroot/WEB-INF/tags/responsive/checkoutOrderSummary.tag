@@ -10,7 +10,8 @@
 <spring:url value="/checkout/multi/adyen/summary/placeOrder" var="placeOrderUrl"/>
 <spring:url value="/checkout/multi/termsAndConditions" var="getTermsAndConditionsUrl"/>
 
-<c:set var="componentsWithPayButton" value="[amazonpay],[applepay],[paypal],[paywithgoogle],[pix],[bcmc_mobile],[upi]" />
+<c:set var="componentsWithPayButton"
+       value="[amazonpay],[applepay],[paypal],[paywithgoogle],[googlepay],[pix],[bcmc_mobile],[upi],[paysafecard],[klarna],[ideal],[trustly],[swish],[twint]"/>
 <c:set var="componentPaymentMethod" value="[${selectedPaymentMethod}]" />
 
 <%-- Components --%>
@@ -28,7 +29,6 @@
         </div>
     </c:if>
     </div>
-
     <c:choose>
         <c:when test="${componentPaymentMethod eq '[pix]' || componentPaymentMethod eq '[bcmc_mobile]'}">
             <%-- Render QR code --%>
@@ -65,6 +65,13 @@
     <div id="adyen-component-container-${label}"></div>
 </c:if>
 
+<c:if test="${componentPaymentMethod eq '[googlepay]'}">
+    <div class="chckt-pm__header js-chckt-pm__header">
+        <spring:theme code="checkout.summary.component.googlepay.payment"/>
+    </div>
+    <div id="adyen-component-container-${label}"></div>
+</c:if>
+
 <%-- For components that do not have it's own button --%>
 <c:if test="${not fn:contains(componentsWithPayButton, componentPaymentMethod)}">
     <form:form action="${placeOrderUrl}" id="placeOrderForm-${label}" modelAttribute="placeOrderForm">
@@ -75,7 +82,7 @@
             </label>
         </div>
     </form:form>
-
+    <div id="adyen-component-container-${label}"></div>
     <button id="placeOrder-${label}" type="submit" class="btn btn-primary btn-place-order btn-block">
         <spring:theme code="checkout.summary.placeOrder" text="Place Order" />
     </button>

@@ -1,0 +1,1 @@
+export type PaymentStatus = "completed" | "rejected" | "waiting"| "error" | "unknown" | "timeout"

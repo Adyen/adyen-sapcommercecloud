@@ -19,5 +19,13 @@
 			xsi:noNamespaceSchemaLocation="items.xsd">
 
 	<itemtypes>
+		<itemtype code="AdyenAccExpressCheckoutProductPageComponent" autocreate="true"
+				  generate="true" extends="SimpleCMSComponent" jaloclass="com.adyen.v6.jalo.contents.components.AdyenAccExpressCheckoutProductPageComponent">
+			<description>Represents express checkout options for product page.</description>
+		</itemtype>
+		<itemtype code="AdyenAccExpressCheckoutCartPageComponent" autocreate="true"
+				  generate="true" extends="SimpleCMSComponent" jaloclass="com.adyen.v6.jalo.contents.components.AdyenAccExpressCheckoutCartPageComponent">
+			<description>Represents express checkout options for product page.</description>
+		</itemtype>
 	</itemtypes>
 </items>

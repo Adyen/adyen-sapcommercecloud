@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!--
+ Copyright (c) 2019 SAP SE or an SAP affiliate company. All rights reserved.
+--><!--
+ All hybris buildcallbacks.xml macrodefinitions:
+ 
+ Build/Documentation
+ 
+	 before/after ant macro "clean"
+		 <macrodef name="adyencheckoutaddonapi_before_clean"/>
+		 <macrodef name="adyencheckoutaddonapi_after_clean"/>
+	 
+	 before/after ant macro "build"
+		 <macrodef name="adyencheckoutaddonapi_before_build"/>
+		 <macrodef name="adyencheckoutaddonapi_after_build"/>
+		 
+	 before/after ant macro "compile_core" - the core module of the extension
+		 <macrodef name="adyencheckoutaddonapi_before_compile_core">
+		 <macrodef name="adyencheckoutaddonapi_after_compile_core">
+	 
+	 before/after ant macro "compile_web" - the web module of the extension
+		 <macrodef name="adyencheckoutaddonapi_before_compile_web" />
+		 <macrodef name="adyencheckoutaddonapi_after_compile_web" />
+	 
+ Preparing extension
+ 
+	 will be called in the beginning of the ant call and only once (also when using multiple 
+	 ant targets e.g. ant build yunittest)	
+		 <macrodef name="adyencheckoutaddonapi_only_once_prepare"/>
+ 
+ Creating ear module/production
+ 
+	 before/after ant macro "ear"
+		 <macrodef name="adyencheckoutaddonapi_before_ear"/>
+		 <macrodef name="adyencheckoutaddonapi_after_ear"/>
+
+	 before/after ant macro "production" - for hybris server only
+		 <macrodef name="adyencheckoutaddonapi_before_production" />
+		 <macrodef name="adyencheckoutaddonapi_after_production" />
+ 
+ JUnit Test
+ 
+	 before/after ant macro "yunitinit" 
+		 <macrodef name="adyencheckoutaddonapi_before_yunitinit" />
+		 <macrodef name="adyencheckoutaddonapi_after_yunitinit" />
+	 
+	 before/after ant macro "yunit"
+		 <macrodef name="adyencheckoutaddonapi_before_yunit" />
+		 <macrodef name="adyencheckoutaddonapi_after_yunit" /> 
+		 
+ Distribution package
+ 
+ 	 before/after ant macro "dist" - internal target; only for use when platform is available in source code
+		 <macrodef name="adyencheckoutaddonapi_after_dist"/>
+		 <macrodef name="adyencheckoutaddonapi_before_dist"/>
+	 
+	 before/after ant macro "dist_copy" - internal target; only for use when platform is available in source code
+		 <macrodef name="adyencheckoutaddonapi_before_dist_copy"/>
+		 <macrodef name="adyencheckoutaddonapi_after_dist_copy"/>
+ 
+--><project name="adyencheckoutaddonapi_buildcallbacks">
+    	
+	
+    <!-- 
+	    Called whenever 'ant ear' is used. this callback can be used to modify the content of the ear file
+	
+	     ${ear.path}: 			path to ear
+	 -->
+    	
+    <macrodef name="adyencheckoutaddonapi_before_ear">
+        		
+        <sequential>
+            			
+            <!-- you can do anything before the EAR file is being packed -->
+            			
+		
+        </sequential>
+        	
+    </macrodef>
+    		
+
+</project>

@@ -22,7 +22,7 @@ package com.adyen.v6.service;
 
 import com.adyen.model.notification.NotificationRequest;
 import com.adyen.model.notification.NotificationRequestItem;
-import com.adyen.notification.NotificationHandler;
+import com.adyen.notification.WebhookHandler;
 import com.adyen.v6.constants.Adyenv6coreConstants;
 import com.adyen.v6.model.AdyenNotificationModel;
 import com.adyen.v6.model.NotificationItemModel;
@@ -44,6 +44,7 @@ import org.apache.commons.lang3.BooleanUtils;
 import org.apache.log4j.Logger;
 import org.springframework.transaction.support.TransactionOperations;
 
+import java.io.IOException;
 import java.util.Date;
 import java.util.UUID;
 
@@ -140,8 +141,8 @@ public class DefaultAdyenNotificationService implements AdyenNotificationService
     }
 
     @Override
-    public NotificationRequest getNotificationRequestFromString(final String requestString) {
-        NotificationHandler notificationHandler = new NotificationHandler();
+    public NotificationRequest getNotificationRequestFromString(final String requestString) throws IOException {
+        WebhookHandler notificationHandler = new WebhookHandler();
         NotificationRequest notificationRequest = notificationHandler.handleNotificationJson(requestString);
         LOG.debug(notificationRequest);
         return notificationRequest;
@@ -288,7 +289,7 @@ public class DefaultAdyenNotificationService implements AdyenNotificationService
         }
     }
 
-    private boolean isTransactionAuthorized(final PaymentTransactionModel paymentTransactionModel) {
+    protected boolean isTransactionAuthorized(final PaymentTransactionModel paymentTransactionModel) {
         for (final PaymentTransactionEntryModel entry : paymentTransactionModel.getEntries()) {
             if (entry.getType().equals(PaymentTransactionType.AUTHORIZATION)
                     && TransactionStatus.ACCEPTED.name().equals(entry.getTransactionStatus())) {
@@ -299,7 +300,7 @@ public class DefaultAdyenNotificationService implements AdyenNotificationService
         return false;
     }
 
-    private boolean isOrderAuthorized(final OrderModel order) {
+    protected boolean isOrderAuthorized(final OrderModel order) {
         if(order.getPaymentTransactions() == null || order.getPaymentTransactions().isEmpty()) {
             return false;
         }
@@ -349,7 +350,7 @@ public class DefaultAdyenNotificationService implements AdyenNotificationService
         }
     }
 
-    private AdyenNotificationModel convertFromNotificationItem(NotificationItemModel notificationItemModel){
+    protected AdyenNotificationModel convertFromNotificationItem(NotificationItemModel notificationItemModel){
         AdyenNotificationModel adyenNotificationInfo = new AdyenNotificationModel();
         adyenNotificationInfo.setAdditionalData(notificationItemModel.getAdditionalData());
         adyenNotificationInfo.setAmountCurrency(notificationItemModel.getAmountCurrency());

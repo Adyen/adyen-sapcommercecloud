@@ -25,12 +25,7 @@
         <json:property name="shopperLocale" value="${shopperLocale}"/>
         <json:property name="environment" value="${environmentMode}"/>
         <json:property name="clientKey" value="${clientKey}"/>
-        <json:property name="sessionId" value="${sessionData.id}"/>
-        <json:property name="sessionData" value="${sessionData.sessionData}"/>
-        <json:object escapeXml="false" name="session">
-        <json:property name="id" value="${sessionData.id}"/>
-        <json:property name="sessionData" value="${sessionData.sessionData}"/>
-        </json:object>
+        <json:property name="countryCode" value="${countryCode}"/>
         </json:object>
         </c:set>
 
@@ -47,11 +42,14 @@
 
         const initConfig = ${initConfig};
         const callbackConfig = ${callbackConfig};
-        const fnCallbackArray = {};
+        const paymentMethodConfigs = {};
+
+        const adyenCheckout = new AdyenCheckoutHelper();
+
         <c:choose>
         <%-- Configure components --%>
         <c:when test="${selectedPaymentMethod eq 'paypal' && (not empty paypalMerchantId || environmentMode eq 'test')}">
-        fnCallbackArray['initiatePaypal'] = {
+        paymentMethodConfigs['createPaypal'] = {
             ...callbackConfig,
             isImmediateCapture: ${immediateCapture},
             paypalMerchantId: "${paypalMerchantId}"
@@ -59,15 +57,15 @@
         </c:when>
 
         <c:when test="${selectedPaymentMethod eq 'mbway'}">
-        fnCallbackArray['initiateMbway'] = callbackConfig
+        paymentMethodConfigs['createMbway'] = callbackConfig
         </c:when>
 
         <c:when test="${selectedPaymentMethod eq 'bizum'}">
-        fnCallbackArray['initiateBizum'] = callbackConfig
+        paymentMethodConfigs['createBizum'] = callbackConfig
         </c:when>
 
         <c:when test="${selectedPaymentMethod eq 'applepay'}">
-        fnCallbackArray['initiateApplePay'] = {
+        paymentMethodConfigs['createApplePay'] = {
             ...callbackConfig,
             countryCode: "${countryCode}",
             applePayMerchantIdentifier: "${applePayMerchantIdentifier}",
@@ -76,15 +74,15 @@
         </c:when>
 
         <c:when test="${selectedPaymentMethod eq 'pix'}">
-        fnCallbackArray['initiatePix'] = callbackConfig
+        paymentMethodConfigs['createPix'] = callbackConfig
         </c:when>
 
         <c:when test="${selectedPaymentMethod eq 'googlepay'}">
-        fnCallbackArray['initiateGooglePay'] = callbackConfig
+        paymentMethodConfigs['createGooglePay'] = callbackConfig
         </c:when>
 
         <c:when test="${selectedPaymentMethod eq 'amazonpay'}">
-        fnCallbackArray['initiateAmazonPay'] = {
+        paymentMethodConfigs['createAmazonPay'] = {
             ...callbackConfig,
             deliveryAddress: ${deliveryAddress},
             amazonPayConfiguration: ${amazonPayConfiguration},
@@ -94,29 +92,36 @@
         </c:when>
 
         <c:when test="${selectedPaymentMethod eq 'upi'}">
-        fnCallbackArray['initiateUPI'] = callbackConfig
+        paymentMethodConfigs['createUPI'] = callbackConfig
         </c:when>
 
         <c:when test="${selectedPaymentMethod eq 'bcmc_mobile'}">
-        fnCallbackArray['initiateBcmcMobile'] = callbackConfig;
+        paymentMethodConfigs['createBcmcMobile'] = callbackConfig;
         </c:when>
 
         <c:when test="${selectedPaymentMethod eq 'giftcard'}">
-        fnCallbackArray['initiateGiftCard'] = callbackConfig;
+        paymentMethodConfigs['createGiftCard'] = callbackConfig;
         </c:when>
 
         <c:when test="${selectedPaymentMethod eq 'blik'}">
-        fnCallbackArray['initiateBlik'] = callbackConfig
+        paymentMethodConfigs['createBlik'] = callbackConfig
+        </c:when>
+
+        <c:when test="${selectedPaymentMethod eq 'adyen_cc' ||
+                    fn:startsWith(selectedPaymentMethod, 'adyen_oneclick_')}">
+        adyenCheckout.configureButton($("#placeOrderForm-hidden-xs"), true, "hidden-xs");
+        adyenCheckout.configureButton($("#placeOrderForm-visible-xs"), true, "visible-xs");
         </c:when>
 
         <%-- API only payments methods --%>
         <c:otherwise>
-        AdyenCheckoutHybris.configureButton($("#placeOrderForm-hidden-xs"), true, "hidden-xs");
-        AdyenCheckoutHybris.configureButton($("#placeOrderForm-visible-xs"), true, "visible-xs");
+        paymentMethodConfigs['createRedirectPaymentMethod'] = {
+            ...callbackConfig,
+            paymentType: "${selectedPaymentMethod}"
+        }
         </c:otherwise>
         </c:choose>
-
-        AdyenCheckoutHybris.initiateCheckout(initConfig, fnCallbackArray);
+        adyenCheckout.initiateCheckout(initConfig, paymentMethodConfigs);
 
     </script>
 </jsp:attribute>
@@ -130,7 +135,6 @@
             </p>
         </div>
     </div>
-
     <div class="row">
         <div class="col-sm-6">
             <div class="checkout-headline">
@@ -153,7 +157,8 @@
                            class="create_update_payment_form"
                            action="${handleComponentResult}"
                            method="post">
-                    <input type="hidden" id="resultData" name="resultData"/>
+                    <input type="hidden" id="resultCode" name="resultCode"/>
+                    <input type="hidden" id="merchantReference" name="merchantReference"/>
                     <input type="hidden" id="isResultError" name="isResultError" value="false"/>
                 </form:form>
             </multi-checkout:checkoutSteps>

@@ -44,13 +44,13 @@ public class DefaultAdyenNotificationV2Service implements AdyenNotificationV2Ser
         }
     }
 
-    private AdyenNotificationModel save(NotificationRequestItem notificationRequestItem) {
+    protected AdyenNotificationModel save(NotificationRequestItem notificationRequestItem) {
         AdyenNotificationModel adyenNotificationModel = populate(notificationRequestItem);
         modelService.save(adyenNotificationModel);
         return adyenNotificationModel;
     }
 
-    private AdyenNotificationModel populate(NotificationRequestItem source) {
+    protected AdyenNotificationModel populate(NotificationRequestItem source) {
 
         AdyenNotificationModel target = new AdyenNotificationModel();
         Gson gson = new Gson();
@@ -78,7 +78,7 @@ public class DefaultAdyenNotificationV2Service implements AdyenNotificationV2Ser
         return target;
     }
 
-    private Optional<AbstractNotificationEvent> createEvent(AdyenNotificationModel adyenNotificationModel) {
+    protected Optional<AbstractNotificationEvent> createEvent(AdyenNotificationModel adyenNotificationModel) {
         if (StringUtils.isNotEmpty(adyenNotificationModel.getEventCode())) {
             AbstractNotificationEventBuilder eventTemplate = eventTemplateMap.get(adyenNotificationModel.getEventCode());
             if (eventTemplate == null) {
@@ -94,7 +94,7 @@ public class DefaultAdyenNotificationV2Service implements AdyenNotificationV2Ser
     }
 
 
-    private void publish(AbstractNotificationEvent event) {
+    protected void publish(AbstractNotificationEvent event) {
         getEventService().publishEvent(event);
     }
 

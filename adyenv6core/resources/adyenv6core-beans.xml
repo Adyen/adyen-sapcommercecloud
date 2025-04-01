@@ -46,6 +46,8 @@
         <property name="adyenShopperTelephone" type="java.lang.String"/>
         <property name="adyenGiftCardBrand" type="java.lang.String"/>
         <property name="adyenAmazonPayConfiguration" type="java.util.Map"/>
+        <property name="riskData" type="java.lang.String"/>
+
     </bean>
 
     <bean class="de.hybris.platform.commercefacades.order.data.AbstractOrderData">
@@ -63,6 +65,11 @@
 
     <bean class="de.hybris.platform.commercefacades.order.data.OrderEntryData">
         <property name="taxValues" type="java.util.Collection&lt;de.hybris.platform.util.TaxValue>"/>
+        <property name="unitOfMeasure" type="String" />
+    </bean>
+
+    <bean class="de.hybris.platform.commercefacades.product.data.ProductData">
+        <property name="commodityCode" type="String"/>
     </bean>
 
     <bean class="de.hybris.platform.commercewebservicescommons.dto.order.PaymentDetailsWsDTO">
@@ -87,7 +94,6 @@
 
     <bean class="com.adyen.v6.controllers.dtos.PaymentResultDTO">
         <property name="resultCode" type="String" />
-        <property name="sessionData" type="String" />
     </bean>
 
     <bean class="de.hybris.platform.commercewebservicescommons.dto.order.AbstractOrderWsDTO">
@@ -101,6 +107,13 @@
         <property name="adyenMultibancoDeadline" type="String" />
         <property name="adyenMultibancoReference" type="String" />
         <property name="adyenPosReceipt" type="String" />
+    </bean>
+
+    <bean class="com.adyen.commerce.data.PaymentMethodsCartData">
+        <property name="adyenStoredCards" type="java.util.Set&lt;String&gt;"/>
+        <property name="adyenDfValue" type="String"/>
+        <property name="adyenApplePayMerchantName" type="String"/>
+        <property name="adyenAmazonPayConfiguration" type="java.util.Map"/>
     </bean>
 
 </beans>

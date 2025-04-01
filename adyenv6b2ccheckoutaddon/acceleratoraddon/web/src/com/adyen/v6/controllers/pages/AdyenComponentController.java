@@ -20,21 +20,17 @@
  */
 package com.adyen.v6.controllers.pages;
 
-import com.adyen.model.checkout.PaymentMethodDetails;
-import com.adyen.model.checkout.PaymentsDetailsResponse;
-import com.adyen.model.checkout.PaymentsResponse;
-import com.adyen.model.checkout.details.*;
+
+import com.adyen.model.checkout.GooglePayDetails;
+import com.adyen.model.checkout.PaymentDetailsRequest;
+import com.adyen.model.checkout.PaymentDetailsResponse;
+import com.adyen.model.checkout.PaymentRequest;
+import com.adyen.model.checkout.PaymentResponse;
 import com.adyen.service.exception.ApiException;
-import com.adyen.v6.constants.Adyenv6coreConstants;
 import com.adyen.v6.controllers.dtos.PaymentResultDTO;
 import com.adyen.v6.exceptions.AdyenComponentException;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
 import com.adyen.v6.facades.AdyenCheckoutFacade;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import com.google.gson.reflect.TypeToken;
 import de.hybris.platform.acceleratorfacades.flow.CheckoutFlowFacade;
 import de.hybris.platform.acceleratorfacades.order.AcceleratorCheckoutFacade;
 import de.hybris.platform.acceleratorservices.urlresolver.SiteBaseUrlResolutionService;
@@ -42,26 +38,35 @@ import de.hybris.platform.acceleratorstorefrontcommons.controllers.pages.Abstrac
 import de.hybris.platform.basecommerce.model.site.BaseSiteModel;
 import de.hybris.platform.commercefacades.order.data.CartData;
 import de.hybris.platform.commercefacades.order.data.OrderData;
-import de.hybris.platform.commercefacades.user.data.AddressData;
 import de.hybris.platform.order.InvalidCartException;
 import de.hybris.platform.site.BaseSiteService;
-import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Logger;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import java.lang.reflect.Type;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
+import java.util.Objects;
 
+import static com.adyen.v6.constants.AdyenControllerConstants.CHECKOUT_RESULT_URL;
 import static com.adyen.v6.constants.AdyenControllerConstants.COMPONENT_PREFIX;
 import static com.adyen.v6.constants.AdyenControllerConstants.SUMMARY_CHECKOUT_PREFIX;
-import static com.adyen.v6.constants.Adyenv6coreConstants.*;
+import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_AMAZONPAY;
+import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_BCMC_MOBILE;
+import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_PIX;
+
 
 @RestController
 @RequestMapping(COMPONENT_PREFIX)
@@ -94,55 +99,29 @@ public class AdyenComponentController extends AbstractCheckoutController {
         return redirectToOrderConfirmationPage(orderData);
     }
 
-    @RequestMapping(value = "/payment", method = RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(value = "/payment", consumes = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
-    public String componentPayment(final HttpServletRequest request) throws AdyenComponentException {
+    public ResponseEntity<PaymentResponse> componentPayment(@RequestHeader String host, @RequestBody PaymentRequest body, final HttpServletRequest request) throws AdyenComponentException {
         try {
-            String requestJsonString = IOUtils.toString(request.getInputStream(), String.valueOf(StandardCharsets.UTF_8));
-            JsonObject requestJson = new JsonParser().parse(requestJsonString).getAsJsonObject();
-            Gson gson = new GsonBuilder().disableHtmlEscaping().create();
-
-            validateOrderForm(requestJson);
+            validateOrderForm();
 
             final CartData cartData = getCheckoutFlowFacade().getCheckoutCart();
             String paymentMethod = cartData.getAdyenPaymentMethod();
 
-            PaymentMethodDetails paymentMethodDetails;
-            if (PayPalDetails.PAYPAL.equals(paymentMethod)) {
-                paymentMethodDetails = gson.fromJson(requestJson.get("paymentMethodDetails"), PayPalDetails.class);
-            } else if (MbwayDetails.MBWAY.equals(paymentMethod)) {
-                paymentMethodDetails = gson.fromJson(requestJson.get("paymentMethodDetails"), MbwayDetails.class);
-            } else if (ApplePayDetails.APPLEPAY.equals(paymentMethod)) {
-                paymentMethodDetails = gson.fromJson(requestJson.get("paymentMethodDetails"), ApplePayDetails.class);
-            } else if (Adyenv6coreConstants.PAYMENT_METHOD_GOOGLE.equals(paymentMethod)) {
-                paymentMethodDetails = gson.fromJson(requestJson.get("paymentMethodDetails"), GooglePayDetails.class);
-            } else if (UpiCollectDetails.UPI_COLLECT.equals(paymentMethod)) {
-                paymentMethodDetails = gson.fromJson(requestJson.get("paymentMethodDetails"), UpiCollectDetails.class);
-            } else if (UpiDetails.UPI.equals(paymentMethod)) {
-                paymentMethodDetails = gson.fromJson(requestJson.get("paymentMethodDetails"), UpiDetails.class);
-            } else if (PAYMENT_METHOD_PIX.equals(paymentMethod) || PAYMENT_METHOD_BCMC_MOBILE.equals(paymentMethod)) {
-                paymentMethodDetails = new CardDetails();
-                paymentMethodDetails.setType(paymentMethod);
-            } else if (BlikDetails.BLIK.equals(paymentMethod)) {
-                paymentMethodDetails = gson.fromJson(requestJson.get("paymentMethodDetails"), BlikDetails.class);
-            } else if (CardDetails.GIFTCARD.equals(paymentMethod)) {
-                paymentMethodDetails = gson.fromJson(requestJson.get("paymentMethodDetails"), CardDetails.class);
-                paymentMethodDetails.setType(paymentMethod);
-            } else {
-                throw new InvalidCartException("checkout.error.paymentethod.formentry.invalid");
-            }
-
             cartData.setAdyenReturnUrl(getReturnUrl(paymentMethod));
 
-            PaymentsResponse paymentsResponse = getAdyenCheckoutFacade().componentPayment(request, cartData, paymentMethodDetails);
-            return gson.toJson(paymentsResponse);
+            PaymentResponse paymentsResponse = getAdyenCheckoutFacade().componentPayment(request, cartData, body);
+            return ResponseEntity.ok().body(paymentsResponse);
         } catch (InvalidCartException e) {
             LOGGER.error("InvalidCartException: " + e.getMessage());
             throw new AdyenComponentException(e.getMessage());
         } catch (ApiException e) {
-            LOGGER.error("ApiException: " + e.toString());
+            LOGGER.error("ApiException: " + e);
             throw new AdyenComponentException("checkout.error.authorization.payment.refused");
         } catch (AdyenNonAuthorizedPaymentException e) {
+            if (Objects.nonNull(e.getPaymentsResponse()) && Objects.nonNull(e.getPaymentsResponse().getAction())) {
+                return ResponseEntity.ok().body(e.getPaymentsResponse());
+            }
             LOGGER.warn("AdyenNonAuthorizedPaymentException occurred. Payment " + e.getPaymentResult().getPspReference() + "is refused.");
             throw new AdyenComponentException("checkout.error.authorization.payment.refused");
         } catch (Exception e) {
@@ -151,23 +130,13 @@ public class AdyenComponentController extends AbstractCheckoutController {
         }
     }
 
-    @RequestMapping(value = "/submit-details", method = RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
-    @ResponseBody
-    public String submitDetails(final HttpServletRequest request) throws AdyenComponentException {
+    @PostMapping(value = "/submit-details", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<PaymentDetailsResponse> submitDetails(@RequestBody PaymentDetailsRequest detailsRequest, final HttpServletRequest request) throws AdyenComponentException {
         try {
-            String requestJsonString = IOUtils.toString(request.getInputStream(), String.valueOf(StandardCharsets.UTF_8));
-            JsonObject requestJson = new JsonParser().parse(requestJsonString).getAsJsonObject();
-
-            Gson gson = new GsonBuilder().disableHtmlEscaping().create();
-            Type mapType = new TypeToken<Map<String, String>>() {
-            }.getType();
-            Map<String, String> details = gson.fromJson(requestJson.get("details"), mapType);
-            String paymentData = gson.fromJson(requestJson.get("paymentData"), String.class);
-
-            PaymentsDetailsResponse paymentsResponse = getAdyenCheckoutFacade().componentDetails(request, details, paymentData);
-            return gson.toJson(paymentsResponse);
+            PaymentDetailsResponse paymentsResponse = getAdyenCheckoutFacade().componentDetails(detailsRequest);
+            return ResponseEntity.ok().body(paymentsResponse);
         } catch (ApiException e) {
-            LOGGER.error("ApiException: " + e.toString());
+            LOGGER.error("ApiException: " + e);
             throw new AdyenComponentException("checkout.error.authorization.payment.refused");
         } catch (Exception e) {
             LOGGER.error("Exception", e);
@@ -187,17 +156,7 @@ public class AdyenComponentController extends AbstractCheckoutController {
      * @param requestJson
      * @return True if the order form is invalid and false if everything is valid.
      */
-    protected void validateOrderForm(JsonObject requestJson) throws InvalidCartException {
-        Gson gson = new GsonBuilder().disableHtmlEscaping().create();
-        Boolean termsCheck = gson.fromJson(requestJson.get("termsCheck"), Boolean.class);
-        JsonObject paymentMethodDetails = requestJson.get("paymentMethodDetails").getAsJsonObject();
-        String paymentMethod = gson.fromJson(paymentMethodDetails.get("type"), String.class);
-
-        // Some methods already have the terms validated on a previous step
-        if (!PAYMENT_METHODS_WITH_VALIDATED_TERMS.contains(paymentMethod)
-                && (termsCheck == null || !termsCheck)) {
-            throw new InvalidCartException("checkout.error.terms.not.accepted");
-        }
+    protected void validateOrderForm() throws InvalidCartException {
 
         if (getCheckoutFlowFacade().hasNoDeliveryAddress()) {
             throw new InvalidCartException("checkout.deliveryAddress.notSelected");
@@ -226,11 +185,11 @@ public class AdyenComponentController extends AbstractCheckoutController {
 
     private String getReturnUrl(String paymentMethod) {
         String url;
-        if (GooglePayDetails.GOOGLEPAY.equals(paymentMethod)) {
+        if (GooglePayDetails.TypeEnum.GOOGLEPAY.getValue().equals(paymentMethod)) {
             //Google Pay will only use returnUrl if redirected to 3DS authentication
             url = SUMMARY_CHECKOUT_PREFIX + "/authorise-3d-adyen-response";
         } else {
-            url = COMPONENT_PREFIX + "/submit-details";
+            url = SUMMARY_CHECKOUT_PREFIX + CHECKOUT_RESULT_URL;
         }
         BaseSiteModel currentBaseSite = baseSiteService.getCurrentBaseSite();
         return siteBaseUrlResolutionService.getWebsiteUrlForSite(currentBaseSite, true, url);
@@ -260,13 +219,4 @@ public class AdyenComponentController extends AbstractCheckoutController {
         this.checkoutFacade = checkoutFacade;
     }
 
-    private boolean isValidateSessionCart() {
-        CartData cart = getCheckoutFacade().getCheckoutCart();
-        final AddressData deliveryAddress = cart.getDeliveryAddress();
-        if (deliveryAddress == null || deliveryAddress.getCountry() == null || deliveryAddress.getCountry().getIsocode() == null) {
-            return false;
-        }
-        return true;
-
-    }
 }

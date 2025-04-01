@@ -115,7 +115,7 @@ public class AdyenPaymentFormValidator implements Validator {
             ValidationUtils.rejectIfEmptyOrWhitespace(errors, "billingAddress.line1", "address.line1.invalid");
             ValidationUtils.rejectIfEmptyOrWhitespace(errors, "billingAddress.townCity", "address.townCity.invalid");
             ValidationUtils.rejectIfEmptyOrWhitespace(errors, "billingAddress.postcode", "address.postcode.invalid");
-            ValidationUtils.rejectIfEmptyOrWhitespace(errors, "billingAddress.countryIsoCode", "address.country.invalid");
+            ValidationUtils.rejectIfEmptyOrWhitespace(errors, "billingAddress.countryIso", "address.country.invalid");
         }
     }
 }

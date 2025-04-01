@@ -20,22 +20,10 @@
  */
 package com.adyen.v6.controllers.pages.account;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import javax.annotation.Nonnull;
-import javax.annotation.Resource;
-import org.apache.log4j.Logger;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import com.adyen.model.recurring.RecurringDetail;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
-import com.adyen.v6.service.AdyenPaymentService;
+import com.adyen.v6.service.AdyenCheckoutApiService;
 import de.hybris.platform.acceleratorstorefrontcommons.annotations.RequireHardLogIn;
 import de.hybris.platform.acceleratorstorefrontcommons.breadcrumb.ResourceBreadcrumbBuilder;
 import de.hybris.platform.acceleratorstorefrontcommons.controllers.pages.AbstractSearchPageController;
@@ -45,6 +33,19 @@ import de.hybris.platform.core.model.user.CustomerModel;
 import de.hybris.platform.servicelayer.user.UserService;
 import de.hybris.platform.store.BaseStoreModel;
 import de.hybris.platform.store.services.BaseStoreService;
+import org.apache.log4j.Logger;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Resource;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Controller for Adyen stored cards
@@ -145,10 +146,10 @@ public class AdyenStoredCardsController extends AbstractSearchPageController {
         return null;
     }
 
-    public AdyenPaymentService getAdyenPaymentService() {
+    public AdyenCheckoutApiService getAdyenPaymentService() {
         BaseStoreModel baseStore = baseStoreService.getCurrentBaseStore();
 
-        return adyenPaymentServiceFactory.createFromBaseStore(baseStore);
+        return adyenPaymentServiceFactory.createAdyenCheckoutApiService(baseStore);
     }
 
     public boolean isAnonymousCheckout() {

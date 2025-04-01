@@ -16,3 +16,5 @@
 **/.classpath
 **/.settings/
 **/.externalToolBuilders/
+**/package-lock.json
+**/yarn.lock

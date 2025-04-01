@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+    <bean id="adyenB2CReactCheckoutGroup"
+          class="de.hybris.platform.acceleratorstorefrontcommons.checkout.steps.CheckoutGroup">
+        <property name="groupId" value="adyenB2CReactCheckoutGroup"/>
+        <property name="checkoutStepMap">
+            <map merge="true">
+                <entry key="multi" value-ref="adyenB2CReactStepCheckout"/>
+                <entry key="delivery-address" value-ref="adyenB2CReactDeliveryAddressCheckoutStep"/>
+            </map>
+        </property>
+        <property name="validationResultsMap">
+            <map merge="true">
+                <entry key="FAILED" value-ref="REDIRECT_TO_CART"/>
+                <entry key="REDIRECT_TO_DELIVERY_ADDRESS" value-ref="REDIRECT_TO_DELIVERY_ADDRESS_ADYEN"/>
+                <entry key="REDIRECT_TO_CART" value-ref="REDIRECT_TO_CART"/>
+            </map>
+        </property>
+        <property name="checkoutProgressBar">
+            <map merge="true">
+            </map>
+        </property>
+    </bean>
+
+    <alias name="defaultAdyenB2CReactStepCheckout" alias="adyenB2CReactStepCheckout"/>
+    <bean id="defaultAdyenB2CReactStepCheckout" parent="checkoutStep">
+        <property name="checkoutGroup" ref="adyenB2CReactCheckoutGroup"/>
+        <property name="checkoutStepValidator" ref="defaultResponsiveMultiStepCheckoutValidator"/>
+        <property name="transitions">
+            <map>
+                <entry key="previous" value-ref="REDIRECT_TO_CART"/>
+                <entry key="current" value-ref="REDIRECT_MULTI_STEP_CHECKOUT"/>
+                <entry key="next" value-ref="REDIRECT_TO_DELIVERY_ADDRESS_ADYEN"/>
+            </map>
+        </property>
+        <property name="progressBarId" value="multi"/>
+    </bean>
+
+    <alias name="defaultAdyenB2CReactDeliveryAddressCheckoutStep" alias="adyenB2CReactDeliveryAddressCheckoutStep"/>
+    <bean id="defaultAdyenB2CReactDeliveryAddressCheckoutStep" parent="checkoutStep">
+        <property name="checkoutGroup" ref="adyenB2CReactCheckoutGroup"/>
+        <property name="checkoutStepValidator" ref="defaultResponsiveDeliveryAddressCheckoutValidator"/>
+        <property name="transitions">
+            <map merge="true">
+                <entry key="previous" value-ref="REDIRECT_TO_CART"/>
+                <entry key="current" value-ref="REDIRECT_TO_DELIVERY_ADDRESS_ADYEN"/>
+                <entry key="next" value=""/>
+            </map>
+        </property>
+        <property name="progressBarId" value="deliveryAddress"/>
+    </bean>
+
+    <bean id="adyenReactCheckoutFlowGroupResponsiveMapMergeDirective" parent="mapMergeDirective"
+          depends-on="checkoutFlowGroupMap">
+        <property name="key" value="adyenB2CReactCheckoutGroup"/>
+        <property name="value" ref="adyenB2CReactCheckoutGroup"/>
+    </bean>
+
+
+    <bean id="REDIRECT_TO_DELIVERY_ADDRESS_ADYEN" class="java.lang.String">
+        <constructor-arg value="redirect:/checkout/multi/adyen/shipping-address"/>
+    </bean>
+
+</beans>

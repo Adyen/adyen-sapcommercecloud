@@ -1,0 +1,17 @@
+# -----------------------------------------------------------------------
+# Copyright (c) 2019 SAP SE or an SAP affiliate company. All rights reserved.
+# -----------------------------------------------------------------------
+# you can put key/value pairs here.
+# Use Config.getParameter(..) to retrieve the values during runtime.
+
+adyencheckoutaddonspa.key=value
+
+# Specifies the location of the spring context file added automatically to the global platform application context.
+adyencheckoutaddonspa.application-context=adyencheckoutaddonspa-spring.xml
+
+yacceleratorstorefront.additionalWebSpringConfigs.adyencheckoutaddonspa=classpath:/adyencheckoutaddonspa/web/spring/adyencheckoutaddonspa-web-spring.xml
+
+
+
+adyencheckoutaddonspa.javascript.paths.responsive=/responsive/common/js/adyen-checkout/build/static/js/main.js
+adyencheckoutaddonspa.css.paths.responsive=/responsive/common/css/adyencheckoutaddonapi.css;/responsive/common/js/adyen-checkout/build/static/css/main.css

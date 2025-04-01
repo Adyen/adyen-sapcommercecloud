@@ -22,8 +22,9 @@ package com.adyen.v6.actions.order;
 
 import com.adyen.v6.actions.AbstractWaitableAction;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
-import com.adyen.v6.service.AdyenPaymentService;
+import com.adyen.v6.service.AdyenCheckoutApiService;
 import com.adyen.v6.service.AdyenTransactionService;
+import com.adyen.v6.util.AmountUtil;
 import de.hybris.platform.core.enums.OrderStatus;
 import de.hybris.platform.core.model.order.OrderModel;
 import de.hybris.platform.orderprocessing.model.OrderProcessModel;
@@ -76,7 +77,7 @@ public class AdyenCheckCaptureAction extends AbstractWaitableAction<OrderProcess
         order.setStatus(OrderStatus.PAYMENT_NOT_CAPTURED);
         modelService.save(order);
 
-        BigDecimal remainingAmount = getAdyenPaymentService(order).calculateAmountWithTaxes(order);
+        BigDecimal remainingAmount = AmountUtil.calculateAmountWithTaxes(order);
         for (final PaymentTransactionModel paymentTransactionModel : order.getPaymentTransactions()) {
             boolean isRejected = AdyenTransactionService.getTransactionEntry(
                     paymentTransactionModel,
@@ -127,7 +128,7 @@ public class AdyenCheckCaptureAction extends AbstractWaitableAction<OrderProcess
         return Transition.WAIT.toString();
     }
 
-    public AdyenPaymentService getAdyenPaymentService(final OrderModel orderModel) {
-        return adyenPaymentServiceFactory.createFromBaseStore(orderModel.getStore());
+    public AdyenCheckoutApiService getAdyenPaymentService(final OrderModel orderModel) {
+        return adyenPaymentServiceFactory.createAdyenCheckoutApiService(orderModel.getStore());
     }
 }

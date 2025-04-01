@@ -1,6 +1,6 @@
 package com.adyen.v6.utils;
-import com.adyen.model.checkout.CreateCheckoutSessionRequest;
-import com.adyen.model.checkout.PaymentsRequest;
+
+import com.adyen.model.checkout.PaymentRequest;
 import de.hybris.platform.commercefacades.order.data.CartData;
 import org.apache.commons.collections.CollectionUtils;
 
@@ -9,13 +9,13 @@ public class SubscriptionsUtils {
             return CollectionUtils.isNotEmpty(cartData.getEntries()) && cartData.getEntries().stream().anyMatch(orderEntryData -> orderEntryData.getProduct().getSubscriptionTerm() != null);
     }
 
-    public static PaymentsRequest.RecurringProcessingModelEnum findRecurringProcessingModel(CartData cartData){
+    public static PaymentRequest.RecurringProcessingModelEnum findRecurringProcessingModel(CartData cartData){
         if(cartData.getEntries().stream()
                 .filter(orderEntryData->orderEntryData.getProduct().getSubscriptionTerm()!=null)
                 .allMatch(orderEntryData -> orderEntryData.getProduct().getSubscriptionTerm().getBillingPlan()!=null)) {
-            return PaymentsRequest.RecurringProcessingModelEnum.SUBSCRIPTION;
+            return PaymentRequest.RecurringProcessingModelEnum.SUBSCRIPTION;
         }
 
-        return PaymentsRequest.RecurringProcessingModelEnum.UNSCHEDULEDCARDONFILE;
+        return PaymentRequest.RecurringProcessingModelEnum.UNSCHEDULEDCARDONFILE;
     }
 }

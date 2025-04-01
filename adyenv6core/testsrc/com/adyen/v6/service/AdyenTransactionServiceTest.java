@@ -20,7 +20,7 @@
  */
 package com.adyen.v6.service;
 
-import com.adyen.model.checkout.PaymentsResponse;
+import com.adyen.model.checkout.PaymentDetailsResponse;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
 import com.adyen.v6.model.AdyenNotificationModel;
 import de.hybris.bootstrap.annotations.UnitTest;
@@ -72,7 +72,7 @@ public class AdyenTransactionServiceTest {
     @Mock
     private CommonI18NService commonI18NServiceMock;
     @Mock
-    private AdyenPaymentService adyenPaymentServiceMock;
+    private AdyenCheckoutApiService adyenCheckoutApiServiceMock;
     @Mock
     private AdyenPaymentServiceFactory adyenPaymentServiceFactoryMock;
     @Mock
@@ -89,8 +89,7 @@ public class AdyenTransactionServiceTest {
     public void setUp() {
         when(modelServiceMock.create(PaymentTransactionEntryModel.class)).thenReturn(new PaymentTransactionEntryModel());
         when(baseStoreServiceMock.getCurrentBaseStore()).thenReturn(baseStoreModelMock);
-        when(adyenPaymentServiceFactoryMock.createFromBaseStore(baseStoreModelMock)).thenReturn(adyenPaymentServiceMock);
-        when(adyenTransactionService.getAdyenPaymentService()).thenReturn(adyenPaymentServiceMock);
+        when(adyenPaymentServiceFactoryMock.createAdyenCheckoutApiService(baseStoreModelMock)).thenReturn(adyenCheckoutApiServiceMock);
         when(paymentTransactionModel.getEntries()).thenReturn(new ArrayList<>());
         when(modelServiceMock.create(PaymentTransactionModel.class)).thenReturn(paymentTransactionModel);
 
@@ -135,7 +134,6 @@ public class AdyenTransactionServiceTest {
     @Test
     public void testAuthorizeOrderModel() {
         OrderModel orderModel = createDummyOrderModel();
-        when(adyenPaymentServiceMock.calculateAmountWithTaxes(orderModel)).thenReturn(new BigDecimal(10));
 
         PaymentTransactionModel paymentTransactionModel = adyenTransactionService.authorizeOrderModel(orderModel, MERCHANT_REFERENCE, PSP_REFERENCE);
 
@@ -166,7 +164,7 @@ public class AdyenTransactionServiceTest {
         when(paymentTransactionModel.getEntries()).thenReturn(Collections.singletonList(paymentTransactionEntryModel));
         when(paymentTransactionEntryModel.getTransactionStatus()).thenReturn(ACCEPTED.name());
 
-        PaymentTransactionModel paymentTransactionModel = adyenTransactionService.createPaymentTransactionFromResultCode(orderModel, MERCHANT_REFERENCE, PSP_REFERENCE, PaymentsResponse.ResultCodeEnum.AUTHORISED);
+        PaymentTransactionModel paymentTransactionModel = adyenTransactionService.createPaymentTransactionFromResultCode(orderModel, MERCHANT_REFERENCE, PSP_REFERENCE, PaymentDetailsResponse.ResultCodeEnum.AUTHORISED);
 
         //Verify that the payment transaction is saved
         verify(modelServiceMock).save(paymentTransactionModel);
@@ -182,7 +180,7 @@ public class AdyenTransactionServiceTest {
         when(paymentTransactionModel.getEntries()).thenReturn(Collections.singletonList(paymentTransactionEntryModel));
         when(paymentTransactionEntryModel.getTransactionStatus()).thenReturn(REJECTED.name());
 
-        PaymentTransactionModel paymentTransactionModel = adyenTransactionService.createPaymentTransactionFromResultCode(orderModel, MERCHANT_REFERENCE, PSP_REFERENCE, PaymentsResponse.ResultCodeEnum.REFUSED);
+        PaymentTransactionModel paymentTransactionModel = adyenTransactionService.createPaymentTransactionFromResultCode(orderModel, MERCHANT_REFERENCE, PSP_REFERENCE, PaymentDetailsResponse.ResultCodeEnum.REFUSED);
 
         //Verify that the payment transaction is saved
         verify(modelServiceMock).save(paymentTransactionModel);

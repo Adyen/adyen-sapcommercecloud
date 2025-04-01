@@ -1,7 +1,8 @@
 package com.adyen.v6.controllers.pages.payments;
 
-import com.adyen.model.checkout.PaymentsResponse;
-import com.adyen.model.checkout.details.AmazonPayDetails;
+import com.adyen.model.checkout.CheckoutPaymentMethod;
+import com.adyen.model.checkout.PaymentRequest;
+import com.adyen.model.checkout.PaymentResponse;
 import com.adyen.v6.facades.AdyenAmazonPayFacade;
 import com.adyen.v6.facades.AdyenCheckoutFacade;
 import de.hybris.bootstrap.annotations.UnitTest;
@@ -68,7 +69,7 @@ public class AdyenAmazonpayControllerTest {
     @Mock
     private HttpServletRequest requestMock;
     @Mock
-    private PaymentsResponse paymentResponseMock;
+    private PaymentResponse paymentResponseMock;
     @Mock
     private RedirectAttributes redirectModelMock;
 
@@ -98,7 +99,7 @@ public class AdyenAmazonpayControllerTest {
         when(checkoutCustomerStrategyMock.isAnonymousCheckout()).thenReturn(Boolean.FALSE);
         when(orderFacadeMock.getOrderDetailsForCodeWithoutUser(ORDER_CODE)).thenReturn(orderDataMock);
         when(adyenAmazonPayFacadeMock.getAmazonPayToken(AMAZON_CHECKOUT_SESSION_ID)).thenReturn(AMAZON_PAY_TOKEN);
-        when(adyenCheckoutFacadeMock.componentPayment(eq(requestMock), eq(cartDataMock), isA(AmazonPayDetails.class))).thenReturn(paymentResponseMock);
+        when(adyenCheckoutFacadeMock.componentPayment(eq(requestMock), eq(cartDataMock), isA(PaymentRequest.class))).thenReturn(paymentResponseMock);
         when(adyenAmazonPayFacadeMock.getReturnUrl(AMAZON_RETURN_URL)).thenReturn(URL);
 
         final String result = testObj.placeOrder(modelMock, redirectModelMock, requestMock, AMAZON_CHECKOUT_SESSION_ID);
@@ -111,12 +112,12 @@ public class AdyenAmazonpayControllerTest {
     public void placeOrder_shouldRedirectTo3DSValidation_whenCheckoutSessionIdIsValidAndResponseCodeIsRedirectShopper() throws Exception {
         when(orderDataMock.getCode()).thenReturn(ORDER_CODE);
         when(paymentResponseMock.getMerchantReference()).thenReturn(ORDER_CODE);
-        when(paymentResponseMock.getResultCode()).thenReturn(PaymentsResponse.ResultCodeEnum.REDIRECTSHOPPER);
+        when(paymentResponseMock.getResultCode()).thenReturn(PaymentResponse.ResultCodeEnum.REDIRECTSHOPPER);
         when(checkoutFlowFacadeMock.getCheckoutCart()).thenReturn(cartDataMock);
         when(checkoutCustomerStrategyMock.isAnonymousCheckout()).thenReturn(Boolean.FALSE);
         when(orderFacadeMock.getOrderDetailsForCodeWithoutUser(ORDER_CODE)).thenReturn(orderDataMock);
         when(adyenAmazonPayFacadeMock.getAmazonPayToken(AMAZON_CHECKOUT_SESSION_ID)).thenReturn(AMAZON_PAY_TOKEN);
-        when(adyenCheckoutFacadeMock.componentPayment(eq(requestMock), eq(cartDataMock), isA(AmazonPayDetails.class))).thenReturn(paymentResponseMock);
+        when(adyenCheckoutFacadeMock.componentPayment(eq(requestMock), eq(cartDataMock), isA(PaymentRequest.class))).thenReturn(paymentResponseMock);
         when(adyenAmazonPayFacadeMock.getReturnUrl(AMAZON_RETURN_URL)).thenReturn(URL);
         when(adyenCheckoutFacadeMock.getClientKey()).thenReturn("clientKey");
         when(adyenCheckoutFacadeMock.getCheckoutShopperHost()).thenReturn("host");
@@ -135,7 +136,7 @@ public class AdyenAmazonpayControllerTest {
         when(checkoutFlowFacadeMock.getCheckoutCart()).thenReturn(cartDataMock);
         doReturn(SUMMARY_PAGE_REDIRECT).when(testObj).enterStep(modelMock, redirectModelMock);
         when(adyenAmazonPayFacadeMock.getAmazonPayToken(AMAZON_CHECKOUT_SESSION_ID)).thenReturn(AMAZON_PAY_TOKEN);
-        when(adyenCheckoutFacadeMock.componentPayment(eq(requestMock), eq(cartDataMock), isA(AmazonPayDetails.class))).thenThrow(Exception.class);
+        when(adyenCheckoutFacadeMock.componentPayment(eq(requestMock), eq(cartDataMock), isA(PaymentRequest.class))).thenThrow(Exception.class);
         when(adyenAmazonPayFacadeMock.getReturnUrl(AMAZON_RETURN_URL)).thenReturn(URL);
 
         final String result = testObj.placeOrder(modelMock, redirectModelMock, requestMock, AMAZON_CHECKOUT_SESSION_ID);

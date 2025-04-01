@@ -20,10 +20,11 @@
  */
 package com.adyen.v6.commands;
 
-import com.adyen.model.checkout.PaymentCaptureResource;
+
+import com.adyen.model.checkout.PaymentCaptureResponse;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
 import com.adyen.v6.repository.OrderRepository;
-import com.adyen.v6.service.AdyenPaymentService;
+import com.adyen.v6.service.AdyenModificationsApiService;
 import de.hybris.platform.core.model.order.OrderModel;
 import de.hybris.platform.core.model.order.payment.PaymentInfoModel;
 import de.hybris.platform.payment.commands.CaptureCommand;
@@ -75,7 +76,7 @@ public class AdyenCaptureCommand implements CaptureCommand {
 
         BaseStoreModel baseStore = order.getStore();
         Assert.notNull(baseStore, "BaseStore model is null");
-        AdyenPaymentService adyenPaymentService = adyenPaymentServiceFactory.createFromBaseStore(baseStore);
+        AdyenModificationsApiService adyenPaymentService = adyenPaymentServiceFactory.createAdyenModificationsApiService(baseStore);
 
         final PaymentInfoModel paymentInfo = order.getPaymentInfo();
         Assert.notNull(paymentInfo, "PaymentInfoModel is null");
@@ -89,9 +90,9 @@ public class AdyenCaptureCommand implements CaptureCommand {
             result.setTransactionStatusDetails(TransactionStatusDetails.SUCCESFULL);
         } else {
             try {
-                final PaymentCaptureResource captures = adyenPaymentService.captures(amount, currency, originalPSPReference, reference);
+                PaymentCaptureResponse capture = adyenPaymentService.capture(amount, currency, originalPSPReference, reference);
 
-                if (PaymentCaptureResource.StatusEnum.RECEIVED.equals(captures.getStatus())) {
+                if (PaymentCaptureResponse.StatusEnum.RECEIVED.equals(capture.getStatus())) {
                     result.setTransactionStatus(TransactionStatus.ACCEPTED);  //Accepted so that TakePaymentAction doesn't fail
                     result.setTransactionStatusDetails(TransactionStatusDetails.REVIEW_NEEDED);
                 } else {
@@ -108,7 +109,7 @@ public class AdyenCaptureCommand implements CaptureCommand {
         return result;
     }
 
-    private CaptureResult createCaptureResultFromRequest(CaptureRequest request) {
+    protected CaptureResult createCaptureResultFromRequest(CaptureRequest request) {
         CaptureResult result = new CaptureResult();
 
         result.setCurrency(request.getCurrency());
@@ -125,7 +126,7 @@ public class AdyenCaptureCommand implements CaptureCommand {
         return result;
     }
 
-    private boolean supportsManualCapture(String paymentMethod) {
+    protected boolean supportsManualCapture(String paymentMethod) {
         switch (paymentMethod) {
             case "cup":
             case "cartebancaire":

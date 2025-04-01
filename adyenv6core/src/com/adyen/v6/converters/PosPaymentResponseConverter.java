@@ -20,7 +20,7 @@
  */
 package com.adyen.v6.converters;
 
-import com.adyen.model.checkout.PaymentsResponse;
+import com.adyen.model.checkout.PaymentResponse;
 import com.adyen.model.nexo.SaleToPOIResponse;
 import com.google.gson.Gson;
 import org.apache.commons.lang3.StringUtils;
@@ -31,9 +31,9 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
-public class PosPaymentResponseConverter implements Converter<SaleToPOIResponse, PaymentsResponse> {
+public class PosPaymentResponseConverter implements Converter<SaleToPOIResponse, PaymentResponse> {
     @Override
-    public PaymentsResponse convert(SaleToPOIResponse saleToPOIResponse) {
+    public PaymentResponse convert(SaleToPOIResponse saleToPOIResponse) {
         String pspReference = null;
         Map<String, String> additionalData = null;
         String additionalResponse = null;
@@ -69,7 +69,7 @@ public class PosPaymentResponseConverter implements Converter<SaleToPOIResponse,
         if (additionalResponse != null) {
             additionalData = parseAdditionalResponse(additionalResponse);
         }
-        PaymentsResponse paymentsResponse = new PaymentsResponse();
+        PaymentResponse paymentsResponse = new PaymentResponse();
         paymentsResponse.setPspReference(pspReference);
         paymentsResponse.setAdditionalData(additionalData);
 
@@ -79,12 +79,12 @@ public class PosPaymentResponseConverter implements Converter<SaleToPOIResponse,
     /*
      * Parse base64 encoded additionalResponse and return as a name/value map
      */
-    private Map<String, String> parseAdditionalResponse(String additionalResponse) {
+    protected Map<String, String> parseAdditionalResponse(String additionalResponse) {
         Map<String, String> additionalData = new HashMap<>();
         if (StringUtils.isNotEmpty(additionalResponse)) {
             String decodedAdditionalResponse = new String(Base64.getDecoder().decode(additionalResponse), StandardCharsets.UTF_8);
             Gson gson = new Gson();
-            additionalData = gson.fromJson(decodedAdditionalResponse, PaymentsResponse.class).getAdditionalData();
+            additionalData = gson.fromJson(decodedAdditionalResponse, PaymentResponse.class).getAdditionalData();
         }
         return additionalData;
     }

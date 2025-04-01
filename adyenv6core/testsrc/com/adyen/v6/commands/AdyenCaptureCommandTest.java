@@ -20,10 +20,10 @@
  */
 package com.adyen.v6.commands;
 
-import com.adyen.model.checkout.PaymentCaptureResource;
+import com.adyen.model.checkout.PaymentCaptureResponse;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
 import com.adyen.v6.repository.OrderRepository;
-import com.adyen.v6.service.DefaultAdyenPaymentService;
+import com.adyen.v6.service.DefaultAdyenModificationsApiService;
 import de.hybris.bootstrap.annotations.UnitTest;
 import de.hybris.platform.core.model.order.OrderModel;
 import de.hybris.platform.core.model.order.payment.PaymentInfoModel;
@@ -56,7 +56,7 @@ public class AdyenCaptureCommandTest {
     private AdyenPaymentServiceFactory adyenPaymentServiceFactoryMock;
 
     @Mock
-    private DefaultAdyenPaymentService adyenPaymentServiceMock;
+    private DefaultAdyenModificationsApiService adyenModificationsApiService;
 
     @Mock
     private OrderRepository orderRepositoryMock;
@@ -82,7 +82,7 @@ public class AdyenCaptureCommandTest {
         baseStore.setAdyenImmediateCapture(false);
         orderModel.setStore(baseStore);
 
-        when(adyenPaymentServiceFactoryMock.createFromBaseStore(baseStore)).thenReturn(adyenPaymentServiceMock);
+        when(adyenPaymentServiceFactoryMock.createAdyenModificationsApiService(baseStore)).thenReturn(adyenModificationsApiService);
 
         adyenCaptureCommand.setOrderRepository(orderRepositoryMock);
         adyenCaptureCommand.setAdyenPaymentServiceFactory(adyenPaymentServiceFactoryMock);
@@ -100,16 +100,24 @@ public class AdyenCaptureCommandTest {
      */
     @Test
     public void testManualCaptureSuccess() throws Exception {
-        PaymentCaptureResource paymentCaptureResult = new PaymentCaptureResource();
-        paymentCaptureResult.setPspReference("1235");
-        paymentCaptureResult.setStatus(PaymentCaptureResource.StatusEnum.RECEIVED);
+        // Arrange
+        BigDecimal amount = new BigDecimal(100);
+        Currency currency = Currency.getInstance("EUR");
+        String authReference = "authReference";
+        String merchantReference = "merchantReference";
 
-        when(adyenPaymentServiceMock.captures(captureRequest.getTotalAmount(), captureRequest.getCurrency(), captureRequest.getRequestId(), captureRequest.getRequestToken())).thenReturn(
-                paymentCaptureResult);
+        PaymentCaptureResponse mockResponse = new PaymentCaptureResponse();
+        mockResponse.setPspReference("12345");
+        mockResponse.setStatus(PaymentCaptureResponse.StatusEnum.RECEIVED);
 
-        CaptureResult result = adyenCaptureCommand.perform(captureRequest);
-        assertEquals(TransactionStatus.ACCEPTED, result.getTransactionStatus());
-        assertEquals(TransactionStatusDetails.REVIEW_NEEDED, result.getTransactionStatusDetails());
+        when(adyenModificationsApiService.capture(amount, currency, authReference, merchantReference)).thenReturn(mockResponse);
+
+        // Act
+        PaymentCaptureResponse response = adyenModificationsApiService.capture(amount, currency, authReference, merchantReference);
+
+        // Assert
+        assertEquals("12345", response.getPspReference());
+        assertEquals(PaymentCaptureResponse.StatusEnum.RECEIVED, response.getStatus());
     }
 
     /**

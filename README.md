@@ -1,19 +1,17 @@
 # Adyen SAP Commerce (Hybris) v6 plugin
 
-Latest stable version:
-https://github.com/Adyen/adyen-hybris/releases/tag/11.2.0
+Version v13.2.0
 
-This plugin supports SAP Commerce (Hybris) versions 6.x
+This plugin supports SAP Commerce (Hybris) versions 2105 or later
 
 The plugin is using following adyen libraries and API.
-- [adyen-java-api-library](https://github.com/Adyen/adyen-java-api-library) (v18.1.3)
-- [adyen-web](https://github.com/Adyen/adyen-web) (v5.56.1)
-- [Adyen Checkout API](https://docs.adyen.com/api-explorer/) (v69)
+- [adyen-java-api-library](https://github.com/Adyen/adyen-java-api-library) (v24.0.0)
+- [adyen-web](https://github.com/Adyen/adyen-web) (v6.1.1)
+- [Adyen Checkout API](https://docs.adyen.com/api-explorer/) (v71)
 
 ## Integration
 
 The SAP Commerce integrates Adyen Checkout for all card payments and local/redirect payment methods.
-Boleto, PayPal ECS and RatePay are routed over the old integration. When available in the new Checkout they will be migrated to the new flow.
 
 ## Requirements
 SAP Commerce (Hybris) version 2105 or later
@@ -24,21 +22,50 @@ SAP Commerce (Hybris) version 2105 or later
 
 ### 2. Add the Adyen extensions to the config/localextensions.xml file
 
-Required for the checkout:
+#### Checkout
+
+Required for accelerator checkout:
 ```
 <extension dir="${HYBRIS_BIN_DIR}/custom/adyen-hybris/adyenv6core"/>
 <extension dir="${HYBRIS_BIN_DIR}/custom/adyen-hybris/adyenv6b2ccheckoutaddon"/>
 <extension dir="${HYBRIS_BIN_DIR}/custom/adyen-hybris/adyenv6backoffice"/>
 ```
+
+Required for headless checkout:
+```
+<extension dir="${HYBRIS_BIN_DIR}/custom/adyen-hybris/adyenv6core"/>
+<extension dir="${HYBRIS_BIN_DIR}/custom/adyen-hybris/adyencheckoutaddonapi"/>
+<extension dir="${HYBRIS_BIN_DIR}/custom/adyen-hybris/adyenv6backoffice"/>
+```
+
+Required for headless checkout api with example React SPA checkout:
+```
+<extension dir="${HYBRIS_BIN_DIR}/custom/adyen-hybris/adyenv6core"/>
+<extension dir="${HYBRIS_BIN_DIR}/custom/adyen-hybris/adyencheckoutaddonapi"/>
+<extension dir="${HYBRIS_BIN_DIR}/custom/adyen-hybris/adyencheckoutaddonspa"/>
+<extension dir="${HYBRIS_BIN_DIR}/custom/adyen-hybris/adyenv6backoffice"/>
+```
+
+#### Notifications
+
 Required for the notifications:
 ```
 <extension dir="${HYBRIS_BIN_DIR}/custom/adyen-hybris/adyenv6notification"/>
 ```
 
+Required for the event driven notifications:
+```
+<extension dir="${HYBRIS_BIN_DIR}/custom/adyen-hybris/adyenv6notificationv2"/>
+```
+
+#### Order management
+
 Additionally, required when using yacceleratorordermanagement (b2c_acc_oms recipe for 6.x and b2c_b2b_acc_oms recipe for 1905) :
 ```
 <extension dir="${HYBRIS_BIN_DIR}/custom/adyen-hybris/adyenv6ordermanagement"/>
 ```
+
+#### Fulfilment
 
 Additionally, required when using yacceleratorfulfilment (b2c_acc recipe for 6.x and b2c_acc_plus for 1905):
 ```
@@ -66,6 +93,11 @@ ant clean all
 For more detailed instructions you can visit the [documentation page](https://github.com/Adyen/adyen-hybris/wiki)
 Please make sure your merchant has Variant true in API and responses section so that you get paymentMethod back in response.
 
+## React fronend build
+1. Go to adyencheckoutaddonspa/acceleratoraddon/web/webroot/_ui/responsive/common/js/adyen-checkout
+2. Open terminal and run `npm run i`
+3. For development build run `npm run build`
+4. For deployment build run `npm run build-prod`
 
 ## Supported payment methods
 A reference of all supported payment methods is [here](https://github.com/Adyen/adyen-hybris/wiki#supported-payment-methods).
@@ -195,6 +227,11 @@ payConfiguration = new PayConfiguration()
                     .setRegion(Region.valueOf(amazonpayRegion.getCode()))
 --->                .setPrivateKey(new String(Files.readAllBytes(ResourceUtils.getFile("classpath:certificates/amazonpay/YourCertificateName.pem").toPath())).toCharArray())
 ```
+
+## Multiple merchant configuration
+Introduces possibility to select merchant for given transaction based on strategy that could be extended. By default merchant account is one in adyenMerchantAccount on BaseStore.
+### Example
+In /examples/adyenmultiplemerchantexample there is extension that introduces necessary changes to achieve selection of merchant account based on shipping address country selected during checkout process.
 
  ## Documentation
  https://github.com/Adyen/adyen-hybris/wiki

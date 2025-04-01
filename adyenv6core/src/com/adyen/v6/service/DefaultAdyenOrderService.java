@@ -20,59 +20,52 @@
  */
 package com.adyen.v6.service;
 
-import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Objects;
-
-import com.adyen.util.DateUtil;
-import org.apache.log4j.Logger;
-import com.adyen.model.FraudCheckResult;
-import com.adyen.model.FraudResult;
-import com.adyen.model.PaymentResult;
-import com.adyen.model.checkout.CheckoutPaymentsAction;
-import com.adyen.model.checkout.PaymentsResponse;
-import com.adyen.v6.converters.PaymentsResponseConverter;
+import com.adyen.model.checkout.FraudCheckResult;
+import com.adyen.model.checkout.FraudResult;
 import de.hybris.platform.basecommerce.enums.FraudStatus;
 import de.hybris.platform.core.model.order.OrderModel;
 import de.hybris.platform.core.model.order.payment.PaymentInfoModel;
 import de.hybris.platform.fraud.model.FraudReportModel;
 import de.hybris.platform.fraud.model.FraudSymptomScoringModel;
 import de.hybris.platform.servicelayer.model.ModelService;
+import org.apache.commons.lang.StringUtils;
+import org.apache.log4j.Logger;
 import org.springframework.transaction.support.TransactionOperations;
 
-import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_BOLETO;
-import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_BOLETO_SANTANDER;
-import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_MULTIBANCO;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.function.BiConsumer;
+
 import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_PROVIDER;
 
 public class DefaultAdyenOrderService implements AdyenOrderService {
     private static final Logger LOG = Logger.getLogger(DefaultAdyenOrderService.class);
-    private static final String ADDITIONAL_DATA_CARD_TYPE = "checkout.cardAddedBrand";
     private ModelService modelService;
-    private PaymentsResponseConverter paymentsResponseConverter;
     private TransactionOperations transactionTemplate;
 
+    private final SimpleDateFormat expDateFormatter = new SimpleDateFormat("M/yyyy");
 
     @Override
-    public FraudReportModel createFraudReportFromPaymentsResponse(PaymentsResponse paymentsResponse) {
+    public FraudReportModel createFraudReportFromPaymentsResponse(String pspReference, FraudResult fraudResult) {
         FraudReportModel fraudReport = modelService.create(FraudReportModel.class);
-        FraudResult fraudResult = paymentsResponse.getFraudResult();
 
         if (fraudResult == null) {
             LOG.warn("No fraud result found");
             return null;
         }
 
-        fraudReport.setCode(paymentsResponse.getPspReference());
+        fraudReport.setCode(pspReference);
         fraudReport.setStatus(FraudStatus.OK);
         fraudReport.setExplanation("Score: " + fraudResult.getAccountScore());
         fraudReport.setTimestamp(new Date());
         fraudReport.setProvider(PAYMENT_PROVIDER);
 
         List<FraudSymptomScoringModel> fraudSymptomScorings = new ArrayList<>();
-        for (FraudCheckResult fraudCheckResult : fraudResult.getFraudCheckResults()) {
+        for (FraudCheckResult fraudCheckResult : fraudResult.getResults()) {
             FraudSymptomScoringModel fraudSymptomScoring = modelService.create(FraudSymptomScoringModel.class);
 
             Integer score = fraudCheckResult.getAccountScore();
@@ -98,12 +91,6 @@ public class DefaultAdyenOrderService implements AdyenOrderService {
     }
 
     @Override
-    public FraudReportModel createFraudReportFromPaymentResult(PaymentResult paymentResult) {
-        PaymentsResponse paymentsResponse = paymentsResponseConverter.convert(paymentResult);
-        return createFraudReportFromPaymentsResponse(paymentsResponse);
-    }
-
-    @Override
     public void storeFraudReport(FraudReportModel fraudReport) {
         transactionTemplate.execute(transactionStatus -> {
             List<FraudSymptomScoringModel> fraudSymptomScorings = fraudReport.getFraudSymptomScorings();
@@ -117,77 +104,51 @@ public class DefaultAdyenOrderService implements AdyenOrderService {
     }
 
     @Override
-    public void storeFraudReportFromPaymentsResponse(OrderModel order, PaymentsResponse paymentsResponse) {
-        FraudReportModel fraudReport = createFraudReportFromPaymentsResponse(paymentsResponse);
-        if(fraudReport != null) {
+    public void storeFraudReport(OrderModel order, String pspReference, FraudResult fraudResult) {
+        FraudReportModel fraudReport = createFraudReportFromPaymentsResponse(pspReference, fraudResult);
+        if (fraudReport != null) {
             fraudReport.setOrder(order);
             storeFraudReport(fraudReport);
         }
     }
 
     @Override
-    public void storeFraudReportFromPaymentResult(OrderModel order, PaymentResult paymentResult) {
-        PaymentsResponse paymentsResponse = paymentsResponseConverter.convert(paymentResult);
-        storeFraudReportFromPaymentsResponse(order, paymentsResponse);
-    }
-
-    @Override
-    public void updateOrderFromPaymentsResponse(OrderModel order, PaymentsResponse paymentsResponse) {
+    public void updatePaymentInfo(OrderModel order, String paymentMethodType, Map<String, String> additionalData) {
         if (order == null) {
             LOG.error("Order is null");
             return;
         }
 
         PaymentInfoModel paymentInfo = order.getPaymentInfo();
-
-        if(Objects.nonNull(paymentsResponse.getAdditionalData()) && paymentsResponse.getAdditionalData().containsKey(ADDITIONAL_DATA_CARD_TYPE)){
-            paymentInfo.setAdyenPaymentMethod(paymentsResponse.getAdditionalData().get(ADDITIONAL_DATA_CARD_TYPE));
-        }
-        else if(paymentsResponse.getPaymentMethod()!=null) {
-            paymentInfo.setAdyenPaymentMethod(paymentsResponse.getPaymentMethod().getType());
+        if(StringUtils.isNotEmpty(paymentMethodType)) {
+            paymentInfo.setAdyenPaymentMethod(paymentMethodType);
+        }else {
+            updatePaymentInfo(paymentInfo, additionalData, "checkout.cardAddedBrand", PaymentInfoModel::setAdyenPaymentMethod);
         }
 
-        //Card specific data
-        paymentInfo.setAdyenAuthCode(paymentsResponse.getAuthCode());
-        paymentInfo.setAdyenAvsResult(paymentsResponse.getAvsResult());
-        paymentInfo.setAdyenCardBin(paymentsResponse.getCardBin());
-        paymentInfo.setAdyenCardHolder(paymentsResponse.getCardHolderName());
-        paymentInfo.setAdyenCardSummary(paymentsResponse.getCardSummary());
-        paymentInfo.setAdyenCardExpiry(paymentsResponse.getExpiryDate());
-        paymentInfo.setAdyenThreeDOffered(paymentsResponse.get3DOffered());
-        paymentInfo.setAdyenThreeDAuthenticated(paymentsResponse.get3DAuthenticated());
-
-        CheckoutPaymentsAction action = paymentsResponse.getAction();
-
-        if (action != null) {
-            if (PAYMENT_METHOD_MULTIBANCO.equals(action.getPaymentMethodType())) {
-                //Multibanco data
-                paymentInfo.setAdyenMultibancoEntity(action.getEntity());
-                paymentInfo.setAdyenMultibancoAmount(BigDecimal.valueOf(action.getInitialAmount().getValue()));
-                paymentInfo.setAdyenMultibancoDeadline(action.getExpiresAt());
-                paymentInfo.setAdyenMultibancoReference(action.getReference());
-            } else if (PAYMENT_METHOD_BOLETO.equals(action.getPaymentMethodType()) || PAYMENT_METHOD_BOLETO_SANTANDER.equals(action.getPaymentMethodType())) {
-                //Boleto data
-                paymentInfo.setAdyenBoletoUrl(action.getDownloadUrl());
-                paymentInfo.setAdyenBoletoBarCodeReference(action.getReference());
-                paymentInfo.setAdyenBoletoExpirationDate(DateUtil.parseYmdDate(action.getExpiresAt()));
+        updatePaymentInfo(paymentInfo, additionalData, "cardSummary", PaymentInfoModel::setAdyenCardSummary);
+        updatePaymentInfo(paymentInfo, additionalData, "authCode", PaymentInfoModel::setAdyenAuthCode);
+        updatePaymentInfo(paymentInfo, additionalData, "avsResult", PaymentInfoModel::setAdyenAvsResult);
+        updatePaymentInfo(paymentInfo, additionalData, "cardBin", PaymentInfoModel::setAdyenCardBin);
+        updatePaymentInfo(paymentInfo, additionalData, "cardHolderName", PaymentInfoModel::setAdyenCardHolder);
+        updatePaymentInfo(paymentInfo, additionalData, "expiryDate", (info, value) -> {
+            try {
+                info.setAdyenCardExpiry(expDateFormatter.parse(value));
+            } catch (ParseException e) {
+                LOG.warn("Failed to parse expiry date", e);
             }
-        }
-
-        //pos receipt
-        paymentInfo.setAdyenPosReceipt(paymentsResponse.getAdditionalDataByKey("pos.receipt"));
-
-        transactionTemplate.execute(transactionStatus -> {
-            modelService.save(paymentInfo);
-            storeFraudReportFromPaymentsResponse(order, paymentsResponse);
-            return null;
         });
+        updatePaymentInfo(paymentInfo, additionalData, "threeDOffered", (info, value) -> info.setAdyenThreeDOffered(Boolean.valueOf(value)));
+        updatePaymentInfo(paymentInfo, additionalData, "threeDAuthenticated", (info, value) -> info.setAdyenThreeDAuthenticated(Boolean.valueOf(value)));
+        updatePaymentInfo(paymentInfo, additionalData, "pos.receipt", PaymentInfoModel::setAdyenPosReceipt);
+
+        modelService.save(paymentInfo);
     }
 
-    @Override
-    public void updateOrderFromPaymentResult(OrderModel order, PaymentResult paymentResult) {
-        PaymentsResponse paymentsResponse = paymentsResponseConverter.convert(paymentResult);
-        updateOrderFromPaymentsResponse(order, paymentsResponse);
+    protected void updatePaymentInfo(PaymentInfoModel paymentInfo, Map<String, String> additionalData, String key, BiConsumer<PaymentInfoModel, String> setter) {
+        if (additionalData != null && additionalData.containsKey(key)) {
+            setter.accept(paymentInfo, additionalData.get(key));
+        }
     }
 
     public ModelService getModelService() {
@@ -196,14 +157,6 @@ public class DefaultAdyenOrderService implements AdyenOrderService {
 
     public void setModelService(ModelService modelService) {
         this.modelService = modelService;
-    }
-
-    public PaymentsResponseConverter getPaymentsResponseConverter() {
-        return paymentsResponseConverter;
-    }
-
-    public void setPaymentsResponseConverter(PaymentsResponseConverter paymentsResponseConverter) {
-        this.paymentsResponseConverter = paymentsResponseConverter;
     }
 
     public void setTransactionTemplate(TransactionOperations transactionTemplate) {

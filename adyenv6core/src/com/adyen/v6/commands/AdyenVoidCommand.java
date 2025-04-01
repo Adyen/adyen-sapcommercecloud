@@ -20,10 +20,10 @@
  */
 package com.adyen.v6.commands;
 
-import com.adyen.model.checkout.PaymentReversalResource;
+import com.adyen.model.checkout.PaymentReversalResponse;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
 import com.adyen.v6.repository.BaseStoreRepository;
-import com.adyen.v6.service.AdyenPaymentService;
+import com.adyen.v6.service.AdyenModificationsApiService;
 import de.hybris.platform.payment.commands.VoidCommand;
 import de.hybris.platform.payment.commands.request.VoidRequest;
 import de.hybris.platform.payment.commands.result.VoidResult;
@@ -63,12 +63,12 @@ public class AdyenVoidCommand implements VoidCommand {
         if (baseStore == null) {
             return result;
         }
-        AdyenPaymentService adyenPaymentService = adyenPaymentServiceFactory.createFromBaseStore(baseStore);
+        AdyenModificationsApiService adyenModificationsApiService = adyenPaymentServiceFactory.createAdyenModificationsApiService(baseStore);
 
         try {
-            final PaymentReversalResource paymentReversalResource = adyenPaymentService.cancelOrRefunds(authReference, reference);
+            PaymentReversalResponse paymentReversalResponse = adyenModificationsApiService.cancelOrRefund(authReference, reference);
 
-            if (PaymentReversalResource.StatusEnum.RECEIVED.equals(paymentReversalResource.getStatus())) {
+            if (PaymentReversalResponse.StatusEnum.RECEIVED.equals(paymentReversalResponse.getStatus())) {
                 result.setTransactionStatus(TransactionStatus.ACCEPTED);
                 result.setTransactionStatusDetails(TransactionStatusDetails.REVIEW_NEEDED);
             } else {

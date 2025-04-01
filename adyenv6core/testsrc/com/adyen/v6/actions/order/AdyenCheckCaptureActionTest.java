@@ -21,7 +21,7 @@
 package com.adyen.v6.actions.order;
 
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
-import com.adyen.v6.service.AdyenPaymentService;
+import com.adyen.v6.service.AdyenCheckoutApiService;
 import de.hybris.bootstrap.annotations.UnitTest;
 import de.hybris.platform.core.enums.OrderStatus;
 import de.hybris.platform.core.model.order.OrderModel;
@@ -69,7 +69,7 @@ public class AdyenCheckCaptureActionTest extends AbstractActionTest {
     @Mock
     private BaseStoreModel baseStoreModelMock;
     @Mock
-    private AdyenPaymentService adyenPaymentServiceMock;
+    private AdyenCheckoutApiService adyenCheckoutApiServiceMock;
 
     @InjectMocks
     private AdyenCheckCaptureAction adyenCheckCaptureAction;
@@ -87,11 +87,11 @@ public class AdyenCheckCaptureActionTest extends AbstractActionTest {
 
         adyenCheckCaptureAction = new AdyenCheckCaptureAction(adyenPaymentServiceFactoryMock, baseStoreServiceMock);
         adyenCheckCaptureAction.setModelService(modelServiceMock);
-        when(adyenCheckCaptureAction.getAdyenPaymentService(orderModelMock)).thenReturn(adyenPaymentServiceMock);
+        when(adyenCheckCaptureAction.getAdyenPaymentService(orderModelMock)).thenReturn(adyenCheckoutApiServiceMock);
 
         when(baseStoreServiceMock.getCurrentBaseStore()).thenReturn(baseStoreModelMock);
-        when(adyenPaymentServiceFactoryMock.createFromBaseStore(baseStoreModelMock)).thenReturn(adyenPaymentServiceMock);
-        when(adyenPaymentServiceMock.calculateAmountWithTaxes(orderModelMock)).thenReturn(new BigDecimal(10));
+        when(adyenPaymentServiceFactoryMock.createAdyenCheckoutApiService(baseStoreModelMock)).thenReturn(adyenCheckoutApiServiceMock);
+
     }
 
     @After

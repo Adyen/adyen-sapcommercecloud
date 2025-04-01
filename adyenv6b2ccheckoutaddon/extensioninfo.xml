@@ -16,6 +16,7 @@
 		<!-- you should add all required extensions to this list, except platform extensions which are automatically required -->         
 		<requires-extension name="addonsupport"/>
 		<requires-extension name="adyenv6core"/>
+		<requires-extension name="acceleratorstorefrontcommons"/>
 
 		<coremodule generated="true" manager="com.adyen.v6.jalo.Adyenv6b2ccheckoutaddonManager" packageroot="com.adyen.v6"/>
 	</extension>

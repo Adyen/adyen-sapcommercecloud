@@ -20,37 +20,19 @@
  */
 package com.adyen.v6.service;
 
-import com.adyen.model.PaymentResult;
-import com.adyen.model.checkout.PaymentsResponse;
+import com.adyen.model.checkout.FraudResult;
 import de.hybris.platform.core.model.order.OrderModel;
 import de.hybris.platform.fraud.model.FraudReportModel;
 
+import java.util.Map;
+
 public interface AdyenOrderService {
-    void updateOrderFromPaymentsResponse(OrderModel order, PaymentsResponse paymentsResponse);
+    void updatePaymentInfo(OrderModel order, String paymentMethodType, Map<String, String> additionalData);
 
-    /**
-     * Updates order's metadata using the API Payment response
-     * Covers fraud, avs, cc authorisation data
-     */
-    void updateOrderFromPaymentResult(OrderModel order, PaymentResult paymentResult);
+    FraudReportModel createFraudReportFromPaymentsResponse(String pspReference,  FraudResult fraudResult );
 
-    FraudReportModel createFraudReportFromPaymentsResponse(PaymentsResponse paymentsResponse);
-
-    /**
-     * Creates FraudReportModel from PaymentResult
-     * @return FraudReportModel|null
-     */
-    FraudReportModel createFraudReportFromPaymentResult(PaymentResult paymentResult);
-
-    /**
-     * Store FraudReportModel
-     */
     void storeFraudReport(FraudReportModel fraudReport);
 
-    void storeFraudReportFromPaymentsResponse(OrderModel order, PaymentsResponse paymentsResponse);
+    void storeFraudReport(OrderModel order, String pspreference, FraudResult fraudResult);
 
-    /**
-     * Create FraudReportModel from PaymentResult and assigns it to order
-     */
-    void storeFraudReportFromPaymentResult(OrderModel order, PaymentResult paymentResult);
 }

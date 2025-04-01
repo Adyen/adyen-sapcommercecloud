@@ -77,7 +77,7 @@ public class AdyenNotificationAuthenticationProvider {
         return false;
     }
 
-    private boolean authenticateBasic(final HttpServletRequest request, BaseStoreModel baseStoreModel) {
+    protected boolean authenticateBasic(final HttpServletRequest request, BaseStoreModel baseStoreModel) {
         final String authorization = request.getHeader("Authorization");
         if (authorization != null && authorization.startsWith("Basic")) {
             String base64Credentials = authorization.substring("Basic".length()).trim();
@@ -88,7 +88,7 @@ public class AdyenNotificationAuthenticationProvider {
         return false;
     }
 
-    private boolean tryToAuthenticate(String name, String password, BaseStoreModel baseStore) {
+    protected boolean tryToAuthenticate(String name, String password, BaseStoreModel baseStore) {
 
         String notificationUsername = baseStore.getAdyenNotificationUsername();
         String notificationPassword = baseStore.getAdyenNotificationPassword();
@@ -107,7 +107,7 @@ public class AdyenNotificationAuthenticationProvider {
         return false;
     }
 
-    private boolean checkHMAC(NotificationRequest notificationRequest, BaseStoreModel baseStore) {
+    protected boolean checkHMAC(NotificationRequest notificationRequest, BaseStoreModel baseStore) {
         String hmacKey = baseStore.getAdyenNotificationHMACKey();
 
         if (StringUtils.isNotEmpty(hmacKey)) {

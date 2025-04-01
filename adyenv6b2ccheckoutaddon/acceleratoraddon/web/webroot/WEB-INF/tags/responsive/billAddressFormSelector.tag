@@ -10,7 +10,7 @@
      data-display-title="false" class="clearfix">
     <formElement:formSelectBox idKey="address.country"
                                labelKey="address.country"
-                               path="billingAddress.countryIsoCode"
+                               path="billingAddress.countryIso"
                                mandatory="true"
                                skipBlank="false"
                                skipBlankMessageKey="address.selectCountry"

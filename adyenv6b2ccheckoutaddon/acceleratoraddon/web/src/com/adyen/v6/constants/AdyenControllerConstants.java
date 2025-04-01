@@ -28,7 +28,7 @@ public interface AdyenControllerConstants
 	String SUMMARY_CHECKOUT_PREFIX = "/checkout/multi/adyen/summary";
 	String COMPONENT_PREFIX = "/adyen/component";
 	String AMAZON_RETURN_URL = "/checkout/multi/adyen/summary/amazonpay/placeorder";
-
+	String CHECKOUT_RESULT_URL = "/checkout-adyen-response";
 	/**
 	 * Class with view name constants
 	 */

@@ -174,7 +174,7 @@ public class SelectPaymentMethodCheckoutStepController extends AbstractCheckoutS
             addressForm.setLine2(deliveryAddress.getLine2());
             addressForm.setTownCity(deliveryAddress.getTown());
             addressForm.setPostcode(deliveryAddress.getPostalCode());
-            addressForm.setCountryIsoCode(deliveryAddress.getCountry().getIsocode());
+            addressForm.setCountryIso(deliveryAddress.getCountry().getIsocode());
             addressForm.setPhoneNumber(deliveryAddress.getPhone());
         }
         adyenPaymentForm.setBillingAddress(addressForm);

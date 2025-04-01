@@ -38,6 +38,7 @@
 		<editorArea:editorArea xmlns:editorArea="http://www.hybris.com/cockpitng/component/editorArea">
 			<editorArea:tab name="hmc.adyen">
 				<editorArea:section name="hmc.adyen.account">
+					<editorArea:attribute qualifier="adyenMerchantConfig"/>
 					<editorArea:attribute qualifier="adyenMerchantAccount"/>
 					<editorArea:attribute qualifier="adyenImmediateCapture"/>
 					<editorArea:attribute qualifier="adyenRecurringContractMode"/>
@@ -55,6 +56,19 @@
 					<editorArea:attribute qualifier="adyenNotificationUsername"/>
 					<editorArea:attribute qualifier="adyenNotificationPassword" editor="com.hybris.cockpitng.editor.defaultpassword"/>
 					<editorArea:attribute qualifier="adyenNotificationHMACKey"/>
+				</editorArea:section>
+				<editorArea:section name="hmc.adyen.expressPayments">
+					<editorArea:attribute qualifier="expressPaymentConfig.googlePayExpressEnabledOnCart" editor="com.hybris.cockpitng.editor.defaultboolean"/>
+					<editorArea:attribute qualifier="expressPaymentConfig.applePayExpressEnabledOnCart" editor="com.hybris.cockpitng.editor.defaultboolean"/>
+					<editorArea:attribute qualifier="expressPaymentConfig.paypalExpressEnabledOnCart" editor="com.hybris.cockpitng.editor.defaultboolean"/>
+					<editorArea:attribute qualifier="expressPaymentConfig.amazonPayExpressEnabledOnCart" editor="com.hybris.cockpitng.editor.defaultboolean"/>
+					<editorArea:attribute qualifier="expressPaymentConfig.googlePayExpressEnabledOnProduct" editor="com.hybris.cockpitng.editor.defaultboolean"/>
+					<editorArea:attribute qualifier="expressPaymentConfig.applePayExpressEnabledOnProduct" editor="com.hybris.cockpitng.editor.defaultboolean"/>
+					<editorArea:attribute qualifier="expressPaymentConfig.paypalExpressEnabledOnProduct" editor="com.hybris.cockpitng.editor.defaultboolean"/>
+					<editorArea:attribute qualifier="expressPaymentConfig.amazonPayExpressEnabledOnProduct" editor="com.hybris.cockpitng.editor.defaultboolean"/>
+				</editorArea:section>
+				<editorArea:section name="hmc.adyen.clicktopay">
+					<editorArea:attribute qualifier="clickToPayLocale" />
 				</editorArea:section>
 				<editorArea:section name="hmc.adyen.amazonpay">
 					<editorArea:attribute qualifier="amazonpayPublicKey"/>
@@ -81,6 +95,7 @@
 				<editorArea:section name="hmc.adyen.advanced">
 					<editorArea:attribute qualifier="adyenBoleto"/>
 					<editorArea:attribute qualifier="adyenPaypalMerchantId"/>
+					<editorArea:attribute qualifier="l2L3ESDEnabled"/>
 				</editorArea:section>
 			</editorArea:tab>
 		</editorArea:editorArea>

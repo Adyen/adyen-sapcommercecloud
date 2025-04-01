@@ -27,6 +27,8 @@ import com.adyen.v6.model.NotificationItemModel;
 import de.hybris.platform.payment.model.PaymentTransactionEntryModel;
 import de.hybris.platform.payment.model.PaymentTransactionModel;
 
+import java.io.IOException;
+
 /**
  * Service for Adyen notifications manipulation
  */
@@ -46,7 +48,7 @@ public interface AdyenNotificationService {
     /**
      * Parse HTTP request body and return NotificationRequest
      */
-    NotificationRequest getNotificationRequestFromString(String requestString);
+    NotificationRequest getNotificationRequestFromString(String requestString) throws IOException;
 
     /**
      * Create NotificationItemModel from NotificationRequestItem

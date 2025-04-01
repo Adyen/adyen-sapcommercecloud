@@ -1,8 +1,10 @@
 package com.adyen.v6.controllers.pages.payments;
 
 import com.adyen.constants.ApiConstants;
-import com.adyen.model.checkout.PaymentsResponse;
-import com.adyen.model.checkout.details.AmazonPayDetails;
+import com.adyen.model.checkout.AmazonPayDetails;
+import com.adyen.model.checkout.CheckoutPaymentMethod;
+import com.adyen.model.checkout.PaymentRequest;
+import com.adyen.model.checkout.PaymentResponse;
 import com.adyen.v6.controllers.pages.AdyenSummaryCheckoutStepController;
 import com.adyen.v6.facades.AdyenAmazonPayFacade;
 import com.adyen.v6.facades.AdyenCheckoutFacade;
@@ -25,7 +27,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 
-import static com.adyen.model.checkout.PaymentsResponse.ResultCodeEnum.REDIRECTSHOPPER;
+import static com.adyen.model.checkout.PaymentResponse.ResultCodeEnum.REDIRECTSHOPPER;
 import static com.adyen.v6.constants.AdyenControllerConstants.SUMMARY_CHECKOUT_PREFIX;
 
 @Controller
@@ -62,10 +64,11 @@ public class AdyenAmazonpayController extends AdyenSummaryCheckoutStepController
 
         try {
             cart.setAdyenReturnUrl(adyenAmazonPayFacade.getReturnUrl(SUMMARY_CHECKOUT_PREFIX + CHECKOUT_RESULT_URL));
-
-            final PaymentsResponse paymentsResponse = adyenCheckoutFacade.componentPayment(request,
+            PaymentRequest paymentRequest = new PaymentRequest();
+            paymentRequest.setPaymentMethod(new CheckoutPaymentMethod((new AmazonPayDetails().amazonPayToken(adyenAmazonPayFacade.getAmazonPayToken(amazonCheckoutSessionId)))));
+            final PaymentResponse paymentsResponse = adyenCheckoutFacade.componentPayment(request,
                     cart,
-                    new AmazonPayDetails().amazonPayToken(adyenAmazonPayFacade.getAmazonPayToken(amazonCheckoutSessionId))
+                    paymentRequest
             );
 
             if (REDIRECTSHOPPER == paymentsResponse.getResultCode()) {

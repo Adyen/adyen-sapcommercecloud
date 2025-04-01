@@ -20,9 +20,11 @@
  */
 package com.adyen.v6.service;
 
-import com.adyen.model.checkout.PaymentsResponse;
+import com.adyen.model.checkout.PaymentDetailsResponse;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
 import com.adyen.v6.model.AdyenNotificationModel;
+import com.adyen.v6.repository.PaymentTransactionRepository;
+import com.adyen.v6.util.AmountUtil;
 import de.hybris.platform.core.model.c2l.CurrencyModel;
 import de.hybris.platform.core.model.order.AbstractOrderModel;
 import de.hybris.platform.payment.dto.TransactionStatus;
@@ -52,6 +54,7 @@ public class DefaultAdyenTransactionService implements AdyenTransactionService {
     private AdyenPaymentServiceFactory adyenPaymentServiceFactory;
     private BaseStoreService baseStoreService;
     private TransactionOperations transactionTemplate;
+    private PaymentTransactionRepository adyenPaymentTransactionRepository;
 
 
     @Override
@@ -72,7 +75,7 @@ public class DefaultAdyenTransactionService implements AdyenTransactionService {
         return transactionEntryModel;
     }
 
-    private PaymentTransactionEntryModel createFromModificationNotification(final PaymentTransactionModel paymentTransaction, final AdyenNotificationModel notificationItemModel) {
+    protected PaymentTransactionEntryModel createFromModificationNotification(final PaymentTransactionModel paymentTransaction, final AdyenNotificationModel notificationItemModel) {
         final PaymentTransactionEntryModel transactionEntryModel = modelService.create(PaymentTransactionEntryModel.class);
 
         String code = paymentTransaction.getRequestId() + "_" + paymentTransaction.getEntries().size();
@@ -101,21 +104,7 @@ public class DefaultAdyenTransactionService implements AdyenTransactionService {
 
     @Override
     public PaymentTransactionModel authorizeOrderModel(final AbstractOrderModel abstractOrderModel, final String merchantTransactionCode, final String pspReference) {
-        return transactionTemplate.execute(transactionStatus -> {
-
-            //First save the transactions to the CartModel < AbstractOrderModel
-            final PaymentTransactionModel paymentTransactionModel = createPaymentTransaction(merchantTransactionCode, pspReference, abstractOrderModel);
-
-            modelService.save(paymentTransactionModel);
-
-            PaymentTransactionEntryModel authorisedTransaction = createAuthorizationPaymentTransactionEntryModel(paymentTransactionModel, merchantTransactionCode, abstractOrderModel);
-
-            LOG.info("Saving AUTH transaction entry with psp reference: " + pspReference);
-            modelService.save(authorisedTransaction);
-
-            modelService.refresh(paymentTransactionModel); //refresh is needed by order-process
-            return paymentTransactionModel;
-        });
+        return authorizeOrderModel(abstractOrderModel, merchantTransactionCode, pspReference, AmountUtil.calculateAmountWithTaxes(abstractOrderModel));
     }
 
     @Override
@@ -123,9 +112,12 @@ public class DefaultAdyenTransactionService implements AdyenTransactionService {
         return transactionTemplate.execute(transactionStatus -> {
 
             //First save the transactions to the CartModel < AbstractOrderModel
-            final PaymentTransactionModel paymentTransactionModel = createPaymentTransaction(merchantTransactionCode, pspReference, abstractOrderModel, paymentAmount);
+            PaymentTransactionModel paymentTransactionModel = adyenPaymentTransactionRepository.getTransactionModel(pspReference);
 
-            modelService.save(paymentTransactionModel);
+            if(paymentTransactionModel == null) {
+                paymentTransactionModel = createPaymentTransaction(merchantTransactionCode, pspReference, abstractOrderModel, paymentAmount);
+                modelService.save(paymentTransactionModel);
+            }
 
             PaymentTransactionEntryModel authorisedTransaction = createAuthorizationPaymentTransactionEntryModel(paymentTransactionModel, merchantTransactionCode, abstractOrderModel, paymentAmount);
 
@@ -176,7 +168,7 @@ public class DefaultAdyenTransactionService implements AdyenTransactionService {
     /**
      * Map notification item reason to transactionStatusDetails item
      */
-    private TransactionStatusDetails getTransactionStatusDetailsFromReason(String reason) {
+    protected TransactionStatusDetails getTransactionStatusDetailsFromReason(String reason) {
         TransactionStatusDetails transactionStatusDetails = TransactionStatusDetails.UNKNOWN_CODE;
 
         if (reason != null) {
@@ -191,7 +183,7 @@ public class DefaultAdyenTransactionService implements AdyenTransactionService {
         return transactionStatusDetails;
     }
 
-    private PaymentTransactionEntryModel createAuthorizationPaymentTransactionEntryModel(final PaymentTransactionModel paymentTransaction, final String merchantCode, final AbstractOrderModel abstractOrderModel) {
+    protected PaymentTransactionEntryModel createAuthorizationPaymentTransactionEntryModel(final PaymentTransactionModel paymentTransaction, final String merchantCode, final AbstractOrderModel abstractOrderModel) {
         final PaymentTransactionEntryModel transactionEntryModel = modelService.create(PaymentTransactionEntryModel.class);
 
         String code = paymentTransaction.getRequestId() + "_" + paymentTransaction.getEntries().size();
@@ -204,19 +196,23 @@ public class DefaultAdyenTransactionService implements AdyenTransactionService {
         transactionEntryModel.setTime(DateTime.now().toDate());
         transactionEntryModel.setTransactionStatus(TransactionStatus.ACCEPTED.name());
         transactionEntryModel.setTransactionStatusDetails(TransactionStatusDetails.SUCCESFULL.name());
-        transactionEntryModel.setAmount(getAdyenPaymentService().calculateAmountWithTaxes(abstractOrderModel));
+        transactionEntryModel.setAmount(AmountUtil.calculateAmountWithTaxes(abstractOrderModel));
         transactionEntryModel.setCurrency(abstractOrderModel.getCurrency());
 
         return transactionEntryModel;
     }
 
-    private PaymentTransactionEntryModel createAuthorizationPaymentTransactionEntryModel(final PaymentTransactionModel paymentTransaction, final String merchantCode, final AbstractOrderModel abstractOrderModel, final BigDecimal paymentAmount) {
+    protected PaymentTransactionEntryModel createAuthorizationPaymentTransactionEntryModel(final PaymentTransactionModel paymentTransaction, final String merchantCode, final AbstractOrderModel abstractOrderModel, final BigDecimal paymentAmount) {
         final PaymentTransactionEntryModel transactionEntryModel = createAuthorizationPaymentTransactionEntryModel(paymentTransaction, merchantCode, abstractOrderModel);
         transactionEntryModel.setAmount(paymentAmount);
         return transactionEntryModel;
     }
 
-    private PaymentTransactionModel createPaymentTransaction(final String merchantCode, final String pspReference, final AbstractOrderModel abstractOrderModel) {
+    protected PaymentTransactionModel createPaymentTransaction(final String merchantCode, final String pspReference, final AbstractOrderModel abstractOrderModel) {
+        return createPaymentTransaction(merchantCode, pspReference, abstractOrderModel, AmountUtil.calculateAmountWithTaxes(abstractOrderModel));
+    }
+
+    protected PaymentTransactionModel createPaymentTransaction(final String merchantCode, final String pspReference, final AbstractOrderModel abstractOrderModel, final BigDecimal paymentAmount) {
         final PaymentTransactionModel paymentTransactionModel = modelService.create(PaymentTransactionModel.class);
         paymentTransactionModel.setCode(pspReference);
         paymentTransactionModel.setRequestId(pspReference);
@@ -225,13 +221,6 @@ public class DefaultAdyenTransactionService implements AdyenTransactionService {
         paymentTransactionModel.setOrder(abstractOrderModel);
         paymentTransactionModel.setCurrency(abstractOrderModel.getCurrency());
         paymentTransactionModel.setInfo(abstractOrderModel.getPaymentInfo());
-        paymentTransactionModel.setPlannedAmount(getAdyenPaymentService().calculateAmountWithTaxes(abstractOrderModel));
-
-        return paymentTransactionModel;
-    }
-
-    private PaymentTransactionModel createPaymentTransaction(final String merchantCode, final String pspReference, final AbstractOrderModel abstractOrderModel, final BigDecimal paymentAmount) {
-        final PaymentTransactionModel paymentTransactionModel = createPaymentTransaction(merchantCode, pspReference, abstractOrderModel);
         paymentTransactionModel.setPlannedAmount(paymentAmount);
         return paymentTransactionModel;
     }
@@ -257,12 +246,16 @@ public class DefaultAdyenTransactionService implements AdyenTransactionService {
     }
 
     @Override
-    public PaymentTransactionModel createPaymentTransactionFromResultCode(final AbstractOrderModel abstractOrderModel, final String merchantTransactionCode, final String pspReference, final PaymentsResponse.ResultCodeEnum resultCodeEnum) {
+    public PaymentTransactionModel createPaymentTransactionFromResultCode(final AbstractOrderModel abstractOrderModel, final String merchantTransactionCode, final String pspReference, final PaymentDetailsResponse.ResultCodeEnum resultCodeEnum) {
         return transactionTemplate.execute(transactionStatus -> {
 
-            final PaymentTransactionModel paymentTransactionModel = createPaymentTransaction(merchantTransactionCode, pspReference, abstractOrderModel);
+            PaymentTransactionModel paymentTransactionModel = adyenPaymentTransactionRepository.getTransactionModel(pspReference);
 
-            modelService.save(paymentTransactionModel);
+            if(paymentTransactionModel == null) {
+                paymentTransactionModel = createPaymentTransaction(merchantTransactionCode, pspReference, abstractOrderModel);
+
+                modelService.save(paymentTransactionModel);
+            }
 
             PaymentTransactionEntryModel paymentTransactionEntryModel = createPaymentTransactionEntryModelFromResultCode(paymentTransactionModel, merchantTransactionCode, abstractOrderModel, resultCodeEnum);
 
@@ -278,7 +271,7 @@ public class DefaultAdyenTransactionService implements AdyenTransactionService {
         });
     }
 
-    private PaymentTransactionEntryModel createPaymentTransactionEntryModelFromResultCode(final PaymentTransactionModel paymentTransaction, final String merchantCode, final AbstractOrderModel abstractOrderModel, final PaymentsResponse.ResultCodeEnum resultCode) {
+    protected PaymentTransactionEntryModel createPaymentTransactionEntryModelFromResultCode(final PaymentTransactionModel paymentTransaction, final String merchantCode, final AbstractOrderModel abstractOrderModel, final PaymentDetailsResponse.ResultCodeEnum resultCode) {
         final PaymentTransactionEntryModel transactionEntryModel = modelService.create(PaymentTransactionEntryModel.class);
 
         String code = paymentTransaction.getRequestId() + "_" + paymentTransaction.getEntries().size();
@@ -291,13 +284,13 @@ public class DefaultAdyenTransactionService implements AdyenTransactionService {
         transactionEntryModel.setTime(DateTime.now().toDate());
         transactionEntryModel.setTransactionStatus(getTransactionStatusForResultCode(resultCode));
         transactionEntryModel.setTransactionStatusDetails("ResultCode: " + resultCode.getValue());
-        transactionEntryModel.setAmount(getAdyenPaymentService().calculateAmountWithTaxes(abstractOrderModel));
+        transactionEntryModel.setAmount(AmountUtil.calculateAmountWithTaxes(abstractOrderModel));
         transactionEntryModel.setCurrency(abstractOrderModel.getCurrency());
 
         return transactionEntryModel;
     }
 
-    private String getTransactionStatusForResultCode(PaymentsResponse.ResultCodeEnum resultCode) {
+    protected String getTransactionStatusForResultCode(PaymentDetailsResponse.ResultCodeEnum resultCode) {
         switch (resultCode) {
             case AUTHORISED:
             case RECEIVED:
@@ -313,17 +306,13 @@ public class DefaultAdyenTransactionService implements AdyenTransactionService {
         }
     }
 
-    private boolean isPartialPayment(AdyenNotificationModel notificationItemModel, AbstractOrderModel abstractOrderModel) {
-        BigDecimal totalOrderAmount = getAdyenPaymentService().calculateAmountWithTaxes(abstractOrderModel);
+    protected boolean isPartialPayment(AdyenNotificationModel notificationItemModel, AbstractOrderModel abstractOrderModel) {
+        BigDecimal totalOrderAmount = AmountUtil.calculateAmountWithTaxes(abstractOrderModel);
         BigDecimal notificationAmount = notificationItemModel.getAmountValue();
         if (notificationAmount == null) {
             return false;
         }
         return totalOrderAmount.compareTo(notificationAmount) > 0;
-    }
-
-    public AdyenPaymentService getAdyenPaymentService() {
-        return adyenPaymentServiceFactory.createFromBaseStore(baseStoreService.getCurrentBaseStore());
     }
 
     public ModelService getModelService() {
@@ -360,5 +349,9 @@ public class DefaultAdyenTransactionService implements AdyenTransactionService {
 
     public void setTransactionTemplate(TransactionOperations transactionTemplate) {
         this.transactionTemplate = transactionTemplate;
+    }
+
+    public void setAdyenPaymentTransactionRepository(PaymentTransactionRepository adyenPaymentTransactionRepository) {
+        this.adyenPaymentTransactionRepository = adyenPaymentTransactionRepository;
     }
 }

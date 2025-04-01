@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+    <bean id="adyenB2CResponsiveCheckoutGroup"
+          class="de.hybris.platform.acceleratorstorefrontcommons.checkout.steps.CheckoutGroup">
+        <property name="groupId" value="adyenB2CResponsiveCheckoutGroup"/>
+        <property name="checkoutStepMap">
+            <map merge="true">
+                <entry key="multi" value-ref="adyenB2CResponsiveMultiStepCheckout"/>
+                <entry key="delivery-address" value-ref="adyenB2CResponsiveDeliveryAddressCheckoutStep"/>
+                <entry key="delivery-method" value-ref="adyenB2CResponsiveDeliveryMethodCheckoutStep"/>
+                <entry key="choose-payment-method" value-ref="adyenB2CResponsiveChoosePaymentCheckoutStep"/>
+                <entry key="payment-method" value-ref="adyenB2CResponsivePaymentMethodCheckoutStep"/>
+                <entry key="summary" value-ref="adyenB2CResponsiveSummaryCheckoutStep"/>
+            </map>
+        </property>
+        <property name="validationResultsMap">
+            <map merge="true">
+                <entry key="FAILED" value-ref="REDIRECT_TO_CART"/>
+                <entry key="REDIRECT_TO_DELIVERY_ADDRESS" value-ref="REDIRECT_TO_DELIVERY_ADDRESS"/>
+                <entry key="REDIRECT_TO_CART" value-ref="REDIRECT_TO_CART"/>
+                <entry key="REDIRECT_TO_PAYMENT_METHOD" value-ref="REDIRECT_TO_PAYMENT_METHOD_ADYEN"/>
+                <entry key="REDIRECT_TO_DELIVERY_METHOD" value-ref="REDIRECT_TO_DELIVERY_METHOD"/>
+                <entry key="REDIRECT_TO_SUMMARY" value-ref="REDIRECT_TO_SUMMARY_ADYEN"/>
+            </map>
+        </property>
+        <property name="checkoutProgressBar">
+            <map merge="true">
+                <entry key="1" value-ref="adyenB2CResponsiveDeliveryAddressCheckoutStep"/>
+                <entry key="2" value-ref="adyenB2CResponsiveDeliveryMethodCheckoutStep"/>
+                <entry key="3" value-ref="adyenB2CResponsiveChoosePaymentCheckoutStep"/>
+                <entry key="4" value-ref="adyenB2CResponsiveSummaryCheckoutStep"/>
+            </map>
+        </property>
+    </bean>
+
+    <alias name="defaultAdyenB2CResponsiveMultiStepCheckout" alias="adyenB2CResponsiveMultiStepCheckout"/>
+    <bean id="defaultAdyenB2CResponsiveMultiStepCheckout" parent="checkoutStep">
+        <property name="checkoutGroup" ref="adyenB2CResponsiveCheckoutGroup"/>
+        <property name="checkoutStepValidator" ref="defaultResponsiveMultiStepCheckoutValidator"/>
+        <property name="transitions">
+            <map>
+                <entry key="previous" value-ref="REDIRECT_TO_CART"/>
+                <entry key="current" value-ref="REDIRECT_MULTI_STEP_CHECKOUT"/>
+                <entry key="next" value-ref="REDIRECT_TO_DELIVERY_ADDRESS"/>
+            </map>
+        </property>
+        <property name="progressBarId" value="multi"/>
+    </bean>
+
+    <alias name="defaultAdyenB2CResponsiveDeliveryAddressCheckoutStep"
+           alias="adyenB2CResponsiveDeliveryAddressCheckoutStep"/>
+    <bean id="defaultAdyenB2CResponsiveDeliveryAddressCheckoutStep" parent="checkoutStep">
+        <property name="checkoutGroup" ref="adyenB2CResponsiveCheckoutGroup"/>
+        <property name="checkoutStepValidator" ref="defaultResponsiveDeliveryAddressCheckoutValidator"/>
+        <property name="transitions">
+            <map merge="true">
+                <entry key="previous" value-ref="REDIRECT_TO_CART"/>
+                <entry key="current" value-ref="REDIRECT_TO_DELIVERY_ADDRESS"/>
+                <entry key="next" value-ref="REDIRECT_TO_DELIVERY_METHOD"/>
+            </map>
+        </property>
+        <property name="progressBarId" value="deliveryAddress"/>
+    </bean>
+
+    <alias name="defaultAdyenB2CResponsiveDeliveryMethodCheckoutStep"
+           alias="adyenB2CResponsiveDeliveryMethodCheckoutStep"/>
+    <bean id="defaultAdyenB2CResponsiveDeliveryMethodCheckoutStep" parent="checkoutStep">
+        <property name="checkoutGroup" ref="adyenB2CResponsiveCheckoutGroup"/>
+        <property name="checkoutStepValidator" ref="defaultResponsiveDeliveryMethodCheckoutValidator"/>
+        <property name="transitions">
+            <map merge="true">
+                <entry key="previous" value-ref="REDIRECT_TO_DELIVERY_ADDRESS"/>
+                <entry key="current" value-ref="REDIRECT_TO_DELIVERY_METHOD"/>
+                <entry key="next" value-ref="REDIRECT_TO_PAYMENT_METHOD_ADYEN"/>
+            </map>
+        </property>
+        <property name="progressBarId" value="deliveryMethod"/>
+    </bean>
+
+    <alias name="defaultAdyenB2CResponsiveChoosePaymentCheckoutStep"
+           alias="adyenB2CResponsiveChoosePaymentCheckoutStep"/>
+    <bean id="defaultAdyenB2CResponsiveChoosePaymentCheckoutStep" parent="checkoutStep">
+        <property name="checkoutGroup" ref="adyenB2CResponsiveCheckoutGroup"/>
+        <property name="checkoutStepValidator" ref="defaultPaymentMethodCheckoutValidator"/>
+        <property name="transitions">
+            <map merge="true">
+                <entry key="previous" value-ref="REDIRECT_TO_DELIVERY_METHOD"/>
+                <entry key="current" value-ref="REDIRECT_TO_PAYMENT_METHOD_ADYEN"/>
+                <entry key="next" value-ref="REDIRECT_TO_SUMMARY_ADYEN"/>
+            </map>
+        </property>
+        <property name="progressBarId" value="paymentMethod"/>
+    </bean>
+
+    <alias name="defaultAdyenB2CResponsivePaymentMethodCheckoutStep"
+           alias="adyenB2CResponsivePaymentMethodCheckoutStep"/>
+    <bean id="defaultAdyenB2CResponsivePaymentMethodCheckoutStep" parent="checkoutStep">
+        <property name="checkoutGroup" ref="adyenB2CResponsiveCheckoutGroup"/>
+        <property name="checkoutStepValidator" ref="defaultResponsivePaymentMethodCheckoutValidator"/>
+        <property name="transitions">
+            <map merge="true">
+                <entry key="previous" value-ref="REDIRECT_TO_PAYMENT_METHOD_ADYEN"/>
+                <entry key="current" value-ref="REDIRECT_TO_PAYMENT_METHOD"/>
+                <entry key="next" value-ref="REDIRECT_TO_SUMMARY_ADYEN"/>
+            </map>
+        </property>
+        <property name="progressBarId" value="paymentMethod"/>
+    </bean>
+
+    <alias name="defaultAdyenB2CResponsiveSummaryCheckoutStep" alias="adyenB2CResponsiveSummaryCheckoutStep"/>
+    <bean id="defaultAdyenB2CResponsiveSummaryCheckoutStep" parent="checkoutStep">
+        <property name="checkoutGroup" ref="adyenB2CResponsiveCheckoutGroup"/>
+        <property name="checkoutStepValidator" ref="defaultResponsiveSummaryCheckoutValidator"/>
+        <property name="transitions">
+            <map merge="true">
+                <entry key="previous" value-ref="REDIRECT_TO_PAYMENT_METHOD_ADYEN"/>
+                <entry key="current" value-ref="REDIRECT_TO_SUMMARY_ADYEN"/>
+                <entry key="next" value="redirect:/checkout/adyen/orderConfirmation/%s"/>
+            </map>
+        </property>
+        <property name="progressBarId" value="confirmOrder"/>
+    </bean>
+
+    <bean id="adyenCheckoutFlowGroupResponsiveMapMergeDirective" parent="mapMergeDirective"
+          depends-on="checkoutFlowGroupMap">
+        <property name="key" value="adyenB2CResponsiveCheckoutGroup"/>
+        <property name="value" ref="adyenB2CResponsiveCheckoutGroup"/>
+    </bean>
+
+
+    <bean id="REDIRECT_TO_SUMMARY_ADYEN" class="java.lang.String">
+        <constructor-arg value="redirect:/checkout/multi/adyen/summary/view"/>
+    </bean>
+
+    <bean id="REDIRECT_TO_PAYMENT_METHOD_ADYEN" class="java.lang.String">
+        <constructor-arg value="redirect:/checkout/multi/adyen/select-payment-method"/>
+    </bean>
+</beans>
