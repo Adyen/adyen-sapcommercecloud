@@ -413,7 +413,8 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
 
     public CartData createOrGetCartForExpressCheckout(String productCode) {
         UserModel currentUser = userService.getCurrentUser();
-        String expressCartCode = sessionService.getCurrentSession().getAttribute("expressCartCode-" + productCode);
+        String currencyCode = commonI18NService.getCurrentCurrency().getIsocode();
+        String expressCartCode = sessionService.getCurrentSession().getAttribute("expressCartCode-" + productCode + "-" + currencyCode);
         if (expressCartCode != null) {
             CartModel cartForExpressCheckout = cartRepository.getCart(expressCartCode);
             if(cartForExpressCheckout != null){
@@ -421,7 +422,7 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
             }
         }
         CartModel cartForExpressCheckout = createCartForExpressCheckout((CustomerModel) currentUser);
-        sessionService.getCurrentSession().setAttribute("expressCartCode-" + productCode,cartForExpressCheckout.getCode());
+        sessionService.getCurrentSession().setAttribute("expressCartCode-" + productCode + "-" + currencyCode, cartForExpressCheckout.getCode());
         return cartConverter.convert(cartForExpressCheckout);
     }
 
