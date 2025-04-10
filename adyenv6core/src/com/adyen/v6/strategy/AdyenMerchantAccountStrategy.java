@@ -8,8 +8,4 @@ public interface AdyenMerchantAccountStrategy {
 
     String getWebMerchantAccount(BaseStoreModel baseStore);
 
-    String getPosMerchantAccount();
-
-    String getPosMerchantAccount(BaseStoreModel baseStore);
-
 }

@@ -140,7 +140,6 @@ public class DefaultAdyenOrderService implements AdyenOrderService {
         });
         updatePaymentInfo(paymentInfo, additionalData, "threeDOffered", (info, value) -> info.setAdyenThreeDOffered(Boolean.valueOf(value)));
         updatePaymentInfo(paymentInfo, additionalData, "threeDAuthenticated", (info, value) -> info.setAdyenThreeDAuthenticated(Boolean.valueOf(value)));
-        updatePaymentInfo(paymentInfo, additionalData, "pos.receipt", PaymentInfoModel::setAdyenPosReceipt);
 
         modelService.save(paymentInfo);
     }

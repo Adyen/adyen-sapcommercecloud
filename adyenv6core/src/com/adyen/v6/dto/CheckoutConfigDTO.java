@@ -1,7 +1,6 @@
 package com.adyen.v6.dto;
 
 import com.adyen.model.checkout.Amount;
-import com.adyen.model.checkout.CreateCheckoutSessionResponse;
 import com.adyen.model.checkout.PaymentMethod;
 import com.adyen.model.checkout.StoredPaymentMethod;
 
@@ -13,7 +12,6 @@ public class CheckoutConfigDTO {
     @Deprecated
     private List<PaymentMethod> alternativePaymentMethods;
     private List<PaymentMethod> paymentMethods;
-    private List<String> connectedTerminalList;
     private List<StoredPaymentMethod> storedPaymentMethodList;
     @Deprecated
     private Map<String, String> issuerLists;
@@ -34,7 +32,6 @@ public class CheckoutConfigDTO {
     private boolean showSocialSecurityNumber;
     private boolean showBoleto;
     private boolean showComboCard;
-    private boolean showPos;
     private boolean immediateCapture;
     private String countryCode;
     private boolean cardHolderNameRequired;
@@ -60,14 +57,6 @@ public class CheckoutConfigDTO {
 
     public void setAlternativePaymentMethods(List<PaymentMethod> alternativePaymentMethods) {
         this.alternativePaymentMethods = alternativePaymentMethods;
-    }
-
-    public List<String> getConnectedTerminalList() {
-        return connectedTerminalList;
-    }
-
-    public void setConnectedTerminalList(List<String> connectedTerminalList) {
-        this.connectedTerminalList = connectedTerminalList;
     }
 
     public List<StoredPaymentMethod> getStoredPaymentMethodList() {
@@ -204,14 +193,6 @@ public class CheckoutConfigDTO {
 
     public void setShowComboCard(boolean showComboCard) {
         this.showComboCard = showComboCard;
-    }
-
-    public boolean isShowPos() {
-        return showPos;
-    }
-
-    public void setShowPos(boolean showPos) {
-        this.showPos = showPos;
     }
 
     public boolean isImmediateCapture() {
