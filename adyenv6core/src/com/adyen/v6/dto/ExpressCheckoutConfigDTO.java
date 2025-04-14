@@ -7,6 +7,8 @@ import java.math.BigDecimal;
 public class ExpressCheckoutConfigDTO {
     private String applePayMerchantId;
     private String applePayMerchantName;
+    private String googlePayMerchantId;
+    private String googlePayGatewayMerchantId;
     private String payPalIntent;
     private String shopperLocale;
     private String environmentMode;
@@ -32,6 +34,22 @@ public class ExpressCheckoutConfigDTO {
 
     public void setApplePayMerchantName(String applePayMerchantName) {
         this.applePayMerchantName = applePayMerchantName;
+    }
+
+    public String getGooglePayMerchantId() {
+        return googlePayMerchantId;
+    }
+
+    public void setGooglePayMerchantId(String googlePayMerchantId) {
+        this.googlePayMerchantId = googlePayMerchantId;
+    }
+
+    public String getGooglePayGatewayMerchantId() {
+        return googlePayGatewayMerchantId;
+    }
+
+    public void setGooglePayGatewayMerchantId(String googlePayGatewayMerchantId) {
+        this.googlePayGatewayMerchantId = googlePayGatewayMerchantId;
     }
 
     public String getPayPalIntent() {

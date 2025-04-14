@@ -21,6 +21,16 @@ public class ExpressCheckoutConfigDTOBuilder {
         return this;
     }
 
+    public ExpressCheckoutConfigDTOBuilder setGooglePayMerchantId(String googlePayMerchantId) {
+        expressCheckoutConfigDTO.setGooglePayMerchantId(googlePayMerchantId);
+        return this;
+    }
+
+    public ExpressCheckoutConfigDTOBuilder setGooglePayGatewayMerchantId(String googlePayGatewayMerchantId) {
+        expressCheckoutConfigDTO.setGooglePayGatewayMerchantId(googlePayGatewayMerchantId);
+        return this;
+    }
+
     public ExpressCheckoutConfigDTOBuilder setPayPalIntent(String payPalIntent) {
         expressCheckoutConfigDTO.setPayPalIntent(payPalIntent);
         return this;

@@ -254,6 +254,8 @@ var AdyenExpressCheckoutHybris = (function () {
             const {
                 amount,
                 amountDecimal,
+                googlePayMerchantId,
+                googlePayGatewayMerchantId
             } = params;
 
             const googlePayNodes = document.getElementsByClassName('adyen-google-pay-button');
@@ -262,6 +264,10 @@ var AdyenExpressCheckoutHybris = (function () {
             let cartData;
 
             const googlePayConfig = {
+                configuration: {
+                    merchantName: googlePayMerchantId,
+                    gatewayMerchantId: googlePayGatewayMerchantId
+                },
 
                 buttonSizeMode: "fill",
                 buttonType: "checkout",
