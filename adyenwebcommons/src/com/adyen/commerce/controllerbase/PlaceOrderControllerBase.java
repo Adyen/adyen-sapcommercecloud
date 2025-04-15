@@ -181,9 +181,6 @@ public abstract class PlaceOrderControllerBase {
             placeOrderResponse.setOrderData(orderData);
             placeOrderResponse.setPaymentsResponse(orderPaymentResult.getPaymentResponse());
             return placeOrderResponse;
-
-//        } catch (ApiException e) {
-//            LOGGER.error("API exception: ", e);
         } catch (AdyenNonAuthorizedPaymentException e) {
             LOGGER.info("Handling AdyenNonAuthorizedPaymentException. Checking PaymentResponse.");
             PaymentResponse paymentsResponse = e.getPaymentsResponse();
