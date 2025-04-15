@@ -9,7 +9,6 @@ import com.adyen.commerce.response.PlaceOrderResponse;
 import com.adyen.commerce.validators.PaymentRequestValidator;
 import com.adyen.model.checkout.PaymentDetailsRequest;
 import com.adyen.model.checkout.PaymentResponse;
-import com.adyen.service.exception.ApiException;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
 import com.adyen.v6.facades.AdyenCheckoutFacade;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -31,7 +30,7 @@ import org.springframework.validation.BeanPropertyBindingResult;
 import javax.servlet.http.HttpServletRequest;
 import java.lang.reflect.InvocationTargetException;
 
-import static com.adyen.commerce.constants.AdyenwebcommonsConstants.*;
+import static com.adyen.commerce.constants.AdyenwebcommonsConstants.CHECKOUT_ERROR_AUTHORIZATION_FAILED;
 import static com.adyen.commerce.util.ErrorMessageUtil.getErrorMessageByRefusalReason;
 import static com.adyen.commerce.util.FieldValidationUtil.getFieldCodesFromValidation;
 import static com.adyen.model.checkout.PaymentResponse.ResultCodeEnum.*;
@@ -182,9 +181,6 @@ public abstract class PlaceOrderControllerBase {
             placeOrderResponse.setOrderData(orderData);
             placeOrderResponse.setPaymentsResponse(orderPaymentResult.getPaymentResponse());
             return placeOrderResponse;
-
-        } catch (ApiException e) {
-            LOGGER.error("API exception: ", e);
         } catch (AdyenNonAuthorizedPaymentException e) {
             LOGGER.info("Handling AdyenNonAuthorizedPaymentException. Checking PaymentResponse.");
             PaymentResponse paymentsResponse = e.getPaymentsResponse();

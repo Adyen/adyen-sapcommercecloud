@@ -211,6 +211,8 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     public static final String MODEL_COUNTRY_CODE = "countryCode";
     public static final String MODEL_APPLEPAY_MERCHANT_IDENTIFIER = "applePayMerchantIdentifier";
     public static final String MODEL_APPLEPAY_MERCHANT_NAME = "applePayMerchantName";
+    public static final String MODEL_GOOGLEPAY_MERCHANT_ID = "googlePayMerchantId";
+    public static final String MODEL_GOOGLEPAY_GATEWAY_MERCHANT_ID = "googlePayGatewayMerchantId";
     public static final String MODEL_AMAZONPAY_CONFIGURATION = "amazonPayConfiguration";
     public static final String MODEL_DELIVERY_ADDRESS = "deliveryAddress";
     public static final String MODEL_GIFT_CARD_BRAND = "giftCardBrand";
@@ -1007,6 +1009,10 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         return getPaymentMethodConfigFromPaymentMethods(paymentMethods, PAYMENT_METHOD_PAYPAL);
     }
 
+    protected Map<String, String> getGooglePayConfigFromPaymentMethods(List<PaymentMethod> paymentMethods) {
+        return getPaymentMethodConfigFromPaymentMethods(paymentMethods, PAYMENT_METHOD_GOOGLE_PAY);
+    }
+
     protected Map<String, String> getPaymentMethodConfigFromPaymentMethods(List<PaymentMethod> paymentMethods, String paymentMethodName) {
         if (paymentMethods != null) {
             Optional<PaymentMethod> paymentMethod = paymentMethods.stream()
@@ -1122,6 +1128,14 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
                 LOGGER.warn("Empty PayPal config");
             }
 
+            Map<String, String> googlePayConfig = getGooglePayConfigFromPaymentMethods(paymentMethodsResponse.getPaymentMethods());
+            if (!CollectionUtils.isEmpty(googlePayConfig)) {
+                expressCheckoutConfigDTOBuilder.setGooglePayMerchantId(googlePayConfig.get("merchantId"))
+                        .setGooglePayGatewayMerchantId(googlePayConfig.get("gatewayMerchantId"));
+            } else {
+                LOGGER.warn("Empty GooglePay config");
+            }
+
         } catch (IOException e) {
             LOGGER.error("Payment methods request failed", e);
         }
@@ -1156,6 +1170,12 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         }
         if (expressCheckoutConfigDTO.getPayPalIntent() != null) {
             model.addAttribute(MODEL_PAYPAL_INTENT, expressCheckoutConfigDTO.getPayPalIntent());
+        }
+        if (StringUtils.isNotEmpty(expressCheckoutConfigDTO.getGooglePayMerchantId())) {
+            model.addAttribute(MODEL_GOOGLEPAY_MERCHANT_ID, expressCheckoutConfigDTO.getGooglePayMerchantId());
+        }
+        if (StringUtils.isNotEmpty(expressCheckoutConfigDTO.getGooglePayGatewayMerchantId())) {
+            model.addAttribute(MODEL_GOOGLEPAY_GATEWAY_MERCHANT_ID, expressCheckoutConfigDTO.getGooglePayGatewayMerchantId());
         }
 
         model.addAttribute(SHOPPER_LOCALE, expressCheckoutConfigDTO.getShopperLocale());

@@ -24,6 +24,8 @@
         productCode: '${product.code}',
         applePayMerchantName: '${applePayMerchantName}',
         applePayMerchantId: '${applePayMerchantIdentifier}',
+        googlePayMerchantId: '${googlePayMerchantId}',
+        googlePayGatewayMerchantId: '${googlePayGatewayMerchantId}',
         payPalIntent: '${paypalIntent}',
         payPalExpressEnabledOnProduct: ${expressPaymentConfig.paypalExpressEnabledOnProduct},
         payPalExpressEnabledOnCart: ${expressPaymentConfig.paypalExpressEnabledOnCart},
