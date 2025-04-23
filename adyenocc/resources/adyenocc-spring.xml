@@ -24,4 +24,9 @@
 		<property name="commerceCommonI18NService" ref="commerceCommonI18NService"/>
 		<property name="webServicesBaseUrlResolver" ref="webServicesBaseUrlResolver"/>
 	</bean>
+
+	<bean id="adyenAddressValidator"
+		  class="com.adyen.commerce.validators.AdyenAddressValidator">
+	</bean>
+
 </beans>
