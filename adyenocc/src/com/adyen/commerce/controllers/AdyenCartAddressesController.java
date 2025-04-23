@@ -1,16 +1,14 @@
 package com.adyen.commerce.controllers;
 
+import com.adyen.commerce.validators.AdyenAddressValidator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.hybris.platform.commercefacades.order.CartFacade;
 import de.hybris.platform.commercefacades.order.CheckoutFacade;
-import de.hybris.platform.commercefacades.order.data.CartData;
 import de.hybris.platform.commercefacades.user.UserFacade;
 import de.hybris.platform.commercefacades.user.data.AddressData;
-import de.hybris.platform.commercewebservicescommons.errors.exceptions.CartAddressException;
 import de.hybris.platform.webservicescommons.cache.CacheControl;
 import de.hybris.platform.webservicescommons.cache.CacheControlDirective;
-import de.hybris.platform.webservicescommons.errors.exceptions.WebserviceValidationException;
 import de.hybris.platform.webservicescommons.swagger.ApiBaseSiteIdUserIdAndCartIdParam;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -24,7 +22,6 @@ import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Controller;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.Errors;
-import com.adyen.commerce.validators.AdyenAddressValidator;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -34,7 +31,6 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import javax.annotation.Resource;
 
 import static com.adyen.commerce.constants.AdyenoccConstants.ADYEN_USER_CART_PREFIX;
-import static de.hybris.platform.webservicescommons.util.YSanitizer.sanitize;
 
 @Controller
 @RequestMapping(value = ADYEN_USER_CART_PREFIX)
@@ -58,8 +54,8 @@ public class AdyenCartAddressesController {
     private AdyenAddressValidator addressValidator;
 
 
-    @Secured({ "ROLE_CUSTOMERGROUP", "ROLE_CUSTOMERMANAGERGROUP", "ROLE_GUEST", "ROLE_TRUSTED_CLIENT" })
-    @PostMapping(value = "/addresses/delivery", produces = { MediaType.APPLICATION_JSON_VALUE})
+    @Secured({"ROLE_CUSTOMERGROUP", "ROLE_CUSTOMERMANAGERGROUP", "ROLE_GUEST", "ROLE_TRUSTED_CLIENT"})
+    @PostMapping(value = "/addresses/delivery", produces = {MediaType.APPLICATION_JSON_VALUE})
     @ResponseStatus(HttpStatus.CREATED)
     @ResponseBody
     @Operation(operationId = "createCartDeliveryAddress", summary = "Creates a delivery address for the cart.", description = "Creates an address and assigns it to the cart as the delivery address.")
@@ -69,12 +65,8 @@ public class AdyenCartAddressesController {
             required = true) @RequestBody final AddressData addressData) throws JsonProcessingException {
         final Errors errors = new BeanPropertyBindingResult(addressData, "addressData");
         addressValidator.validate(addressData, errors);
-        if (errors.hasErrors())
-        {
-            throw new WebserviceValidationException(errors);
-        }
         userFacade.addAddress(addressData);
-        if(checkoutFacade.setDeliveryAddress(addressData))
+        if (checkoutFacade.setDeliveryAddress(addressData))
             return ResponseEntity.ok(objectMapper.writeValueAsString(addressData));
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();

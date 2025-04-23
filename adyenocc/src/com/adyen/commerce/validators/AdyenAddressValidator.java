@@ -1,10 +1,10 @@
 package com.adyen.commerce.validators;
 
+import de.hybris.platform.commercefacades.user.data.AddressData;
 import de.hybris.platform.webservicescommons.errors.exceptions.WebserviceValidationException;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.validation.Validator;
 import org.springframework.validation.Errors;
-import de.hybris.platform.commercefacades.user.data.AddressData;
+import org.springframework.validation.Validator;
 
 
 public class AdyenAddressValidator implements Validator {
