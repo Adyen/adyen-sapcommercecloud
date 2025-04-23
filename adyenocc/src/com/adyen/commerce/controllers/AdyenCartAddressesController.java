@@ -1,6 +1,6 @@
 package com.adyen.commerce.controllers;
 
-import com.adyen.commerce.validators.AdyenAddressValidator;
+import com.adyen.commerce.validators.AdyenOccAddressValidator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.hybris.platform.commercefacades.order.CartFacade;
@@ -50,8 +50,8 @@ public class AdyenCartAddressesController {
     @Resource(name = "cartFacade")
     private CartFacade cartFacade;
 
-    @Resource(name = "adyenAddressValidator")
-    private AdyenAddressValidator addressValidator;
+    @Resource(name = "adyenOccAddressValidator")
+    private AdyenOccAddressValidator addressValidator;
 
 
     @Secured({"ROLE_CUSTOMERGROUP", "ROLE_CUSTOMERMANAGERGROUP", "ROLE_GUEST", "ROLE_TRUSTED_CLIENT"})
