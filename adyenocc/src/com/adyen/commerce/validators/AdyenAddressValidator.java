@@ -25,11 +25,14 @@ public class AdyenAddressValidator implements Validator {
                 address.getCountry().getIsocode() == null ||
                 address.getCountry().getIsocode().length() > MAX_COUNTRY_CODE_LENGTH) {
             errors.rejectValue(FIELD_COUNTRY, "address.country.invalid");
-            throw new WebserviceValidationException(errors);
+
         }
 
         // Validate required fields
         validateRequiredFields(address, errors);
+        if (errors.hasErrors()) {
+            throw new WebserviceValidationException(errors);
+        }
     }
 
     private void validateRequiredFields(AddressData address, Errors errors) {
@@ -49,8 +52,6 @@ public class AdyenAddressValidator implements Validator {
             errors.rejectValue("postalCode", "address.postalCode.required");
         }
 
-        if (errors.hasErrors()) {
-            throw new WebserviceValidationException(errors);
-        }
+
     }
 }

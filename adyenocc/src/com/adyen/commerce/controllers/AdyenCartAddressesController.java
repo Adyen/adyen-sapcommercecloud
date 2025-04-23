@@ -40,7 +40,7 @@ import static de.hybris.platform.webservicescommons.util.YSanitizer.sanitize;
 @RequestMapping(value = ADYEN_USER_CART_PREFIX)
 @CacheControl(directive = CacheControlDirective.NO_CACHE)
 @Tag(name = "Cart Addresses")
-public class AdyenCartAddressesController{
+public class AdyenCartAddressesController {
 
     protected static final ObjectMapper objectMapper = new ObjectMapper();
     private static final Logger LOG = LoggerFactory.getLogger(AdyenCartAddressesController.class);
@@ -66,8 +66,7 @@ public class AdyenCartAddressesController{
     @ApiBaseSiteIdUserIdAndCartIdParam
     public ResponseEntity<String> createCartDeliveryAddress(@Parameter(
             description = "Request body containing customer details (firstName, lastName, titleCode, phone) and address information (country.isocode, line1, line2, town, postalCode, region.isocode) in XML or JSON format.",
-            required = true) @RequestBody final String addressRequest) throws JsonProcessingException {
-        AddressData addressData = objectMapper.readValue(addressRequest, AddressData.class);
+            required = true) @RequestBody final AddressData addressData) throws JsonProcessingException {
         final Errors errors = new BeanPropertyBindingResult(addressData, "addressData");
         addressValidator.validate(addressData, errors);
         if (errors.hasErrors())
@@ -75,22 +74,10 @@ public class AdyenCartAddressesController{
             throw new WebserviceValidationException(errors);
         }
         userFacade.addAddress(addressData);
-        setCartDeliveryAddressInternal(addressData.getId());
-        return ResponseEntity.ok(objectMapper.writeValueAsString(addressData));
-    }
+        if(checkoutFacade.setDeliveryAddress(addressData))
+            return ResponseEntity.ok(objectMapper.writeValueAsString(addressData));
 
-    protected CartData setCartDeliveryAddressInternal(final String addressId)
-    {
-        final AddressData address = new AddressData();
-        address.setId(addressId);
-
-        if (checkoutFacade.setDeliveryAddress(address))
-        {
-            return cartFacade.getSessionCart();
-        }
-        throw new CartAddressException(
-                "Address given by id " + sanitize(addressId) + " cannot be set as delivery address in this cart",
-                CartAddressException.CANNOT_SET, addressId);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
     }
 
 }
