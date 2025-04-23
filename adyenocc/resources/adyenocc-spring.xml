@@ -25,8 +25,8 @@
 		<property name="webServicesBaseUrlResolver" ref="webServicesBaseUrlResolver"/>
 	</bean>
 
-	<bean id="adyenAddressValidator"
-		  class="com.adyen.commerce.validators.AdyenAddressValidator">
+	<bean id="adyenOccAddressValidator"
+		  class="com.adyen.commerce.validators.AdyenOccAddressValidator">
 	</bean>
 
 </beans>

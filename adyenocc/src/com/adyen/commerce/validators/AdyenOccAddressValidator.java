@@ -7,7 +7,7 @@ import org.springframework.validation.Errors;
 import org.springframework.validation.Validator;
 
 
-public class AdyenAddressValidator implements Validator {
+public class AdyenOccAddressValidator implements Validator {
     private static final int MAX_COUNTRY_CODE_LENGTH = 2;
     private static final String FIELD_COUNTRY = "country.isocode";
 
