@@ -22,8 +22,8 @@ package com.adyen.v6.service;
 
 import com.adyen.commerce.services.AdyenRequestService;
 import com.adyen.model.checkout.*;
-import com.adyen.model.recurring.RecurringDetail;
 import com.adyen.model.recurring.*;
+import com.adyen.model.recurring.RecurringDetail;
 import com.adyen.model.terminal.ConnectedTerminalsRequest;
 import com.adyen.model.terminal.ConnectedTerminalsResponse;
 import com.adyen.model.terminal.TerminalAPIRequest;
@@ -211,6 +211,10 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
         LOG.debug(request);
         RecurringDetailsResult result = recurring.listRecurringDetails(request);
         LOG.debug(result);
+
+        if (result.getDetails() == null || result.getDetails().isEmpty()) {
+            return new ArrayList<>();
+        }
 
         //Return only cards
         return result.getDetails()
