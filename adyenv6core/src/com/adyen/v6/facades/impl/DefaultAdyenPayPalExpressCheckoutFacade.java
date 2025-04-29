@@ -47,6 +47,16 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
 
         UserModel currentUser = userService.getCurrentUser();
         CartModel expressCart = commerceCartService.getCartForCodeAndUser(paymentRequest.getReference(), currentUser);
+
+        expressCart.setDeliveryMode(null);
+        getModelService().save(expressCart);
+
+        try {
+            calculationService.calculate(expressCart);
+        } catch (CalculationException e) {
+            LOG.error("Express checkout cart calculation failed");
+        }
+
         Amount amount = AmountUtil.createAmount(BigDecimal.valueOf(expressCart.getTotalPrice()), expressCart.getCurrency().getIsocode());
 
         paymentRequest.setAmount(amount);
@@ -65,7 +75,7 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
 
         CartModel expressCart = cartFactory.createCart();
 
-        expressCart.setDeliveryMode(getExpressDeliveryMode());
+        expressCart.setDeliveryMode(null);
 
         cartService.addNewEntry(expressCart, productModel, 1L, productModel.getUnit());
         getModelService().save(expressCart);
@@ -98,7 +108,14 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
         CartModel sessionCart = cartService.getSessionCart();
         Assert.notNull(sessionCart, "Session cart must not be null");
 
-        sessionCart.setDeliveryMode(getExpressDeliveryMode());
+        sessionCart.setDeliveryMode(null);
+        getModelService().save(sessionCart);
+
+        try {
+            calculationService.calculate(sessionCart);
+        } catch (CalculationException e) {
+            LOG.error("Checkout cart calculation failed");
+        }
 
         Amount amount = AmountUtil.createAmount(BigDecimal.valueOf(sessionCart.getTotalPrice()), sessionCart.getCurrency().getIsocode());
 
