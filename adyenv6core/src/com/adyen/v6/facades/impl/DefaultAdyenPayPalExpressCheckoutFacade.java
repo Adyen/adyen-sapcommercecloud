@@ -47,6 +47,10 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
 
         UserModel currentUser = userService.getCurrentUser();
         CartModel expressCart = commerceCartService.getCartForCodeAndUser(paymentRequest.getReference(), currentUser);
+
+        // PayPal requires sending amount without delivery cost on submit
+        removeDeliveryMethodAndRecalculateCart(expressCart);
+
         Amount amount = AmountUtil.createAmount(BigDecimal.valueOf(expressCart.getTotalPrice()), expressCart.getCurrency().getIsocode());
 
         paymentRequest.setAmount(amount);
@@ -65,7 +69,8 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
 
         CartModel expressCart = cartFactory.createCart();
 
-        expressCart.setDeliveryMode(getExpressDeliveryMode());
+        // PayPal requires sending amount without delivery cost on submit
+        expressCart.setDeliveryMode(null);
 
         cartService.addNewEntry(expressCart, productModel, 1L, productModel.getUnit());
         getModelService().save(expressCart);
@@ -98,7 +103,8 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
         CartModel sessionCart = cartService.getSessionCart();
         Assert.notNull(sessionCart, "Session cart must not be null");
 
-        sessionCart.setDeliveryMode(getExpressDeliveryMode());
+        // PayPal requires sending amount without delivery cost on submit
+        removeDeliveryMethodAndRecalculateCart(sessionCart);
 
         Amount amount = AmountUtil.createAmount(BigDecimal.valueOf(sessionCart.getTotalPrice()), sessionCart.getCurrency().getIsocode());
 
@@ -276,6 +282,17 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
             return adyenUtilityApiService.paypalUpdateOrder(paypalUpdateOrderRequest);
         }
         throw new IllegalArgumentException("No delivery method found for express checkout cart:  " + cart.getCode());
+    }
+
+    private void removeDeliveryMethodAndRecalculateCart(CartModel expressCart) {
+        expressCart.setDeliveryMode(null);
+        getModelService().save(expressCart);
+
+        try {
+            calculationService.calculate(expressCart);
+        } catch (CalculationException e) {
+            LOG.error("Express checkout cart calculation failed");
+        }
     }
 
     private static DeliveryMethod getDeliveryMethod(DeliveryModeData method, String selectedDeliveryMethodCode) {
