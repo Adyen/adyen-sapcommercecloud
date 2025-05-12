@@ -12,6 +12,8 @@ import de.hybris.platform.commercefacades.order.data.CartData;
 import de.hybris.platform.commercefacades.order.data.DeliveryModeData;
 import de.hybris.platform.commercefacades.user.data.AddressData;
 import de.hybris.platform.commerceservices.customer.DuplicateUidException;
+import de.hybris.platform.commerceservices.order.CommerceCartService;
+import de.hybris.platform.commerceservices.service.data.CommerceCartParameter;
 import de.hybris.platform.core.model.order.CartModel;
 import de.hybris.platform.core.model.order.delivery.DeliveryModeModel;
 import de.hybris.platform.core.model.order.payment.PaymentInfoModel;
@@ -74,12 +76,9 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
 
         cartService.addNewEntry(expressCart, productModel, 1L, productModel.getUnit());
         getModelService().save(expressCart);
-
-        try {
-            calculationService.calculate(expressCart);
-        } catch (CalculationException e) {
-            LOG.error("Express checkout cart calculation failed");
-        }
+        CommerceCartParameter commerceCartParameter = new CommerceCartParameter();
+        commerceCartParameter.setCart(expressCart);
+        commerceCartService.calculateCart(commerceCartParameter);
 
         Amount amount = AmountUtil.createAmount(BigDecimal.valueOf(expressCart.getTotalPrice()), expressCart.getCurrency().getIsocode());
 
@@ -287,12 +286,9 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
     private void removeDeliveryMethodAndRecalculateCart(CartModel expressCart) {
         expressCart.setDeliveryMode(null);
         getModelService().save(expressCart);
-
-        try {
-            calculationService.calculate(expressCart);
-        } catch (CalculationException e) {
-            LOG.error("Express checkout cart calculation failed");
-        }
+        CommerceCartParameter commerceCartParameter = new CommerceCartParameter();
+        commerceCartParameter.setCart(expressCart);
+        commerceCartService.calculateCart(commerceCartParameter);
     }
 
     private static DeliveryMethod getDeliveryMethod(DeliveryModeData method, String selectedDeliveryMethodCode) {
