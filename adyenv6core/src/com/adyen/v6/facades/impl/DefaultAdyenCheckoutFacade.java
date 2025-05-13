@@ -29,6 +29,7 @@ import com.adyen.model.recurring.Recurring;
 import com.adyen.model.terminal.TerminalAPIResponse;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.constants.Adyenv6coreConstants;
+import com.adyen.v6.constants.StorefrontType;
 import com.adyen.v6.controllers.dtos.PaymentResultDTO;
 import com.adyen.v6.converters.PosPaymentResponseConverter;
 import com.adyen.v6.dto.*;
@@ -414,6 +415,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         String adyenPaymentMethod = cartData.getAdyenPaymentMethod();
 
         RequestInfo requestInfo = new RequestInfo(request);
+        requestInfo.setStorefrontType(StorefrontType.ACCELERATOR);
         requestInfo.setShopperLocale(getShopperLocale());
 
         PaymentResponse paymentResponse = getAdyenPaymentService().processPaymentRequest(cartData, null, requestInfo, customer);
@@ -461,6 +463,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         updateCartWithSessionData(cartData);
 
         RequestInfo requestInfo = new RequestInfo(request);
+        requestInfo.setStorefrontType(StorefrontType.ACCELERATOR);
         requestInfo.setShopperLocale(getShopperLocale());
 
         PaymentResponse paymentResponse = getAdyenPaymentService().processPaymentRequest(cartData, paymentRequest, requestInfo, getCheckoutCustomerStrategy().getCurrentUserForCheckout());

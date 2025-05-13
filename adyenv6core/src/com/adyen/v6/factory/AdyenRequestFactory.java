@@ -31,6 +31,7 @@ import com.adyen.model.recurring.RecurringDetailsRequest;
 import com.adyen.model.terminal.SaleToAcquirerData;
 import com.adyen.model.terminal.TerminalAPIRequest;
 import com.adyen.v6.constants.Adyenv6coreConstants;
+import com.adyen.v6.constants.StorefrontType;
 import com.adyen.v6.enums.RecurringContractMode;
 import com.adyen.v6.model.RequestInfo;
 import com.adyen.v6.util.AdyenUtil;
@@ -98,7 +99,7 @@ public class AdyenRequestFactory {
 
         //Update payment request for generic information for all payment method types
         setCommonInfoOnPaymentRequest(merchantAccount, cartData, requestInfo, customerModel, paymentsRequest);
-        paymentsRequest.setApplicationInfo(createApplicationInfo());
+        paymentsRequest.setApplicationInfo(createApplicationInfo(requestInfo));
 
         setRiskData(paymentsRequest, cartData, originPaymentsRequest);
 
@@ -204,9 +205,11 @@ public class AdyenRequestFactory {
         return paymentsRequest;
     }
 
-    protected ApplicationInfo createApplicationInfo() {
+    protected ApplicationInfo createApplicationInfo(RequestInfo requestInfo) {
         final ApplicationInfo applicationInfo = new ApplicationInfo();
-        final CommonField version = new CommonField().name(PLUGIN_NAME).version(PLUGIN_VERSION);
+        final CommonField version = new CommonField()
+                .name(String.format("%s [%s]", PLUGIN_NAME, requestInfo.getStorefrontType().getValue()))
+                .version(StringUtils.isNotEmpty(requestInfo.getStorefrontVersion()) ?String.format("%s [%s]", PLUGIN_VERSION, requestInfo.getStorefrontVersion()): PLUGIN_VERSION);
 
         ExternalPlatform externalPlatform = new ExternalPlatform();
 

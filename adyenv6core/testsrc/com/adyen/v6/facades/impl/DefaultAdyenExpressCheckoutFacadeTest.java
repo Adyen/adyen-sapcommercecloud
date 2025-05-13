@@ -209,7 +209,7 @@ public class DefaultAdyenExpressCheckoutFacadeTest {
         assertEquals(cartWithEntry, cartsSetInSession.get(0));
         assertEquals(sessionCartModel, cartsSetInSession.get(1));
 
-        verify(adyenCheckoutApiFacade, times(1)).placeOrderWithPayment(any(), any(), any());
+        verify(adyenCheckoutApiFacade, times(1)).placeOrderWithPayment(any(), any(), any(), any());
     }
 
     @Test
@@ -281,7 +281,7 @@ public class DefaultAdyenExpressCheckoutFacadeTest {
         //then
         verify(commerceCartService, times(1)).recalculateCart((CommerceCartParameter) any());
 
-        verify(adyenCheckoutApiFacade, times(1)).placeOrderWithPayment(any(), any(), any());
+        verify(adyenCheckoutApiFacade, times(1)).placeOrderWithPayment(any(), any(), any(), any());
     }
 
 
