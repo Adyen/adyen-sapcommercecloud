@@ -68,7 +68,7 @@ public class AdyenCartAddressesController {
                     "and then assigns it to the cart as the delivery address. " +
                     "The address should include customer details (firstName, lastName, titleCode, phone) " +
                     "and address information (country.isocode, line1, line2, town, postalCode, region.isocode).",
-            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody( // Defines the request body for Swagger
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     description = "Address object that needs to be created and set as the delivery address.",
                     required = true,
                     content = @Content(
@@ -78,11 +78,11 @@ public class AdyenCartAddressesController {
             ),
             responses = {
                     @ApiResponse(
-                            responseCode = "201", // Explicitly matching @ResponseStatus
+                            responseCode = "201",
                             description = "Delivery address created and set successfully. The created address data is returned.",
                             content = @Content(
                                     mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                    schema = @Schema(implementation = AddressData.class) // Response body is serialized AddressData
+                                    schema = @Schema(implementation = AddressData.class)
                             )
                     ),
                     @ApiResponse(
@@ -92,11 +92,11 @@ public class AdyenCartAddressesController {
                                     "<li>The provided address data is invalid (e.g., missing required fields, fails validation).</li>" +
                                     "<li>The system fails to set the delivery address to the cart (e.g., cart not found, or internal error during address assignment).</li>" +
                                     "</ul>",
-                            content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE) // Assuming error responses might also be JSON (e.g., an empty JSON object or an error structure)
+                            content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE)
                     ),
                     @ApiResponse(responseCode = "401", description = "Unauthorized. Authentication required."),
                     @ApiResponse(responseCode = "403", description = "Forbidden. Insufficient permissions.")
-                    // Add other relevant error codes like 500 if applicable
+
             }
     )
     @ApiBaseSiteIdUserIdAndCartIdParam

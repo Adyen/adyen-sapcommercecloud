@@ -60,7 +60,7 @@ public class ApplePayExpressCheckoutController extends ExpressCheckoutController
                     required = true,
                     content = @Content(
                             mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = ApplePayExpressRequest.class) // Actual request object
+                            schema = @Schema(implementation = ApplePayExpressRequest.class)
                     )
             ),
             responses = {
@@ -101,7 +101,7 @@ public class ApplePayExpressCheckoutController extends ExpressCheckoutController
                     required = true,
                     content = @Content(
                             mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = ApplePayExpressRequest.class) // Actual request object
+                            schema = @Schema(implementation = ApplePayExpressRequest.class)
                     )
             ),
             responses = {

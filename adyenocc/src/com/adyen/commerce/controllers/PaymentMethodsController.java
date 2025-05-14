@@ -59,7 +59,7 @@ public class PaymentMethodsController
                             description = "Adyen checkout configuration details",
                             content = @Content(
                                     mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                    schema = @Schema(implementation = CheckoutConfigDTO.class) // Specify the actual schema here
+                                    schema = @Schema(implementation = CheckoutConfigDTO.class)
                             )
                     ),
                     @ApiResponse(responseCode = "400", description = "Bad Request"),
@@ -84,7 +84,7 @@ public class PaymentMethodsController
                             description = "Adyen express checkout configuration for PDP",
                             content = @Content(
                                     mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                    schema = @Schema(implementation = ExpressCheckoutConfigDTO.class) // Specify the actual schema here
+                                    schema = @Schema(implementation = ExpressCheckoutConfigDTO.class)
                             )
                     ),
                     @ApiResponse(responseCode = "400", description = "Bad Request"),
@@ -109,7 +109,7 @@ public class PaymentMethodsController
                             description = "Adyen express checkout configuration for cart",
                             content = @Content(
                                     mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                    schema = @Schema(implementation = ExpressCheckoutConfigDTO.class) // Specify the actual schema here
+                                    schema = @Schema(implementation = ExpressCheckoutConfigDTO.class)
                             )
                     ),
                     @ApiResponse(responseCode = "400", description = "Bad Request"),

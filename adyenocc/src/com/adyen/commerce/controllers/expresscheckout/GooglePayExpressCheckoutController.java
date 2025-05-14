@@ -55,12 +55,12 @@ public class GooglePayExpressCheckoutController extends ExpressCheckoutControlle
             summary = "Handle Google Pay Express place order request from PDP",
             description = "Places an order using Google Pay Express Checkout initiated from the Product Detail Page (PDP). " +
                     "The request should contain Google Pay token details and optionally address data.",
-            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody( // Defines the request body for Swagger
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     description = "Google Pay Express PDP request details, including Google Pay token and address information.",
                     required = true,
                     content = @Content(
                             mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = GooglePayExpressRequest.class) // Actual request object
+                            schema = @Schema(implementation = GooglePayExpressRequest.class)
                     )
             ),
             responses = {
@@ -69,7 +69,7 @@ public class GooglePayExpressCheckoutController extends ExpressCheckoutControlle
                             description = "Order placed successfully using Google Pay Express from PDP. Returns order confirmation details.",
                             content = @Content(
                                     mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                    schema = @Schema(implementation = OCCPlaceOrderResponse.class) // Actual response object
+                                    schema = @Schema(implementation = OCCPlaceOrderResponse.class)
                             )
                     ),
                     @ApiResponse(responseCode = "400", description = "Bad Request - Invalid Google Pay data, cart issue, or address validation failure."),
@@ -96,12 +96,12 @@ public class GooglePayExpressCheckoutController extends ExpressCheckoutControlle
             summary = "Handle Google Pay Express place order request from Cart",
             description = "Places an order using Google Pay Express Checkout initiated from the Cart page. " +
                     "The request should contain Google Pay token details and optionally address data.",
-            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody( // Defines the request body for Swagger
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     description = "Google Pay Express Cart request details, including Google Pay token and address information.",
                     required = true,
                     content = @Content(
                             mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = GooglePayExpressRequest.class) // Actual request object
+                            schema = @Schema(implementation = GooglePayExpressRequest.class)
                     )
             ),
             responses = {

@@ -68,12 +68,12 @@ public class PlaceOrderController extends PlaceOrderControllerBase {
             operationId = "placeOrder",
             summary = "Handle place order request",
             description = "Places order based on request data",
-            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody( // Define the request body explicitly
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     description = "Place order request details",
                     required = true,
                     content = @Content(
                             mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = PlaceOrderRequest.class) // Specify the actual schema here
+                            schema = @Schema(implementation = PlaceOrderRequest.class)
                     )
             ),
             responses = {
@@ -82,10 +82,10 @@ public class PlaceOrderController extends PlaceOrderControllerBase {
                             description = "Order placement response",
                             content = @Content(
                                     mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                    schema = @Schema(implementation = OCCPlaceOrderResponse.class) // Specify the actual schema here
+                                    schema = @Schema(implementation = OCCPlaceOrderResponse.class)
                             )
                     ),
-                    // You might want to add other response codes like 400, 500 etc.
+
                     @ApiResponse(responseCode = "400", description = "Bad Request"),
                     @ApiResponse(responseCode = "500", description = "Internal Server Error")
             }
