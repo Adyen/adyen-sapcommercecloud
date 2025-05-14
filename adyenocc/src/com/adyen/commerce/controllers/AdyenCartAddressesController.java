@@ -11,8 +11,11 @@ import de.hybris.platform.webservicescommons.cache.CacheControl;
 import de.hybris.platform.webservicescommons.cache.CacheControlDirective;
 import de.hybris.platform.webservicescommons.swagger.ApiBaseSiteIdUserIdAndCartIdParam;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Parameter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -58,7 +61,44 @@ public class AdyenCartAddressesController {
     @PostMapping(value = "/addresses/delivery", produces = {MediaType.APPLICATION_JSON_VALUE})
     @ResponseStatus(HttpStatus.CREATED)
     @ResponseBody
-    @Operation(operationId = "createCartDeliveryAddress", summary = "Creates a delivery address for the cart.", description = "Creates an address and assigns it to the cart as the delivery address.")
+    @Operation(
+            operationId = "createCartDeliveryAddress",
+            summary = "Creates a delivery address for the cart.",
+            description = "Creates a new address, validates it " +
+                    "and then assigns it to the cart as the delivery address. " +
+                    "The address should include customer details (firstName, lastName, titleCode, phone) " +
+                    "and address information (country.isocode, line1, line2, town, postalCode, region.isocode).",
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody( // Defines the request body for Swagger
+                    description = "Address object that needs to be created and set as the delivery address.",
+                    required = true,
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = AddressData.class)
+                    )
+            ),
+            responses = {
+                    @ApiResponse(
+                            responseCode = "201", // Explicitly matching @ResponseStatus
+                            description = "Delivery address created and set successfully. The created address data is returned.",
+                            content = @Content(
+                                    mediaType = MediaType.APPLICATION_JSON_VALUE,
+                                    schema = @Schema(implementation = AddressData.class) // Response body is serialized AddressData
+                            )
+                    ),
+                    @ApiResponse(
+                            responseCode = "400",
+                            description = "Bad Request. This can occur if: <br>" +
+                                    "<ul>" +
+                                    "<li>The provided address data is invalid (e.g., missing required fields, fails validation).</li>" +
+                                    "<li>The system fails to set the delivery address to the cart (e.g., cart not found, or internal error during address assignment).</li>" +
+                                    "</ul>",
+                            content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE) // Assuming error responses might also be JSON (e.g., an empty JSON object or an error structure)
+                    ),
+                    @ApiResponse(responseCode = "401", description = "Unauthorized. Authentication required."),
+                    @ApiResponse(responseCode = "403", description = "Forbidden. Insufficient permissions.")
+                    // Add other relevant error codes like 500 if applicable
+            }
+    )
     @ApiBaseSiteIdUserIdAndCartIdParam
     public ResponseEntity<String> createCartDeliveryAddress(@Parameter(
             description = "Request body containing customer details (firstName, lastName, titleCode, phone) and address information (country.isocode, line1, line2, town, postalCode, region.isocode) in XML or JSON format.",
