@@ -6,5 +6,5 @@ group.id=com.adyen.v6
 module.name=platform-module
 name=adyenv6core
 vendor=adyen
-version=10.2.1
-version.api=10.2.1
+version=13.3.0
+version.api=13.3.0
