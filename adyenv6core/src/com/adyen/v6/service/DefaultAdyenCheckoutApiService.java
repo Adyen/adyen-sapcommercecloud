@@ -22,8 +22,8 @@ package com.adyen.v6.service;
 
 import com.adyen.commerce.services.AdyenRequestService;
 import com.adyen.model.checkout.*;
-import com.adyen.model.recurring.RecurringDetail;
 import com.adyen.model.recurring.*;
+import com.adyen.model.recurring.RecurringDetail;
 import com.adyen.model.terminal.ConnectedTerminalsRequest;
 import com.adyen.model.terminal.ConnectedTerminalsResponse;
 import com.adyen.model.terminal.TerminalAPIRequest;
@@ -143,7 +143,7 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
                                                             final String countryCode,
                                                             final String shopperLocale,
                                                             final String shopperReference) throws IOException, ApiException {
-        return getPaymentMethodsResponse(amount, currency, countryCode, shopperLocale, shopperReference, null);
+        return getPaymentMethodsResponse(amount, currency, countryCode, shopperLocale, shopperReference, null, null);
     }
 
     @Override
@@ -152,7 +152,8 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
                                                             final String countryCode,
                                                             final String shopperLocale,
                                                             final String shopperReference,
-                                                            final List<String> excludedPaymentMethods) throws IOException, ApiException {
+                                                            final List<String> excludedPaymentMethods,
+                                                            final List<String> allowedPaymentMethods) throws IOException, ApiException {
         LOG.debug("Get payment methods response");
 
         PaymentsApi checkout = new PaymentsApi(client);
@@ -171,6 +172,10 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
 
         if (CollectionUtils.isNotEmpty(excludedPaymentMethods)) {
             request.setBlockedPaymentMethods(excludedPaymentMethods);
+        }
+
+        if (CollectionUtils.isNotEmpty(allowedPaymentMethods)) {
+            request.setAllowedPaymentMethods(allowedPaymentMethods);
         }
 
         LOG.debug(request);

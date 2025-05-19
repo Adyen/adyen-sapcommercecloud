@@ -135,6 +135,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     private static final String US = "US";
     private static final String RECURRING_RECURRING_DETAIL_REFERENCE = "recurring.recurringDetailReference";
     private static final String EXCLUDED_PAYMENT_METHODS_CONFIG = "adyen.payment-methods.excluded";
+    private static final String ALLOWED_PAYMENT_METHODS_CONFIG = "adyen.payment-methods.allowed";
     public static final String EXPRESS_PAYMENT_CONFIG = "expressPaymentConfig";
 
     private BaseStoreService baseStoreService;
@@ -695,14 +696,16 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
 
         //to remove unwanted payment methods insert them here
         List<String> excludedPaymentMethods = getExcludedPaymentMethodsFromConfiguration();
-        LOGGER.info(excludedPaymentMethods.toString());
+
+        //to display only methods from list
+        List<String> allowedPaymentMethods = getAllowedPaymentMethodsFromConfiguration();
 
         try {
             if (showPos()) {
                 connectedTerminalList = adyenPaymentService.getConnectedTerminals().getUniqueTerminalIds();
             }
 
-            response = getPaymentMethods(adyenPaymentService, cartData, customerModel, excludedPaymentMethods);
+            response = getPaymentMethods(adyenPaymentService, cartData, customerModel, excludedPaymentMethods, allowedPaymentMethods);
         } catch (ApiException | IOException e) {
             LOGGER.error(ExceptionUtils.getStackTrace(e));
         }
@@ -810,6 +813,16 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
 
         String[] excludedPaymentMethods = StringUtils.split(excludedPaymentMethodsConfig, ',');
         return Arrays.stream(excludedPaymentMethods).map(String::trim).toList();
+    }
+
+    protected List<String> getAllowedPaymentMethodsFromConfiguration() {
+        String allowedPaymentMethodsConfig = configurationService.getConfiguration().getString(ALLOWED_PAYMENT_METHODS_CONFIG);
+        if (StringUtils.isEmpty(allowedPaymentMethodsConfig)) {
+            return new ArrayList<>();
+        }
+
+        String[] allowedPaymentMethods = StringUtils.split(allowedPaymentMethodsConfig, ',');
+        return Arrays.stream(allowedPaymentMethods).map(String::trim).toList();
     }
 
     @Deprecated
@@ -987,7 +1000,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
                 customerModel.getCustomerID());
     }
 
-    protected PaymentMethodsResponse getPaymentMethods(AdyenCheckoutApiService adyenPaymentService, CartData cartData, CustomerModel customerModel, List<String> excludedPaymentMethods) throws IOException, ApiException {
+    protected PaymentMethodsResponse getPaymentMethods(AdyenCheckoutApiService adyenPaymentService, CartData cartData, CustomerModel customerModel, List<String> excludedPaymentMethods, List<String> allowedPaymentMethods) throws IOException, ApiException {
         if (adyenPaymentService == null || cartData == null || customerModel == null) {
             throw new IllegalArgumentException("Required parameters cannot be null");
         }
@@ -997,7 +1010,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         String countryIso = cartData.getDeliveryAddress() != null && cartData.getDeliveryAddress().getCountry() != null ? cartData.getDeliveryAddress().getCountry().getIsocode() : StringUtils.EMPTY;
         String customerID = customerModel.getCustomerID() != null ? customerModel.getCustomerID() : StringUtils.EMPTY;
 
-        return adyenPaymentService.getPaymentMethodsResponse(totalPrice, currencyIso, countryIso, getShopperLocale(), customerID, excludedPaymentMethods);
+        return adyenPaymentService.getPaymentMethodsResponse(totalPrice, currencyIso, countryIso, getShopperLocale(), customerID, excludedPaymentMethods, allowedPaymentMethods);
     }
 
 
