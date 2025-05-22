@@ -23,14 +23,10 @@ package com.adyen.v6.facades.impl;
 
 import com.adyen.commerce.data.PaymentMethodsCartData;
 import com.adyen.model.checkout.*;
-import com.adyen.model.nexo.ErrorConditionType;
-import com.adyen.model.nexo.ResultType;
 import com.adyen.model.recurring.Recurring;
-import com.adyen.model.terminal.TerminalAPIResponse;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.constants.Adyenv6coreConstants;
 import com.adyen.v6.controllers.dtos.PaymentResultDTO;
-import com.adyen.v6.converters.PosPaymentResponseConverter;
 import com.adyen.v6.dto.*;
 import com.adyen.v6.enums.AdyenCardTypeEnum;
 import com.adyen.v6.enums.AdyenRegions;
@@ -52,7 +48,6 @@ import com.adyen.v6.service.AdyenOrderService;
 import com.adyen.v6.service.AdyenTransactionService;
 import com.adyen.v6.strategy.AdyenMerchantAccountStrategy;
 import com.adyen.v6.util.AmountUtil;
-import com.adyen.v6.util.TerminalAPIUtil;
 import com.google.gson.Gson;
 import de.hybris.platform.commercefacades.i18n.I18NFacade;
 import de.hybris.platform.commercefacades.order.CheckoutFacade;
@@ -110,7 +105,6 @@ import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.adyen.constants.ApiConstants.ThreeDS2Property.THREEDS2_CHALLENGE_TOKEN;
@@ -152,7 +146,6 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     private KeyGenerator keyGenerator;
     private FlexibleSearchService flexibleSearchService;
     private Converter<AddressData, AddressModel> addressReverseConverter;
-    private PosPaymentResponseConverter posPaymentResponseConverter;
     private Converter<CountryModel, CountryData> countryConverter;
     private Converter<OrderModel, OrderData> orderConverter;
     private CartFactory cartFactory;
@@ -195,13 +188,11 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     public static final String MODEL_OPEN_INVOICE_METHODS = "openInvoiceMethods";
     public static final String MODEL_SHOW_SOCIAL_SECURITY_NUMBER = "showSocialSecurityNumber";
     public static final String MODEL_SHOW_BOLETO = "showBoleto";
-    public static final String MODEL_SHOW_POS = "showPos";
     public static final String MODEL_SHOW_COMBO_CARD = "showComboCard";
     public static final String CHECKOUT_SHOPPER_HOST_TEST = "checkoutshopper-test.adyen.com";
     public static final String CHECKOUT_SHOPPER_HOST_LIVE = "checkoutshopper-live.adyen.com";
     public static final String CHECKOUT_SHOPPER_HOST_LIVE_IN = "checkoutshopper-live-in.adyen.com";
     public static final String MODEL_ISSUER_LISTS = "issuerLists";
-    public static final String MODEL_CONNECTED_TERMINAL_LIST = "connectedTerminalList";
     public static final String MODEL_ENVIRONMENT_MODE = "environmentMode";
     public static final String MODEL_AMOUNT = "amount";
     public static final String MODEL_AMOUNT_DECIMAL = "amountDecimal";
@@ -662,10 +653,6 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         //Enable combo card flag
         model.addAttribute(MODEL_SHOW_COMBO_CARD, checkoutConfigDTO.isShowComboCard());
 
-        //Include POS Enable configuration
-        model.addAttribute(MODEL_SHOW_POS, checkoutConfigDTO.isShowPos());
-        //Include connnected terminal List for POS
-        model.addAttribute(MODEL_CONNECTED_TERMINAL_LIST, checkoutConfigDTO.getConnectedTerminalList());
         //Include Issuer Lists
         model.addAttribute(MODEL_ISSUER_LISTS, checkoutConfigDTO.getIssuerLists());
 
@@ -684,7 +671,6 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         final CartData cartData = getCheckoutFacade().getCheckoutCart();
         AdyenCheckoutApiService adyenPaymentService = getAdyenPaymentService();
         List<PaymentMethod> paymentMethods;
-        List<String> connectedTerminalList = null;
         List<StoredPaymentMethod> storedPaymentMethodList = null;
         BaseStoreModel baseStore;
         CustomerModel customerModel = getCheckoutCustomerStrategy().getCurrentUserForCheckout();
@@ -698,10 +684,6 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         LOGGER.info(excludedPaymentMethods.toString());
 
         try {
-            if (showPos()) {
-                connectedTerminalList = adyenPaymentService.getConnectedTerminals().getUniqueTerminalIds();
-            }
-
             response = getPaymentMethods(adyenPaymentService, cartData, customerModel, excludedPaymentMethods);
         } catch (ApiException | IOException e) {
             LOGGER.error(ExceptionUtils.getStackTrace(e));
@@ -755,7 +737,6 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
 
         checkoutConfigDTOBuilder
                 .setPaymentMethods(paymentMethods)
-                .setConnectedTerminalList(connectedTerminalList)
                 .setStoredPaymentMethodList(storedPaymentMethodList)
                 .setAmount(amount)
                 .setAdyenClientKey(baseStore.getAdyenClientKey())
@@ -770,7 +751,6 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
                 .setShowSocialSecurityNumber(showSocialSecurityNumber())
                 .setShowBoleto(showBoleto())
                 .setShowComboCard(showComboCard())
-                .setShowPos(showPos())
                 .setImmediateCapture(isImmediateCapture())
                 .setCountryCode(cartData != null && cartData.getDeliveryAddress() != null && cartData.getDeliveryAddress().getCountry() != null ? cartData.getDeliveryAddress().getCountry().getIsocode() : "")
                 .setCardHolderNameRequired(getHolderNameRequired())
@@ -817,7 +797,6 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         final CartData cartData = getCheckoutFacade().getCheckoutCart();
         AdyenCheckoutApiService adyenCheckoutApiService = getAdyenPaymentService();
         List<PaymentMethod> alternativePaymentMethods;
-        List<String> connectedTerminalList = null;
         List<StoredPaymentMethod> storedPaymentMethodList = null;
         Map<String, String> issuerLists = new HashMap<>();
         BaseStoreModel baseStore;
@@ -828,10 +807,6 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         Assert.notNull(cartModel.getDeliveryAddress(), "Delivery address is required");
 
         try {
-            if (showPos()) {
-                connectedTerminalList = adyenCheckoutApiService.getConnectedTerminals().getUniqueTerminalIds();
-            }
-
             response = getPaymentMethods(adyenCheckoutApiService, cartData, customerModel);
         } catch (ApiException | IOException e) {
             LOGGER.error(ExceptionUtils.getStackTrace(e));
@@ -899,7 +874,6 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         CheckoutConfigDTOBuilder checkoutConfigDTOBuilder = new CheckoutConfigDTOBuilder();
 
         checkoutConfigDTOBuilder.setAlternativePaymentMethods(alternativePaymentMethods)
-                .setConnectedTerminalList(connectedTerminalList)
                 .setStoredPaymentMethodList(storedPaymentMethodList)
                 .setIssuerLists(issuerLists)
                 .setCreditCardLabel(creditCardLabel)
@@ -917,7 +891,6 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
                 .setShowSocialSecurityNumber(showSocialSecurityNumber())
                 .setShowBoleto(showBoleto())
                 .setShowComboCard(showComboCard())
-                .setShowPos(showPos())
                 .setImmediateCapture(isImmediateCapture())
                 .setCountryCode(cartData.getDeliveryAddress().getCountry().getIsocode())
                 .setCardHolderNameRequired(getHolderNameRequired())
@@ -1289,16 +1262,6 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     }
 
     @Override
-    public boolean showPos() {
-        BaseStoreModel baseStore = baseStoreService.getCurrentBaseStore();
-        //Check base store settings for POS Enabled or not.
-        if (baseStore.getAdyenPosEnabled() == null || !baseStore.getAdyenPosEnabled()) {
-            return false;
-        }
-        return true;
-    }
-
-    @Override
     public boolean showRememberDetails() {
         BaseStoreModel baseStore = baseStoreService.getCurrentBaseStore();
 
@@ -1540,88 +1503,6 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
 
     public AdyenCheckoutApiService getAdyenPaymentService() {
         return adyenPaymentServiceFactory.createAdyenCheckoutApiService(baseStoreService.getCurrentBaseStore());
-    }
-
-    /**
-     * Initiate POS Payment using Adyen Terminal API
-     */
-    @Override
-    public OrderData initiatePosPayment(HttpServletRequest request, CartData cartData) throws Exception {
-        CustomerModel customer = null;
-        if (!getCheckoutCustomerStrategy().isAnonymousCheckout()) {
-            customer = getCheckoutCustomerStrategy().getCurrentUserForCheckout();
-        }
-        //This will be used to check status later
-
-        String serviceId = request.getAttribute("originalServiceId").toString();
-        TerminalAPIResponse terminalApiResponse = getAdyenPaymentService().sendSyncPosPaymentRequest(cartData, customer, serviceId);
-        ResultType resultType = TerminalAPIUtil.getPaymentResultFromStatusOrPaymentResponse(terminalApiResponse);
-
-        if (ResultType.SUCCESS == resultType) {
-            PaymentResponse paymentsResponse = getPosPaymentResponseConverter().convert(terminalApiResponse.getSaleToPOIResponse());
-            String posReceipt = TerminalAPIUtil.getReceiptFromPaymentResponse(terminalApiResponse);
-            if (StringUtils.isNotEmpty(posReceipt)) {
-                paymentsResponse.putAdditionalDataItem("pos.receipt", posReceipt);
-            }
-            return createAuthorizedOrder(paymentsResponse);
-        }
-        throw new AdyenNonAuthorizedPaymentException(terminalApiResponse);
-    }
-
-    /**
-     * Check POS Payment Status using Adyen Terminal API
-     */
-    @Override
-    public OrderData checkPosPaymentStatus(HttpServletRequest request, CartData cartData) throws Exception {
-
-        String originalServiceId = request.getAttribute("originalServiceId").toString();
-        TerminalAPIResponse terminalApiResponse = getAdyenPaymentService().sendSyncPosStatusRequest(cartData, originalServiceId);
-        ResultType statusResult = TerminalAPIUtil.getStatusResultFromStatusResponse(terminalApiResponse);
-
-        if (statusResult != null) {
-            if (statusResult == ResultType.SUCCESS) {
-                //this will be success even if payment is failed. because this belongs to status call not payment call
-                ResultType paymentResult = TerminalAPIUtil.getPaymentResultFromStatusOrPaymentResponse(terminalApiResponse);
-                if (paymentResult == ResultType.SUCCESS) {
-                    PaymentResponse paymentsResponse = getPosPaymentResponseConverter().convert(terminalApiResponse.getSaleToPOIResponse());
-                    String posReceipt = TerminalAPIUtil.getReceiptFromStatusResponse(terminalApiResponse);
-                    if (StringUtils.isNotEmpty(posReceipt)) {
-                        paymentsResponse.putAdditionalDataItem("pos.receipt", posReceipt);
-                    }
-                    return createAuthorizedOrder(paymentsResponse);
-                } else {
-                    throw new AdyenNonAuthorizedPaymentException(terminalApiResponse);
-                }
-            } else {
-                ErrorConditionType errorCondition = TerminalAPIUtil.getErrorConditionForStatusFromStatusResponse(terminalApiResponse);
-                //If transaction is still in progress, keep retrying in 5 seconds.
-                if (errorCondition == ErrorConditionType.IN_PROGRESS) {
-                    TimeUnit.SECONDS.sleep(5);
-                    if (isPosTimedOut(request)) {
-                        throw new AdyenNonAuthorizedPaymentException(terminalApiResponse);
-                    } else {
-                        return checkPosPaymentStatus(request, cartData);
-                    }
-                } else {
-                    throw new AdyenNonAuthorizedPaymentException(terminalApiResponse);
-                }
-            }
-        }
-
-        //probably returned SaleToPOIRequest, that means terminal unreachable, return the response as error
-        throw new AdyenNonAuthorizedPaymentException(terminalApiResponse);
-    }
-
-    protected boolean isPosTimedOut(HttpServletRequest request) {
-        long currentTime = System.currentTimeMillis();
-        long processStartTime = (long) request.getAttribute("paymentStartTime");
-        int totalTimeout = ((int) request.getAttribute("totalTimeout")) * 1000;
-        long timeDiff = currentTime - processStartTime;
-        if (timeDiff >= totalTimeout) {
-            return true;
-        } else {
-            return false;
-        }
     }
 
     @Override
@@ -1930,14 +1811,6 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
 
     public void setI18NFacade(I18NFacade i18NFacade) {
         this.i18NFacade = i18NFacade;
-    }
-
-    public PosPaymentResponseConverter getPosPaymentResponseConverter() {
-        return posPaymentResponseConverter;
-    }
-
-    public void setPosPaymentResponseConverter(PosPaymentResponseConverter posPaymentResponseConverter) {
-        this.posPaymentResponseConverter = posPaymentResponseConverter;
     }
 
     protected Converter<CountryModel, CountryData> getCountryConverter() {

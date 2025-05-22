@@ -47,33 +47,6 @@ public class CountryAdyenMerchantAccountStrategy implements AdyenMerchantAccount
         return baseStore.getAdyenMerchantAccount();
     }
 
-    @Override
-    public String getPosMerchantAccount() {
-        BaseStoreModel currentBaseStore = baseStoreService.getCurrentBaseStore();
-
-        return getPosMerchantAccount(currentBaseStore);
-    }
-
-    @Override
-    public String getPosMerchantAccount(BaseStoreModel baseStore) {
-        CartModel sessionCart = cartService.getSessionCart();
-        AddressModel deliveryAddress = sessionCart.getDeliveryAddress();
-
-        if (deliveryAddress != null) {
-            Optional<AdyenMerchantConfigModel> merchantConfigModel = baseStore.getAdyenMerchantConfig().stream().filter(amc ->
-                            AdyenMerchantAccountType.POS.equals(amc.getAdyenMerchantType()))
-                    .filter(amc -> StringUtils.equalsIgnoreCase(amc.getCountry().getIsocode(), deliveryAddress.getCountry().getIsocode()))
-                    .findFirst();
-
-            if (merchantConfigModel.isPresent()) {
-                return merchantConfigModel.get().getAdyenMerchantAccount();
-            }
-        }
-
-        LOG.warn("No POS merchant config, returning one from adyenMerchantAccount");
-        return baseStore.getAdyenPosMerchantAccount();
-    }
-
     public void setBaseStoreService(BaseStoreService baseStoreService) {
         this.baseStoreService = baseStoreService;
     }

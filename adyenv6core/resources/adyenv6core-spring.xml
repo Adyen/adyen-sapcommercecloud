@@ -143,7 +143,6 @@
     </bean>
 
 
-    <bean id="adyenPosPaymentResponseConverter" class="com.adyen.v6.converters.PosPaymentResponseConverter" />
 
     <alias name="defaultAdyenNotificationService" alias="adyenNotificationService"/>
     <bean id="defaultAdyenNotificationService" class="com.adyen.v6.service.DefaultAdyenNotificationService">
@@ -222,7 +221,6 @@
         <property name="keyGenerator" ref="orderCodeGenerator"/>
         <property name="flexibleSearchService" ref="flexibleSearchService"/>
         <property name="addressReverseConverter" ref="addressReverseConverter"/>
-        <property name="posPaymentResponseConverter" ref="adyenPosPaymentResponseConverter"/>
         <property name="orderConverter" ref="orderConverter" />
         <property name="cartFactory" ref="cartFactory" />
         <property name="calculationService" ref="calculationService" />
@@ -261,7 +259,6 @@
         <property name="keyGenerator" ref="orderCodeGenerator"/>
         <property name="flexibleSearchService" ref="flexibleSearchService"/>
         <property name="addressReverseConverter" ref="addressReverseConverter"/>
-        <property name="posPaymentResponseConverter" ref="adyenPosPaymentResponseConverter"/>
         <property name="orderConverter" ref="orderConverter" />
         <property name="cartFactory" ref="cartFactory" />
         <property name="calculationService" ref="calculationService" />
