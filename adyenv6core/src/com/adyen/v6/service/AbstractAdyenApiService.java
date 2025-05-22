@@ -18,12 +18,6 @@ public abstract class AbstractAdyenApiService {
     protected AdyenRequestService adyenRequestService;
     protected Config config;
     protected Client client;
-    protected Config posConfig;
-    protected Client posClient;
-
-    private static final int POS_REQUEST_TIMEOUT = 60000;
-
-    private static final String CHECKOUT_ENDPOINT_LIVE_IN_SUFFIX = "-checkout-live-in.adyenpayments.com/checkout";
 
     private AbstractAdyenApiService() {
     }
@@ -32,20 +26,6 @@ public abstract class AbstractAdyenApiService {
         this.baseStore = baseStore;
         this.merchantAccount = merchantAccount;
         this.adyenRequestService = adyenRequestService;
-
-        if (Boolean.TRUE.equals(baseStore.getAdyenPosEnabled())) {
-            posConfig = new Config();
-            posConfig.setApiKey(baseStore.getAdyenPosApiKey());
-            posConfig.setReadTimeoutMillis(POS_REQUEST_TIMEOUT);
-            posConfig.setApplicationName(PLUGIN_NAME + " v" + PLUGIN_VERSION);
-            posClient = new Client(posConfig);
-
-            if (Boolean.TRUE.equals(baseStore.getAdyenTestMode())) {
-                posClient.setEnvironment(Environment.TEST, null);
-            } else {
-                posClient.setEnvironment(Environment.LIVE, null);
-            }
-        }
 
         config = new Config();
         config.setApiKey(baseStore.getAdyenAPIKey());

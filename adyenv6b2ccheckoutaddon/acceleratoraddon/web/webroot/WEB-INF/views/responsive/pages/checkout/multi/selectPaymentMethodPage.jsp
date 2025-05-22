@@ -283,13 +283,6 @@
                                             countryCode="BR"
                                     />
                                 </c:if>
-                                <c:if test="${not empty connectedTerminalList}">
-                                    <adyen:alternativeMethod
-                                            brandCode="pos"
-                                            name="POS"
-                                            showTerminalList="true"
-                                    />
-                                </c:if>
                             </div>
                         </form:form>
 

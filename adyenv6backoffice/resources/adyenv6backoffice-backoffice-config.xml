@@ -12,9 +12,7 @@
   -->
 
 <config xmlns="http://www.hybris.com/cockpit/config"
-		xmlns:et="http://www.hybris.com/cockpitng/config/explorertree"
-		xmlns:as="http://www.hybris.com/cockpitng/config/advancedsearch"
-		xmlns:lv="http://www.hybris.com/cockpitng/component/listView">
+>
 
 	<!-- adyenv6backoffice UI configuration should be provided here -->
 
@@ -84,13 +82,6 @@
 					<editorArea:attribute qualifier="amazonpayPublicKey"/>
 					<editorArea:attribute qualifier="amazonpayEnvironment"/>
 					<editorArea:attribute qualifier="amazonpayRegion"/>
-				</editorArea:section>
-				<editorArea:section name="hmc.adyen.pos">
-					<editorArea:attribute qualifier="adyenPosEnabled"/>
-					<editorArea:attribute qualifier="adyenPosApiKey" editor="com.hybris.cockpitng.editor.defaultpassword"/>
-					<editorArea:attribute qualifier="adyenPosMerchantAccount"/>
-					<editorArea:attribute qualifier="adyenPosStoreId"/>
-					<editorArea:attribute qualifier="adyenPosRecurringContractMode"/>
 				</editorArea:section>
 				<editorArea:section name="hmc.adyen.advanced">
 					<editorArea:attribute qualifier="adyenBoleto"/>

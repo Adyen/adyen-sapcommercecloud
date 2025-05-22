@@ -23,8 +23,6 @@ package com.adyen.v6.service;
 import com.adyen.httpclient.HTTPClientException;
 import com.adyen.model.checkout.*;
 import com.adyen.model.recurring.RecurringDetail;
-import com.adyen.model.terminal.ConnectedTerminalsResponse;
-import com.adyen.model.terminal.TerminalAPIResponse;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.model.RequestInfo;
 import de.hybris.platform.commercefacades.order.data.CartData;
@@ -37,7 +35,6 @@ import java.util.List;
 
 public interface AdyenCheckoutApiService {
 
-    ConnectedTerminalsResponse getConnectedTerminals() throws IOException, ApiException;
 
     PaymentResponse processPaymentRequest(CartData cartData, PaymentRequest originPaymentsRequest, RequestInfo requestInfo, CustomerModel customerModel) throws Exception;
 
@@ -87,15 +84,5 @@ public interface AdyenCheckoutApiService {
      * Returns the Device Fingerprint url
      */
     String getDeviceFingerprintUrl();
-
-    /**
-     * Send POS Payment Request using Adyen Terminal API
-     */
-    TerminalAPIResponse sendSyncPosPaymentRequest(CartData cartData, CustomerModel customer, String serviceId) throws Exception;
-
-    /**
-     * Send POS Status Request using Adyen Terminal API
-     */
-    TerminalAPIResponse sendSyncPosStatusRequest(CartData cartData, String serviceId) throws Exception;
 
 }
