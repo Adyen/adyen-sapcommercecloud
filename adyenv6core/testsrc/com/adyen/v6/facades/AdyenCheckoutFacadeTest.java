@@ -21,28 +21,12 @@
 
 package com.adyen.v6.facades;
 
-import com.adyen.model.checkout.InputDetail;
-import com.adyen.model.checkout.Item;
-import com.adyen.model.checkout.PaymentCompletionDetails;
-import com.adyen.model.checkout.PaymentDetailsRequest;
-import com.adyen.model.checkout.PaymentDetailsResponse;
-import com.adyen.model.checkout.PaymentMethod;
-import com.adyen.model.checkout.PaymentMethodsResponse;
+import com.adyen.model.checkout.*;
 import com.adyen.model.checkout.PaymentResponse;
-import com.adyen.model.nexo.DocumentQualifierType;
-import com.adyen.model.nexo.ErrorConditionType;
-import com.adyen.model.nexo.OutputContent;
-import com.adyen.model.nexo.OutputText;
-import com.adyen.model.nexo.PaymentReceipt;
-import com.adyen.model.nexo.RepeatedMessageResponse;
-import com.adyen.model.nexo.RepeatedResponseMessageBody;
-import com.adyen.model.nexo.ResultType;
-import com.adyen.model.nexo.SaleToPOIResponse;
-import com.adyen.model.nexo.TransactionStatusResponse;
+import com.adyen.model.nexo.*;
 import com.adyen.model.terminal.TerminalAPIResponse;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.constants.Adyenv6coreConstants;
-import com.adyen.v6.converters.PosPaymentResponseConverter;
 import com.adyen.v6.enums.RecurringContractMode;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
 import com.adyen.v6.facades.impl.DefaultAdyenCheckoutFacade;
@@ -73,7 +57,6 @@ import de.hybris.platform.core.model.user.UserModel;
 import de.hybris.platform.order.CalculationService;
 import de.hybris.platform.order.CartFactory;
 import de.hybris.platform.order.CartService;
-import de.hybris.platform.order.InvalidCartException;
 import de.hybris.platform.payment.model.PaymentTransactionModel;
 import de.hybris.platform.servicelayer.config.ConfigurationService;
 import de.hybris.platform.servicelayer.dto.converter.ConversionException;
@@ -96,7 +79,6 @@ import org.springframework.ui.Model;
 
 import javax.servlet.http.HttpServletRequest;
 import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Map;
 import java.util.UUID;
@@ -104,20 +86,11 @@ import java.util.UUID;
 import static com.adyen.constants.ApiConstants.ThreeDS2Property.CHALLENGE_RESULT;
 import static com.adyen.constants.ApiConstants.ThreeDS2Property.FINGERPRINT_RESULT;
 import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_EPS;
-import static com.adyen.v6.facades.impl.DefaultAdyenCheckoutFacade.MODEL_ISSUER_LISTS;
-import static com.adyen.v6.facades.impl.DefaultAdyenCheckoutFacade.MODEL_SELECTED_PAYMENT_METHOD;
-import static com.adyen.v6.facades.impl.DefaultAdyenCheckoutFacade.SESSION_PENDING_ORDER_CODE;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static com.adyen.v6.facades.impl.DefaultAdyenCheckoutFacade.*;
+import static org.junit.Assert.*;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.atLeast;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @UnitTest
 @RunWith(MockitoJUnitRunner.class)
@@ -145,8 +118,6 @@ public class AdyenCheckoutFacadeTest {
     BaseStoreService baseStoreService;
     @Mock
     CheckoutCustomerStrategy checkoutCustomerStrategy;
-    @Mock
-    PosPaymentResponseConverter posPaymentResponseConverter;
     @Mock
     CartService cartService;
     @Mock
@@ -266,7 +237,6 @@ public class AdyenCheckoutFacadeTest {
     @Test
     public void testInitializeEpsCheckoutData() throws Exception {
         when(checkoutFacade.getCheckoutCart()).thenReturn(cartData);
-        when(baseStore.getAdyenPosEnabled()).thenReturn(false);
         when(cartData.getTotalPriceWithTax()).thenReturn(priceData);
         when(priceData.getValue()).thenReturn(BigDecimal.TEN);
         when(priceData.getCurrencyIso()).thenReturn("EUR");
@@ -305,173 +275,6 @@ public class AdyenCheckoutFacadeTest {
         response.setPaymentMethods(Collections.singletonList(paymentMethod));
 
         return response;
-    }
-
-    @Test
-    public void testInitiatePosPaymentSuccess() throws Exception {
-        when(adyenCheckoutApiService.sendSyncPosPaymentRequest(eq(cartData), any(), eq(SERVICE_ID))).thenReturn(terminalApiResponse);
-        when(posPaymentResponseConverter.convert(saleToPoiResponse)).thenReturn(paymentsResponse);
-        //TerminalAPIUtil.getPaymentResult
-        when(terminalApiResponse.getSaleToPOIResponse()).thenReturn(saleToPoiResponse);
-        when(saleToPoiResponse.getPaymentResponse()).thenReturn(nexpPaymentResponse);
-
-        setSuccessfulPaymentStubs();
-
-        OrderData orderDataResult = adyenCheckoutFacade.initiatePosPayment(request, cartData);
-        assertEquals(orderData, orderDataResult);
-        verify(adyenCheckoutApiService).sendSyncPosPaymentRequest(eq(cartData), any(), eq(SERVICE_ID));
-        verify(posPaymentResponseConverter).convert(saleToPoiResponse);
-        verify(adyenTransactionService).authorizeOrderModel(any(), any(), any());
-        verify(checkoutFacade).placeOrder();
-    }
-
-    @Test
-    public void testInitiatePosPaymentFailure() throws Exception {
-        when(adyenCheckoutApiService.sendSyncPosPaymentRequest(eq(cartData), any(), eq(SERVICE_ID))).thenReturn(terminalApiResponse);
-        when(posPaymentResponseConverter.convert(saleToPoiResponse)).thenReturn(paymentsResponse);
-        //TerminalAPIUtil.getPaymentResult
-        when(terminalApiResponse.getSaleToPOIResponse()).thenReturn(saleToPoiResponse);
-        when(saleToPoiResponse.getPaymentResponse()).thenReturn(nexpPaymentResponse);
-        when(nexpPaymentResponse.getResponse()).thenReturn(nexoResponse);
-
-        try {
-            adyenCheckoutFacade.initiatePosPayment(request, cartData);
-            fail("Expected AdyenNonAuthorizedPaymentException");
-        } catch (AdyenNonAuthorizedPaymentException e) {
-            assertEquals(terminalApiResponse, e.getTerminalApiResponse());
-        }
-    }
-
-    @Test
-    public void testInitiatePosPaymentBadRequest() throws Exception {
-        when(adyenCheckoutApiService.sendSyncPosPaymentRequest(eq(cartData), any(), eq(SERVICE_ID))).thenReturn(terminalApiResponse);
-        when(posPaymentResponseConverter.convert(saleToPoiResponse)).thenReturn(paymentsResponse);
-        //TerminalAPIUtil.getPaymentResult
-        when(terminalApiResponse.getSaleToPOIResponse()).thenReturn(null);
-
-        try {
-            adyenCheckoutFacade.initiatePosPayment(request, cartData);
-            fail("Expected AdyenNonAuthorizedPaymentException");
-        } catch (AdyenNonAuthorizedPaymentException e) {
-            assertEquals(terminalApiResponse, e.getTerminalApiResponse());
-        }
-    }
-
-    @Test
-    public void testCheckPosPaymentStatusSuccessAndPaymentSuccess() throws Exception {
-        when(adyenCheckoutApiService.sendSyncPosStatusRequest(cartData, SERVICE_ID)).thenReturn(terminalApiResponse);
-        when(posPaymentResponseConverter.convert(saleToPoiResponse)).thenReturn(paymentsResponse);
-        //TerminalAPIUtil.getStatusResult
-        when(terminalApiResponse.getSaleToPOIResponse()).thenReturn(saleToPoiResponse);
-        when(saleToPoiResponse.getTransactionStatusResponse()).thenReturn(transactionStatusResponse);
-        when(transactionStatusResponse.getResponse()).thenReturn(nexoStatusResponse);
-        when(nexoStatusResponse.getResult()).thenReturn(ResultType.SUCCESS);
-        //TerminalAPIUtil.getPaymentResult
-        when(saleToPoiResponse.getPaymentResponse()).thenReturn(null);
-        when(transactionStatusResponse.getRepeatedMessageResponse()).thenReturn(repeatedMessageResponse);
-        when(repeatedMessageResponse.getRepeatedResponseMessageBody()).thenReturn(repeatedResponseMessageBody);
-        when(repeatedResponseMessageBody.getPaymentResponse()).thenReturn(nexpPaymentResponse);
-        when(nexpPaymentResponse.getResponse()).thenReturn(nexoResponse);
-        when(nexoResponse.getResult()).thenReturn(ResultType.SUCCESS);
-
-        setSuccessfulPaymentStubs();
-
-        OrderData orderDataResult = adyenCheckoutFacade.checkPosPaymentStatus(request, cartData);
-        assertEquals(orderData, orderDataResult);
-        verify(adyenCheckoutApiService).sendSyncPosStatusRequest(cartData, SERVICE_ID);
-        verify(posPaymentResponseConverter).convert(saleToPoiResponse);
-        verify(adyenTransactionService).authorizeOrderModel(any(), any(), any());
-        verify(checkoutFacade).placeOrder();
-    }
-
-    @Test
-    public void testCheckPosPaymentStatusSuccessButPaymentFailure() throws Exception {
-        when(adyenCheckoutApiService.sendSyncPosStatusRequest(cartData, SERVICE_ID)).thenReturn(terminalApiResponse);
-        when(posPaymentResponseConverter.convert(saleToPoiResponse)).thenReturn(paymentsResponse);
-        //TerminalAPIUtil.getStatusResult
-        when(terminalApiResponse.getSaleToPOIResponse()).thenReturn(saleToPoiResponse);
-        when(saleToPoiResponse.getTransactionStatusResponse()).thenReturn(transactionStatusResponse);
-        when(transactionStatusResponse.getResponse()).thenReturn(nexoStatusResponse);
-        when(nexoStatusResponse.getResult()).thenReturn(ResultType.SUCCESS);
-        //TerminalAPIUtil.getPaymentResult
-        when(saleToPoiResponse.getPaymentResponse()).thenReturn(null);
-        when(transactionStatusResponse.getRepeatedMessageResponse()).thenReturn(repeatedMessageResponse);
-        when(repeatedMessageResponse.getRepeatedResponseMessageBody()).thenReturn(repeatedResponseMessageBody);
-        when(repeatedResponseMessageBody.getPaymentResponse()).thenReturn(nexpPaymentResponse);
-        when(nexpPaymentResponse.getResponse()).thenReturn(nexoResponse);
-        when(nexoResponse.getResult()).thenReturn(ResultType.FAILURE);
-
-        try {
-            adyenCheckoutFacade.checkPosPaymentStatus(request, cartData);
-            fail("Expected AdyenNonAuthorizedPaymentException");
-        } catch (AdyenNonAuthorizedPaymentException e) {
-            assertEquals(terminalApiResponse, e.getTerminalApiResponse());
-        }
-    }
-
-    @Test
-    public void testCheckPosPaymentStatusTimeout() throws Exception {
-        when(adyenCheckoutApiService.sendSyncPosStatusRequest(cartData, SERVICE_ID)).thenReturn(terminalApiResponse);
-        when(posPaymentResponseConverter.convert(saleToPoiResponse)).thenReturn(paymentsResponse);
-        //TerminalAPIUtil.getStatusResult
-        when(terminalApiResponse.getSaleToPOIResponse()).thenReturn(saleToPoiResponse);
-        when(saleToPoiResponse.getTransactionStatusResponse()).thenReturn(transactionStatusResponse);
-        when(transactionStatusResponse.getResponse()).thenReturn(nexoStatusResponse);
-        when(nexoStatusResponse.getResult()).thenReturn(ResultType.FAILURE);
-        //TerminalAPIUtil.getErrorConditionForStatus
-        when(nexoStatusResponse.getErrorCondition()).thenReturn(ErrorConditionType.IN_PROGRESS);
-        //isPosTimedOut (will timeout after 10 seconds)
-        long processStartTime = System.currentTimeMillis();
-        when(request.getAttribute("paymentStartTime")).thenReturn(processStartTime);
-        when(request.getAttribute("totalTimeout")).thenReturn(10);
-
-        try {
-            adyenCheckoutFacade.checkPosPaymentStatus(request, cartData);
-            fail("Expected AdyenNonAuthorizedPaymentException");
-        } catch (AdyenNonAuthorizedPaymentException e) {
-            assertEquals(terminalApiResponse, e.getTerminalApiResponse());
-            verify(adyenCheckoutFacade, atLeast(2)).checkPosPaymentStatus(request, cartData);
-        }
-    }
-
-    @Test
-    public void testCheckPosPaymentStatusError() throws Exception {
-        when(adyenCheckoutApiService.sendSyncPosStatusRequest(cartData, SERVICE_ID)).thenReturn(terminalApiResponse);
-        when(posPaymentResponseConverter.convert(saleToPoiResponse)).thenReturn(paymentsResponse);
-        //TerminalAPIUtil.getStatusResult
-        when(terminalApiResponse.getSaleToPOIResponse()).thenReturn(saleToPoiResponse);
-        when(saleToPoiResponse.getTransactionStatusResponse()).thenReturn(transactionStatusResponse);
-        when(transactionStatusResponse.getResponse()).thenReturn(nexoStatusResponse);
-        when(nexoStatusResponse.getResult()).thenReturn(ResultType.FAILURE);
-        //TerminalAPIUtil.getErrorConditionForStatus
-        //when(statusResponse.getErrorCondition()).thenReturn(ErrorConditionType.CANCEL);
-
-        try {
-            adyenCheckoutFacade.checkPosPaymentStatus(request, cartData);
-            fail("Expected AdyenNonAuthorizedPaymentException");
-        } catch (AdyenNonAuthorizedPaymentException e) {
-            assertEquals(terminalApiResponse, e.getTerminalApiResponse());
-        }
-    }
-
-
-    private void setSuccessfulPaymentStubs() throws InvalidCartException, InvalidCartException {
-        //Receipt
-        when(nexpPaymentResponse.getPaymentReceipt()).thenReturn(Collections.singletonList(receipt));
-        when(receipt.getDocumentQualifier()).thenReturn(DocumentQualifierType.CUSTOMER_RECEIPT);
-        when(receipt.getOutputContent()).thenReturn(outputContent);
-        when(outputContent.getOutputText()).thenReturn(Arrays.asList(textWithNameValue, textJustName, textJustValue));
-        when(textWithNameValue.getText()).thenReturn("name=some_name&value=some_value");
-        when(textJustName.getText()).thenReturn("name=some_name");
-        when(textJustValue.getText()).thenReturn("value=some_value");
-        //createAuthorizedOrder
-        when(cartService.getSessionCart()).thenReturn(new CartModel());
-        when(adyenTransactionService.authorizeOrderModel(any(), any(), any())).thenReturn(new PaymentTransactionModel());
-        //createOrderFromPaymentsResponse
-        when(checkoutFacade.placeOrder()).thenReturn(orderData);
-        when(orderRepository.getOrderModel(any())).thenReturn(new OrderModel());
-        //updateOrder
-        doNothing().when(adyenOrderService).updatePaymentInfo(any(), any(), any());
     }
 
     @Test

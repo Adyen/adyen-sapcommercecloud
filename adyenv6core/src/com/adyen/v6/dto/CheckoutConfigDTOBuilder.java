@@ -2,7 +2,6 @@ package com.adyen.v6.dto;
 
 
 import com.adyen.model.checkout.Amount;
-import com.adyen.model.checkout.CreateCheckoutSessionResponse;
 import com.adyen.model.checkout.PaymentMethod;
 import com.adyen.model.checkout.StoredPaymentMethod;
 import com.adyen.v6.enums.AdyenCardTypeEnum;
@@ -29,10 +28,6 @@ public class CheckoutConfigDTOBuilder {
         return this;
     }
 
-    public CheckoutConfigDTOBuilder setConnectedTerminalList(List<String> connectedTerminalList) {
-        checkoutConfigDTO.setConnectedTerminalList(connectedTerminalList);
-        return this;
-    }
 
     public CheckoutConfigDTOBuilder setStoredPaymentMethodList(List<StoredPaymentMethod> storedPaymentMethodList) {
         checkoutConfigDTO.setStoredPaymentMethodList(storedPaymentMethodList);
@@ -117,11 +112,6 @@ public class CheckoutConfigDTOBuilder {
 
     public CheckoutConfigDTOBuilder setShowComboCard(boolean showComboCard) {
         checkoutConfigDTO.setShowComboCard(showComboCard);
-        return this;
-    }
-
-    public CheckoutConfigDTOBuilder setShowPos(boolean showPos) {
-        checkoutConfigDTO.setShowPos(showPos);
         return this;
     }
 

@@ -20,7 +20,6 @@ export const adyenConfigInitialState : AdyenConfigData = {
     allowedCards: [],
     paymentMethods: [],
     amount: undefined,
-    connectedTerminalList: [],
     creditCardLabel: "",
     deviceFingerPrintUrl: "",
     issuerLists: undefined,

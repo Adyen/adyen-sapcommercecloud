@@ -18,18 +18,6 @@ public class DefaultAdyenMerchantAccountStrategy implements AdyenMerchantAccount
         return baseStore.getAdyenMerchantAccount();
     }
 
-    @Override
-    public String getPosMerchantAccount() {
-        BaseStoreModel currentBaseStore = baseStoreService.getCurrentBaseStore();
-        return getPosMerchantAccount(currentBaseStore);
-    }
-
-    @Override
-    public String getPosMerchantAccount(BaseStoreModel baseStore) {
-        return baseStore.getAdyenPosMerchantAccount();
-
-    }
-
     public void setBaseStoreService(BaseStoreService baseStoreService) {
         this.baseStoreService = baseStoreService;
     }
