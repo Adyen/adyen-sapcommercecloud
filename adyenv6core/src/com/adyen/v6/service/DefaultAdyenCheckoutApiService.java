@@ -187,6 +187,10 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
         RecurringDetailsResult result = recurring.listRecurringDetails(request);
         LOG.debug(result);
 
+        if (result.getDetails() == null || result.getDetails().isEmpty()) {
+            return new ArrayList<>();
+        }
+
         //Return only cards
         return result.getDetails()
                 .stream()

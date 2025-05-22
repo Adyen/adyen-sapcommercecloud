@@ -1,30 +1,48 @@
 INSERT_UPDATE Currency; isocode[unique = true]; conversion; digits; symbol; name[lang = en]
                       ; CHF                   ; 1         ; 2     ; CHF   ; Swiss franc
                       ; SEK                   ; 0,084     ; 2     ; kr    ; Swedish krona
+                      ; PLN                   ; 2         ; 2     ; PLN   ; Polski złoty
+                      ; DKK                   ; 0,084     ; 2     ; dkk   ; Denmark krona
+                      ; NOK                   ; 0,084     ; 2     ; nok   ; Norway kronor
 
-UPDATE BaseStore; uid[unique = true]; currencies(isocode) ;
-                ; electronics       ; JPY,USD,EUR,CHF,SEK ;
+UPDATE BaseStore; uid[unique = true]; currencies(isocode)             ;
+                ; electronics       ; JPY,USD,EUR,CHF,SEK,PLN,DKK,NOK ;
 
 INSERT_UPDATE PriceRow; productId[unique = true]; unit(code[unique = true, default = pieces]); currency(isocode)[unique = true]; price   ; minqtd; unitFactor; net
                       ; 300938                  ; pieces                                     ; EUR                             ; 110.0   ; 1     ; 1         ; false
                       ; 300938                  ; pieces                                     ; CHF                             ; 115.0   ; 1     ; 1         ; false
                       ; 300938                  ; pieces                                     ; SEK                             ; 1310.0  ; 1     ; 1         ; false
+                      ; 300938                  ; pieces                                     ; PLN                             ; 220.0   ; 1     ; 1         ; false
+                      ; 300938                  ; pieces                                     ; DKK                             ; 1310.0  ; 1     ; 1         ; false
+                      ; 300938                  ; pieces                                     ; NOK                             ; 1310.0  ; 1     ; 1         ; false
 
                       ; 358639                  ; pieces                                     ; EUR                             ; 485.57  ; 1     ; 1         ; false
                       ; 358639                  ; pieces                                     ; CHF                             ; 460.57  ; 1     ; 1         ; false
                       ; 358639                  ; pieces                                     ; SEK                             ; 5476.57 ; 1     ; 1         ; false
+                      ; 358639                  ; pieces                                     ; PLN                             ; 980.0   ; 1     ; 1         ; false
+                      ; 358639                  ; pieces                                     ; DKK                             ; 5476.57 ; 1     ; 1         ; false
+                      ; 358639                  ; pieces                                     ; NOK                             ; 5476.57 ; 1     ; 1         ; false
 
                       ; 553637                  ; pieces                                     ; EUR                             ; 264.69  ; 1     ; 1         ; false
                       ; 553637                  ; pieces                                     ; CHF                             ; 240.69  ; 1     ; 1         ; false
                       ; 553637                  ; pieces                                     ; SEK                             ; 2857.69 ; 1     ; 1         ; false
+                      ; 553637                  ; pieces                                     ; PLN                             ; 480.00  ; 1     ; 1         ; false
+                      ; 553637                  ; pieces                                     ; DKK                             ; 2857.69 ; 1     ; 1         ; false
+                      ; 553637                  ; pieces                                     ; NOK                             ; 2857.69 ; 1     ; 1         ; false
 
                       ; 816802                  ; pieces                                     ; EUR                             ; 260.87  ; 1     ; 1         ; false
                       ; 816802                  ; pieces                                     ; CHF                             ; 240.87  ; 1     ; 1         ; false
                       ; 816802                  ; pieces                                     ; SEK                             ; 2860.87 ; 1     ; 1         ; false
+                      ; 816802                  ; pieces                                     ; PLN                             ; 520.0   ; 1     ; 1         ; false
+                      ; 816802                  ; pieces                                     ; DKK                             ; 2860.87 ; 1     ; 1         ; false
+                      ; 816802                  ; pieces                                     ; NOK                             ; 2860.87 ; 1     ; 1         ; false
 
                       ; 1934793                 ; pieces                                     ; EUR                             ; 99.85   ; 1     ; 1         ; false
                       ; 1934793                 ; pieces                                     ; CHF                             ; 80.85   ; 1     ; 1         ; false
                       ; 1934793                 ; pieces                                     ; SEK                             ; 952.85  ; 1     ; 1         ; false
+                      ; 1934793                 ; pieces                                     ; PLN                             ; 181.68  ; 1     ; 1         ; false
+                      ; 1934793                 ; pieces                                     ; DKK                             ; 952.85  ; 1     ; 1         ; false
+                      ; 1934793                 ; pieces                                     ; NOK                             ; 952.85  ; 1     ; 1         ; false
 
 INSERT_UPDATE SiteMapLanguageCurrency; &siteMapLanguageCurrency; language(isoCode)[unique = true]; currency(isocode)[unique = true];
                                      ; enUsd                   ; en                              ; USD
@@ -45,8 +63,11 @@ INSERT_UPDATE SiteMapLanguageCurrency; &siteMapLanguageCurrency; language(isoCod
                                      ; zhEur                   ; zh                              ; EUR
                                      ; enChf                   ; en                              ; CHF                             ;
                                      ; enSek                   ; en                              ; SEK                             ;
+                                     ; enPln                   ; en                              ; PLN                             ;
+                                     ; enDkk                   ; en                              ; DKK                             ;
+                                     ; enNok                   ; en                              ; NOK                             ;
 
-$siteMapLangCur = jaJpy, jaUsd, enJpy, enUsd, deJpy, deUsd, zhJpy, zhUsd, enEur, deEur, enChf, enSek
+$siteMapLangCur = jaJpy, jaUsd, enJpy, enUsd, deJpy, deUsd, zhJpy, zhUsd, enEur, deEur, enChf, enSek, enPln, enDkk, enNok
 
 
 INSERT_UPDATE SiteMapConfig; configId[unique = true]  ; siteMapLanguageCurrencies(&siteMapLanguageCurrency)
@@ -56,3 +77,6 @@ INSERT_UPDATE SiteMapConfig; configId[unique = true]  ; siteMapLanguageCurrencie
 INSERT_UPDATE ZoneDeliveryModeValue; deliveryMode(code)[unique = true]; zone(code)[unique = true]; currency(isocode)[unique = true]; value  ; minimum[unique = true]
                                    ; standard-gross                   ; continentalEurope        ; CHF                             ; 9.99   ; 0,00
                                    ; standard-gross                   ; continentalEurope        ; SEK                             ; 119.99 ; 0,00
+                                   ; standard-gross                   ; continentalEurope        ; PLN                             ; 18.89  ; 0,00
+                                   ; standard-gross                   ; continentalEurope        ; DKK                             ; 119.99 ; 0,00
+                                   ; standard-gross                   ; continentalEurope        ; NOK                             ; 119.99 ; 0,00
