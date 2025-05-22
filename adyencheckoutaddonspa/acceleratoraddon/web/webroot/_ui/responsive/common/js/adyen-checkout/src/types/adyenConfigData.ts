@@ -2,7 +2,6 @@ import {PaymentMethod} from "@adyen/adyen-web";
 
 export interface AdyenConfigData {
     paymentMethods: PaymentMethod[];
-    connectedTerminalList: string[];
     storedPaymentMethodList: StoredPaymentMethodData[];
     issuerLists: Map<string, string>;
     creditCardLabel: string;

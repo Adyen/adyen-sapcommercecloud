@@ -53,13 +53,6 @@ class AdyenFormValidator {
             }
         }
 
-        if (paymentMethod === "pos") {
-            var terminalId = $('#adyen_pos_terminal');
-            if (terminalId.val() === "") {
-                window.alert("Please select a terminal");
-                return false;
-            }
-        }
 
         if (paymentMethod === "sepadirectdebit") {
             if (!this.adyenCheckoutHybris.sepaDirectDebit.state.isValid) {

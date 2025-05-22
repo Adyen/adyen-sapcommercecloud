@@ -21,7 +21,7 @@
         const { AdyenCheckout, Dropin, Card, PayPal, GooglePay,
             ApplePay, CashAppPay, Sepa,Redirect,OnlineBankingIN,
             OnlineBankingPL, Ideal, EPS, Pix, WalletIN, AfterPay, Bcmc,
-            Pos, PayBright, Boleto, SepaDirectDebit, RatePay, Paytm,Giftcard,Blik
+            PayBright, Boleto, SepaDirectDebit, RatePay, Paytm,Giftcard,Blik
         } = AdyenWeb;
 
         let checkout;
