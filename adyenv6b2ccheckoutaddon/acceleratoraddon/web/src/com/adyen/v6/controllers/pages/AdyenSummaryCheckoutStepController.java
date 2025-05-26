@@ -21,19 +21,13 @@
 package com.adyen.v6.controllers.pages;
 
 import com.adyen.constants.ApiConstants.RefusalReason;
-import com.adyen.model.checkout.CheckoutRedirectAction;
-import com.adyen.model.checkout.PaymentCompletionDetails;
-import com.adyen.model.checkout.PaymentDetailsRequest;
-import com.adyen.model.checkout.PaymentDetailsResponse;
-import com.adyen.model.checkout.PaymentResponse;
-import com.adyen.model.checkout.PaymentResponseAction;
+import com.adyen.model.checkout.*;
 import com.adyen.model.payment.PaymentResult;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.constants.AdyenControllerConstants;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
 import com.adyen.v6.facades.AdyenCheckoutFacade;
 import com.adyen.v6.util.AdyenUtil;
-import com.adyen.v6.util.TerminalAPIUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import de.hybris.platform.acceleratorservices.enums.CheckoutPciOptionEnum;
 import de.hybris.platform.acceleratorservices.urlresolver.SiteBaseUrlResolutionService;
@@ -67,42 +61,20 @@ import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
-import java.net.SocketTimeoutException;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.adyen.model.checkout.PaymentResponse.ResultCodeEnum.CHALLENGESHOPPER;
-import static com.adyen.model.checkout.PaymentResponse.ResultCodeEnum.ERROR;
-import static com.adyen.model.checkout.PaymentResponse.ResultCodeEnum.IDENTIFYSHOPPER;
-import static com.adyen.model.checkout.PaymentResponse.ResultCodeEnum.REDIRECTSHOPPER;
-import static com.adyen.model.checkout.PaymentResponse.ResultCodeEnum.REFUSED;
-import static com.adyen.v6.constants.AdyenControllerConstants.CART_PREFIX;
-import static com.adyen.v6.constants.AdyenControllerConstants.SELECT_PAYMENT_METHOD_PREFIX;
-import static com.adyen.v6.constants.AdyenControllerConstants.SUMMARY_CHECKOUT_PREFIX;
-import static com.adyen.v6.constants.Adyenv6coreConstants.AFTERPAY_TOUCH;
-import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_APPLEPAY;
-import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_BCMC;
-import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_BOLETO;
-import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_CC;
-import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_MULTIBANCO;
-import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_ONECLICK;
-import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_POS;
-import static com.adyen.v6.constants.Adyenv6coreConstants.RATEPAY;
-import static com.adyen.v6.constants.Adyenv6coreConstants.SHOPPER_LOCALE;
-import static com.adyen.v6.facades.impl.DefaultAdyenCheckoutFacade.MODEL_CHECKOUT_SHOPPER_HOST;
-import static com.adyen.v6.facades.impl.DefaultAdyenCheckoutFacade.MODEL_CLIENT_KEY;
-import static com.adyen.v6.facades.impl.DefaultAdyenCheckoutFacade.MODEL_ENVIRONMENT_MODE;
+import static com.adyen.model.checkout.PaymentResponse.ResultCodeEnum.*;
+import static com.adyen.v6.constants.AdyenControllerConstants.*;
+import static com.adyen.v6.constants.Adyenv6coreConstants.*;
+import static com.adyen.v6.facades.impl.DefaultAdyenCheckoutFacade.*;
 
 @Controller
 @RequestMapping(value = SUMMARY_CHECKOUT_PREFIX)
@@ -116,7 +88,6 @@ public class AdyenSummaryCheckoutStepController extends AbstractCheckoutStepCont
     private static final String REDIRECT_RESULT = "redirectResult";
     private static final String ACTION = "action";
     private static final String PAYLOAD = "payload";
-    private static final String POS_TOTALTIMEOUT_KEY = "pos.totaltimeout";
     private static final String CHECKOUT_ERROR_AUTHORIZATION_FAILED = "checkout.error.authorization.failed";
     private static final String PAYMENT_NOT_SUPPORTED = "checkout.error.payment.not.supported";
     private static final String CART_NOT_VALID = "checkout.error.cart.not.valid";
@@ -127,7 +98,6 @@ public class AdyenSummaryCheckoutStepController extends AbstractCheckoutStepCont
     private static final String CHECKOUT_ERROR_AUTHORIZATION_PAYMENT_REFUSED = "checkout.error.authorization.payment.refused";
     private static final String CHECKOUT_ERROR_AUTHORIZATION_PAYMENT_CANCELLED = "checkout.error.authorization.payment.cancelled";
     private static final String CHECKOUT_ERROR_AUTHORIZATION_PAYMENT_ERROR = "checkout.error.authorization.payment.error";
-    private static final int POS_TOTAL_TIMEOUT_DEFAULT = 130;
     private static final String NON_AUTHORIZED_ERROR = "Handling AdyenNonAuthorizedPaymentException. Checking PaymentResponse.";
 
     @Resource(name = "siteBaseUrlResolutionService")
@@ -243,43 +213,6 @@ public class AdyenSummaryCheckoutStepController extends AbstractCheckoutStepCont
 
             } catch (Exception e) {
                 LOGGER.error(ExceptionUtils.getStackTrace(e));
-            }
-        } else if (PAYMENT_METHOD_POS.equals(adyenPaymentMethod)) {
-            try {
-                String originalServiceId = Long.toString(System.currentTimeMillis() % 10000000000L);
-                request.setAttribute("originalServiceId", originalServiceId);
-                Long paymentStartTime = System.currentTimeMillis();
-                request.setAttribute("paymentStartTime", paymentStartTime);
-                OrderData orderData = adyenCheckoutFacade.initiatePosPayment(request, cartData);
-                LOGGER.debug(REDIRECTING_TO_CONFIRMATION);
-                return redirectToOrderConfirmationPage(orderData);
-            } catch (SocketTimeoutException e) {
-                try {
-                    LOGGER.debug("POS request timed out. Checking POS Payment status ");
-                    int totalTimeout = POS_TOTAL_TIMEOUT_DEFAULT;
-                    if (configurationService.getConfiguration().containsKey(POS_TOTALTIMEOUT_KEY)) {
-                        totalTimeout = configurationService.getConfiguration().getInt(POS_TOTALTIMEOUT_KEY);
-                    }
-                    request.setAttribute("totalTimeout", totalTimeout);
-                    OrderData orderData = adyenCheckoutFacade.checkPosPaymentStatus(request, cartData);
-                    LOGGER.debug(REDIRECTING_TO_CONFIRMATION);
-                    return redirectToOrderConfirmationPage(orderData);
-                } catch (AdyenNonAuthorizedPaymentException nx) {
-                    errorMessage = TerminalAPIUtil.getErrorMessageForNonAuthorizedPosPayment(nx.getTerminalApiResponse());
-                    LOGGER.warn("AdyenNonAuthorizedPaymentException " + errorMessage + " pspReference: " + nx.getPaymentResult().getPspReference());
-                } catch (SocketTimeoutException to) {
-                    LOGGER.error("POS Status request timed out. Returning error message.");
-                    errorMessage = "checkout.error.authorization.pos.configuration";
-                } catch (Exception ex) {
-                    LOGGER.error("Exception", ex);
-                }
-            } catch (ApiException e) {
-                LOGGER.error(API_EXCEPTION_START_MESSAGE + e.getError(), e);
-            } catch (AdyenNonAuthorizedPaymentException e) {
-                errorMessage = TerminalAPIUtil.getErrorMessageForNonAuthorizedPosPayment(e.getTerminalApiResponse());
-                LOGGER.warn("AdyenNonAuthorizedPaymentException" + errorMessage + " pspReference: " + e.getPaymentResult().getPspReference());
-            } catch (Exception e) {
-                LOGGER.error("Exception", e);
             }
         } else {
             try {

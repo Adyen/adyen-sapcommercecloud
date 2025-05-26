@@ -46,7 +46,6 @@ public final class Adyenv6coreConstants extends GeneratedAdyenv6coreConstants {
 	public static final String PAYMENT_METHOD_SEPA_DIRECTDEBIT = "sepadirectdebit";
 	public static final String PAYMENT_METHOD_BOLETO_SANTANDER = "boletobancario_santander";
 	public static final String PAYMENT_METHOD_MULTIBANCO = "multibanco";
-	public static final String PAYMENT_METHOD_POS = "pos";
 	public static final String PAYMENT_METHOD_PAYPAL = "paypal";
 	public static final String PAYMENT_METHOD_SCHEME = "scheme";
 	public static final String PAYMENT_METHOD_APPLEPAY = "applepay";

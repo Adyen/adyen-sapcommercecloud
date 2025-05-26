@@ -56,7 +56,6 @@ export const translationKeys: string[] = [
 
     //error messages
     "checkout.error.authorization.failed",
-    "checkout.error.authorization.pos.configuration",
     "checkout.error.paymentethod.formentry.invalid",
     "checkout.error.authorization.payment.refused",
     "checkout.error.authorization.payment.detail.not.found",

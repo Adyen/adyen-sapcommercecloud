@@ -107,13 +107,6 @@
 					<editorArea:attribute qualifier="amazonpayEnvironment"/>
 					<editorArea:attribute qualifier="amazonpayRegion"/>
 				</editorArea:section>
-				<editorArea:section name="hmc.adyen.pos">
-					<editorArea:attribute qualifier="adyenPosEnabled"/>
-					<editorArea:attribute qualifier="adyenPosApiKey" editor="com.hybris.cockpitng.editor.defaultpassword"/>
-					<editorArea:attribute qualifier="adyenPosMerchantAccount"/>
-					<editorArea:attribute qualifier="adyenPosStoreId"/>
-					<editorArea:attribute qualifier="adyenPosRecurringContractMode"/>
-				</editorArea:section>
 				<editorArea:section name="hmc.adyen.advanced">
 					<editorArea:attribute qualifier="adyenBoleto"/>
 					<editorArea:attribute qualifier="adyenPaypalMerchantId"/>

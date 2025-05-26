@@ -46,7 +46,6 @@ import org.springframework.ui.Model;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import javax.servlet.http.HttpServletRequest;
-import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -54,12 +53,8 @@ import java.util.Map;
 
 import static com.adyen.v6.constants.AdyenControllerConstants.CART_PREFIX;
 import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_PAYPAL;
-import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_POS;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyBoolean;
-import static org.mockito.Matchers.anyObject;
-import static org.mockito.Matchers.anyString;
+import static org.mockito.Matchers.*;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.when;
 
@@ -84,7 +79,6 @@ public class AdyenSummaryCheckoutStepControllerTest {
     private static final String CURRENT_CONTROLLER = "summary";
     private static final String PROGRESS_BAR_ID = "progressBarId";
     private static final String RATEPAY = "ratepay";
-    private static final String POS_TOTAL_TIMEOUT_KEY = "pos.totaltimeout";
     private static final String MOCK_BASESITE_URL = "mockBasesiteURL";
     private static final String ACTION_URL = "actionURL";
 
@@ -238,98 +232,6 @@ public class AdyenSummaryCheckoutStepControllerTest {
         when(cartDataMock.getAdyenPaymentMethod()).thenReturn(RATEPAY);
         when(adyenCheckoutFacadeMock.authorisePayment(requestMock, cartDataMock)).thenThrow(new Exception());
 
-        final String result = testObj.placeOrder(placeOrderFormMock, modelMock, requestMock, redirectModelMock);
-
-        assertThat(result).isEqualTo(AdyenControllerConstants.Views.Pages.MultiStepCheckout.CheckoutSummaryPage);
-    }
-
-    @Test
-    public void placeOrder_shouldGoToConfirmationPage_whenFormCartAreBothValidAndPaymentAuthorizedPOS() throws Exception {
-        mockElementsUsedInTestsForPlaceOrder();
-        mockFormValidationOK();
-        mockCartValidationOK();
-        when(cartDataMock.getAdyenPaymentMethod()).thenReturn(PAYMENT_METHOD_POS);
-        when(adyenCheckoutFacadeMock.initiatePosPayment(requestMock, cartDataMock)).thenReturn(orderDataMock);
-        mockAnonymousCheckoutAndOrderGuid();
-
-        final String result = testObj.placeOrder(placeOrderFormMock, modelMock, requestMock, redirectModelMock);
-
-        assertThat(result).isEqualTo(REDIRECT_URL_ORDER_CONFIRMATION + ORDER_CODE);
-    }
-
-    @Test
-    public void placeOrder_shouldGoToConfirmationPage_whenFormCartAreBothValidAndSocketTimeoutExceptionThrownButPaymentStatusIsOKPOS() throws Exception {
-        mockElementsUsedInTestsForPlaceOrder();
-        mockFormValidationOK();
-        mockCartValidationOK();
-        mockAnonymousCheckoutAndOrderGuid();
-        when(cartDataMock.getAdyenPaymentMethod()).thenReturn(PAYMENT_METHOD_POS);
-        when(adyenCheckoutFacadeMock.initiatePosPayment(requestMock, cartDataMock)).thenThrow(new SocketTimeoutException());
-        when(configurationServiceMock.getConfiguration()).thenReturn(configurationMock);
-        when(configurationMock.containsKey(POS_TOTAL_TIMEOUT_KEY)).thenReturn(true);
-        when(configurationMock.getInt(POS_TOTAL_TIMEOUT_KEY)).thenReturn(130);
-        when(adyenCheckoutFacadeMock.checkPosPaymentStatus(requestMock, cartDataMock)).thenReturn(orderDataMock);
-
-        final String result = testObj.placeOrder(placeOrderFormMock, modelMock, requestMock, redirectModelMock);
-
-        assertThat(result).isEqualTo(REDIRECT_URL_ORDER_CONFIRMATION + ORDER_CODE);
-    }
-
-    @Test
-    public void placeOrder_shouldGoBackToStep_whenSocketTimeoutExceptionAfterAnotherSocketTimeoutExceptionAreThrownPOS() throws Exception {
-        mockElementsUsedInTestsForPlaceOrder();
-        mockFormValidationOK();
-        mockCartValidationOK();
-        mockAnonymousCheckoutAndOrderGuid();
-        when(cartDataMock.getAdyenPaymentMethod()).thenReturn(PAYMENT_METHOD_POS);
-        when(adyenCheckoutFacadeMock.initiatePosPayment(requestMock, cartDataMock)).thenThrow(new SocketTimeoutException());
-        when(configurationServiceMock.getConfiguration()).thenReturn(configurationMock);
-        when(configurationMock.containsKey(POS_TOTAL_TIMEOUT_KEY)).thenReturn(true);
-        when(configurationMock.getInt(POS_TOTAL_TIMEOUT_KEY)).thenReturn(130);
-        when(adyenCheckoutFacadeMock.checkPosPaymentStatus(requestMock, cartDataMock)).thenThrow(new SocketTimeoutException());
-        final String result = testObj.placeOrder(placeOrderFormMock, modelMock, requestMock, redirectModelMock);
-
-        assertThat(result).isEqualTo(AdyenControllerConstants.Views.Pages.MultiStepCheckout.CheckoutSummaryPage);
-    }
-
-    @Test
-    public void placeOrder_shouldGoBackToStep_whenGenericExceptionAfterSocketTimeoutExceptionAreThrownPOS() throws Exception {
-        mockElementsUsedInTestsForPlaceOrder();
-        mockFormValidationOK();
-        mockCartValidationOK();
-        mockAnonymousCheckoutAndOrderGuid();
-        when(cartDataMock.getAdyenPaymentMethod()).thenReturn(PAYMENT_METHOD_POS);
-        when(adyenCheckoutFacadeMock.initiatePosPayment(requestMock, cartDataMock)).thenThrow(new SocketTimeoutException());
-        when(configurationServiceMock.getConfiguration()).thenReturn(configurationMock);
-        when(configurationMock.containsKey(POS_TOTAL_TIMEOUT_KEY)).thenReturn(true);
-        when(configurationMock.getInt(POS_TOTAL_TIMEOUT_KEY)).thenReturn(130);
-        when(adyenCheckoutFacadeMock.checkPosPaymentStatus(requestMock, cartDataMock)).thenThrow(new Exception());
-        final String result = testObj.placeOrder(placeOrderFormMock, modelMock, requestMock, redirectModelMock);
-
-        assertThat(result).isEqualTo(AdyenControllerConstants.Views.Pages.MultiStepCheckout.CheckoutSummaryPage);
-    }
-
-    @Test
-    public void placeOrder_shouldGoBackToStep_whenApiExceptionIsThrownPOS() throws Exception {
-        mockElementsUsedInTestsForPlaceOrder();
-        mockFormValidationOK();
-        mockCartValidationOK();
-        mockAnonymousCheckoutAndOrderGuid();
-        when(cartDataMock.getAdyenPaymentMethod()).thenReturn(PAYMENT_METHOD_POS);
-        when(adyenCheckoutFacadeMock.initiatePosPayment(requestMock, cartDataMock)).thenThrow(new ApiException("", 1));
-        final String result = testObj.placeOrder(placeOrderFormMock, modelMock, requestMock, redirectModelMock);
-
-        assertThat(result).isEqualTo(AdyenControllerConstants.Views.Pages.MultiStepCheckout.CheckoutSummaryPage);
-    }
-
-    @Test
-    public void placeOrder_shouldGoBackToStep_whenGenericExceptionIsThrownPOS() throws Exception {
-        mockElementsUsedInTestsForPlaceOrder();
-        mockFormValidationOK();
-        mockCartValidationOK();
-        mockAnonymousCheckoutAndOrderGuid();
-        when(cartDataMock.getAdyenPaymentMethod()).thenReturn(PAYMENT_METHOD_POS);
-        when(adyenCheckoutFacadeMock.initiatePosPayment(requestMock, cartDataMock)).thenThrow(new Exception());
         final String result = testObj.placeOrder(placeOrderFormMock, modelMock, requestMock, redirectModelMock);
 
         assertThat(result).isEqualTo(AdyenControllerConstants.Views.Pages.MultiStepCheckout.CheckoutSummaryPage);
