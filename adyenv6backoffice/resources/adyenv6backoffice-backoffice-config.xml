@@ -12,9 +12,7 @@
   -->
 
 <config xmlns="http://www.hybris.com/cockpit/config"
-		xmlns:et="http://www.hybris.com/cockpitng/config/explorertree"
-		xmlns:as="http://www.hybris.com/cockpitng/config/advancedsearch"
-		xmlns:lv="http://www.hybris.com/cockpitng/component/listView">
+		xmlns:na="http://www.hybris.com/cockpitng/config/notifications">
 
 	<!-- adyenv6backoffice UI configuration should be provided here -->
 
@@ -33,6 +31,30 @@
 			</y:group>
 		</y:actions>
 	</context>
+
+	<context merge-by="module" type="Order" component="editorareaactions">
+		<y:actions xmlns:y="http://www.hybris.com/cockpit/config/hybris">
+			<y:group qualifier="common">
+				<y:label>actiongroup.common</y:label>
+				<y:action action-id="com.adyen.v6.backoffice.widgets.actions.adyencaptureorderaction" property="currentObject"
+						  output-property="currentObject" />
+			</y:group>
+		</y:actions>
+	</context>
+
+	<context component="notification-area" source="adyen-capture-message-source" merge-by="source">
+		<na:notification-area>
+			<na:notifications eventType="General" level="SUCCESS">
+				<na:message>adyen.order.capture.succeed</na:message>
+				<na:references linksEnabled="false"/>
+			</na:notifications>
+			<na:notifications eventType="General" level="FAILURE">
+				<na:message>adyen.order.capture.failure</na:message>
+				<na:references linksEnabled="false"/>
+			</na:notifications>
+		</na:notification-area>
+	</context>
+
 
 	<context merge-by="type" type="BaseStore" component="editor-area">
 		<editorArea:editorArea xmlns:editorArea="http://www.hybris.com/cockpitng/component/editorArea">
