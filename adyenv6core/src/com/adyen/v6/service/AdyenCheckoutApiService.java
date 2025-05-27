@@ -49,7 +49,7 @@ public interface AdyenCheckoutApiService {
 
     PaymentMethodsResponse getPaymentMethodsResponse(BigDecimal amount, String currency, String countryCode, String shopperLocale, String shopperReference) throws IOException, ApiException;
 
-    PaymentMethodsResponse getPaymentMethodsResponse(BigDecimal amount, String currency, String countryCode, String shopperLocale, String shopperReference, List<String> blockedPaymentMethods) throws IOException, ApiException;
+    PaymentMethodsResponse getPaymentMethodsResponse(BigDecimal amount, String currency, String countryCode, String shopperLocale, String shopperReference, List<String> blockedPaymentMethods, List<String> allowedPaymentMethods) throws IOException, ApiException;
 
     /**
      * @deprecated use getPaymentMethods including shopperReference instead {@link #getPaymentMethods(BigDecimal amount, String currency, String countryCode, String shopperLocale, String shopperReference)
