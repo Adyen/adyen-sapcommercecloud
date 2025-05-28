@@ -1,6 +1,7 @@
 package com.adyen.commerce.request;
 
 import com.adyen.model.checkout.PaymentRequest;
+import com.adyen.v6.constants.StorefrontType;
 import com.adyen.v6.forms.AddressForm;
 
 
@@ -10,6 +11,9 @@ public class PlaceOrderRequest {
 
     private boolean useAdyenDeliveryAddress;
     private AddressForm billingAddress;
+
+    private StorefrontType storefrontType;
+    private String storefrontVersion;
 
     public PaymentRequest getPaymentRequest() {
         return paymentRequest;
@@ -34,5 +38,21 @@ public class PlaceOrderRequest {
 
     public void setBillingAddress(AddressForm billingAddress) {
         this.billingAddress = billingAddress;
+    }
+
+    public StorefrontType getStorefrontType() {
+        return storefrontType;
+    }
+
+    public void setStorefrontType(StorefrontType storefrontType) {
+        this.storefrontType = storefrontType;
+    }
+
+    public String getStorefrontVersion() {
+        return storefrontVersion;
+    }
+
+    public void setStorefrontVersion(String storefrontVersion) {
+        this.storefrontVersion = storefrontVersion;
     }
 }
