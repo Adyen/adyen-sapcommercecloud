@@ -1,5 +1,6 @@
 package com.adyen.commerce.controllers;
 
+import com.adyen.commerce.api.AdyenCartAddressesApi;
 import com.adyen.commerce.validators.AdyenOccAddressValidator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -9,12 +10,6 @@ import de.hybris.platform.commercefacades.user.UserFacade;
 import de.hybris.platform.commercefacades.user.data.AddressData;
 import de.hybris.platform.webservicescommons.cache.CacheControl;
 import de.hybris.platform.webservicescommons.cache.CacheControlDirective;
-import de.hybris.platform.webservicescommons.swagger.ApiBaseSiteIdUserIdAndCartIdParam;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Parameter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,8 +33,7 @@ import static com.adyen.commerce.constants.AdyenoccConstants.ADYEN_USER_CART_PRE
 @Controller
 @RequestMapping(value = ADYEN_USER_CART_PREFIX)
 @CacheControl(directive = CacheControlDirective.NO_CACHE)
-@Tag(name = "Cart Addresses")
-public class AdyenCartAddressesController {
+public class AdyenCartAddressesController implements AdyenCartAddressesApi {
 
     protected static final ObjectMapper objectMapper = new ObjectMapper();
     private static final Logger LOG = LoggerFactory.getLogger(AdyenCartAddressesController.class);
@@ -61,45 +55,6 @@ public class AdyenCartAddressesController {
     @PostMapping(value = "/addresses/delivery", produces = {MediaType.APPLICATION_JSON_VALUE})
     @ResponseStatus(HttpStatus.CREATED)
     @ResponseBody
-    @Operation(
-            operationId = "createCartDeliveryAddress",
-            summary = "Creates a delivery address for the cart.",
-            description = "Creates a new address, validates it " +
-                    "and then assigns it to the cart as the delivery address. " +
-                    "The address should include customer details (firstName, lastName, titleCode, phone) " +
-                    "and address information (country.isocode, line1, line2, town, postalCode, region.isocode).",
-            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    description = "Address object that needs to be created and set as the delivery address.",
-                    required = true,
-                    content = @Content(
-                            mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = AddressData.class)
-                    )
-            ),
-            responses = {
-                    @ApiResponse(
-                            responseCode = "201",
-                            description = "Delivery address created and set successfully. The created address data is returned.",
-                            content = @Content(
-                                    mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                    schema = @Schema(implementation = AddressData.class)
-                            )
-                    ),
-                    @ApiResponse(
-                            responseCode = "400",
-                            description = "Bad Request. This can occur if: <br>" +
-                                    "<ul>" +
-                                    "<li>The provided address data is invalid (e.g., missing required fields, fails validation).</li>" +
-                                    "<li>The system fails to set the delivery address to the cart (e.g., cart not found, or internal error during address assignment).</li>" +
-                                    "</ul>",
-                            content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE)
-                    ),
-                    @ApiResponse(responseCode = "401", description = "Unauthorized. Authentication required."),
-                    @ApiResponse(responseCode = "403", description = "Forbidden. Insufficient permissions.")
-
-            }
-    )
-    @ApiBaseSiteIdUserIdAndCartIdParam
     public ResponseEntity<String> createCartDeliveryAddress(@Parameter(
             description = "Request body containing customer details (firstName, lastName, titleCode, phone) and address information (country.isocode, line1, line2, town, postalCode, region.isocode) in XML or JSON format.",
             required = true) @RequestBody final AddressData addressData) throws JsonProcessingException {

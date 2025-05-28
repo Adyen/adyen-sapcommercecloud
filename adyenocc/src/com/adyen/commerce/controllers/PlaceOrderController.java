@@ -1,5 +1,6 @@
 package com.adyen.commerce.controllers;
 
+import com.adyen.commerce.api.AdyenPlaceOrderApi;
 import com.adyen.commerce.constants.AdyenoccConstants;
 import com.adyen.commerce.controllerbase.PlaceOrderControllerBase;
 import com.adyen.commerce.facades.AdyenCheckoutApiFacade;
@@ -15,13 +16,6 @@ import de.hybris.platform.commercefacades.order.CartFacade;
 import de.hybris.platform.commerceservices.request.mapping.annotation.ApiVersion;
 import de.hybris.platform.commerceservices.strategies.CheckoutCustomerStrategy;
 import de.hybris.platform.site.BaseSiteService;
-import de.hybris.platform.webservicescommons.swagger.ApiBaseSiteIdAndUserIdParam;
-import de.hybris.platform.webservicescommons.swagger.ApiBaseSiteIdUserIdAndCartIdParam;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -35,8 +29,7 @@ import javax.servlet.http.HttpServletRequest;
 
 @RestController
 @ApiVersion("v2")
-@Tag(name = "Adyen")
-public class PlaceOrderController extends PlaceOrderControllerBase {
+public class PlaceOrderController extends PlaceOrderControllerBase implements AdyenPlaceOrderApi {
 
     @Autowired
     private AdyenCheckoutApiFacade adyenCheckoutApiFacade;
@@ -62,35 +55,9 @@ public class PlaceOrderController extends PlaceOrderControllerBase {
     @Autowired
     private PaymentRedirectReturnUrlResolver paymentRedirectReturnUrlResolver;
 
+    @Override
     @Secured({"ROLE_CUSTOMERGROUP", "ROLE_CLIENT", "ROLE_CUSTOMERMANAGERGROUP", "ROLE_TRUSTED_CLIENT"})
     @PostMapping(value = AdyenoccConstants.ADYEN_USER_CART_PREFIX + "/place-order", produces = MediaType.APPLICATION_JSON_VALUE)
-    @Operation(
-            operationId = "placeOrder",
-            summary = "Handle place order request",
-            description = "Places order based on request data",
-            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    description = "Place order request details",
-                    required = true,
-                    content = @Content(
-                            mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = PlaceOrderRequest.class)
-                    )
-            ),
-            responses = {
-                    @ApiResponse( // Define the response explicitly
-                            responseCode = "200",
-                            description = "Order placement response",
-                            content = @Content(
-                                    mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                    schema = @Schema(implementation = OCCPlaceOrderResponse.class)
-                            )
-                    ),
-
-                    @ApiResponse(responseCode = "400", description = "Bad Request"),
-                    @ApiResponse(responseCode = "500", description = "Internal Server Error")
-            }
-    )
-    @ApiBaseSiteIdUserIdAndCartIdParam
     public ResponseEntity<String> onPlaceOrder(@RequestBody String placeOrderStringRequest, HttpServletRequest request) throws Exception {
         PlaceOrderRequest placeOrderRequest = objectMapper.readValue(placeOrderStringRequest, PlaceOrderRequest.class);
         OCCPlaceOrderResponse placeOrderResponse = super.placeOrderOCC(placeOrderRequest, request);
@@ -98,34 +65,9 @@ public class PlaceOrderController extends PlaceOrderControllerBase {
         return ResponseEntity.ok(response);
     }
 
+    @Override
     @Secured({"ROLE_CUSTOMERGROUP", "ROLE_CLIENT", "ROLE_CUSTOMERMANAGERGROUP", "ROLE_TRUSTED_CLIENT"})
     @PostMapping(value = AdyenoccConstants.ADYEN_USER_PREFIX + "/additional-details", produces = MediaType.APPLICATION_JSON_VALUE)
-    @Operation(
-            operationId = "additionalDetails",
-            summary = "Handle additional payment details",
-            description = "Submits additional payment details for an order, often required for 3D Secure or other redirect flows.",
-            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    description = "Additional payment details",
-                    required = true,
-                    content = @Content(
-                            mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = PaymentDetailsRequest.class)
-                    )
-            ),
-            responses = {
-                    @ApiResponse(
-                            responseCode = "200",
-                            description = "Additional details submission response, typically an order confirmation or status.",
-                            content = @Content(
-                                    mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                    schema = @Schema(implementation = OCCPlaceOrderResponse.class)
-                            )
-                    ),
-                    @ApiResponse(responseCode = "400", description = "Bad Request - Invalid additional details provided"),
-                    @ApiResponse(responseCode = "500", description = "Internal Server Error")
-            }
-    )
-    @ApiBaseSiteIdAndUserIdParam
     public ResponseEntity<String> onAdditionalDetails(@RequestBody PaymentDetailsRequest detailsRequest) throws JsonProcessingException {
         OCCPlaceOrderResponse placeOrderResponse = handleAdditionalDetailsOCC(detailsRequest);
 

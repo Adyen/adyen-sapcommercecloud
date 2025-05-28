@@ -3,6 +3,7 @@
  */
 package com.adyen.commerce.controllers;
 
+import com.adyen.commerce.api.RedirectApi;
 import com.adyen.commerce.constants.AdyenoccConstants;
 import com.adyen.commerce.controllerbase.RedirectControllerBase;
 import com.adyen.model.checkout.PaymentDetailsRequest;
@@ -29,7 +30,7 @@ import static com.adyen.commerce.constants.AdyenwebcommonsConstants.REDIRECT_PRE
 @RequestMapping(value = AdyenoccConstants.ADYEN_PREFIX)
 @ApiVersion("v2")
 @Tag(name = "Adyen")
-public class RedirectController extends RedirectControllerBase {
+public class RedirectController extends RedirectControllerBase implements RedirectApi {
     private static final String REDIRECT_URL = "/redirect";
     private static final String ADYEN_REDIRECT_URL = "/adyen/redirect/";
 
