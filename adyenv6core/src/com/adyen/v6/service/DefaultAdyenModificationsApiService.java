@@ -1,12 +1,7 @@
 package com.adyen.v6.service;
 
 import com.adyen.commerce.services.AdyenRequestService;
-import com.adyen.model.checkout.PaymentCaptureRequest;
-import com.adyen.model.checkout.PaymentCaptureResponse;
-import com.adyen.model.checkout.PaymentRefundRequest;
-import com.adyen.model.checkout.PaymentRefundResponse;
-import com.adyen.model.checkout.PaymentReversalRequest;
-import com.adyen.model.checkout.PaymentReversalResponse;
+import com.adyen.model.checkout.*;
 import com.adyen.service.checkout.ModificationsApi;
 import com.adyen.v6.util.AmountUtil;
 import de.hybris.platform.store.BaseStoreModel;
@@ -24,7 +19,7 @@ public class DefaultAdyenModificationsApiService extends AbstractAdyenApiService
     }
 
     @Override
-    public PaymentCaptureResponse capture(final BigDecimal amount, final Currency currency, final String authReference, final String merchantReference) throws Exception {
+    public PaymentCaptureResponse capture(final BigDecimal amount, final Currency currency, final String pspReference, final String merchantReference) throws Exception {
         LOG.debug("Captures");
 
         final ModificationsApi modificationsApi = new ModificationsApi(getClient());
@@ -35,7 +30,7 @@ public class DefaultAdyenModificationsApiService extends AbstractAdyenApiService
         captureRequest.setMerchantAccount(merchantAccount);
 
         LOG.debug(captureRequest);
-        PaymentCaptureResponse paymentCaptureResponse = modificationsApi.captureAuthorisedPayment(merchantAccount, captureRequest);
+        PaymentCaptureResponse paymentCaptureResponse = modificationsApi.captureAuthorisedPayment(pspReference, captureRequest);
         LOG.debug(paymentCaptureResponse);
 
         return paymentCaptureResponse;
