@@ -51,6 +51,7 @@ public class AdyenCartAddressesController implements AdyenCartAddressesApi {
     private AdyenOccAddressValidator addressValidator;
 
 
+    @Override
     @Secured({"ROLE_CUSTOMERGROUP", "ROLE_CUSTOMERMANAGERGROUP", "ROLE_GUEST", "ROLE_TRUSTED_CLIENT"})
     @PostMapping(value = "/addresses/delivery", produces = {MediaType.APPLICATION_JSON_VALUE})
     @ResponseStatus(HttpStatus.CREATED)

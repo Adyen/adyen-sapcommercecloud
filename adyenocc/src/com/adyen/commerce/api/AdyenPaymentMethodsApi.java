@@ -32,6 +32,8 @@ public interface AdyenPaymentMethodsApi {
                             )
                     ),
                     @ApiResponse(responseCode = "400", description = "Bad Request"),
+                    @ApiResponse(responseCode = "401", description = "Unauthorized. Authentication required."),
+                    @ApiResponse(responseCode = "403", description = "Forbidden. Insufficient permissions."),
                     @ApiResponse(responseCode = "500", description = "Internal Server Error")
             }
     )
@@ -52,6 +54,8 @@ public interface AdyenPaymentMethodsApi {
                             )
                     ),
                     @ApiResponse(responseCode = "400", description = "Bad Request"),
+                    @ApiResponse(responseCode = "401", description = "Unauthorized. Authentication required."),
+                    @ApiResponse(responseCode = "403", description = "Forbidden. Insufficient permissions."),
                     @ApiResponse(responseCode = "500", description = "Internal Server Error")
             }
     )
@@ -72,6 +76,8 @@ public interface AdyenPaymentMethodsApi {
                             )
                     ),
                     @ApiResponse(responseCode = "400", description = "Bad Request"),
+                    @ApiResponse(responseCode = "401", description = "Unauthorized. Authentication required."),
+                    @ApiResponse(responseCode = "403", description = "Forbidden. Insufficient permissions."),
                     @ApiResponse(responseCode = "500", description = "Internal Server Error")
             }
     )

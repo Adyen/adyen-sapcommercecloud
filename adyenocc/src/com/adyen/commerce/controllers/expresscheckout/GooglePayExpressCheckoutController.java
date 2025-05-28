@@ -1,5 +1,6 @@
 package com.adyen.commerce.controllers.expresscheckout;
 
+import com.adyen.commerce.api.expresscheclout.GooglePayExpressCheckoutApi;
 import com.adyen.commerce.constants.AdyenoccConstants;
 import com.adyen.commerce.request.GooglePayExpressRequest;
 import com.adyen.commerce.resolver.PaymentRedirectReturnUrlResolver;
@@ -26,7 +27,7 @@ import javax.servlet.http.HttpServletRequest;
 @RestController
 @RequestMapping(value = AdyenoccConstants.ADYEN_USER_CART_PREFIX + "/express-checkout/google")
 @ApiVersion("v2")
-public class GooglePayExpressCheckoutController extends ExpressCheckoutControllerBase {
+public class GooglePayExpressCheckoutController extends ExpressCheckoutControllerBase implements GooglePayExpressCheckoutApi {
 
     @Autowired
     private CartFacade cartFacade;
@@ -41,6 +42,7 @@ public class GooglePayExpressCheckoutController extends ExpressCheckoutControlle
     private PaymentRedirectReturnUrlResolver paymentRedirectReturnUrlResolver;
 
 
+    @Override
     @Secured({"ROLE_CUSTOMERGROUP", "ROLE_CLIENT", "ROLE_CUSTOMERMANAGERGROUP", "ROLE_TRUSTED_CLIENT"})
     @PostMapping(value = "/PDP", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<String> googlePayCartExpressCheckoutPDP(final HttpServletRequest request, @RequestBody String googlePayExpressPDPRequestString) throws Exception {
@@ -53,6 +55,7 @@ public class GooglePayExpressCheckoutController extends ExpressCheckoutControlle
         return ResponseEntity.ok(response);
     }
 
+    @Override
     @Secured({"ROLE_CUSTOMERGROUP", "ROLE_CLIENT", "ROLE_CUSTOMERMANAGERGROUP", "ROLE_TRUSTED_CLIENT"})
     @PostMapping(value = "/cart", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<String> googlePayCartExpressCheckoutCart(final HttpServletRequest request, @RequestBody String googlePayExpressCartRequestString) throws Exception {

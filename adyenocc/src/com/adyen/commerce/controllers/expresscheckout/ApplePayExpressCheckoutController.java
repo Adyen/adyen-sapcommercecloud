@@ -42,6 +42,7 @@ public class ApplePayExpressCheckoutController extends ExpressCheckoutController
     private PaymentRedirectReturnUrlResolver paymentRedirectReturnUrlResolver;
 
 
+    @Override
     @Secured({"ROLE_CUSTOMERGROUP", "ROLE_CLIENT", "ROLE_CUSTOMERMANAGERGROUP", "ROLE_TRUSTED_CLIENT"})
     @PostMapping(value = "/PDP", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<String> applePayPDPExpressCheckout(final HttpServletRequest request, @RequestBody String applePayExpressPDPStringRequest) throws Exception {
@@ -54,6 +55,7 @@ public class ApplePayExpressCheckoutController extends ExpressCheckoutController
         return ResponseEntity.ok(response);
     }
 
+    @Override
     @Secured({"ROLE_CUSTOMERGROUP", "ROLE_CLIENT", "ROLE_CUSTOMERMANAGERGROUP", "ROLE_TRUSTED_CLIENT"})
     @PostMapping(value = "/cart", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<String> applePayCartExpressCheckout(final HttpServletRequest request, @RequestBody String applePayExpressCartStringRequest) throws Exception {

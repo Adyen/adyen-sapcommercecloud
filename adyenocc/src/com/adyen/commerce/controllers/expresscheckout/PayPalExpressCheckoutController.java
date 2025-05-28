@@ -56,6 +56,7 @@ public class PayPalExpressCheckoutController extends ExpressCheckoutControllerBa
     private AdyenPayPalExpressCheckoutFacade adyenPayPalExpressCheckoutFacade;
 
 
+    @Override
     @Secured({"ROLE_CUSTOMERGROUP", "ROLE_CLIENT", "ROLE_CUSTOMERMANAGERGROUP", "ROLE_TRUSTED_CLIENT"})
     @PostMapping(value = ADYEN_USER_CART_PAYPAL_PREFIX + "/PDP", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<String> PayPalCartExpressCheckoutPDP(final HttpServletRequest request, @RequestBody String PayPalExpressPDPRequestString) throws Exception {
@@ -68,6 +69,7 @@ public class PayPalExpressCheckoutController extends ExpressCheckoutControllerBa
         return ResponseEntity.ok(response);
     }
 
+    @Override
     @Secured({"ROLE_CUSTOMERGROUP", "ROLE_CLIENT", "ROLE_CUSTOMERMANAGERGROUP", "ROLE_TRUSTED_CLIENT"})
     @PostMapping(value = ADYEN_USER_CART_PAYPAL_PREFIX + "/cart", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<String> PayPalCartExpressCheckoutCart(final HttpServletRequest request, @RequestBody String PayPalExpressCartRequestString) throws Exception {
@@ -79,6 +81,7 @@ public class PayPalExpressCheckoutController extends ExpressCheckoutControllerBa
         return ResponseEntity.ok(response);
     }
 
+    @Override
     @Secured({"ROLE_CUSTOMERGROUP", "ROLE_CLIENT", "ROLE_CUSTOMERMANAGERGROUP", "ROLE_TRUSTED_CLIENT"})
     @PostMapping(value =  ADYEN_USER_CART_PAYPAL_PREFIX+ "/submit/PDP", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<String> onSubmitPDP(final HttpServletRequest request, final HttpServletResponse response, @RequestBody String payPalIntermediateRequestString) throws Exception {

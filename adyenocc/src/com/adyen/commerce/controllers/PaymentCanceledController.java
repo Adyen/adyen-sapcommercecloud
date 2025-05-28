@@ -24,11 +24,9 @@ public class PaymentCanceledController implements PaymentCanceledApi {
     @Autowired
     private AdyenCheckoutFacade adyenCheckoutFacade;
 
+    @Override
     @Secured({"ROLE_CUSTOMERGROUP", "ROLE_CLIENT", "ROLE_CUSTOMERMANAGERGROUP", "ROLE_TRUSTED_CLIENT"})
     @PostMapping(value = "/payment-canceled/{orderCode}")
-    @Operation(operationId = "paymentCanceled", summary = "Handle payment canceled request", description =
-            "Restores cart from order code and data in session")
-    @ApiBaseSiteIdUserIdAndCartIdParam
     public ResponseEntity<Void> onCancel(@PathVariable String orderCode) throws InvalidCartException, CalculationException {
         adyenCheckoutFacade.restoreCartFromOrderOCC(orderCode);
         return ResponseEntity.ok().build();

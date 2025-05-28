@@ -46,76 +46,25 @@ public class PaymentMethodsController implements AdyenPaymentMethodsApi
     @Autowired
     private AdyenExpressCheckoutFacade adyenExpressCheckoutFacade;
 
+    @Override
     @Secured({ "ROLE_CUSTOMERGROUP", "ROLE_TRUSTED_CLIENT", "ROLE_CUSTOMERMANAGERGROUP" })
     @GetMapping(value = AdyenoccConstants.ADYEN_USER_CART_PREFIX + "/checkout-configuration")
-    @Operation(
-            operationId = "getCheckoutConfiguration",
-            summary = "Get checkout configuration",
-            description = "Returns configuration for Adyen dropin component",
-            responses = {
-                    @ApiResponse(
-                            responseCode = "200",
-                            description = "Adyen checkout configuration details",
-                            content = @Content(
-                                    mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                    schema = @Schema(implementation = CheckoutConfigDTO.class)
-                            )
-                    ),
-                    @ApiResponse(responseCode = "400", description = "Bad Request"),
-                    @ApiResponse(responseCode = "500", description = "Internal Server Error")
-            }
-    )
-    @ApiBaseSiteIdUserIdAndCartIdParam
     public ResponseEntity<String> getCheckoutConfiguration() throws ApiException, JsonProcessingException {
         String response = objectMapper.writeValueAsString(adyenCheckoutFacade.getReactCheckoutConfig());
         return ResponseEntity.ok().body(response);
     }
 
+    @Override
     @Secured({ "ROLE_CUSTOMERGROUP", "ROLE_TRUSTED_CLIENT", "ROLE_CUSTOMERMANAGERGROUP" })
     @GetMapping(value = AdyenoccConstants.ADYEN_USER_PREFIX + "/checkout-configuration/express/PDP/{productCode}")
-    @Operation(
-            operationId = "getExpressPDPCheckoutConfiguration",
-            summary = "Get express product page checkout configuration",
-            description = "Returns configuration for express payments on PDP",
-            responses = {
-                    @ApiResponse(
-                            responseCode = "200",
-                            description = "Adyen express checkout configuration for PDP",
-                            content = @Content(
-                                    mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                    schema = @Schema(implementation = ExpressCheckoutConfigDTO.class)
-                            )
-                    ),
-                    @ApiResponse(responseCode = "400", description = "Bad Request"),
-                    @ApiResponse(responseCode = "500", description = "Internal Server Error")
-            }
-    )
-    @ApiBaseSiteIdAndUserIdParam
     public ResponseEntity<String> getExpressPDPCheckoutConfiguration(@PathVariable String productCode) throws ApiException, JsonProcessingException {
         String response = objectMapper.writeValueAsString(adyenCheckoutFacade.initializeExpressCheckoutPDPDataOCC(productCode));
         return ResponseEntity.ok().body(response);
     }
 
+    @Override
     @Secured({ "ROLE_CUSTOMERGROUP", "ROLE_TRUSTED_CLIENT", "ROLE_CUSTOMERMANAGERGROUP" })
     @GetMapping(value = AdyenoccConstants.ADYEN_USER_CART_PREFIX + "/checkout-configuration/express/cart")
-    @Operation(
-            operationId = "getExpressCartCheckoutConfiguration",
-            summary = "Get express cart page checkout configuration",
-            description = "Returns configuration for express payments on cart",
-            responses = {
-                    @ApiResponse(
-                            responseCode = "200",
-                            description = "Adyen express checkout configuration for cart",
-                            content = @Content(
-                                    mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                    schema = @Schema(implementation = ExpressCheckoutConfigDTO.class)
-                            )
-                    ),
-                    @ApiResponse(responseCode = "400", description = "Bad Request"),
-                    @ApiResponse(responseCode = "500", description = "Internal Server Error")
-            }
-    )
-    @ApiBaseSiteIdUserIdAndCartIdParam
     public ResponseEntity<String> getExpressCartCheckoutConfiguration() throws ApiException, JsonProcessingException, CalculationException {
         String response = objectMapper.writeValueAsString(adyenCheckoutFacade.initializeExpressCheckoutCartPageDataOCC());
         return ResponseEntity.ok().body(response);

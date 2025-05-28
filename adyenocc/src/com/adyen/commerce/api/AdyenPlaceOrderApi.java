@@ -44,6 +44,8 @@ public interface AdyenPlaceOrderApi {
                             )
                     ),
                     @ApiResponse(responseCode = "400", description = "Bad Request"),
+                    @ApiResponse(responseCode = "401", description = "Unauthorized. Authentication required."),
+                    @ApiResponse(responseCode = "403", description = "Forbidden. Insufficient permissions."),
                     @ApiResponse(responseCode = "500", description = "Internal Server Error")
             }
     )
@@ -72,6 +74,8 @@ public interface AdyenPlaceOrderApi {
                             )
                     ),
                     @ApiResponse(responseCode = "400", description = "Bad Request - Invalid additional details provided"),
+                    @ApiResponse(responseCode = "401", description = "Unauthorized. Authentication required."),
+                    @ApiResponse(responseCode = "403", description = "Forbidden. Insufficient permissions."),
                     @ApiResponse(responseCode = "500", description = "Internal Server Error")
             }
     )

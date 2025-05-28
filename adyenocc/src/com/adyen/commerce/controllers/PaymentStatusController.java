@@ -26,6 +26,7 @@ public class PaymentStatusController implements PaymentStatusApi {
     private AdyenOrderFacade adyenOrderFacade;
 
 
+    @Override
     @Secured({"ROLE_CUSTOMERGROUP", "ROLE_CLIENT", "ROLE_TRUSTED_CLIENT", "ROLE_CUSTOMERMANAGERGROUP"})
     @GetMapping(value = "/payment-status/{orderCode}")
     public ResponseEntity<String> getPaymentStatus(

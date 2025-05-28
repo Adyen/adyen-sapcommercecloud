@@ -51,7 +51,8 @@ public interface AdyenCartAddressesApi {
                             content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE)
                     ),
                     @ApiResponse(responseCode = "401", description = "Unauthorized. Authentication required."),
-                    @ApiResponse(responseCode = "403", description = "Forbidden. Insufficient permissions.")
+                    @ApiResponse(responseCode = "403", description = "Forbidden. Insufficient permissions."),
+                    @ApiResponse(responseCode = "500", description = "Internal Server Error")
 
             }
     )

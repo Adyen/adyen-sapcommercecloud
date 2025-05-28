@@ -15,7 +15,6 @@ import de.hybris.platform.servicelayer.config.ConfigurationService;
 import de.hybris.platform.site.BaseSiteService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
@@ -29,7 +28,6 @@ import static com.adyen.commerce.constants.AdyenwebcommonsConstants.REDIRECT_PRE
 @Controller
 @RequestMapping(value = AdyenoccConstants.ADYEN_PREFIX)
 @ApiVersion("v2")
-@Tag(name = "Adyen")
 public class RedirectController extends RedirectControllerBase implements RedirectApi {
     private static final String REDIRECT_URL = "/redirect";
     private static final String ADYEN_REDIRECT_URL = "/adyen/redirect/";
@@ -46,16 +44,14 @@ public class RedirectController extends RedirectControllerBase implements Redire
     @Resource(name = "baseSiteService")
     private BaseSiteService baseSiteService;
 
+    @Override
     @GetMapping(value = REDIRECT_URL)
-    @Operation(operationId = "adyenRedirect", summary = "Handle redirect payment method", description =
-            "Handles return after payment method redirect flow returns")
     public String authorizeRedirectPaymentGet(final HttpServletRequest request) {
         return super.authoriseRedirectGetPayment(request);
     }
 
+    @Override
     @PostMapping(value = REDIRECT_URL)
-    @Operation(operationId = "adyenRedirect", summary = "Handle redirect payment method", description =
-            "Handles return after payment method redirect flow returns")
     public String authorizeRedirectPaymentPost(@Parameter(description = "Payment details data", required = true) @RequestBody PaymentDetailsRequest detailsRequest) {
         return super.authoriseRedirectPostPayment(detailsRequest);
     }
