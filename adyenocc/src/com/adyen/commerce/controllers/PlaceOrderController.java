@@ -1,5 +1,6 @@
 package com.adyen.commerce.controllers;
 
+import com.adyen.commerce.api.AdyenPlaceOrderApi;
 import com.adyen.commerce.constants.AdyenoccConstants;
 import com.adyen.commerce.controllerbase.PlaceOrderControllerBase;
 import com.adyen.commerce.facades.AdyenCheckoutApiFacade;
@@ -15,17 +16,12 @@ import de.hybris.platform.commercefacades.order.CartFacade;
 import de.hybris.platform.commerceservices.request.mapping.annotation.ApiVersion;
 import de.hybris.platform.commerceservices.strategies.CheckoutCustomerStrategy;
 import de.hybris.platform.site.BaseSiteService;
-import de.hybris.platform.webservicescommons.swagger.ApiBaseSiteIdAndUserIdParam;
-import de.hybris.platform.webservicescommons.swagger.ApiBaseSiteIdUserIdAndCartIdParam;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.annotation.Resource;
@@ -33,8 +29,7 @@ import javax.servlet.http.HttpServletRequest;
 
 @RestController
 @ApiVersion("v2")
-@Tag(name = "Adyen")
-public class PlaceOrderController extends PlaceOrderControllerBase {
+public class PlaceOrderController extends PlaceOrderControllerBase implements AdyenPlaceOrderApi {
 
     @Autowired
     private AdyenCheckoutApiFacade adyenCheckoutApiFacade;
@@ -60,11 +55,9 @@ public class PlaceOrderController extends PlaceOrderControllerBase {
     @Autowired
     private PaymentRedirectReturnUrlResolver paymentRedirectReturnUrlResolver;
 
+    @Override
     @Secured({"ROLE_CUSTOMERGROUP", "ROLE_CLIENT", "ROLE_CUSTOMERMANAGERGROUP", "ROLE_TRUSTED_CLIENT"})
     @PostMapping(value = AdyenoccConstants.ADYEN_USER_CART_PREFIX + "/place-order", produces = MediaType.APPLICATION_JSON_VALUE)
-    @Operation(operationId = "placeOrder", summary = "Handle place order request", description =
-            "Places order based on request data")
-    @ApiBaseSiteIdUserIdAndCartIdParam
     public ResponseEntity<String> onPlaceOrder(@RequestBody String placeOrderStringRequest, HttpServletRequest request) throws Exception {
         PlaceOrderRequest placeOrderRequest = objectMapper.readValue(placeOrderStringRequest, PlaceOrderRequest.class);
         OCCPlaceOrderResponse placeOrderResponse = super.placeOrderOCC(placeOrderRequest, request);
@@ -72,11 +65,9 @@ public class PlaceOrderController extends PlaceOrderControllerBase {
         return ResponseEntity.ok(response);
     }
 
+    @Override
     @Secured({"ROLE_CUSTOMERGROUP", "ROLE_CLIENT", "ROLE_CUSTOMERMANAGERGROUP", "ROLE_TRUSTED_CLIENT"})
     @PostMapping(value = AdyenoccConstants.ADYEN_USER_PREFIX + "/additional-details", produces = MediaType.APPLICATION_JSON_VALUE)
-    @Operation(operationId = "additionalDetails", summary = "Handle additional details action", description =
-            "Places pending order based on additional details request")
-    @ApiBaseSiteIdAndUserIdParam
     public ResponseEntity<String> onAdditionalDetails(@RequestBody PaymentDetailsRequest detailsRequest) throws JsonProcessingException {
         OCCPlaceOrderResponse placeOrderResponse = handleAdditionalDetailsOCC(detailsRequest);
 

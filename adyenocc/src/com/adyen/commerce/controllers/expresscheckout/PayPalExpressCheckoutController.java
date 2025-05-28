@@ -1,5 +1,6 @@
 package com.adyen.commerce.controllers.expresscheckout;
 
+import com.adyen.commerce.api.expresscheclout.PayPalExpressCheckoutApi;
 import com.adyen.commerce.constants.AdyenoccConstants;
 import com.adyen.commerce.request.PayPalExpressCartRequest;
 import com.adyen.commerce.request.PayPalExpressPDPRequest;
@@ -19,10 +20,6 @@ import com.adyen.v6.response.PayPalExpressSubmitResponse;
 import de.hybris.platform.commercefacades.order.CartFacade;
 import de.hybris.platform.commerceservices.request.mapping.annotation.ApiVersion;
 import de.hybris.platform.commerceservices.strategies.CheckoutCustomerStrategy;
-import de.hybris.platform.webservicescommons.swagger.ApiBaseSiteIdAndUserIdParam;
-import de.hybris.platform.webservicescommons.swagger.ApiBaseSiteIdUserIdAndCartIdParam;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -38,8 +35,7 @@ import javax.servlet.http.HttpServletResponse;
 
 @RestController
 @ApiVersion("v2")
-@Tag(name = "Adyen")
-public class PayPalExpressCheckoutController extends ExpressCheckoutControllerBase {
+public class PayPalExpressCheckoutController extends ExpressCheckoutControllerBase implements PayPalExpressCheckoutApi {
 
     private static final String EXPRESS_CHECKOUT_PAYPAL = "/express-checkout/paypal";
     private static final String UPDATE_ORDER_PAYPAL_EXPRESS_CHECKOUT_PATH = AdyenoccConstants.ADYEN_USER_CART_PREFIX + EXPRESS_CHECKOUT_PAYPAL + "/update-order";
@@ -60,11 +56,9 @@ public class PayPalExpressCheckoutController extends ExpressCheckoutControllerBa
     private AdyenPayPalExpressCheckoutFacade adyenPayPalExpressCheckoutFacade;
 
 
+    @Override
     @Secured({"ROLE_CUSTOMERGROUP", "ROLE_CLIENT", "ROLE_CUSTOMERMANAGERGROUP", "ROLE_TRUSTED_CLIENT"})
     @PostMapping(value = ADYEN_USER_CART_PAYPAL_PREFIX + "/PDP", produces = MediaType.APPLICATION_JSON_VALUE)
-    @Operation(operationId = "placeOrderPayPalExpressPDP", summary = "Handle PayPalExpress place order request", description =
-            "Places order based on request data")
-    @ApiBaseSiteIdUserIdAndCartIdParam
     public ResponseEntity<String> PayPalCartExpressCheckoutPDP(final HttpServletRequest request, @RequestBody String PayPalExpressPDPRequestString) throws Exception {
         PayPalExpressPDPRequest payPalExpressPDPRequest = objectMapper.readValue(PayPalExpressPDPRequestString, PayPalExpressPDPRequest.class);
 
@@ -75,11 +69,9 @@ public class PayPalExpressCheckoutController extends ExpressCheckoutControllerBa
         return ResponseEntity.ok(response);
     }
 
+    @Override
     @Secured({"ROLE_CUSTOMERGROUP", "ROLE_CLIENT", "ROLE_CUSTOMERMANAGERGROUP", "ROLE_TRUSTED_CLIENT"})
     @PostMapping(value = ADYEN_USER_CART_PAYPAL_PREFIX + "/cart", produces = MediaType.APPLICATION_JSON_VALUE)
-    @Operation(operationId = "placeOrderPayPalExpressCart", summary = "Handle PayPalExpress place order request", description =
-            "Places order based on request data")
-    @ApiBaseSiteIdUserIdAndCartIdParam
     public ResponseEntity<String> PayPalCartExpressCheckoutCart(final HttpServletRequest request, @RequestBody String PayPalExpressCartRequestString) throws Exception {
         PayPalExpressCartRequest payPalExpressCartRequest = objectMapper.readValue(PayPalExpressCartRequestString, PayPalExpressCartRequest.class);
         PaymentRequest paymentRequest = getPaymentRequest(payPalExpressCartRequest);
@@ -89,11 +81,9 @@ public class PayPalExpressCheckoutController extends ExpressCheckoutControllerBa
         return ResponseEntity.ok(response);
     }
 
+    @Override
     @Secured({"ROLE_CUSTOMERGROUP", "ROLE_CLIENT", "ROLE_CUSTOMERMANAGERGROUP", "ROLE_TRUSTED_CLIENT"})
     @PostMapping(value =  ADYEN_USER_CART_PAYPAL_PREFIX+ "/submit/PDP", produces = MediaType.APPLICATION_JSON_VALUE)
-    @Operation(operationId = "placeOrderPayPalExpressPDP", summary = "Handle PayPalExpress place order request", description =
-            "Places order based on request data")
-    @ApiBaseSiteIdUserIdAndCartIdParam
     public ResponseEntity<String> onSubmitPDP(final HttpServletRequest request, final HttpServletResponse response, @RequestBody String payPalIntermediateRequestString) throws Exception {
         PayPalIntermediateRequest payPalIntermediateRequest = objectMapper.readValue(payPalIntermediateRequestString, PayPalIntermediateRequest.class);
         PayPalDetails payPalDetails = payPalIntermediateRequest.getPayPalDetails();
@@ -120,9 +110,6 @@ public class PayPalExpressCheckoutController extends ExpressCheckoutControllerBa
 
     @Secured({"ROLE_CUSTOMERGROUP", "ROLE_CLIENT", "ROLE_CUSTOMERMANAGERGROUP", "ROLE_TRUSTED_CLIENT"})
     @PostMapping(value = UPDATE_ORDER_PAYPAL_EXPRESS_CHECKOUT_PATH, produces = MediaType.APPLICATION_JSON_VALUE)
-    @Operation(operationId = "updatePayPalOrder", summary = "Handle PayPalExpress place order request", description =
-            "Places order based on request data")
-    @ApiBaseSiteIdAndUserIdParam
     public ResponseEntity<String> paypalUpdateOrder(final HttpServletRequest request, final HttpServletResponse response, @RequestBody String payPalpalUpdateOrderRequestString) throws Exception {
         PaypalUpdateOrderRequest paypalUpdateOrderRequest = objectMapper.readValue(payPalpalUpdateOrderRequestString, PaypalUpdateOrderRequest.class);
         PaypalUpdateOrderResponse paypalUpdateOrderResponse = adyenPayPalExpressCheckoutFacade.getPaypalUpdateOrderResponse(paypalUpdateOrderRequest);

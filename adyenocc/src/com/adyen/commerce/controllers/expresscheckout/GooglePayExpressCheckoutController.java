@@ -1,5 +1,6 @@
 package com.adyen.commerce.controllers.expresscheckout;
 
+import com.adyen.commerce.api.expresscheclout.GooglePayExpressCheckoutApi;
 import com.adyen.commerce.constants.AdyenoccConstants;
 import com.adyen.commerce.request.GooglePayExpressRequest;
 import com.adyen.commerce.resolver.PaymentRedirectReturnUrlResolver;
@@ -12,9 +13,6 @@ import com.adyen.v6.facades.AdyenExpressCheckoutFacade;
 import de.hybris.platform.commercefacades.order.CartFacade;
 import de.hybris.platform.commerceservices.request.mapping.annotation.ApiVersion;
 import de.hybris.platform.commerceservices.strategies.CheckoutCustomerStrategy;
-import de.hybris.platform.webservicescommons.swagger.ApiBaseSiteIdUserIdAndCartIdParam;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -29,8 +27,7 @@ import javax.servlet.http.HttpServletRequest;
 @RestController
 @RequestMapping(value = AdyenoccConstants.ADYEN_USER_CART_PREFIX + "/express-checkout/google")
 @ApiVersion("v2")
-@Tag(name = "Adyen")
-public class GooglePayExpressCheckoutController extends ExpressCheckoutControllerBase {
+public class GooglePayExpressCheckoutController extends ExpressCheckoutControllerBase implements GooglePayExpressCheckoutApi {
 
     @Autowired
     private CartFacade cartFacade;
@@ -45,11 +42,9 @@ public class GooglePayExpressCheckoutController extends ExpressCheckoutControlle
     private PaymentRedirectReturnUrlResolver paymentRedirectReturnUrlResolver;
 
 
+    @Override
     @Secured({"ROLE_CUSTOMERGROUP", "ROLE_CLIENT", "ROLE_CUSTOMERMANAGERGROUP", "ROLE_TRUSTED_CLIENT"})
     @PostMapping(value = "/PDP", produces = MediaType.APPLICATION_JSON_VALUE)
-    @Operation(operationId = "placeOrderGooglePayExpressPDP", summary = "Handle googlePayExpress place order request", description =
-            "Places order based on request data")
-    @ApiBaseSiteIdUserIdAndCartIdParam
     public ResponseEntity<String> googlePayCartExpressCheckoutPDP(final HttpServletRequest request, @RequestBody String googlePayExpressPDPRequestString) throws Exception {
         GooglePayExpressRequest googlePayExpressRequest = objectMapper.readValue(googlePayExpressPDPRequestString, GooglePayExpressRequest.class);
 
@@ -60,11 +55,9 @@ public class GooglePayExpressCheckoutController extends ExpressCheckoutControlle
         return ResponseEntity.ok(response);
     }
 
+    @Override
     @Secured({"ROLE_CUSTOMERGROUP", "ROLE_CLIENT", "ROLE_CUSTOMERMANAGERGROUP", "ROLE_TRUSTED_CLIENT"})
     @PostMapping(value = "/cart", produces = MediaType.APPLICATION_JSON_VALUE)
-    @Operation(operationId = "placeOrderGooglePayExpressCart", summary = "Handle googlePayExpress place order request", description =
-            "Places order based on request data")
-    @ApiBaseSiteIdUserIdAndCartIdParam
     public ResponseEntity<String> googlePayCartExpressCheckoutCart(final HttpServletRequest request, @RequestBody String googlePayExpressCartRequestString) throws Exception {
         GooglePayExpressRequest googlePayExpressRequest = objectMapper.readValue(googlePayExpressCartRequestString, GooglePayExpressRequest.class);
         PaymentRequest paymentRequest = getPaymentRequest(googlePayExpressRequest);

@@ -1,5 +1,6 @@
  package com.adyen.commerce.controllers.expresscheckout;
 
+ import com.adyen.commerce.api.expresscheclout.ApplePayExpressCheckoutApi;
  import com.adyen.commerce.constants.AdyenoccConstants;
  import com.adyen.commerce.request.ApplePayExpressRequest;
  import com.adyen.commerce.resolver.PaymentRedirectReturnUrlResolver;
@@ -12,9 +13,6 @@
  import de.hybris.platform.commercefacades.order.CartFacade;
  import de.hybris.platform.commerceservices.request.mapping.annotation.ApiVersion;
  import de.hybris.platform.commerceservices.strategies.CheckoutCustomerStrategy;
- import de.hybris.platform.webservicescommons.swagger.ApiBaseSiteIdUserIdAndCartIdParam;
- import io.swagger.v3.oas.annotations.Operation;
- import io.swagger.v3.oas.annotations.tags.Tag;
  import org.springframework.beans.factory.annotation.Autowired;
  import org.springframework.http.MediaType;
  import org.springframework.http.ResponseEntity;
@@ -29,8 +27,7 @@
 @RestController
 @RequestMapping(value = AdyenoccConstants.ADYEN_USER_CART_PREFIX + "/express-checkout/apple")
 @ApiVersion("v2")
-@Tag(name = "Adyen")
-public class ApplePayExpressCheckoutController extends ExpressCheckoutControllerBase {
+public class ApplePayExpressCheckoutController extends ExpressCheckoutControllerBase implements ApplePayExpressCheckoutApi {
 
     @Autowired
     private CartFacade cartFacade;
@@ -45,11 +42,9 @@ public class ApplePayExpressCheckoutController extends ExpressCheckoutController
     private PaymentRedirectReturnUrlResolver paymentRedirectReturnUrlResolver;
 
 
+    @Override
     @Secured({"ROLE_CUSTOMERGROUP", "ROLE_CLIENT", "ROLE_CUSTOMERMANAGERGROUP", "ROLE_TRUSTED_CLIENT"})
     @PostMapping(value = "/PDP", produces = MediaType.APPLICATION_JSON_VALUE)
-    @Operation(operationId = "placeOrderApplePayExpressPDP", summary = "Handle applePayExpress place order request", description =
-            "Places order based on request data")
-    @ApiBaseSiteIdUserIdAndCartIdParam
     public ResponseEntity<String> applePayPDPExpressCheckout(final HttpServletRequest request, @RequestBody String applePayExpressPDPStringRequest) throws Exception {
         ApplePayExpressRequest applePayExpressRequest = objectMapper.readValue(applePayExpressPDPStringRequest, ApplePayExpressRequest.class);
 
@@ -60,11 +55,9 @@ public class ApplePayExpressCheckoutController extends ExpressCheckoutController
         return ResponseEntity.ok(response);
     }
 
+    @Override
     @Secured({"ROLE_CUSTOMERGROUP", "ROLE_CLIENT", "ROLE_CUSTOMERMANAGERGROUP", "ROLE_TRUSTED_CLIENT"})
     @PostMapping(value = "/cart", produces = MediaType.APPLICATION_JSON_VALUE)
-    @Operation(operationId = "placeOrderApplePayExpressCart", summary = "Handle applePayExpress place order request", description =
-            "Places order based on request data")
-    @ApiBaseSiteIdUserIdAndCartIdParam
     public ResponseEntity<String> applePayCartExpressCheckout(final HttpServletRequest request, @RequestBody String applePayExpressCartStringRequest) throws Exception {
         ApplePayExpressRequest applePayExpressRequest = objectMapper.readValue(applePayExpressCartStringRequest, ApplePayExpressRequest.class);
 
