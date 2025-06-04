@@ -17,8 +17,13 @@
       <!-- you should add all required extensions to this list, except platform extensions which are automatically required -->         
       <!-- <requires-extension name="cms"/> -->
       <requires-extension name="adyenv6core"/>
+      <requires-extension name="processing"/>
+      <requires-extension name="yacceleratorfulfilmentprocess"/>
+      <requires-extension name="commerceservices"/>
 
       <coremodule generated="true" manager="com.adyen.v6.jalo.Adyenv6fulfilmentprocessManager" packageroot="com.adyen.v6"/>
+
+      <meta key="extgen-template-extension" value="true"/>
    </extension>
       
 </extensioninfo>
