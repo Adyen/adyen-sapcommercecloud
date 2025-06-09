@@ -128,4 +128,8 @@
         <property name="currency" type="String"/>
     </bean>
 
+    <bean class="com.adyen.commerce.data.DataCollectionConfiguration">
+        <property name="checkoutShopperHost" type="String"/>
+        <property name="dataCollectionEnabled" type="boolean"/>
+    </bean>
 </beans>

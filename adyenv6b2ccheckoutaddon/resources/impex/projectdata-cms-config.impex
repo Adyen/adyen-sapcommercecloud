@@ -21,3 +21,9 @@ INSERT_UPDATE ContentSlot; $contentCVS[unique = true]; uid[unique = true]       
 
 INSERT_UPDATE AdyenAccExpressCheckoutCartPageComponent; $contentCVS[unique = true]; uid[unique = true]          ; name                                         ; &componentRef
                                                       ;                           ; AccAdyenCartExpressCheckout ; Adyen Accelerator Cart Page Express Checkout ; AccAdyenCartExpressCheckout
+
+INSERT_UPDATE AdyenDataCollectionComponent; $contentCVS[unique = true]; uid[unique = true]     ; name
+                                          ;                           ; AccAdyenDataCollection ; Adyen Accelerator Data Collection Controller
+
+INSERT_UPDATE ContentSlot; $contentCVS[unique = true]; uid[unique = true]         ; cmsComponents($contentCVS, uid)
+                         ;                           ; FooterSlot ; FooterNavigationComponent, AccAdyenDataCollection

@@ -279,38 +279,6 @@
                     <modifiers optional="false"/>
                     <defaultvalue>Boolean.FALSE</defaultvalue>
                 </attribute>
-<!--                <attribute qualifier="adyenPosEnabled" type="java.lang.boolean">-->
-<!--                    <description>Enable POS Transactions</description>-->
-<!--                    <persistence type="property"/>-->
-<!--                    <modifiers optional="false"/>-->
-<!--                    <defaultvalue>Boolean.FALSE</defaultvalue>-->
-<!--                </attribute>-->
-<!--                <attribute qualifier="adyenPosMerchantAccount" type="java.lang.String">-->
-<!--                    <description>POS Merchant Account</description>-->
-<!--                    <persistence type="property"/>-->
-<!--                    <modifiers optional="true"/>-->
-<!--                </attribute>-->
-<!--                <attribute qualifier="adyenPosApiKey" type="java.lang.String">-->
-<!--                    <description>POS API Key</description>-->
-<!--                    <persistence type="property">-->
-<!--                        <columntype>-->
-<!--                            <value>varchar(1024)</value>-->
-<!--                        </columntype>-->
-<!--                    </persistence>-->
-<!--                    <modifiers encrypted="true" optional="true"/>-->
-<!--                </attribute>-->
-<!--                <attribute qualifier="adyenPosStoreId" type="java.lang.String">-->
-<!--                    <description>POS Store ID</description>-->
-<!--                    <persistence type="property"/>-->
-<!--                    <modifiers optional="true"/>-->
-<!--                </attribute>-->
-<!--                <attribute type="RecurringContractMode" qualifier="adyenPosRecurringContractMode"-->
-<!--                           generate="true" autocreate="true">-->
-<!--                    <persistence type="property"/>-->
-<!--                    <modifiers optional="false"/>-->
-<!--                    <defaultvalue>em().getEnumerationValue("RecurringContractMode","NONE")</defaultvalue>-->
-<!--                    <description>How the payment will be stored on Adyen</description>-->
-<!--                </attribute>-->
                 <attribute qualifier="adyenPaypalMerchantId" type="java.lang.String">
                     <description>PayPal Merchant Id (required for Live mode)</description>
                     <persistence type="property"/>
@@ -352,6 +320,11 @@
                 <attribute qualifier="clickToPayLocale" type="java.lang.String">
                     <description>Click to Pay Locale in form eq. en_US</description>
                     <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="dataCollectionEnabled" type="java.lang.boolean">
+                    <persistence type="property"/>
+                    <defaultvalue>Boolean.FALSE</defaultvalue>
+                    <modifiers optional="false"/>
                 </attribute>
             </attributes>
         </itemtype>
