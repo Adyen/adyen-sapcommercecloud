@@ -107,6 +107,9 @@ public class DefaultAdyenOrderService implements AdyenOrderService {
     public void storeFraudReport(OrderModel order, String pspReference, FraudResult fraudResult) {
         FraudReportModel fraudReport = createFraudReportFromPaymentsResponse(pspReference, fraudResult);
         if (fraudReport != null) {
+            order.setAdyenRiskScore(fraudResult.getAccountScore());
+            modelService.save(order);
+
             fraudReport.setOrder(order);
             storeFraudReport(fraudReport);
         }

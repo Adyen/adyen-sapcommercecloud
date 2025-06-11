@@ -12,7 +12,9 @@
   -->
 
 <config xmlns="http://www.hybris.com/cockpit/config"
-		xmlns:na="http://www.hybris.com/cockpitng/config/notifications">
+		xmlns:na="http://www.hybris.com/cockpitng/config/notifications"
+		xmlns:lv="http://www.hybris.com/cockpitng/component/listView"
+		xmlns:as="http://www.hybris.com/cockpitng/config/advancedsearch">
 
 	<!-- adyenv6backoffice UI configuration should be provided here -->
 
@@ -127,6 +129,20 @@
 				</editorArea:section>
 			</editorArea:tab>
 		</editorArea:editorArea>
+	</context>
+
+	<context type="Order" component="advanced-search" merge-by="type">
+		<as:advanced-search>
+			<as:field-list>
+				<as:field name="adyenRiskScore"/>
+			</as:field-list>
+		</as:advanced-search>
+	</context>
+
+	<context merge-by="type" type="Order" component="listview">
+		<lv:list-view>
+			<lv:column qualifier="adyenRiskScore"/>
+		</lv:list-view>
 	</context>
 
 </config>
