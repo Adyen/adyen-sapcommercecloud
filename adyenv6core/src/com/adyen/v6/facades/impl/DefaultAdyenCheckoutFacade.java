@@ -351,8 +351,8 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         OrderModel orderModel = retrievePendingOrder(orderCode);
         updateOrderPaymentStatusAndInfo(orderModel, response);
 
-        if (PaymentDetailsResponse.ResultCodeEnum.AUTHORISED.equals(response.getResultCode())
-                && PaymentDetailsResponse.ResultCodeEnum.RECEIVED.equals(response.getResultCode())) {
+        if (!(PaymentDetailsResponse.ResultCodeEnum.AUTHORISED.equals(response.getResultCode())
+                || PaymentDetailsResponse.ResultCodeEnum.RECEIVED.equals(response.getResultCode()))) {
             restoreCartFromOrder(orderCode);
         }
 
