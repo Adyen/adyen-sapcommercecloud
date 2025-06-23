@@ -26,8 +26,12 @@ public abstract class AbstractAdyenApiService {
         this.baseStore = baseStore;
         this.merchantAccount = merchantAccount;
         this.adyenRequestService = adyenRequestService;
-
         config = new Config();
+        if (Boolean.TRUE.equals(baseStore.getAdyenTestMode())) {
+            config.setEnvironment(Environment.TEST);
+        } else {
+            config.setEnvironment(Environment.LIVE);
+        }
         config.setApiKey(baseStore.getAdyenAPIKey());
         config.setApplicationName(PLUGIN_NAME + " v" + PLUGIN_VERSION);
         client = new Client(config);
