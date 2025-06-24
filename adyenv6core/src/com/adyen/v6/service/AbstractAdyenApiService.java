@@ -4,7 +4,6 @@ import com.adyen.Client;
 import com.adyen.Config;
 import com.adyen.commerce.services.AdyenRequestService;
 import com.adyen.enums.Environment;
-import com.adyen.v6.factory.AdyenRequestFactory;
 import de.hybris.platform.store.BaseStoreModel;
 
 import static com.adyen.v6.constants.Adyenv6coreConstants.PLUGIN_NAME;
@@ -14,7 +13,6 @@ public abstract class AbstractAdyenApiService {
 
     protected BaseStoreModel baseStore;
     protected String merchantAccount;
-    protected AdyenRequestFactory adyenRequestFactory;
     protected AdyenRequestService adyenRequestService;
     protected Config config;
     protected Client client;
@@ -45,13 +43,6 @@ public abstract class AbstractAdyenApiService {
         }
     }
 
-    public AdyenRequestFactory getAdyenRequestFactory() {
-        return adyenRequestFactory;
-    }
-
-    public void setAdyenRequestFactory(AdyenRequestFactory adyenRequestFactory) {
-        this.adyenRequestFactory = adyenRequestFactory;
-    }
 
     public BaseStoreModel getBaseStore() {
         return baseStore;
