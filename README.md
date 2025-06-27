@@ -1,4 +1,4 @@
-# Adyen SAP Commerce (Hybris) v6 plugin
+# Adyen SAP Cloud Commerce (Hybris) v6 plugin
 
 Latest stable version:
 https://github.com/Adyen/adyen-hybris/releases
