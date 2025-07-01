@@ -1,7 +1,12 @@
 package com.adyen.commerce.services;
 
 import com.adyen.model.checkout.PaymentRequest;
+import com.adyen.model.recurring.DisableRequest;
+import com.adyen.model.recurring.RecurringDetailsRequest;
+import com.adyen.v6.enums.RecurringContractMode;
+import com.adyen.v6.model.RequestInfo;
 import de.hybris.platform.commercefacades.order.data.CartData;
+import de.hybris.platform.core.model.user.CustomerModel;
 
 import java.util.Map;
 
@@ -29,6 +34,17 @@ public interface AdyenRequestService {
 
     void populateL2L3AdditionalData(final Map<String, String> additionalData, final CartData cartData);
 
-
     void applyAdditionalData(CartData cartData, PaymentRequest paymentsRequest);
+
+    PaymentRequest createPaymentsRequest(final String merchantAccount,
+                                        final CartData cartData,
+                                        final PaymentRequest originPaymentsRequest,
+                                        final RequestInfo requestInfo,
+                                        final CustomerModel customerModel,
+                                        final RecurringContractMode recurringContractMode,
+                                        final Boolean guestUserTokenizationEnabled);
+
+    RecurringDetailsRequest createListRecurringDetailsRequest(final String merchantAccount, final String customerId);
+
+    DisableRequest createDisableRequest(final String merchantAccount, final String customerId, final String recurringReference);
 }

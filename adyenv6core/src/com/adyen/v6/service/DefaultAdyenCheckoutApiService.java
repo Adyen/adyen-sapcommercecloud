@@ -61,7 +61,7 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
 
         PaymentsApi checkoutApi = new PaymentsApi(client);
 
-        PaymentRequest paymentsRequest = getAdyenRequestFactory().createPaymentsRequest(merchantAccount,
+        PaymentRequest paymentsRequest = adyenRequestService.createPaymentsRequest(merchantAccount,
                 cartData,
                 originPaymentsRequest,
                 requestInfo,
@@ -187,7 +187,7 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
 
         RecurringApi recurring = new RecurringApi(client);
 
-        RecurringDetailsRequest request = getAdyenRequestFactory().createListRecurringDetailsRequest(merchantAccount, customerId);
+        RecurringDetailsRequest request = adyenRequestService.createListRecurringDetailsRequest(merchantAccount, customerId);
 
         LOG.debug(request);
         RecurringDetailsResult result = recurring.listRecurringDetails(request);
@@ -211,7 +211,7 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
 
         RecurringApi recurring = new RecurringApi(client);
 
-        DisableRequest request = getAdyenRequestFactory().createDisableRequest(merchantAccount, customerId, recurringReference);
+        DisableRequest request = adyenRequestService.createDisableRequest(merchantAccount, customerId, recurringReference);
 
         LOG.debug(request);
         DisableResult result = recurring.disable(request);
