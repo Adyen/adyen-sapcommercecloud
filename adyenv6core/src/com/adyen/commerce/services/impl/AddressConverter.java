@@ -10,9 +10,9 @@ import org.apache.log4j.Logger;
  * Utility class for converting Hybris AddressData to Adyen address objects
  */
 public class AddressConverter {
-    private static final Logger LOG = Logger.getLogger(AddressConverter.class);
+    protected static final Logger LOG = Logger.getLogger(AddressConverter.class);
     
-    private static final String DEFAULT_VALUE = "NA";
+    protected static final String DEFAULT_VALUE = "NA";
 
     /**
      * Converts AddressData to DeliveryAddress
@@ -44,7 +44,7 @@ public class AddressConverter {
         return address;
     }
 
-    private static void setDefaultValues(DeliveryAddress address) {
+    protected static void setDefaultValues(DeliveryAddress address) {
         address.setCity(DEFAULT_VALUE);
         address.setCountry(DEFAULT_VALUE);
         address.setHouseNumberOrName(DEFAULT_VALUE);
@@ -53,7 +53,7 @@ public class AddressConverter {
         address.setStreet(DEFAULT_VALUE);
     }
 
-    private static void setDefaultValues(BillingAddress address) {
+    protected static void setDefaultValues(BillingAddress address) {
         address.setCity(DEFAULT_VALUE);
         address.setCountry(DEFAULT_VALUE);
         address.setHouseNumberOrName(DEFAULT_VALUE);
@@ -62,7 +62,7 @@ public class AddressConverter {
         address.setStreet(DEFAULT_VALUE);
     }
 
-    private static void populateDeliveryAddressFields(DeliveryAddress address, AddressData addressData) {
+    protected static void populateDeliveryAddressFields(DeliveryAddress address, AddressData addressData) {
         setIfNotEmpty(addressData.getTown(), address::setCity);
         setIfNotEmpty(addressData.getLine1(), address::setStreet);
         setIfNotEmpty(addressData.getLine2(), address::setHouseNumberOrName);
@@ -70,12 +70,14 @@ public class AddressConverter {
         
         if (addressData.getCountry() != null) {
             setIfNotEmpty(addressData.getCountry().getIsocode(), address::setCountry);
+        } else {
+            LOG.warn("Null country provided for delivery address conversion");
         }
         
         setStateOrProvince(addressData, address::setStateOrProvince);
     }
 
-    private static void populateBillingAddressFields(BillingAddress address, AddressData addressData) {
+    protected static void populateBillingAddressFields(BillingAddress address, AddressData addressData) {
         setIfNotEmpty(addressData.getTown(), address::setCity);
         setIfNotEmpty(addressData.getLine1(), address::setStreet);
         setIfNotEmpty(addressData.getLine2(), address::setHouseNumberOrName);
@@ -83,18 +85,20 @@ public class AddressConverter {
         
         if (addressData.getCountry() != null) {
             setIfNotEmpty(addressData.getCountry().getIsocode(), address::setCountry);
+        } else {
+            LOG.warn("Null country provided for billing address conversion");
         }
         
         setStateOrProvince(addressData, address::setStateOrProvince);
     }
 
-    private static void setIfNotEmpty(String value, java.util.function.Consumer<String> setter) {
+    protected static void setIfNotEmpty(String value, java.util.function.Consumer<String> setter) {
         if (StringUtils.isNotEmpty(value)) {
             setter.accept(value);
         }
     }
 
-    private static void setStateOrProvince(AddressData addressData, java.util.function.Consumer<String> setter) {
+    protected static void setStateOrProvince(AddressData addressData, java.util.function.Consumer<String> setter) {
         if (addressData.getRegion() != null) {
             if (StringUtils.isNotEmpty(addressData.getRegion().getIsocodeShort())) {
                 setter.accept(addressData.getRegion().getIsocodeShort());

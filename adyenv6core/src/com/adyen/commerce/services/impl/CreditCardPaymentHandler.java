@@ -43,7 +43,7 @@ public class CreditCardPaymentHandler implements PaymentMethodHandler {
         setInstallments(paymentRequest, cartData);
     }
 
-    private void updateForCreditCard(PaymentRequest paymentRequest, CartData cartData,
+    protected void updateForCreditCard(PaymentRequest paymentRequest, CartData cartData,
                                    RecurringContractMode recurringContractMode) {
         Recurring recurringContract = RecurringContractHelper.getRecurringContractType(recurringContractMode);
         
@@ -54,7 +54,7 @@ public class CreditCardPaymentHandler implements PaymentMethodHandler {
         setCardDetails(paymentRequest, cartData, false);
     }
 
-    private void updateForDebitCard(PaymentRequest paymentRequest, CartData cartData,
+    protected void updateForDebitCard(PaymentRequest paymentRequest, CartData cartData,
                                   RecurringContractMode recurringContractMode) {
         Recurring recurringContract = RecurringContractHelper.getRecurringContractType(recurringContractMode);
         
@@ -69,7 +69,7 @@ public class CreditCardPaymentHandler implements PaymentMethodHandler {
         paymentRequest.putAdditionalDataItem("overwriteBrand", "true");
     }
 
-    private void handleRecurringContract(PaymentRequest paymentRequest, CartData cartData,
+    protected void handleRecurringContract(PaymentRequest paymentRequest, CartData cartData,
                                        Recurring.ContractEnum contract) {
         if (Recurring.ContractEnum.RECURRING.equals(contract)) {
             paymentRequest.setRecurringProcessingModel(PaymentRequest.RecurringProcessingModelEnum.CARDONFILE);
@@ -83,7 +83,7 @@ public class CreditCardPaymentHandler implements PaymentMethodHandler {
         }
     }
 
-    private void setCardDetails(PaymentRequest paymentRequest, CartData cartData, boolean isDebitCard) {
+    protected void setCardDetails(PaymentRequest paymentRequest, CartData cartData, boolean isDebitCard) {
         String encryptedCardNumber = cartData.getAdyenEncryptedCardNumber();
         String encryptedExpiryMonth = cartData.getAdyenEncryptedExpiryMonth();
         String encryptedExpiryYear = cartData.getAdyenEncryptedExpiryYear();
@@ -110,7 +110,7 @@ public class CreditCardPaymentHandler implements PaymentMethodHandler {
     }
 
 
-    private void setInstallments(PaymentRequest paymentRequest, CartData cartData) {
+    protected void setInstallments(PaymentRequest paymentRequest, CartData cartData) {
         if (cartData.getAdyenInstallments() != null) {
             Installments installmentObj = new Installments();
             installmentObj.setValue(cartData.getAdyenInstallments());

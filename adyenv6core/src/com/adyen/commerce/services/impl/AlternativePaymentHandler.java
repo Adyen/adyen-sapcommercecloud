@@ -58,14 +58,14 @@ public class AlternativePaymentHandler implements PaymentMethodHandler {
         }
     }
 
-    private boolean isOpenInvoiceMethod(String paymentMethod) {
+    protected boolean isOpenInvoiceMethod(String paymentMethod) {
         return paymentMethod.startsWith(PAYMENT_METHOD_KLARNA) ||
                paymentMethod.startsWith(PAYMENT_METHOD_FACILPAY_PREFIX) ||
                OPENINVOICE_METHODS_API.contains(paymentMethod) ||
                paymentMethod.contains(RATEPAY);
     }
 
-    private Name createShopperName(de.hybris.platform.commercefacades.user.data.AddressData addressData) {
+    protected Name createShopperName(de.hybris.platform.commercefacades.user.data.AddressData addressData) {
         if (addressData == null) {
             return new Name();
         }
@@ -74,7 +74,7 @@ public class AlternativePaymentHandler implements PaymentMethodHandler {
             .lastName(addressData.getLastName());
     }
 
-    private void setPixData(PaymentRequest paymentRequest, CartData cartData) {
+    protected void setPixData(PaymentRequest paymentRequest, CartData cartData) {
         List<LineItem> invoiceLines = cartData.getEntries().stream()
             .filter(entry -> entry.getQuantity() > 0)
             .map(this::createPixLineItem)
@@ -87,7 +87,7 @@ public class AlternativePaymentHandler implements PaymentMethodHandler {
         paymentRequest.setLineItems(invoiceLines);
     }
 
-    private LineItem createPixLineItem(OrderEntryData cartEntry) {
+    protected LineItem createPixLineItem(OrderEntryData cartEntry) {
         return new LineItem()
             .amountIncludingTax(cartEntry.getBasePrice().getValue().longValue())
             .id(Optional.ofNullable(cartEntry.getProduct().getName())
@@ -95,7 +95,7 @@ public class AlternativePaymentHandler implements PaymentMethodHandler {
                 .orElse("NA"));
     }
 
-    private void setBoletoData(PaymentRequest paymentRequest, CartData cartData) {
+    protected void setBoletoData(PaymentRequest paymentRequest, CartData cartData) {
         paymentRequest.setSocialSecurityNumber(cartData.getAdyenSocialSecurityNumber());
         paymentRequest.setShopperName(new Name()
             .firstName(cartData.getAdyenFirstName())
@@ -110,7 +110,7 @@ public class AlternativePaymentHandler implements PaymentMethodHandler {
         }
     }
 
-    private void setOpenInvoiceData(PaymentRequest paymentRequest, CartData cartData) {
+    protected void setOpenInvoiceData(PaymentRequest paymentRequest, CartData cartData) {
         setDateOfBirth(paymentRequest, cartData);
         setSocialSecurityNumber(paymentRequest, cartData);
         setDeviceFingerprint(paymentRequest, cartData);
@@ -118,7 +118,7 @@ public class AlternativePaymentHandler implements PaymentMethodHandler {
         setInvoiceLines(paymentRequest, cartData);
     }
 
-    private void setDateOfBirth(PaymentRequest paymentRequest, CartData cartData) {
+    protected void setDateOfBirth(PaymentRequest paymentRequest, CartData cartData) {
         if (cartData.getAdyenDob() != null) {
             OffsetDateTime offsetDateTime = cartData.getAdyenDob().toInstant()
                 .atZone(ZoneId.systemDefault()).toOffsetDateTime();
@@ -126,19 +126,19 @@ public class AlternativePaymentHandler implements PaymentMethodHandler {
         }
     }
 
-    private void setSocialSecurityNumber(PaymentRequest paymentRequest, CartData cartData) {
+    protected void setSocialSecurityNumber(PaymentRequest paymentRequest, CartData cartData) {
         if (StringUtils.isNotEmpty(cartData.getAdyenSocialSecurityNumber())) {
             paymentRequest.setSocialSecurityNumber(cartData.getAdyenSocialSecurityNumber());
         }
     }
 
-    private void setDeviceFingerprint(PaymentRequest paymentRequest, CartData cartData) {
+    protected void setDeviceFingerprint(PaymentRequest paymentRequest, CartData cartData) {
         if (StringUtils.isNotEmpty(cartData.getAdyenDfValue())) {
             paymentRequest.setDeviceFingerprint(cartData.getAdyenDfValue());
         }
     }
 
-    private void setPaymentMethodSpecificData(PaymentRequest paymentRequest, CartData cartData) {
+    protected void setPaymentMethodSpecificData(PaymentRequest paymentRequest, CartData cartData) {
         String paymentMethod = cartData.getAdyenPaymentMethod();
         
         if (AFTERPAY.equals(paymentMethod)) {
@@ -152,7 +152,7 @@ public class AlternativePaymentHandler implements PaymentMethodHandler {
         }
     }
 
-    private void setInvoiceLines(PaymentRequest paymentRequest, CartData cartData) {
+    protected void setInvoiceLines(PaymentRequest paymentRequest, CartData cartData) {
         List<LineItem> invoiceLines = new ArrayList<>();
         String currency = cartData.getTotalPriceWithTax().getCurrencyIso();
 
@@ -171,7 +171,7 @@ public class AlternativePaymentHandler implements PaymentMethodHandler {
         paymentRequest.setLineItems(invoiceLines);
     }
 
-    private LineItem createProductLineItem(OrderEntryData entry, String currency, boolean isNet) {
+    protected LineItem createProductLineItem(OrderEntryData entry, String currency, boolean isNet) {
         LineItem lineItem = new LineItem();
         
         String description = Optional.ofNullable(entry.getProduct().getName())
@@ -209,7 +209,7 @@ public class AlternativePaymentHandler implements PaymentMethodHandler {
         return lineItem;
     }
 
-    private LineItem createDeliveryLineItem(CartData cartData, String currency) {
+    protected LineItem createDeliveryLineItem(CartData cartData, String currency) {
         LineItem lineItem = new LineItem();
         lineItem.setDescription("Delivery Costs");
         lineItem.setQuantity(1L);

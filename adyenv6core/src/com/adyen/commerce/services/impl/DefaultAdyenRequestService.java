@@ -48,17 +48,17 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
     private static final Logger LOG = Logger.getLogger(DefaultAdyenRequestService.class);
 
     // Configuration constants
-    private static final String PLATFORM_NAME = "Hybris";
+    private static final String PLATFORM_NAME = "SAP Commerce";
     private static final String PLATFORM_VERSION_PROPERTY = "build.version.api";
-    private static final String IS_3DS2_ALLOWED_PROPERTY = "is3DS2allowed";
-    private static final String L2L3_EDS_SUPPORTED_BRANDS = "adyen.l2l3eds.supported.brands";
-    private static final String L2L3_EDS_SUPPORTED_COUNTRIES = "adyen.l2l3eds.supported.countries";
+    protected static final String IS_3DS2_ALLOWED_PROPERTY = "is3DS2allowed";
+    protected static final String L2L3_EDS_SUPPORTED_BRANDS = "adyen.l2l3eds.supported.brands";
+    protected static final String L2L3_EDS_SUPPORTED_COUNTRIES = "adyen.l2l3eds.supported.countries";
 
     // Dependencies
-    private final BaseStoreService baseStoreService;
-    private final CartService cartService;
-    private final ConfigurationService configurationService;
-    private final PaymentMethodHandlerFactory paymentMethodHandlerFactory;
+    protected final BaseStoreService baseStoreService;
+    protected final CartService cartService;
+    protected final ConfigurationService configurationService;
+    protected final PaymentMethodHandlerFactory paymentMethodHandlerFactory;
 
     public DefaultAdyenRequestService(BaseStoreService baseStoreService, 
                                     CartService cartService, 
@@ -134,7 +134,7 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
     }
 
     // Private helper methods
-    private void validateInputs(Map<String, String> additionalData, CartData cartData) {
+    protected void validateInputs(Map<String, String> additionalData, CartData cartData) {
         if (additionalData == null) {
             throw new IllegalArgumentException("Additional data map cannot be null");
         }
@@ -143,7 +143,7 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
         }
     }
 
-    private void populateRequiredL2L3Fields(Map<String, String> additionalData, CartData cartData) {
+    protected void populateRequiredL2L3Fields(Map<String, String> additionalData, CartData cartData) {
         Optional.ofNullable(cartData.getTotalTax())
             .map(tax -> tax.getValue().toString())
             .ifPresent(value -> additionalData.put(TOTAL_TAX_AMOUNT, value));
@@ -154,7 +154,7 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
             .ifPresent(uid -> additionalData.put(CUSTOMER_REFERENCE, uid));
     }
 
-    private void populateOptionalL2L3Fields(Map<String, String> additionalData, CartData cartData) {
+    protected void populateOptionalL2L3Fields(Map<String, String> additionalData, CartData cartData) {
         Optional.ofNullable(cartData.getDeliveryCost())
             .map(cost -> cost.getValue().toString())
             .ifPresent(value -> additionalData.put(FREIGHT_AMOUNT, value));
@@ -162,7 +162,7 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
         populateDeliveryAddressFields(additionalData, cartData);
     }
 
-    private void populateDeliveryAddressFields(Map<String, String> additionalData, CartData cartData) {
+    protected void populateDeliveryAddressFields(Map<String, String> additionalData, CartData cartData) {
         Optional.ofNullable(cartData.getDeliveryAddress())
             .ifPresent(address -> {
                 Optional.ofNullable(address.getPostalCode())
@@ -174,7 +174,7 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
             });
     }
 
-    private void populateItemDetails(Map<String, String> additionalData, CartData cartData) {
+    protected void populateItemDetails(Map<String, String> additionalData, CartData cartData) {
         Optional.ofNullable(cartData.getEntries())
             .orElse(Collections.emptyList())
             .stream()
@@ -183,7 +183,7 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
             .forEach(entry -> populateItemDetail(additionalData, entry));
     }
 
-    private void populateItemDetail(Map<String, String> additionalData, OrderEntryData entry) {
+    protected void populateItemDetail(Map<String, String> additionalData, OrderEntryData entry) {
         Integer entryNumber = entry.getEntryNumber();
         
         additionalData.put(String.format(ITEM_DETAIL_PRODUCT_CODE, entryNumber),
@@ -204,7 +204,7 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
         populateItemPrices(additionalData, entry);
     }
 
-    private void populateItemPrices(Map<String, String> additionalData, OrderEntryData entry) {
+    protected void populateItemPrices(Map<String, String> additionalData, OrderEntryData entry) {
         Integer entryNumber = entry.getEntryNumber();
         
         Optional.ofNullable(entry.getTotalPrice())
@@ -226,13 +226,13 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
                isSupportedCountry(sessionCart);
     }
 
-    private boolean isL2L3ESDEnabled() {
+    protected boolean isL2L3ESDEnabled() {
         return Optional.ofNullable(baseStoreService.getCurrentBaseStore())
             .map(store -> store.getL2L3ESDEnabled())
             .orElse(false);
     }
 
-    private boolean isSupportedBrand(PaymentRequest paymentsRequest) {
+    protected boolean isSupportedBrand(PaymentRequest paymentsRequest) {
         return Optional.ofNullable(paymentsRequest.getPaymentMethod())
             .map(method -> method.getActualInstance())
             .filter(instance -> instance instanceof CardDetails)
@@ -242,7 +242,7 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
             .orElse(false);
     }
 
-    private boolean isSupportedCountry(CartModel sessionCart) {
+    protected boolean isSupportedCountry(CartModel sessionCart) {
         return Optional.ofNullable(sessionCart.getDeliveryAddress())
             .map(address -> address.getCountry())
             .map(country -> getL2L3SupportedCountries().contains(country.getIsocode()))
@@ -257,12 +257,12 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
         return getConfigurationList(L2L3_EDS_SUPPORTED_COUNTRIES);
     }
 
-    private List<String> getConfigurationList(String propertyKey) {
+    protected List<String> getConfigurationList(String propertyKey) {
         String property = configurationService.getConfiguration().getString(propertyKey);
         return property != null ? Arrays.asList(property.split(",")) : Collections.emptyList();
     }
 
-    private PaymentRequest buildBasePaymentRequest(String merchantAccount, CartData cartData, 
+    protected PaymentRequest buildBasePaymentRequest(String merchantAccount, CartData cartData,
                                                  PaymentRequest originPaymentsRequest, RequestInfo requestInfo, 
                                                  CustomerModel customerModel) {
         
@@ -301,7 +301,7 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
         return paymentRequest;
     }
 
-    private void handlePaymentMethodSpecificLogic(PaymentRequest paymentRequest, CartData cartData,
+    protected void handlePaymentMethodSpecificLogic(PaymentRequest paymentRequest, CartData cartData,
                                                 PaymentRequest originPaymentsRequest, RecurringContractMode recurringContractMode,
                                                 CustomerModel customerModel, Boolean guestUserTokenizationEnabled) {
         
@@ -324,19 +324,19 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
                 recurringContractMode, customerModel, is3DS2Allowed, guestUserTokenizationEnabled));
     }
 
-    private void copySchemePaymentSettings(PaymentRequest paymentRequest, PaymentRequest originPaymentsRequest) {
+    protected void copySchemePaymentSettings(PaymentRequest paymentRequest, PaymentRequest originPaymentsRequest) {
         paymentRequest.setEnableOneClick(originPaymentsRequest.getEnableOneClick());
         paymentRequest.setEnableRecurring(originPaymentsRequest.getEnableRecurring());
         paymentRequest.setStorePaymentMethod(originPaymentsRequest.getStorePaymentMethod());
     }
 
-    private AddressData getBillingAddress(CartData cartData) {
+    protected AddressData getBillingAddress(CartData cartData) {
         return Optional.ofNullable(cartData.getPaymentInfo())
             .map(paymentInfo -> paymentInfo.getBillingAddress())
             .orElse(null);
     }
 
-    private Company createCompany(CartData cartData) {
+    protected Company createCompany(CartData cartData) {
         AddressData billingAddress = getBillingAddress(cartData);
         
         if (billingAddress != null && StringUtils.isNotEmpty(billingAddress.getCompanyName())) {
@@ -349,7 +349,7 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
         return null;
     }
 
-    private String getCountryCode(CartData cartData) {
+    protected String getCountryCode(CartData cartData) {
         return Optional.ofNullable(getBillingAddress(cartData))
             .or(() -> Optional.ofNullable(cartData.getDeliveryAddress()))
             .map(AddressData::getCountry)
@@ -377,7 +377,7 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
         return applicationInfo;
     }
 
-    private void setRiskData(PaymentRequest paymentRequest, CartData cartData, PaymentRequest originPaymentsRequest) {
+    protected void setRiskData(PaymentRequest paymentRequest, CartData cartData, PaymentRequest originPaymentsRequest) {
         // Priority: origin request risk data, then cart risk data
         if (originPaymentsRequest != null && originPaymentsRequest.getRiskData() != null) {
             paymentRequest.setRiskData(originPaymentsRequest.getRiskData());
@@ -388,18 +388,18 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
         }
     }
 
-    private String getPlatformVersion() {
+    protected String getPlatformVersion() {
         return configurationService.getConfiguration().getString(PLATFORM_VERSION_PROPERTY);
     }
 
-    private Boolean is3DS2Allowed() {
+    protected Boolean is3DS2Allowed() {
         Configuration configuration = configurationService.getConfiguration();
         return configuration.containsKey(IS_3DS2_ALLOWED_PROPERTY) ? 
             configuration.getBoolean(IS_3DS2_ALLOWED_PROPERTY) : false;
     }
 
     // Validation methods
-    private void validatePaymentRequestInputs(String merchantAccount, CartData cartData, 
+    protected void validatePaymentRequestInputs(String merchantAccount, CartData cartData,
                                             RequestInfo requestInfo, CustomerModel customerModel) {
         if (StringUtils.isEmpty(merchantAccount)) {
             throw new IllegalArgumentException("Merchant account cannot be null or empty");
@@ -415,7 +415,7 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
         }
     }
 
-    private void validateRecurringRequestInputs(String merchantAccount, String customerId) {
+    protected void validateRecurringRequestInputs(String merchantAccount, String customerId) {
         if (StringUtils.isEmpty(merchantAccount)) {
             throw new IllegalArgumentException("Merchant account cannot be null or empty");
         }
@@ -424,7 +424,7 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
         }
     }
 
-    private void validateDisableRequestInputs(String merchantAccount, String customerId, String recurringReference) {
+    protected void validateDisableRequestInputs(String merchantAccount, String customerId, String recurringReference) {
         validateRecurringRequestInputs(merchantAccount, customerId);
         if (StringUtils.isEmpty(recurringReference)) {
             throw new IllegalArgumentException("Recurring reference cannot be null or empty");

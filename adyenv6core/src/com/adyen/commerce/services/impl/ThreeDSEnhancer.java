@@ -36,7 +36,7 @@ public class ThreeDSEnhancer {
         return paymentRequest;
     }
 
-    private static BrowserInfo createBrowserInfo(PaymentRequest paymentRequest, CartData cartData) {
+    protected static BrowserInfo createBrowserInfo(PaymentRequest paymentRequest, CartData cartData) {
         BrowserInfo existingBrowserInfo = paymentRequest.getBrowserInfo();
         BrowserInfo cartBrowserInfo = parseBrowserInfoFromCart(cartData);
         
@@ -56,7 +56,7 @@ public class ThreeDSEnhancer {
         return browserInfo;
     }
 
-    private static BrowserInfo parseBrowserInfoFromCart(CartData cartData) {
+    protected static BrowserInfo parseBrowserInfoFromCart(CartData cartData) {
         if (StringUtils.isEmpty(cartData.getAdyenBrowserInfo())) {
             return null;
         }

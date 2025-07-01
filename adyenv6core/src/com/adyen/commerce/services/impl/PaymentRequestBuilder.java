@@ -79,11 +79,6 @@ public class PaymentRequestBuilder {
         return this;
     }
 
-    public PaymentRequestBuilder addresses(AddressData billingAddress, AddressData deliveryAddress) {
-        // These would be set using the address converter utility
-        return this;
-    }
-
     public PaymentRequestBuilder telephoneNumber(String phoneNumber) {
         if (StringUtils.isNotEmpty(phoneNumber)) {
             paymentRequest.setTelephoneNumber(phoneNumber);

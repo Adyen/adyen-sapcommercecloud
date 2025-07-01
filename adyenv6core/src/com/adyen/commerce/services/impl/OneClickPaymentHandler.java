@@ -33,7 +33,7 @@ public class OneClickPaymentHandler implements PaymentMethodHandler {
         }
     }
 
-    private void setOneClickPaymentMethod(PaymentRequest paymentRequest, CartData cartData) {
+    protected void setOneClickPaymentMethod(PaymentRequest paymentRequest, CartData cartData) {
         Optional.ofNullable(cartData.getAdyenSelectedReference())
             .filter(StringUtils::isNotEmpty)
             .map(selectedReference -> createCardDetails(cartData, selectedReference))
@@ -41,7 +41,7 @@ public class OneClickPaymentHandler implements PaymentMethodHandler {
             .ifPresent(paymentRequest::setPaymentMethod);
     }
 
-    private CardDetails createCardDetails(CartData cartData, String selectedReference) {
+    protected CardDetails createCardDetails(CartData cartData, String selectedReference) {
         CardDetails cardDetails = new CardDetails()
             .encryptedSecurityCode(cartData.getAdyenEncryptedSecurityCode())
             .recurringDetailReference(selectedReference);
