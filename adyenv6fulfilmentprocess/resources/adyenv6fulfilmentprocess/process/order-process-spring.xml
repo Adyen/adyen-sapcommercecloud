@@ -54,4 +54,7 @@
     <bean id="defaultAdyenTakePaymentAction" class="com.adyen.v6.actions.order.AdyenTakePaymentAction" parent="abstractAction">
         <property name="paymentService" ref="paymentService"/>
     </bean>
+
+    <alias name="mockCheckOrderAction" alias="checkOrderAction"/>
+    <bean id="mockCheckOrderAction" class="com.adyen.v6.actions.order.mock.MockCheckOrderAction" parent="abstractAction"/>
 </beans>
