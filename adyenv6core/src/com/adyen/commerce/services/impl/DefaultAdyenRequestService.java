@@ -1,27 +1,9 @@
 package com.adyen.commerce.services.impl;
 
-import com.adyen.builders.terminal.TerminalAPIRequestBuilder;
 import com.adyen.commerce.services.AdyenRequestService;
-import com.adyen.model.checkout.ApplicationInfo;
-import com.adyen.model.checkout.BrowserInfo;
-import com.adyen.model.checkout.CardDetails;
-import com.adyen.model.checkout.CommonField;
-import com.adyen.model.checkout.Company;
-import com.adyen.model.checkout.ExternalPlatform;
-import com.adyen.model.checkout.PaymentRequest;
-import com.adyen.model.checkout.RiskData;
-import com.adyen.model.nexo.AmountsReq;
-import com.adyen.model.nexo.DocumentQualifierType;
-import com.adyen.model.nexo.MessageCategoryType;
-import com.adyen.model.nexo.MessageReference;
-import com.adyen.model.nexo.PaymentTransaction;
-import com.adyen.model.nexo.SaleData;
-import com.adyen.model.nexo.TransactionIdentification;
-import com.adyen.model.nexo.TransactionStatusRequest;
+import com.adyen.model.checkout.*;
 import com.adyen.model.recurring.DisableRequest;
 import com.adyen.model.recurring.RecurringDetailsRequest;
-import com.adyen.model.terminal.SaleToAcquirerData;
-import com.adyen.model.terminal.TerminalAPIRequest;
 import com.adyen.v6.constants.Adyenv6coreConstants;
 import com.adyen.v6.enums.RecurringContractMode;
 import com.adyen.v6.model.RequestInfo;
@@ -37,8 +19,6 @@ import org.apache.commons.configuration.Configuration;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 
-import javax.xml.datatype.DatatypeFactory;
-import javax.xml.datatype.XMLGregorianCalendar;
 import java.math.BigDecimal;
 import java.util.*;
 
@@ -131,6 +111,21 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
             .merchantAccount(merchantAccount)
             .shopperReference(customerId)
             .recurringDetailReference(recurringReference);
+    }
+
+    @Override
+    public void decoratePayPalSubmitPaymentRequest(final String merchantAccount, final PaymentRequest paymentRequest,
+                                                           final RequestInfo requestInfo) {
+        BrowserInfo browserInfo = new BrowserInfo();
+        browserInfo.setAcceptHeader(requestInfo.getAcceptHeader());
+        browserInfo.setUserAgent(requestInfo.getUserAgent());
+
+        paymentRequest.setMerchantAccount(merchantAccount);
+        paymentRequest.setBrowserInfo(browserInfo);
+        paymentRequest.setShopperIP(requestInfo.getShopperIp());
+        paymentRequest.setOrigin(requestInfo.getOrigin());
+        paymentRequest.setShopperLocale(requestInfo.getShopperLocale());
+        paymentRequest.setApplicationInfo(createApplicationInfo(requestInfo));
     }
 
     // Private helper methods

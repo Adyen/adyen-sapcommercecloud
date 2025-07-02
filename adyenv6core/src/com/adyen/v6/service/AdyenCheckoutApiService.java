@@ -38,7 +38,7 @@ public interface AdyenCheckoutApiService {
 
     PaymentResponse processPaymentRequest(CartData cartData, PaymentRequest originPaymentsRequest, RequestInfo requestInfo, CustomerModel customerModel) throws Exception;
 
-    PaymentResponse sendPaymentRequest(final PaymentRequest paymentRequest) throws IOException, ApiException;
+    PaymentResponse sendPaymentRequest(final PaymentRequest paymentRequest, final RequestInfo requestInfo) throws IOException, ApiException;
 
     PaymentDetailsResponse authorise3DSPayment(PaymentDetailsRequest paymentsDetailsRequest) throws Exception;
 

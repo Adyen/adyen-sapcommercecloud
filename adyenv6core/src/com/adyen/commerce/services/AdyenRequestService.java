@@ -47,4 +47,7 @@ public interface AdyenRequestService {
     RecurringDetailsRequest createListRecurringDetailsRequest(final String merchantAccount, final String customerId);
 
     DisableRequest createDisableRequest(final String merchantAccount, final String customerId, final String recurringReference);
+
+    void decoratePayPalSubmitPaymentRequest(final String merchantAccount, final PaymentRequest paymentRequest,
+                                                    final RequestInfo requestInfo);
 }
