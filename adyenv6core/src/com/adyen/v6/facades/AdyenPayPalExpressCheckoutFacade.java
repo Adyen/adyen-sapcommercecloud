@@ -11,14 +11,15 @@ import de.hybris.platform.commerceservices.customer.DuplicateUidException;
 import de.hybris.platform.order.InvalidCartException;
 import de.hybris.platform.order.exceptions.CalculationException;
 
+import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
 
 public interface AdyenPayPalExpressCheckoutFacade {
-    PayPalExpressSubmitResponse onPayPalPDPSubmit(PaymentRequest paymentRequest, String productCode) throws IOException, ApiException;
+    PayPalExpressSubmitResponse onPayPalPDPSubmit(HttpServletRequest request, PaymentRequest paymentRequest, String productCode) throws IOException, ApiException;
 
-    PayPalExpressSubmitResponse onPayPalPDPSubmitOCC(PaymentRequest paymentRequest) throws IOException, ApiException;
+    PayPalExpressSubmitResponse onPayPalPDPSubmitOCC(HttpServletRequest request, PaymentRequest paymentRequest) throws IOException, ApiException;
 
-    PaymentResponse onPayPalCartSubmit(PaymentRequest paymentRequest) throws IOException, ApiException;
+    PaymentResponse onPayPalCartSubmit(HttpServletRequest request, PaymentRequest paymentRequest) throws IOException, ApiException;
 
     void onPayPalAuthorizedPDP(String cartGuid, AddressData addressData, String paymentMethod) throws DuplicateUidException, InvalidCartException, CalculationException;
 

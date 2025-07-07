@@ -7,11 +7,7 @@ import com.adyen.commerce.request.PayPalExpressPDPRequest;
 import com.adyen.commerce.request.PayPalIntermediateRequest;
 import com.adyen.commerce.resolver.PaymentRedirectReturnUrlResolver;
 import com.adyen.commerce.response.OCCPlaceOrderResponse;
-import com.adyen.model.checkout.CheckoutPaymentMethod;
-import com.adyen.model.checkout.PayPalDetails;
-import com.adyen.model.checkout.PaymentRequest;
-import com.adyen.model.checkout.PaypalUpdateOrderRequest;
-import com.adyen.model.checkout.PaypalUpdateOrderResponse;
+import com.adyen.model.checkout.*;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.constants.Adyenv6coreConstants;
 import com.adyen.v6.facades.AdyenExpressCheckoutFacade;
@@ -28,7 +24,6 @@ import org.springframework.security.access.annotation.Secured;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
-
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -96,7 +91,7 @@ public class PayPalExpressCheckoutController extends ExpressCheckoutControllerBa
 
 
         try {
-            PayPalExpressSubmitResponse payPalExpressSubmitResponse = adyenPayPalExpressCheckoutFacade.onPayPalPDPSubmitOCC(paymentRequest);
+            PayPalExpressSubmitResponse payPalExpressSubmitResponse = adyenPayPalExpressCheckoutFacade.onPayPalPDPSubmitOCC(request, paymentRequest);
             String paymentResponseString = objectMapper.writeValueAsString(payPalExpressSubmitResponse.getPaymentResponse());
             return new ResponseEntity<>(paymentResponseString, HttpStatus.OK);
 

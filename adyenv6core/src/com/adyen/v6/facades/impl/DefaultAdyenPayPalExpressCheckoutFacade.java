@@ -2,8 +2,10 @@ package com.adyen.v6.facades.impl;
 
 import com.adyen.model.checkout.*;
 import com.adyen.service.exception.ApiException;
+import com.adyen.v6.constants.StorefrontType;
 import com.adyen.v6.facades.AdyenPayPalExpressCheckoutFacade;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
+import com.adyen.v6.model.RequestInfo;
 import com.adyen.v6.response.PayPalExpressSubmitResponse;
 import com.adyen.v6.service.AdyenUtilityApiService;
 import com.adyen.v6.util.AmountUtil;
@@ -12,7 +14,6 @@ import de.hybris.platform.commercefacades.order.data.CartData;
 import de.hybris.platform.commercefacades.order.data.DeliveryModeData;
 import de.hybris.platform.commercefacades.user.data.AddressData;
 import de.hybris.platform.commerceservices.customer.DuplicateUidException;
-import de.hybris.platform.commerceservices.order.CommerceCartService;
 import de.hybris.platform.commerceservices.service.data.CommerceCartParameter;
 import de.hybris.platform.core.model.order.CartModel;
 import de.hybris.platform.core.model.order.delivery.DeliveryModeModel;
@@ -30,6 +31,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 import org.springframework.util.Assert;
 
+import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -44,8 +46,10 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
     private CalculationService calculationService;
     private BaseSiteService baseSiteService;
     private AdyenPaymentServiceFactory adyenPaymentServiceFactory;
+
+
     @Override
-    public PayPalExpressSubmitResponse onPayPalPDPSubmitOCC(PaymentRequest paymentRequest) throws IOException, ApiException {
+    public PayPalExpressSubmitResponse onPayPalPDPSubmitOCC(HttpServletRequest request, PaymentRequest paymentRequest) throws IOException, ApiException {
 
         UserModel currentUser = userService.getCurrentUser();
         CartModel expressCart = commerceCartService.getCartForCodeAndUser(paymentRequest.getReference(), currentUser);
@@ -57,14 +61,18 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
 
         paymentRequest.setAmount(amount);
 
-        PaymentResponse paymentResponse = adyenCheckoutFacade.getAdyenPaymentService().sendPaymentRequest(paymentRequest);
+        RequestInfo requestInfo = new RequestInfo(request);
+        requestInfo.setStorefrontType(StorefrontType.EXPRESSOCC);
+        requestInfo.setShopperLocale(adyenCheckoutFacade.getShopperLocale());
+
+        PaymentResponse paymentResponse = adyenCheckoutFacade.getAdyenPaymentService().sendPaymentRequest(paymentRequest, requestInfo);
         PayPalExpressSubmitResponse payPalExpressSubmitResponse = new PayPalExpressSubmitResponse();
         payPalExpressSubmitResponse.setPaymentResponse(paymentResponse);
         return payPalExpressSubmitResponse;
     }
 
     @Override
-    public PayPalExpressSubmitResponse onPayPalPDPSubmit(PaymentRequest paymentRequest, String productCode) throws IOException, ApiException {
+    public PayPalExpressSubmitResponse onPayPalPDPSubmit(HttpServletRequest request, PaymentRequest paymentRequest, String productCode) throws IOException, ApiException {
         Assert.isTrue(StringUtils.isNotEmpty(productCode), "Product code must not be empty");
 
         ProductModel productModel = productService.getProductForCode(productCode);
@@ -86,7 +94,11 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
         paymentRequest.setReference(expressCart.getCode());
         paymentRequest.setAmount(amount);
 
-        PaymentResponse paymentResponse = adyenCheckoutFacade.getAdyenPaymentService().sendPaymentRequest(paymentRequest);
+        RequestInfo requestInfo = new RequestInfo(request);
+        requestInfo.setStorefrontType(StorefrontType.ACCELERATOR);
+        requestInfo.setShopperLocale(adyenCheckoutFacade.getShopperLocale());
+
+        PaymentResponse paymentResponse = adyenCheckoutFacade.getAdyenPaymentService().sendPaymentRequest(paymentRequest, requestInfo);
 
         PayPalExpressSubmitResponse payPalExpressSubmitResponse = new PayPalExpressSubmitResponse();
 
@@ -98,7 +110,7 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
     }
 
     @Override
-    public PaymentResponse onPayPalCartSubmit(PaymentRequest paymentRequest) throws IOException, ApiException {
+    public PaymentResponse onPayPalCartSubmit(HttpServletRequest request, PaymentRequest paymentRequest) throws IOException, ApiException {
         CartModel sessionCart = cartService.getSessionCart();
         Assert.notNull(sessionCart, "Session cart must not be null");
 
@@ -110,7 +122,11 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
         paymentRequest.setAmount(amount);
         paymentRequest.setReference(sessionCart.getCode());
 
-        return adyenCheckoutFacade.getAdyenPaymentService().sendPaymentRequest(paymentRequest);
+        RequestInfo requestInfo = new RequestInfo(request);
+        requestInfo.setStorefrontType(StorefrontType.ACCELERATOR);
+        requestInfo.setShopperLocale(adyenCheckoutFacade.getShopperLocale());
+
+        return adyenCheckoutFacade.getAdyenPaymentService().sendPaymentRequest(paymentRequest,requestInfo);
     }
 
     public void onPayPalAuthorizedPDP(String cartGuid, AddressData addressData, String paymentMethod) throws DuplicateUidException, InvalidCartException, CalculationException {

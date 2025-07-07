@@ -22,9 +22,7 @@ package com.adyen.v6.service;
 
 import com.adyen.commerce.services.AdyenRequestService;
 import com.adyen.model.checkout.*;
-import com.adyen.model.recurring.RecurringDetail;
 import com.adyen.model.recurring.*;
-import com.adyen.model.recurring.RecurringDetail;
 import com.adyen.service.RecurringApi;
 import com.adyen.service.checkout.PaymentsApi;
 import com.adyen.service.exception.ApiException;
@@ -76,10 +74,10 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
         return paymentsResponse;
     }
 
-    public PaymentResponse sendPaymentRequest(final PaymentRequest paymentRequest) throws IOException, ApiException {
+    public PaymentResponse sendPaymentRequest(final PaymentRequest paymentRequest, final RequestInfo requestInfo) throws IOException, ApiException {
         PaymentsApi checkoutApi = new PaymentsApi(client);
 
-        paymentRequest.setMerchantAccount(merchantAccount);
+        adyenRequestService.decoratePayPalSubmitPaymentRequest(merchantAccount, paymentRequest, requestInfo);
 
         LOG.debug(paymentRequest);
         PaymentResponse paymentsResponse = checkoutApi.payments(paymentRequest);

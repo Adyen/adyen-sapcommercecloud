@@ -49,7 +49,7 @@ public class AdyenPayPalExpressCheckoutController extends AdyenExpressCheckoutCo
         paymentRequest.setPaymentMethod(new CheckoutPaymentMethod(payPalDetails));
         paymentRequest.setReturnUrl(getReturnUrl(PayPalDetails.TypeEnum.PAYPAL.getValue()));
 
-        PayPalExpressSubmitResponse paymentResponse = adyenPayPalExpressCheckoutFacade.onPayPalPDPSubmit(paymentRequest, payPalSubmitRequest.getProductCode());
+        PayPalExpressSubmitResponse paymentResponse = adyenPayPalExpressCheckoutFacade.onPayPalPDPSubmit(request, paymentRequest, payPalSubmitRequest.getProductCode());
         return new ResponseEntity<>(paymentResponse, HttpStatus.OK);
 
     }
@@ -63,7 +63,7 @@ public class AdyenPayPalExpressCheckoutController extends AdyenExpressCheckoutCo
         paymentRequest.setPaymentMethod(new CheckoutPaymentMethod(payPalDetails));
         paymentRequest.setReturnUrl(getReturnUrl(PayPalDetails.TypeEnum.PAYPAL.getValue()));
 
-        PaymentResponse paymentResponse = adyenPayPalExpressCheckoutFacade.onPayPalCartSubmit(paymentRequest);
+        PaymentResponse paymentResponse = adyenPayPalExpressCheckoutFacade.onPayPalCartSubmit(request, paymentRequest);
         return new ResponseEntity<>(paymentResponse, HttpStatus.OK);
     }
 
