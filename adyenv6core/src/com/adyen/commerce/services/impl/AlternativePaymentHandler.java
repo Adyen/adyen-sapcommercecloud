@@ -35,7 +35,8 @@ public class AlternativePaymentHandler implements PaymentMethodHandler {
             PAYMENT_METHOD_PIX.equals(paymentMethod) ||
             paymentMethod.startsWith(PAYMENT_METHOD_BOLETO) ||
             AFTERPAY.equals(paymentMethod) ||
-            PAYBRIGHT.equals(paymentMethod)
+            PAYBRIGHT.equals(paymentMethod) ||
+            PAYMENT_METHOD_PAYPO.equals(paymentMethod)
         );
     }
 
