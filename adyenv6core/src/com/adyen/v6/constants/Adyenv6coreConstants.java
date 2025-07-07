@@ -63,6 +63,7 @@ public final class Adyenv6coreConstants extends GeneratedAdyenv6coreConstants {
 	public static final String PAYMENT_METHOD_BILLDESK_UPI = "billdesk_upi";
 	public static final String PAYMENT_METHOD_ONLINEBANKING_PL = "onlineBanking_PL";
 	public static final String PAYMENT_METHOD_ONLINEBANKING_IN = "onlinebanking_IN";
+	public static final String PAYMENT_METHOD_PAYPO = "paypo";
 
 
 	public static final String PROCESS_EVENT_ADYEN_CAPTURED = "AdyenCaptured";
