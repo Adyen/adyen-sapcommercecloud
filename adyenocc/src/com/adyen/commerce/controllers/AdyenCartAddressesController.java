@@ -8,6 +8,7 @@ import de.hybris.platform.commercefacades.order.CartFacade;
 import de.hybris.platform.commercefacades.order.CheckoutFacade;
 import de.hybris.platform.commercefacades.user.UserFacade;
 import de.hybris.platform.commercefacades.user.data.AddressData;
+import de.hybris.platform.commercewebservicescommons.errors.exceptions.CartAddressException;
 import de.hybris.platform.webservicescommons.cache.CacheControl;
 import de.hybris.platform.webservicescommons.cache.CacheControlDirective;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -20,11 +21,7 @@ import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Controller;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.Errors;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
-import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 
@@ -61,6 +58,11 @@ public class AdyenCartAddressesController implements AdyenCartAddressesApi {
             required = true) @RequestBody final AddressData addressData) throws JsonProcessingException {
         final Errors errors = new BeanPropertyBindingResult(addressData, "addressData");
         addressValidator.validate(addressData, errors);
+
+        if (errors.hasErrors()) {
+            throw new CartAddressException("Delivery address is not valid", CartAddressException.NOT_VALID);
+        }
+
         userFacade.addAddress(addressData);
         if (checkoutFacade.setDeliveryAddress(addressData))
             return ResponseEntity.ok(objectMapper.writeValueAsString(addressData));
