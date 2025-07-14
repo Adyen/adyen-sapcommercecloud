@@ -12,23 +12,5 @@
     <context:component-scan base-package="com.adyen.backoffice.controller" />
     <context:component-scan base-package="com.adyen.backoffice.filter" />
 
-    <!-- Register the authentication filter only for API endpoints -->
-    <bean id="authenticationFilterRegistrationBean" class="org.springframework.boot.web.servlet.FilterRegistrationBean">
-        <property name="filter" ref="authenticationFilter" />
-        <property name="order" value="1" />
-        <property name="urlPatterns">
-            <list>
-                <value>/api/*</value>
-            </list>
-        </property>
-    </bean>
-
-    <!-- Password encoder for authentication -->
-    <bean id="passwordEncoder" class="org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder" />
-
-    <!-- Adyen Authentication Service -->
-    <bean id="adyenAuthenticationService" class="com.adyen.backoffice.service.impl.DefaultAdyenAuthenticationService">
-        <property name="userService" ref="userService" />
-    </bean>
 
 </beans>

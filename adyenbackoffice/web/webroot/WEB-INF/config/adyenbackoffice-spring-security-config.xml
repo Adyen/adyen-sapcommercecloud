@@ -19,8 +19,6 @@
     <http access-decision-manager-ref="accessDecisionManager" use-expressions="false">
         <session-management session-authentication-strategy-ref="fixation"/>
         <intercept-url pattern="/login" access="PERMIT_ALL"/>
-        <intercept-url pattern="/custom_login" access="PERMIT_ALL"/>
-        <intercept-url pattern="/logout-success" access="PERMIT_ALL"/>
         <intercept-url pattern="/api/auth/**" access="PERMIT_ALL"/>
         <intercept-url pattern="/**" access="HYBRIS_NOT_INITIALIZED,ROLE_ADMINGROUP,ROLE_HAC_PLATFORM_TENANTS,ROLE_HAC_PLATFORM_CONFIGURATION,
 		ROLE_HAC_PLATFORM_SYSTEM,ROLE_HAC_PLATFORM_LOGGING,ROLE_HAC_PLATFORM_EXTENSIONS,ROLE_HAC_PLATFORM_INITIALIZATION, ROLE_HAC_PLATFORM_UPDATE,
@@ -41,7 +39,7 @@
                 login-processing-url="/j_spring_security_check"
         />
         <remember-me services-ref="rememberMeServices" key="adminweb"/>
-        <logout logout-url="/j_spring_security_logout" logout-success-url="/logout-success"/>
+        <logout logout-url="/j_spring_security_logout" logout-success-url="/login?logout=1"/>
         <csrf disabled="true"/>
         <headers>
             <frame-options disabled="true"/>
