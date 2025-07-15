@@ -114,3 +114,25 @@ div#section_break {
     width: 100% !important;
     border-radius: 0;
 }
+
+.adyen-pdp-express {
+    margin-top: 20px;
+}
+
+.adyen-pdp-express-btn {
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+.adyen-cart-express {
+    margin-top: 25px;
+}
+
+.adyen-cart-express-btn {
+    height: 48px;
+    @media (max-width: 639px) {
+        margin-bottom: 15px;
+    }
+}
+
+
