@@ -244,6 +244,7 @@ var AdyenExpressCheckoutHybris = (function () {
                 applePayComponent.isAvailable()
                     .then(function () {
                         applePayComponent.mount(applePayNode);
+                        applePayNode.parentElement.classList.remove('hidden')
                     })
                     .catch(function (e) {
                         // Apple Pay is not available
@@ -271,6 +272,7 @@ var AdyenExpressCheckoutHybris = (function () {
 
                 buttonSizeMode: "fill",
                 buttonType: "checkout",
+                buttonRadius: 1,
 
                 callbackIntents: ['SHIPPING_ADDRESS', 'SHIPPING_OPTION'],
 
@@ -385,6 +387,7 @@ var AdyenExpressCheckoutHybris = (function () {
                 googlePayComponent.isAvailable()
                     .then(function () {
                         googlePayComponent.mount(googlePayNode);
+                        googlePayNode.parentElement.classList.remove('hidden')
                     })
                     .catch(function (e) {
                         // Google Pay is not available
@@ -416,6 +419,11 @@ var AdyenExpressCheckoutHybris = (function () {
                 blockPayPalPayLaterButton: true,
 
                 intent: payPalIntent,
+
+                style: {
+                    borderRadius: 1,
+                    height: 48
+                },
 
                 onShippingAddressChange: async (data, actions, component) => {
 
@@ -477,6 +485,8 @@ var AdyenExpressCheckoutHybris = (function () {
                 payPalComponent.isAvailable()
                     .then(function () {
                         payPalComponent.mount(payPalNodes[0]);
+                        payPalNodes[0].parentElement.classList.remove('hidden')
+
                     })
                     .catch(function (e) {
                         // PayPal is not available
