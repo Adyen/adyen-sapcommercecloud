@@ -112,7 +112,6 @@ div#section_break {
 
 .adyen-checkout__applepay__button {
     width: 100% !important;
-    border-radius: 0;
 }
 
 .adyen-pdp-express {
@@ -135,4 +134,9 @@ div#section_break {
     }
 }
 
+.adyen-apple-pay-button {
+    .adyen-checkout__applepay__button {
+        border-radius: 1px;
 
+    }
+}
