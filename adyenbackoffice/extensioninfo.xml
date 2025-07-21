@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<extensioninfo xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="extensioninfo.xsd">
+
+
+    <extension abstractclassprefix="Generated" classprefix="Adyenbackoffice" jaloLogicFree="true"
+               managername="AdyenbackofficeManager" managersuperclass="de.hybris.platform.jalo.extension.Extension"
+               name="adyenbackoffice" usemaven="true">
+
+        <requires-extension name="platformservices"/>
+        <requires-extension name="basecommerce"/>
+        <requires-extension name="backoffice"/>
+
+        <coremodule generated="true" manager="com.adyen.backoffice.jalo.AdyenbackofficeManager"
+                    packageroot="com.adyen.backoffice"/>
+
+        <webmodule jspcompile="false" webroot="/adyenbackoffice"/>
+
+
+    </extension>
+
+</extensioninfo>
