@@ -7,7 +7,8 @@ import {
   BarChart, 
   Webhook, 
   AlertCircle, 
-  FileText 
+  FileText,
+  Building2 
 } from 'lucide-react';
 
 interface NavigationProps {
@@ -30,6 +31,11 @@ const Navigation: React.FC<NavigationProps> = ({ isCollapsed }) => {
           label: 'Payments', 
           icon: CreditCard, 
           href: '/payments' 
+        },
+        { 
+          label: 'Merchants', 
+          icon: Building2, 
+          href: '/merchants' 
         },
         { 
           label: 'Configuration', 
