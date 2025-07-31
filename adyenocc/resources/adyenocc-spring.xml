@@ -3,30 +3,31 @@
  Copyright (c) 2020 SAP SE or an SAP affiliate company. All rights reserved.
 -->
 <beans xmlns="http://www.springframework.org/schema/beans"
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xmlns:aop="http://www.springframework.org/schema/aop"
-	xmlns:context="http://www.springframework.org/schema/context"
-	xsi:schemaLocation="http://www.springframework.org/schema/beans
+	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	   xmlns:context="http://www.springframework.org/schema/context"
+	   xsi:schemaLocation="http://www.springframework.org/schema/beans
            http://www.springframework.org/schema/beans/spring-beans.xsd
-           http://www.springframework.org/schema/aop
-           http://www.springframework.org/schema/aop/spring-aop.xsd
+
+
            http://www.springframework.org/schema/context
            http://www.springframework.org/schema/context/spring-context.xsd">
 
     <context:annotation-config/>
+	<context:component-scan base-package="com.adyen.commerce.occ.controllers"/>
 
-	<bean id="webServicesBaseUrlResolver" class="com.adyen.commerce.utils.WebServicesBaseUrlResolver">
+
+	<bean id="webServicesBaseUrlResolver" class="com.adyen.commerce.occ.utils.WebServicesBaseUrlResolver">
 		<property name="configurationService" ref="configurationService"/>
 	</bean>
 
-	<bean id="paymentRedirectReturnUrlResolver" class="com.adyen.commerce.resolver.PaymentRedirectReturnUrlResolver">
+	<bean id="paymentRedirectReturnUrlResolver" class="com.adyen.commerce.occ.resolver.PaymentRedirectReturnUrlResolver">
 		<property name="baseSiteService" ref="baseSiteService"/>
 		<property name="commerceCommonI18NService" ref="commerceCommonI18NService"/>
 		<property name="webServicesBaseUrlResolver" ref="webServicesBaseUrlResolver"/>
 	</bean>
 
 	<bean id="adyenOccAddressValidator"
-		  class="com.adyen.commerce.validators.AdyenOccAddressValidator">
+		  class="com.adyen.commerce.occ.validators.AdyenOccAddressValidator">
 	</bean>
 
 </beans>

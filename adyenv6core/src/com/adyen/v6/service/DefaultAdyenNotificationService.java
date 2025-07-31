@@ -33,20 +33,15 @@ import com.google.gson.Gson;
 import de.hybris.platform.commerceservices.order.CommercePlaceOrderStrategy;
 import de.hybris.platform.core.enums.OrderStatus;
 import de.hybris.platform.core.model.order.OrderModel;
-import de.hybris.platform.payment.dto.TransactionStatus;
 import de.hybris.platform.payment.dto.TransactionStatusDetails;
-import de.hybris.platform.payment.enums.PaymentTransactionType;
 import de.hybris.platform.payment.model.PaymentTransactionEntryModel;
 import de.hybris.platform.payment.model.PaymentTransactionModel;
-import de.hybris.platform.sap.productconfig.runtime.interf.impl.CsticParameter;
 import de.hybris.platform.servicelayer.config.ConfigurationService;
 import de.hybris.platform.servicelayer.model.ModelService;
 import de.hybris.platform.servicelayer.session.SessionService;
 import de.hybris.platform.ticket.enums.CsTicketCategory;
 import de.hybris.platform.ticket.enums.CsTicketPriority;
-import de.hybris.platform.ticket.jalo.CsTicket;
 import de.hybris.platform.ticket.model.CsAgentGroupModel;
-import de.hybris.platform.ticket.model.CsTicketModel;
 import de.hybris.platform.ticket.service.TicketBusinessService;
 import de.hybris.platform.ticket.service.TicketService;
 import de.hybris.platform.ticketsystem.data.CsTicketParameter;
@@ -286,7 +281,7 @@ public class DefaultAdyenNotificationService implements AdyenNotificationService
             LOG.error("Order " + orderCode + " was not found, skipping OFFER_CLOSED event...");
             return null;
         }
-        if (isOrderAuthorized(orderModel)) {
+        if (AdyenTransactionService.isOrderAuthorized(orderModel)) {
             LOG.error("Order " + orderCode + " already authorised, skipping OFFER_CLOSED event...");
             return null;
         }
@@ -366,31 +361,7 @@ public class DefaultAdyenNotificationService implements AdyenNotificationService
         ticketBusinessService.createTicket(ticketParameter);
     }
 
-    protected boolean isTransactionAuthorized(final PaymentTransactionModel paymentTransactionModel) {
-        for (final PaymentTransactionEntryModel entry : paymentTransactionModel.getEntries()) {
-            if (entry.getType().equals(PaymentTransactionType.AUTHORIZATION)
-                    && TransactionStatus.ACCEPTED.name().equals(entry.getTransactionStatus())) {
-                return true;
-            }
-        }
 
-        return false;
-    }
-
-    protected boolean isOrderAuthorized(final OrderModel order) {
-        if(order.getPaymentTransactions() == null || order.getPaymentTransactions().isEmpty()) {
-            return false;
-        }
-
-        //A single not authorized transaction means not authorized
-        for (final PaymentTransactionModel paymentTransactionModel : order.getPaymentTransactions()) {
-            if (!isTransactionAuthorized(paymentTransactionModel)) {
-                return false;
-            }
-        }
-
-        return true;
-    }
 
     /**
      * @deprecated

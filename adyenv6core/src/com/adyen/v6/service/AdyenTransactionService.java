@@ -21,15 +21,19 @@
 package com.adyen.v6.service;
 
 import com.adyen.model.checkout.PaymentDetailsResponse;
+import com.adyen.v6.constants.Adyenv6coreConstants;
 import com.adyen.v6.model.AdyenNotificationModel;
 import de.hybris.platform.core.model.order.AbstractOrderModel;
+import de.hybris.platform.core.model.order.OrderModel;
 import de.hybris.platform.payment.dto.TransactionStatus;
 import de.hybris.platform.payment.dto.TransactionStatusDetails;
 import de.hybris.platform.payment.enums.PaymentTransactionType;
 import de.hybris.platform.payment.model.PaymentTransactionEntryModel;
 import de.hybris.platform.payment.model.PaymentTransactionModel;
+import org.apache.commons.collections.CollectionUtils;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 public interface AdyenTransactionService {
     /**
@@ -60,6 +64,48 @@ public interface AdyenTransactionService {
                 )
                 .findFirst()
                 .orElse(null);
+    }
+
+    static boolean isTransactionAuthorized(final PaymentTransactionModel paymentTransactionModel) {
+        for (final PaymentTransactionEntryModel entry : paymentTransactionModel.getEntries()) {
+            if (entry.getType().equals(PaymentTransactionType.AUTHORIZATION)
+                    && TransactionStatus.ACCEPTED.name().equals(entry.getTransactionStatus())) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    static boolean isOrderAuthorized(final OrderModel order) {
+        if (order.getPaymentTransactions() == null || order.getPaymentTransactions().isEmpty()) {
+            return false;
+        }
+
+        //A single not authorized transaction means not authorized
+        for (final PaymentTransactionModel paymentTransactionModel : order.getPaymentTransactions()) {
+            if (!isTransactionAuthorized(paymentTransactionModel)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    static String getPspReferenceForOrder(OrderModel order) {
+        List<PaymentTransactionModel> adyenPaymentTransactions = order.getPaymentTransactions().stream()
+                .filter(paymentTransactionModel -> Adyenv6coreConstants.PAYMENT_PROVIDER.equals(paymentTransactionModel.getPaymentProvider()))
+                .toList();
+
+        if (CollectionUtils.isEmpty(adyenPaymentTransactions)) {
+            throw new RuntimeException("No Adyen payment transactions found for order " + order.getCode());
+        }
+
+        if (adyenPaymentTransactions.size() > 1) {
+            throw new RuntimeException("Multiple Adyen payment transactions found for order " + order.getCode());
+        }
+
+        return adyenPaymentTransactions.get(0).getCode();
     }
 
     /**

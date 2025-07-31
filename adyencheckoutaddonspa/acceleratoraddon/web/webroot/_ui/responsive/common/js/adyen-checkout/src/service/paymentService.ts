@@ -5,6 +5,7 @@ import {AddressModel} from "../reducers/types";
 import {PaymentAction,PaymentResponseData} from "@adyen/adyen-web";
 import {ErrorResponse} from "../types/errorResponse";
 import {adyenAxios} from "../axios/AdyenAxios";
+import { storefrontVersion } from '../version';
 
 export interface PlaceOrderResponse {
     success: boolean,
@@ -112,7 +113,8 @@ export class PaymentService {
             paymentRequest: data,
             useAdyenDeliveryAddress: !useDifferentBillingAddress,
             billingAddress: useDifferentBillingAddress ? this.convertBillingAddress(billingAddress, saveInAddressBook) : null,
-
+            storefrontType: "SPA",
+            storefrontVersion: storefrontVersion,
         }
     }
 }

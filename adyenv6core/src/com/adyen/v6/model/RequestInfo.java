@@ -21,7 +21,8 @@
 package com.adyen.v6.model;
 
 import javax.servlet.http.HttpServletRequest;
-import com.adyen.model.applicationinfo.ApplicationInfo;
+
+import com.adyen.v6.constants.StorefrontType;
 
 public class RequestInfo {
 
@@ -33,6 +34,8 @@ public class RequestInfo {
     private String shopperIp;
     private String origin;
     private String shopperLocale;
+    private StorefrontType storefrontType;
+    private String storefrontVersion;
 
     public RequestInfo(HttpServletRequest request) {
         this.userAgent = request.getHeader(USER_AGENT_HEADER);
@@ -79,5 +82,21 @@ public class RequestInfo {
 
     public void setShopperLocale(String shopperLocale) {
         this.shopperLocale = shopperLocale;
+    }
+
+    public String getStorefrontVersion() {
+        return storefrontVersion;
+    }
+
+    public void setStorefrontVersion(String storefrontVersion) {
+        this.storefrontVersion = storefrontVersion;
+    }
+
+    public StorefrontType getStorefrontType() {
+        return storefrontType;
+    }
+
+    public void setStorefrontType(StorefrontType storefrontType) {
+        this.storefrontType = storefrontType;
     }
 }

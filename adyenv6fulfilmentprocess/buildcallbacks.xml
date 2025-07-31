@@ -36,29 +36,6 @@
 
 	<macrodef name="adyenv6fulfilmentprocess_after_build">
 		<sequential>
-			<if>
-				<or>
-					<contains string="V${hybris.build.version}" substring="V6.3" />
-					<contains string="V${hybris.build.version}" substring="V6.2" />
-					<contains string="V${hybris.build.version}" substring="V6.1" />
-					<contains string="V${hybris.build.version}" substring="V6.0" />
-				</or>
-				<then>
-					<echo level="info" message="Using order-process.6.0.xml for Hybris 6.3 and lower" />
-					<copy file="${ext.adyenv6fulfilmentprocess.path}/resources/adyenv6fulfilmentprocess/process/order-process.6.0.xml"
-						  tofile="${ext.adyenv6fulfilmentprocess.path}/resources/adyenv6fulfilmentprocess/process/order-process.xml" />
-				</then>
-				<!--<elseif>-->
-					<!--<contains string="V${hybris.build.version}" substring="V6.5" />-->
-					<!--<then>-->
-					<!--</then>-->
-				<!--</elseif>-->
-				<else>
-					<echo level="info" message="Using order-process.6.4.xml for Hybris 6.4 and greater" />
-					<copy file="${ext.adyenv6fulfilmentprocess.path}/resources/adyenv6fulfilmentprocess/process/order-process.6.4.xml"
-						  tofile="${ext.adyenv6fulfilmentprocess.path}/resources/adyenv6fulfilmentprocess/process/order-process.xml" />
-				</else>
-			</if>
 		</sequential>
 	</macrodef>
 </project>

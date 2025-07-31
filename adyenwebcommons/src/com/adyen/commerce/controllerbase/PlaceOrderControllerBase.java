@@ -9,8 +9,10 @@ import com.adyen.commerce.response.PlaceOrderResponse;
 import com.adyen.commerce.validators.PaymentRequestValidator;
 import com.adyen.model.checkout.PaymentDetailsRequest;
 import com.adyen.model.checkout.PaymentResponse;
+import com.adyen.v6.constants.StorefrontType;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
 import com.adyen.v6.facades.AdyenCheckoutFacade;
+import com.adyen.v6.model.RequestInfo;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.hybris.platform.acceleratorfacades.flow.CheckoutFlowFacade;
@@ -172,7 +174,10 @@ public abstract class PlaceOrderControllerBase {
 
         try {
             cartData.setAdyenReturnUrl(getPaymentRedirectReturnUrl());
-            OrderPaymentResult orderPaymentResult = getAdyenCheckoutApiFacade().placeOrderWithPayment(request, cartData, placeOrderRequest.getPaymentRequest());
+            RequestInfo requestInfo = new RequestInfo(request);
+            requestInfo.setStorefrontType(placeOrderRequest.getStorefrontType());
+            requestInfo.setStorefrontVersion(placeOrderRequest.getStorefrontVersion());
+            OrderPaymentResult orderPaymentResult = getAdyenCheckoutApiFacade().placeOrderWithPayment(request, cartData, placeOrderRequest.getPaymentRequest(), requestInfo);
             OrderData orderData = orderPaymentResult.getOrderData();
             String orderCode = getCheckoutCustomerStrategy().isAnonymousCheckout() ? orderData.getGuid() : orderData.getCode();
 

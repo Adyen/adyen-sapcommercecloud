@@ -112,5 +112,31 @@ div#section_break {
 
 .adyen-checkout__applepay__button {
     width: 100% !important;
-    border-radius: 0;
+}
+
+.adyen-pdp-express {
+    margin-top: 20px;
+}
+
+.adyen-pdp-express-btn {
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+.adyen-cart-express {
+    margin-top: 25px;
+}
+
+.adyen-cart-express-btn {
+    height: 48px;
+    @media (max-width: 639px) {
+        margin-bottom: 15px;
+    }
+}
+
+.adyen-apple-pay-button {
+    .adyen-checkout__applepay__button {
+        border-radius: 1px;
+
+    }
 }

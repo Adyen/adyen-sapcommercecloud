@@ -11,6 +11,7 @@ import com.adyen.model.checkout.PaymentDetailsRequest;
 import com.adyen.model.checkout.PaymentDetailsResponse;
 import com.adyen.model.checkout.PaymentRequest;
 import com.adyen.model.checkout.PaymentResponse;
+import com.adyen.v6.constants.StorefrontType;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
 import com.adyen.v6.facades.impl.DefaultAdyenCheckoutFacade;
 import com.adyen.v6.forms.AddressForm;
@@ -96,8 +97,7 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
     }
 
     @Override
-    public OrderPaymentResult placeOrderWithPayment(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest) throws Exception{
-        RequestInfo requestInfo = new RequestInfo(request);
+    public OrderPaymentResult placeOrderWithPayment(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest, RequestInfo requestInfo) throws Exception{
         requestInfo.setShopperLocale(getShopperLocale());
 
         PaymentResponse paymentResponse = getAdyenPaymentService().processPaymentRequest(cartData, paymentRequest, requestInfo, getCheckoutCustomerStrategy().getCurrentUserForCheckout());
@@ -122,9 +122,7 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
     }
 
     @Override
-    public OrderPaymentResult placeOrderWithPaymentOCC(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest) throws Exception {
-
-        RequestInfo requestInfo = new RequestInfo(request);
+    public OrderPaymentResult placeOrderWithPaymentOCC(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest, RequestInfo requestInfo) throws Exception {
         requestInfo.setShopperLocale(getShopperLocale());
 
         PaymentResponse paymentResponse = getAdyenPaymentService().processPaymentRequest(cartData, paymentRequest, requestInfo, getCheckoutCustomerStrategy().getCurrentUserForCheckout());

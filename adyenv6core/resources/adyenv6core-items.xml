@@ -716,6 +716,14 @@
                 </attribute>
             </attributes>
         </itemtype>
+        
+        <itemtype code="Order" autocreate="false" generate="false">
+            <attributes>
+                <attribute qualifier="adyenRiskScore" type="java.lang.Integer">
+                    <persistence type="property"/>
+                </attribute>
+            </attributes>
+        </itemtype>
 
     </itemtypes>
 </items>

@@ -17,4 +17,13 @@
 	</bean>
 	-->
 
+	<bean class="de.hybris.platform.commercewebservicescommons.dto.user.AddressWsDTO">
+		<property name="taxNumber" type="String">
+			<description>Company Tax Number</description>
+		</property>
+		<property name="registrationNumber" type="String">
+			<description>Company Registration Number</description>
+		</property>
+	</bean>
+
 </beans>

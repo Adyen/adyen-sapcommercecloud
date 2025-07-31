@@ -124,20 +124,18 @@
         </property>
     </bean>
 
+    <bean id="paymentMethodHandlerFactory" class="com.adyen.commerce.services.impl.PaymentMethodHandlerFactory"/>
+
     <alias name="defaultAdyenRequestService" alias="adyenRequestService" />
     <bean id="defaultAdyenRequestService" class="com.adyen.commerce.services.impl.DefaultAdyenRequestService">
         <constructor-arg name="baseStoreService" ref="baseStoreService"/>
         <constructor-arg name="cartService" ref="cartService"/>
         <constructor-arg name="configurationService" ref="configurationService"/>
-    </bean>
-
-    <bean id="adyenRequestFactory" class="com.adyen.v6.factory.AdyenRequestFactory">
-        <constructor-arg name="configurationService" ref="configurationService" />
+        <constructor-arg name="paymentMethodHandlerFactory" ref="paymentMethodHandlerFactory"/>
     </bean>
 
     <alias name="defaultAdyenPaymentServiceFactory" alias="adyenPaymentServiceFactory" />
     <bean id="defaultAdyenPaymentServiceFactory" class="com.adyen.v6.factory.AdyenPaymentServiceFactory">
-        <constructor-arg name="adyenRequestFactory" ref="adyenRequestFactory"/>
         <constructor-arg name="adyenMerchantAccountStrategy" ref="adyenMerchantStrategy"/>
         <constructor-arg name="defaultAdyenRequestService" ref="adyenRequestService"/>
     </bean>

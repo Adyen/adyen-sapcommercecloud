@@ -4,8 +4,10 @@ import com.adyen.commerce.dto.OrderPaymentResult;
 import com.adyen.commerce.facades.AdyenCheckoutApiFacade;
 import com.adyen.model.checkout.PaymentRequest;
 import com.adyen.model.checkout.PaymentResponse;
+import com.adyen.v6.constants.StorefrontType;
 import com.adyen.v6.facades.AdyenCheckoutFacade;
 import com.adyen.v6.facades.AdyenExpressCheckoutFacade;
+import com.adyen.v6.model.RequestInfo;
 import com.adyen.v6.repository.CartRepository;
 import de.hybris.platform.commercefacades.customer.CustomerFacade;
 import de.hybris.platform.commercefacades.i18n.I18NFacade;
@@ -199,7 +201,9 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
             CartData cartData = cartConverter.convert(cart);
             paymentRequest.setReturnUrl(paymentRequest.getReturnUrl());
             OrderPaymentResult orderPaymentResult;
-            orderPaymentResult = adyenCheckoutApiFacade.placeOrderWithPaymentOCC(request, cartData, paymentRequest);
+            RequestInfo requestInfo = new RequestInfo(request);
+            requestInfo.setStorefrontType(StorefrontType.EXPRESSOCC);
+            orderPaymentResult = adyenCheckoutApiFacade.placeOrderWithPaymentOCC(request, cartData, paymentRequest,requestInfo);
             if (sessionCart != null) {
                 cartService.setSessionCart(sessionCart);
             }
@@ -250,8 +254,10 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
 
         if (cartHasEntries(cart)) {
             CartData cartData = cartConverter.convert(cart);
+            RequestInfo requestInfo = new RequestInfo(request);
+            requestInfo.setStorefrontType(StorefrontType.EXPRESSOCC);
 
-            OrderPaymentResult orderPaymentResult = adyenCheckoutApiFacade.placeOrderWithPayment(request, cartData, paymentRequest);
+            OrderPaymentResult orderPaymentResult = adyenCheckoutApiFacade.placeOrderWithPayment(request, cartData, paymentRequest,requestInfo);
             return orderPaymentResult.getOrderData();
         } else {
             throw new InvalidCartException("Checkout attempt on empty cart");
