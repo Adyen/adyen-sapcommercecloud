@@ -1,4 +1,4 @@
-package com.adyen.commerce.controllers;
+package com.adyen.commerce.occ.controllers;
 
 
 import com.adyen.commerce.constants.AdyenoccConstants;
