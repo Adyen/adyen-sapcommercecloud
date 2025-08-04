@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MerchantData, MerchantResponse } from '../types/merchant.types';
+import { MerchantData, MerchantResponse, MerchantFilters } from '../types/merchant.types';
 
 interface UseMerchantsReturn {
   merchants: MerchantData[];
@@ -10,9 +10,11 @@ interface UseMerchantsReturn {
   totalItems: number;
   totalPages: number;
   searchTerm: string;
+  filters: MerchantFilters;
   setCurrentPage: (page: number) => void;
   setPageSize: (size: number) => void;
   setSearchTerm: (term: string) => void;
+  setFilters: (filters: MerchantFilters) => void;
   handlePageChange: (newPage: number) => void;
   handlePageSizeChange: (newSize: number) => void;
   filteredMerchants: MerchantData[];
@@ -27,6 +29,11 @@ export const useMerchants = (): UseMerchantsReturn => {
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
+  const [filters, setFilters] = useState<MerchantFilters>({
+    status: '',
+    location: '',
+    currency: '',
+  });
 
   const fetchMerchants = async (page: number, size: number) => {
     try {
@@ -63,11 +70,27 @@ export const useMerchants = (): UseMerchantsReturn => {
     setCurrentPage(1); // Reset to first page when changing page size
   };
 
-  const filteredMerchants = merchants.filter(merchant =>
-    merchant.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    merchant.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    merchant.merchantCity?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredMerchants = merchants.filter(merchant => {
+    // Search filter
+    const matchesSearch = !searchTerm ||
+      merchant.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      merchant.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      merchant.merchantCity?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    // Status filter
+    const matchesStatus = !filters.status ||
+      merchant.status?.toLowerCase() === filters.status.toLowerCase();
+
+    // Location filter
+    const matchesLocation = !filters.location ||
+      merchant.merchantCity?.toLowerCase().includes(filters.location.toLowerCase());
+
+    // Currency filter
+    const matchesCurrency = !filters.currency ||
+      merchant.primarySettlementCurrency?.toLowerCase() === filters.currency.toLowerCase();
+
+    return matchesSearch && matchesStatus && matchesLocation && matchesCurrency;
+  });
 
   return {
     merchants,
@@ -78,9 +101,11 @@ export const useMerchants = (): UseMerchantsReturn => {
     totalItems,
     totalPages,
     searchTerm,
+    filters,
     setCurrentPage,
     setPageSize,
     setSearchTerm,
+    setFilters,
     handlePageChange,
     handlePageSizeChange,
     filteredMerchants,

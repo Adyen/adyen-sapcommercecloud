@@ -11,6 +11,7 @@ import Pagination from './components/Pagination';
 
 const MerchantsPage: React.FC = () => {
   const {
+    merchants,
     loading,
     error,
     currentPage,
@@ -18,7 +19,9 @@ const MerchantsPage: React.FC = () => {
     totalItems,
     totalPages,
     searchTerm,
+    filters,
     setSearchTerm,
+    setFilters,
     handlePageChange,
     handlePageSizeChange,
     filteredMerchants,
@@ -42,6 +45,9 @@ const MerchantsPage: React.FC = () => {
           onSearchChange={setSearchTerm}
           pageSize={pageSize}
           onPageSizeChange={handlePageSizeChange}
+          filters={filters}
+          onFiltersChange={setFilters}
+          merchants={merchants}
         />
 
         <div className="space-y-0">

@@ -21,3 +21,14 @@ export interface MerchantResponse {
 }
 
 export type MerchantStatus = 'active' | 'inactive' | 'onboarding';
+
+export interface MerchantFilters {
+  status: string;
+  location: string;
+  currency: string;
+}
+
+export interface FilterOption {
+  value: string;
+  label: string;
+}
