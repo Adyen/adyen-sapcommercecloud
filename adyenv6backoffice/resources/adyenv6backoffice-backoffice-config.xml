@@ -114,6 +114,9 @@
 					<editorArea:attribute qualifier="adyenPaypalMerchantId"/>
 					<editorArea:attribute qualifier="l2L3ESDEnabled"/>
 				</editorArea:section>
+				<editorArea:section name="hmc.adyen.dataCollection">
+					<editorArea:attribute qualifier="dataCollectionEnabled"/>
+				</editorArea:section>
 			</editorArea:tab>
 		</editorArea:editorArea>
 	</context>

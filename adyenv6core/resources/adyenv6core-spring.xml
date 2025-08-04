@@ -273,6 +273,11 @@
         <property name="configurationService" ref="configurationService"/>
     </bean>
 
+    <alias name="defaultAdyenDataCollectionFacade" alias="adyenDataCollectionFacade" />
+    <bean id="defaultAdyenDataCollectionFacade" class="com.adyen.v6.facades.impl.DefaultAdyenDataCollectionFacade">
+        <property name="adyenCheckoutFacade" ref="adyenCheckoutFacade"/>
+        <property name="baseStoreService" ref="baseStoreService"/>
+    </bean>
 
     <bean name="adyenAbstractOrderPopulator" class="com.adyen.v6.populator.AbstractOrderPopulator">
         <property name="addressConverter" ref="addressConverter"/>
