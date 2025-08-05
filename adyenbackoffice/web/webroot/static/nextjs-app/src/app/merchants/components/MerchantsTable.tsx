@@ -1,4 +1,5 @@
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { Building2 } from 'lucide-react';
 import { MerchantData } from '../types/merchant.types';
 import StatusBadge from './StatusBadge';
@@ -77,38 +78,50 @@ interface MerchantRowProps {
   merchant: MerchantData;
 }
 
-const MerchantRow: React.FC<MerchantRowProps> = ({ merchant }) => (
-  <tr className="hover:bg-gray-50">
-    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-      {merchant.id}
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-      {merchant.name || '-'}
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap">
-      <StatusBadge status={merchant.status} />
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-      {merchant.merchantCity || '-'}
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-      {merchant.primarySettlementCurrency || '-'}
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-      {merchant.shopWebAddress ? (
-        <a
-          href={merchant.shopWebAddress}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-600 hover:text-blue-800 hover:underline"
-        >
-          {merchant.shopWebAddress}
-        </a>
-      ) : (
-        '-'
-      )}
-    </td>
-  </tr>
-);
+const MerchantRow: React.FC<MerchantRowProps> = ({ merchant }) => {
+  const router = useRouter();
+
+  const handleRowClick = () => {
+    router.push(`/merchants/${merchant.id}`);
+  };
+
+  return (
+    <tr
+      className="hover:bg-gray-50 cursor-pointer transition-colors"
+      onClick={handleRowClick}
+    >
+      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600 hover:text-blue-800">
+        {merchant.id}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+        {merchant.name || '-'}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <StatusBadge status={merchant.status} />
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+        {merchant.merchantCity || '-'}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+        {merchant.primarySettlementCurrency || '-'}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {merchant.shopWebAddress ? (
+          <a
+            href={merchant.shopWebAddress}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:text-blue-800 hover:underline"
+            onClick={(e) => e.stopPropagation()} // Prevent row click when clicking website link
+          >
+            {merchant.shopWebAddress}
+          </a>
+        ) : (
+          '-'
+        )}
+      </td>
+    </tr>
+  );
+};
 
 export default MerchantsTable;
