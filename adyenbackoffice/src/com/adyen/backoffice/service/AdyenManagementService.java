@@ -1,5 +1,6 @@
 package com.adyen.backoffice.service;
 
+import com.adyen.backoffice.dto.MerchantDataWsDTO;
 import com.adyen.backoffice.dto.MerchantResponseWsDTO;
 
 public interface AdyenManagementService {
@@ -12,5 +13,13 @@ public interface AdyenManagementService {
      * @return A {@link MerchantResponseWsDTO} containing the list of merchants.
      */
     MerchantResponseWsDTO getMerchants(Integer pageSize, Integer pageNumber);
+
+    /**
+     * Retrieves a single merchant account by ID from the Adyen Management API.
+     *
+     * @param merchantId The ID of the merchant to retrieve.
+     * @return A {@link MerchantDataWsDTO} containing the merchant details.
+     */
+    MerchantDataWsDTO getMerchantById(String merchantId);
 
 }

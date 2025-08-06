@@ -82,7 +82,7 @@ const MerchantRow: React.FC<MerchantRowProps> = ({ merchant }) => {
   const router = useRouter();
 
   const handleRowClick = () => {
-    router.push(`/merchants/${merchant.id}`);
+    router.push(`/merchant-detail?id=${merchant.id}`);
   };
 
   return (

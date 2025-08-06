@@ -1,5 +1,6 @@
 package com.adyen.backoffice.service.impl;
 
+import com.adyen.backoffice.dto.MerchantDataWsDTO;
 import com.adyen.backoffice.dto.MerchantResponseWsDTO;
 import com.adyen.backoffice.service.AdyenManagementService;
 import de.hybris.platform.servicelayer.config.ConfigurationService;
@@ -43,6 +44,27 @@ public class AdyenManagementServiceImpl implements AdyenManagementService {
         return response.getBody();
     }
 
+    @Override
+    public MerchantDataWsDTO getMerchantById(final String merchantId) {
+        final String endpoint = getConfigurationService().getConfiguration().getString("adyen.management.api.endpoint");
+        final String apiKey = getConfigurationService().getConfiguration().getString("adyen.management.api.key");
+
+        final HttpHeaders headers = new HttpHeaders();
+        headers.set("X-API-Key", apiKey);
+
+        final HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        final String merchantEndpoint = endpoint + "/" + merchantId;
+
+        final ResponseEntity<MerchantDataWsDTO> response = restTemplate.exchange(
+                merchantEndpoint,
+                HttpMethod.GET,
+                entity,
+                MerchantDataWsDTO.class
+        );
+
+        return response.getBody();
+    }
 
     public ConfigurationService getConfigurationService() {
         return configurationService;
