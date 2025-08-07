@@ -4,6 +4,7 @@ import { MerchantData, MerchantResponse, MerchantFilters } from '../types/mercha
 interface UseMerchantsReturn {
   merchants: MerchantData[];
   loading: boolean;
+  paginationLoading: boolean;
   error: string | null;
   currentPage: number;
   pageSize: number;
@@ -23,6 +24,7 @@ interface UseMerchantsReturn {
 export const useMerchants = (): UseMerchantsReturn => {
   const [merchants, setMerchants] = useState<MerchantData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [paginationLoading, setPaginationLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -34,10 +36,16 @@ export const useMerchants = (): UseMerchantsReturn => {
     location: '',
     currency: '',
   });
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   const fetchMerchants = async (page: number, size: number) => {
     try {
-      setLoading(true);
+      if (isInitialLoad) {
+        setLoading(true);
+      } else {
+        setPaginationLoading(true);
+      }
+      
       const response = await fetch(`/adyenbackoffice/api/merchants?pageNumber=${page}&pageSize=${size}`);
       
       if (!response.ok) {
@@ -51,7 +59,12 @@ export const useMerchants = (): UseMerchantsReturn => {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch merchants');
     } finally {
-      setLoading(false);
+      if (isInitialLoad) {
+        setLoading(false);
+        setIsInitialLoad(false);
+      } else {
+        setPaginationLoading(false);
+      }
     }
   };
 
@@ -95,6 +108,7 @@ export const useMerchants = (): UseMerchantsReturn => {
   return {
     merchants,
     loading,
+    paginationLoading,
     error,
     currentPage,
     pageSize,

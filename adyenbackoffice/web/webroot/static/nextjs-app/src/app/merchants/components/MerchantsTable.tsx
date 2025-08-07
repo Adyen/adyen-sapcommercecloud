@@ -7,9 +7,10 @@ import StatusBadge from './StatusBadge';
 interface MerchantsTableProps {
   merchants: MerchantData[];
   searchTerm: string;
+  loading?: boolean;
 }
 
-const MerchantsTable: React.FC<MerchantsTableProps> = ({ merchants, searchTerm }) => {
+const MerchantsTable: React.FC<MerchantsTableProps> = ({ merchants, searchTerm, loading = false }) => {
   if (merchants.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -34,7 +35,12 @@ const MerchantsTable: React.FC<MerchantsTableProps> = ({ merchants, searchTerm }
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 relative">
+      {loading && (
+        <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10 rounded-lg">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+      )}
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <TableHeader />
