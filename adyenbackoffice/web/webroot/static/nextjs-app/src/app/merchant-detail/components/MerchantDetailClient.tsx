@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Building2 } from 'lucide-react';
 import { MerchantDetailData } from '../../merchants/types/merchant-detail.types';
 import ConfigurationDetails from './ConfigurationDetails';
+import StoresList from './StoresList';
 import LoadingSpinner from '../../merchants/components/LoadingSpinner';
 import ErrorMessage from '../../merchants/components/ErrorMessage';
 
@@ -119,9 +120,12 @@ const MerchantDetailClient: React.FC<MerchantDetailClientProps> = ({ merchantId 
         </div>
 
         {/* Configuration Details */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
           <ConfigurationDetails merchant={merchant} />
         </div>
+
+        {/* Associated Stores */}
+        <StoresList merchantId={merchant.id} />
       </div>
     </div>
   );

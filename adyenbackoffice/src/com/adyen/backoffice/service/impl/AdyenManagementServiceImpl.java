@@ -2,6 +2,7 @@ package com.adyen.backoffice.service.impl;
 
 import com.adyen.backoffice.dto.MerchantDataWsDTO;
 import com.adyen.backoffice.dto.MerchantResponseWsDTO;
+import com.adyen.backoffice.dto.StoreResponseWsDTO;
 import com.adyen.backoffice.service.AdyenManagementService;
 import de.hybris.platform.servicelayer.config.ConfigurationService;
 import org.springframework.http.HttpEntity;
@@ -61,6 +62,39 @@ public class AdyenManagementServiceImpl implements AdyenManagementService {
                 HttpMethod.GET,
                 entity,
                 MerchantDataWsDTO.class
+        );
+
+        return response.getBody();
+    }
+
+    @Override
+    public StoreResponseWsDTO getStoresByMerchantId(final String merchantId, final Integer pageSize, final Integer pageNumber) {
+        final String endpoint = getConfigurationService().getConfiguration().getString("adyen.management.api.endpoint");
+        final String apiKey = getConfigurationService().getConfiguration().getString("adyen.management.api.key");
+
+        final HttpHeaders headers = new HttpHeaders();
+        headers.set("X-API-Key", apiKey);
+
+        final HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        // Build the stores endpoint URL
+        final String storesEndpoint = endpoint + "/" + merchantId + "/stores";
+
+        final UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl(storesEndpoint);
+        
+        // Add pagination parameters if provided
+        if (pageSize != null) {
+            uriBuilder.queryParam("pageSize", pageSize);
+        }
+        if (pageNumber != null) {
+            uriBuilder.queryParam("pageNumber", pageNumber);
+        }
+
+        final ResponseEntity<StoreResponseWsDTO> response = restTemplate.exchange(
+                uriBuilder.toUriString(),
+                HttpMethod.GET,
+                entity,
+                StoreResponseWsDTO.class
         );
 
         return response.getBody();

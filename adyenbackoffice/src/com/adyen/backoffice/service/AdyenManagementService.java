@@ -2,6 +2,7 @@ package com.adyen.backoffice.service;
 
 import com.adyen.backoffice.dto.MerchantDataWsDTO;
 import com.adyen.backoffice.dto.MerchantResponseWsDTO;
+import com.adyen.backoffice.dto.StoreResponseWsDTO;
 
 public interface AdyenManagementService {
 
@@ -21,5 +22,15 @@ public interface AdyenManagementService {
      * @return A {@link MerchantDataWsDTO} containing the merchant details.
      */
     MerchantDataWsDTO getMerchantById(String merchantId);
+
+    /**
+     * Retrieves all stores for a specific merchant from the Adyen Management API.
+     *
+     * @param merchantId The ID of the merchant to retrieve stores for.
+     * @param pageSize The number of items to have on a page (optional).
+     * @param pageNumber The number of the page to fetch (optional).
+     * @return A {@link StoreResponseWsDTO} containing the list of stores.
+     */
+    StoreResponseWsDTO getStoresByMerchantId(String merchantId, Integer pageSize, Integer pageNumber);
 
 }
