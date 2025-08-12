@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+
+<action-definition id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.retrieveDPACard"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:noNamespaceSchemaLocation="http://www.hybris.com/schema/cockpitng/action-definition.xsd">
+
+    <name>Show DPA Card Details</name>
+    <description>Show DPA Card Details</description>
+    <author>hybris</author>
+    <version>0.1</version>
+
+    <actionClassName>com.adyen.sapdigitalpaymentbackoffice.widgets.actions.RetrieveCardWithDPA</actionClassName>
+    <inputType>de.hybris.platform.core.model.order.OrderModel</inputType>
+
+
+    <iconUri>icons/credit-card-info.png</iconUri>
+    <iconDisabledUri>icons/credit-card-info.png</iconDisabledUri>
+    <iconHoverUri>icons/credit-card-info.png</iconHoverUri>
+
+    <settings>
+        <setting key="viewMode" default-value="iconAndText"/>
+    </settings>
+
+</action-definition>

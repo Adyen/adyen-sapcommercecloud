@@ -1,0 +1,39 @@
+eclipsebin/
+.settings/
+.externalToolBuilders/
+.springBeans
+.idea/
+*/platformhome.properties
+*/.pmd
+**.iml
+
+##################
+# Custom Ignores #
+##################
+
+*/.project
+.settings
+.classpath
+*.class
+*/bin/*
+*/target/*
+
+########################
+# Java generated files #
+########################
+*.class
+*.war
+*.ear
+
+##############################
+# hybris Ant generated files #
+##############################
+gensrc/**
+*/build.xml
+extensioninfo.xsd
+hmc.xsd
+platformhome.properties
+*-testclasses.xml
+beans.xsd
+items.xsd
+classes/**

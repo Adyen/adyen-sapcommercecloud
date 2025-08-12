@@ -1,0 +1,11 @@
+@import url("cockpit.css");
+@import url("backoffice.css");
+
+.ya-com_adyen_sapdigitalpaymentbackoffice_widgets_actions_retrieveDPACard .cng-action-icon,
+.ya-com_adyen_sapdigitalpaymentbackoffice_widgets_actions_retrieveDPAAuth .cng-action-icon,
+.ya-com_adyen_sapdigitalpaymentbackoffice_widgets_actions_RegisterCardWithDPA .cng-action-icon,
+.ya-com_adyen_sapdigitalpaymentbackoffice_widgets_actions_RegisterCaptureWithDPA .cng-action-icon,
+.ya-com_adyen_sapdigitalpaymentbackoffice_widgets_actions_RegisterCardAuthDPA .cng-action-icon,
+{
+  height:22px;
+}

@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!--
+ Copyright (c) 2020 SAP SE or an SAP affiliate company. All rights reserved
+--><!--
+ All hybris buildcallbacks.xml macrodefinitions:
+
+ Build/Documentation
+
+	 before/after ant macro "clean"
+		 <macrodef name="adyendigitalpaymentbackoffice_before_clean"/>
+		 <macrodef name="adyendigitalpaymentbackoffice_after_clean"/>
+
+	 before/after ant macro "build"
+		 <macrodef name="adyendigitalpaymentbackoffice_before_build"/>
+		 <macrodef name="adyendigitalpaymentbackoffice_after_build"/>
+
+	 before/after ant macro "compile_core" - the core module of the extension
+		 <macrodef name="adyendigitalpaymentbackoffice_before_compile_core">
+		 <macrodef name="adyendigitalpaymentbackoffice_after_compile_core">
+
+	 before/after ant macro "compile_web" - the web module of the extension
+		 <macrodef name="adyendigitalpaymentbackoffice_before_compile_web" />
+		 <macrodef name="adyendigitalpaymentbackoffice_after_compile_web" />
+
+	 before/after ant macro "compile_hmc" - the hmc module of the extension
+		 <macrodef name="adyendigitalpaymentbackoffice_before_compile_hmc" />
+		 <macrodef name="adyendigitalpaymentbackoffice_after_compile_hmc" />
+
+ Preparing extension
+
+	 will be called in the beginning of the ant call and only once (also when using multiple
+	 ant targets e.g. ant build yunittest)
+		 <macrodef name="adyendigitalpaymentbackoffice_only_once_prepare"/>
+
+ Creating ear module/production
+
+	 before/after ant macro "ear"
+		 <macrodef name="adyendigitalpaymentbackoffice_before_ear"/>
+		 <macrodef name="adyendigitalpaymentbackoffice_after_ear"/>
+
+	 before/after ant macro "production" - for hybris server only
+		 <macrodef name="adyendigitalpaymentbackoffice_before_production" />
+		 <macrodef name="adyendigitalpaymentbackoffice_after_production" />
+
+ JUnit Test
+
+	 before/after ant macro "yunitinit"
+		 <macrodef name="adyendigitalpaymentbackoffice_before_yunitinit" />
+		 <macrodef name="adyendigitalpaymentbackoffice_after_yunitinit" />
+
+	 before/after ant macro "yunit"
+		 <macrodef name="adyendigitalpaymentbackoffice_before_yunit" />
+		 <macrodef name="adyendigitalpaymentbackoffice_after_yunit" />
+
+ Distribution package
+
+ 	 before/after ant macro "dist" - internal target; only for use when platform is available in source code
+		 <macrodef name="adyendigitalpaymentbackoffice_after_dist"/>
+		 <macrodef name="adyendigitalpaymentbackoffice_before_dist"/>
+
+	 before/after ant macro "dist_copy" - internal target; only for use when platform is available in source code
+		 <macrodef name="adyendigitalpaymentbackoffice_before_dist_copy"/>
+		 <macrodef name="adyendigitalpaymentbackoffice_after_dist_copy"/>
+
+ 	 With these filters you can override the default extension filters defined in platform/resources/ant/dist/filtersets.xml
+ 	  	 <patternset id="extension.adyendigitalpaymentbackoffice.binary.filter">
+ 	  	  	 <patternset refid="extension.filter" />
+ 	  	  	 <exclude name="**/*-source.jar" />
+ 	  	 </patternset>
+ 	  	 <patternset id="extension.adyendigitalpaymentbackoffice.source.filter">
+ 	  	  	 <exclude name="**/bin/**" />
+ 	  	 </patternset>
+
+ Backoffice module
+
+ 	 before/after ant macro "backoffice" - internal target; only for use when extensin is a backoffice module
+		 <macrodef name="adyendigitalpaymentbackoffice_before_clean_backoffice"/>
+		 <macrodef name="adyendigitalpaymentbackoffice_after_clean_backoffice"/>
+		 <macrodef name="adyendigitalpaymentbackoffice_before_compile_backoffice"/>
+		 <macrodef name="adyendigitalpaymentbackoffice_after_compile_backoffice"/>
+
+--><project name="adyendigitalpaymentbackoffice_buildcallbacks">
+    	
+    <property name="adyendigitalpaymentbackofficeWebFragmentSrc" value="${ext.adyendigitalpaymentbackoffice.path}/resources/web-fragment.xml"/>
+    	
+    <property name="adyendigitalpaymentbackofficeWebFragmentDestJar" value="${ext.backoffice.path}/web/webroot/WEB-INF/lib/webfragmentExt_adyendigitalpaymentbackoffice.jar"/>
+    	
+
+	
+
+	
+    <macrodef name="adyendigitalpaymentbackoffice_after_clean">
+        		
+        <sequential>
+            			
+            <adyendigitalpaymentbackoffice_remove_web_fragment/>
+            		
+        </sequential>
+        	
+    </macrodef>
+    	
+    <macrodef name="adyendigitalpaymentbackoffice_after_build">
+        		
+        <sequential>
+            			
+            <adyendigitalpaymentbackoffice_remove_web_fragment/>
+            			
+            <adyendigitalpaymentbackoffice_create_web_fragment/>
+            		
+        </sequential>
+        	
+    </macrodef>
+    	
+    <macrodef name="adyendigitalpaymentbackoffice_remove_web_fragment">
+        		
+        <sequential>
+            			
+            <if>
+                				
+                <available file="${adyendigitalpaymentbackofficeWebFragmentDestJar}"/>
+                				
+                <then>
+                    					
+                    <delete file="${adyendigitalpaymentbackofficeWebFragmentDestJar}"/>
+                    				
+                </then>
+                			
+            </if>
+            		
+        </sequential>
+        	
+    </macrodef>
+    	
+    <macrodef name="adyendigitalpaymentbackoffice_create_web_fragment">
+        		
+        <sequential>
+            			
+            <if>
+                				
+                <available file="${adyendigitalpaymentbackofficeWebFragmentSrc}"/>
+                				
+                <then>
+                    					
+                    <sequential>
+                        						
+                        <jar destfile="${adyendigitalpaymentbackofficeWebFragmentDestJar}">
+                            							
+                            <metainf file="${adyendigitalpaymentbackofficeWebFragmentSrc}"/>
+                            						
+                        </jar>
+                        					
+                    </sequential>
+                    				
+                </then>
+                			
+            </if>
+            		
+        </sequential>
+        	
+    </macrodef>
+    	
+    <patternset id="adyendigitalpaymentbackoffice.localization.pattern">
+        		
+        <!-- core and hmc  -->
+        		
+        <include name="**/*locales*_en.properties"/>
+        		
+        <exclude name="**/hmc/web/webroot/WEB-INF/classes/**/*"/>
+        		
+        <exclude name="**/unittest/**/*"/>
+        		
+        <!-- cockpit (ng) -->
+        		
+        <include name="**/i3-label_en.properties"/>
+        		
+        <include name="**/labels_en.properties"/>
+        		
+        <!-- messages -->
+        		
+        <include name="**/*messages_en.properties"/>
+        		
+        <include name="**/*messages.properties"/>
+        		
+        <!-- frontend properties files in WEB-INF/messages folder -->
+        		
+        <include name="**/WEB-INF/messages/*_en.properties"/>
+        		
+        <!-- csv and impex -->
+        		
+        <include name="**/*_en.csv"/>
+        		
+        <include name="**/*_en.impex"/>
+        		
+        <include name="**/lang-en.properties"/>
+        		
+        <!-- email localizations from yacceleratorcore -->
+        		
+        <include name="resources/**/messages/*_en.properties"/>
+        		
+        <!-- include validation messages -->
+        		
+        <include name="resources/**/ValidationMessages.properties"/>
+        	
+    </patternset>
+    	
+    <macrodef name="adyendigitalpaymentbackoffice_before_build">
+		<sequential>
+			<register_sass_extension extensionname="adyendigitalpaymentbackoffice"/>
+			<register_sass_extension extensionname="adyendigitalpaymentbackoffice" resources="resources" destination=""/>
+		</sequential>
+	</macrodef>
+    
+</project>

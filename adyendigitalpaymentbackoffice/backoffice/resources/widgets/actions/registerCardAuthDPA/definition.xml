@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+
+<action-definition id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.RegisterCardAuthDPA"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:noNamespaceSchemaLocation="http://www.hybris.com/schema/cockpitng/action-definition.xsd">
+
+    <name>Register Card Auth with DPA</name>
+    <description>Register Card Auth with DPA</description>
+    <author>hybris</author>
+    <version>0.1</version>
+
+    <actionClassName>com.adyen.sapdigitalpaymentbackoffice.widgets.actions.RegisterCardAuthDPA</actionClassName>
+    <inputType>de.hybris.platform.core.model.order.OrderModel</inputType>
+
+
+    <iconUri>icons/credit-card-auth-icon.png</iconUri>
+    <iconDisabledUri>icons/credit-card-auth-icon.png</iconDisabledUri>
+    <iconHoverUri>icons/credit-card-auth-icon.png</iconHoverUri>
+
+    <settings>
+        <setting key="viewMode" default-value="iconAndText"/>
+    </settings>
+
+</action-definition>

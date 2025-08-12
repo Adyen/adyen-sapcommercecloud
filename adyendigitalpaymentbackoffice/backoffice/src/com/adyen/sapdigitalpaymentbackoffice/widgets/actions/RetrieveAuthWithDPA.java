@@ -1,0 +1,134 @@
+package com.adyen.sapdigitalpaymentbackoffice.widgets.actions;
+
+import com.adyen.model.*;
+import com.adyen.model.authorization.*;
+import com.adyen.service.*;
+import com.google.gson.*;
+import com.hybris.cockpitng.actions.*;
+import com.hybris.cockpitng.engine.impl.*;
+import com.hybris.cockpitng.util.*;
+import de.hybris.platform.cissapdigitalpayment.model.*;
+import de.hybris.platform.core.model.order.*;
+import de.hybris.platform.servicelayer.config.*;
+import de.hybris.platform.servicelayer.model.*;
+import org.assertj.core.util.*;
+import org.zkoss.zk.ui.*;
+import org.zkoss.zul.*;
+
+import javax.annotation.*;
+import java.time.*;
+import java.util.*;
+
+public class RetrieveAuthWithDPA extends AbstractComponentWidgetAdapterAware implements CockpitAction<OrderModel, Object> {
+
+	private static final String DPA_OPERATION = "Retrieve Auth With DPA";
+	private static final String AUTHORIZATION_DETAILS = """
+			Received following AUTHORIZATION information:
+			Authorization Amount: %s
+			Authorization Currency: %s
+			Authorization Date: %s
+			Authorization Expiration Date: %s
+			Authorization DPA: %s
+			Authorization PSP: %s
+			Authorization Status: %s
+			DigitalPaymentTransaction ID: %s
+			DigitalPaymentTransaction status: %s
+			DigitalPaymentTransaction description: %s
+			""";
+
+	@Resource
+	private WidgetUtils widgetUtils;
+
+	@Resource
+	private AdyenSapDigitalPaymentService adyenSapDigitalPaymentService;
+
+	@Resource
+	private ModelService modelService;
+
+	@Override
+	public boolean canPerform(final ActionContext<OrderModel> context) {
+		boolean ret = false;
+		final OrderModel orderModel = context.getData();
+		ret = orderModel.getPaymentInfo().getAdyenDPAAuthorizationCode() != null;
+		return ret;
+	}
+
+	@Resource
+	private ConfigurationService configurationService;
+
+
+	@Override
+	public ActionResult<Object> perform(final ActionContext<OrderModel> context) {
+
+
+		final OrderModel orderModel = context.getData();
+		final SAPDigitalPaymentConfigurationModel sapDigitalPaymentConfiguration = orderModel.getStore().getSapDigitalPaymentConfiguration();
+
+		final FetchAuthorizationList payload = new FetchAuthorizationList();
+		final FetchAuthorization authorization = new FetchAuthorization();
+		authorization.setAuthorizationByDigitalPaytSrvc(orderModel.getPaymentInfo().getAdyenDPAAuthorizationCode());
+		payload.setFetchAuthorizationList(Lists.newArrayList(authorization));
+
+		final DigitalPaymentGetAuthorizationResultList results = adyenSapDigitalPaymentService.getAuthorization(payload, sapDigitalPaymentConfiguration);
+
+		final StringBuilder dataToDisplay = new StringBuilder();
+		final StringBuilder dataToSaveToModel = new StringBuilder();
+
+		if (results != null) {
+
+			for (DigitalPaymentGetAuthorizationResult authorizationResultModel : results.getAuthorizationResults()) {
+				dataToSaveToModel.append("Raw data:").append(new Gson().toJson(authorizationResultModel));
+				final DPAOperationResultModel dpaOperationResult = new DPAOperationResultModel();
+				dpaOperationResult.setDpaOperationPayload(dataToSaveToModel.toString());
+				dpaOperationResult.setDpaOperationTime(Date.from(Instant.now()));
+				dpaOperationResult.setDpaAuthCode(authorizationResultModel.getAuthorization().getAuthorizationByPaytSrvcPrvdr());
+				dpaOperationResult.setDpaOperation(DPA_OPERATION);
+				dpaOperationResult.setDpaResult(authorizationResultModel.getDigitalPaymentTransaction().getDigitalPaytTransResult());
+				dpaOperationResult.setDpaOperationResultDesc(authorizationResultModel.getDigitalPaymentTransaction().getDigitalPaytTransRsltDesc());
+				modelService.save(dpaOperationResult);
+				if (authorizationResultModel.getAuthorization() != null) {
+					final String formatted = prepareAuthInfo(authorizationResultModel);
+
+					dataToDisplay.append(formatted);
+				}
+				if (authorizationResultModel.getSource() != null && authorizationResultModel.getSource().getCard() != null) {
+					dataToDisplay.append("\n Card DPA Token: ").
+							append(authorizationResultModel.getSource().getCard().getPaytCardByDigitalPaymentSrvc());
+				}
+				if (authorizationResultModel.getSource() != null && authorizationResultModel.getSource().getMerchant() != null) {
+					dataToDisplay.append(" \n Merchant Account: ").
+							append(authorizationResultModel.getSource().getMerchant().getAccount());
+				}
+			}
+		} else {
+
+			dataToDisplay.append("Authorization doesn't exist!");
+		}
+
+		Messagebox.show(dataToDisplay.toString(), "Received Authorization Details", new Messagebox.Button[]
+				{Messagebox.Button.OK, Messagebox.Button.CANCEL}, null, null, null);
+
+		return new ActionResult(ActionResult.SUCCESS);
+	}
+
+	private static String prepareAuthInfo(final DigitalPaymentGetAuthorizationResult authorizationResultModel) {
+		var auth = authorizationResultModel.getAuthorization();
+		var transaction = authorizationResultModel.getDigitalPaymentTransaction();
+		return AUTHORIZATION_DETAILS.formatted(
+				String.valueOf(auth.getAuthorizedAmountInAuthznCrcy()),
+				String.valueOf(auth.getAuthorizationCurrency()),
+				String.valueOf(auth.getAuthorizationDateTime()),
+				String.valueOf(auth.getAuthorizationExpirationDateTme()),
+				String.valueOf(auth.getAuthorizationByDigitalPaytSrvc()),
+				String.valueOf(auth.getAuthorizationByPaytSrvcPrvdr()),
+				String.valueOf(auth.getDetailedAuthorizationStatus()),
+				String.valueOf(transaction.getDigitalPaymentTransaction()),
+				String.valueOf(transaction.getDigitalPaytTransResult()),
+				String.valueOf(transaction.getDigitalPaytTransRsltDesc())
+		);
+	}
+
+	protected Component getRoot() {
+		return widgetUtils.getRoot();
+	}
+}

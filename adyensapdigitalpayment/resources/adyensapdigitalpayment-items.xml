@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!--
+ Copyright (c) 2021 SAP SE or an SAP affiliate company. All rights reserved.
+-->
+<!--
+	ATTENTION: This is just an example file. You have to edit it according to your needs.
+-->
+
+<items 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+			xsi:noNamespaceSchemaLocation="items.xsd">
+
+	<enumtypes>
+		<enumtype code="OrderStatus" autocreate="false" generate="true" dynamic="true">
+			<value code="REFUNDED"/>
+			<value code="PARTIAL_REFUNDED"/>
+			<value code="PARTIAL_CAPTURED"/>
+		</enumtype>
+
+	</enumtypes>
+
+	<relations>
+		<relation code="OrderToDPAOperationResult" localized="false" autocreate="true" generate="true">
+			<sourceElement type="DPAOperationResult" qualifier="DPAOperationResults" cardinality="many" collectiontype="list">
+				<modifiers read="true" write="true" search="true" optional="true"/>
+			</sourceElement>
+			<targetElement type="Order" cardinality="one" qualifier="order">
+				<modifiers read="true" write="true" search="true" optional="true" />
+			</targetElement>
+		</relation>
+	</relations>
+
+
+	<itemtypes>
+<!--
+		<itemtype generate="true"
+		   code="MyProduct"
+		   jaloclass="com.adyen.jalo.MyProduct"
+		   extends="Product"
+		   autocreate="true"
+	   >
+			<attributes>
+				<attribute qualifier="myExampleInitialStringField" type="java.lang.String">
+					<description>My Example Initial String Value</description>
+					<modifiers initial="true"/>
+					<persistence type="property"/>
+				</attribute>
+
+				<attribute qualifier="myExampleBooleanField" type="java.lang.Boolean">
+					<description>Example Initial Boolean Field</description>
+               <persistence type="property"/>
+				</attribute>
+
+				<attribute qualifier="media" type="Media">
+					<persistence type="property"/>
+				</attribute>
+
+			</attributes>
+		</itemtype>
+-->
+
+		<itemtype code="SapDigitalPrepareProcess2" autocreate="true"
+				generate="true"
+				extends="BusinessProcess">
+			<attributes>
+				<attribute qualifier="order" type="Order">
+					<persistence type="property"></persistence>
+				</attribute>
+				<attribute qualifier="sessionCart" type="Cart">
+					<persistence type="property"></persistence>
+				</attribute>
+				<attribute qualifier="sessionUser" type="User">
+					<persistence type="property"></persistence>
+				</attribute>
+				<attribute qualifier="baseStore" type="BaseStore">
+					<persistence type="property"></persistence>
+				</attribute>
+			</attributes>
+		</itemtype>
+
+
+		<itemtype code="DPAOperationResult" autocreate="true"
+				generate="true"
+				extends="GenericItem">
+			<deployment table="dpaoperationResult" typecode="10230"/>
+			<attributes>
+				<attribute qualifier="dpaOperation" type="java.lang.String">
+					<persistence type="property"></persistence>
+				</attribute>
+
+				<attribute qualifier="pspCardReference" type="java.lang.String">
+					<persistence type="property"></persistence>
+				</attribute>
+
+				<attribute qualifier="dpaCardReference" type="java.lang.String">
+					<persistence type="property"></persistence>
+				</attribute>
+
+				<attribute qualifier="dpaAuthCode" type="java.lang.String">
+					<persistence type="property"></persistence>
+				</attribute>
+
+				<attribute qualifier="dpaChargeCode" type="java.lang.String">
+					<persistence type="property"></persistence>
+				</attribute>
+
+				<attribute qualifier="dpaResult" type="java.lang.String">
+					<persistence type="property">
+						<columntype>
+							<value>longvarchar</value>
+						</columntype>
+					</persistence>
+				</attribute>
+
+				<attribute qualifier="dpaOperationResultDesc" type="java.lang.String">
+					<persistence type="property"></persistence>
+				</attribute>
+
+				<attribute qualifier="dpaOperationTime" type="java.util.Date">
+					<persistence type="property" />
+				</attribute>
+
+				<attribute qualifier="adyenDPAPaymentCardToken" type="java.lang.String">
+					<persistence type="property" />
+				</attribute>
+
+				<attribute qualifier="adyenDPAAuthorizationCode" type="java.lang.String">
+					<persistence type="property" />
+				</attribute>
+
+				<attribute qualifier="adyenDPAChargeTransactionId" type="java.lang.String">
+					<persistence type="property" />
+				</attribute>
+                <attribute qualifier="dpaOperationPayload" type="java.lang.String">
+                    <persistence type="property">
+                        <columntype>
+                            <value>longvarchar</value>
+                        </columntype>
+                    </persistence>
+				</attribute>
+			</attributes>
+		</itemtype>
+
+
+		<itemtype code="DPAOperationContext" autocreate="true"
+				generate="true"
+				extends="GenericItem">
+			<deployment table="dpaoperationContext" typecode="10235"/>
+			<attributes>
+				<attribute qualifier="pspReference" type="java.lang.String">
+					<persistence type="property"></persistence>
+				</attribute>
+
+				<attribute qualifier="authCurrency" type="java.lang.String">
+					<persistence type="property"></persistence>
+				</attribute>
+
+				<attribute qualifier="authAmount" type="java.lang.String">
+					<persistence type="property"></persistence>
+				</attribute>
+
+				<attribute qualifier="shopperEmail" type="java.lang.String">
+					<persistence type="property"></persistence>
+				</attribute>
+
+				<attribute qualifier="authCode" type="java.lang.String">
+					<persistence type="property"></persistence>
+				</attribute>
+
+				<attribute qualifier="additionalData" type="String2StringMapType">
+					<persistence type="property"></persistence>
+				</attribute>
+
+				<attribute qualifier="merchantReference" type="java.lang.String">
+					<persistence type="property"></persistence>
+				</attribute>
+
+				<attribute qualifier="merchantAccount" type="java.lang.String">
+					<persistence type="property"></persistence>
+				</attribute>
+
+				<attribute qualifier="eventCode" type="java.lang.String">
+					<persistence type="property"></persistence>
+				</attribute>
+
+				<attribute qualifier="paymentMethod" type="java.lang.String">
+					<persistence type="property"></persistence>
+				</attribute>
+
+				<attribute qualifier="reason" type="java.lang.String">
+					<persistence type="property"></persistence>
+				</attribute>
+			</attributes>
+		</itemtype>
+
+		<itemtype code="PaymentInfo" generate="false" autocreate="false">
+			<attributes>
+				<attribute qualifier="additionalData" type="String2StringMapType">
+					<persistence type="property"></persistence>
+				</attribute>
+				<attribute qualifier="adyenDPAPaymentCardToken" type="java.lang.String">
+					<persistence type="property" />
+				</attribute>
+				<attribute qualifier="adyenDPAAuthorizationCode" type="java.lang.String">
+					<persistence type="property" />
+				</attribute>
+				<attribute qualifier="adyenDPAChargeTransactionId" type="java.lang.String">
+					<persistence type="property" />
+				</attribute>
+				<attribute qualifier="adyenPaymentCardToken" type="java.lang.String">
+					<persistence type="property" />
+				</attribute>
+			</attributes>
+		</itemtype>
+
+		<itemtype code="PaymentTransactionEntry"  generate="false" autocreate="false">
+			<attributes>
+				<attribute type="DPAOperationContext" qualifier="dpaOperationConext" autocreate="true" >
+					<modifiers read="true" write="true" search="true" optional="true" />
+					<persistence type="property" />
+				</attribute>
+			</attributes>
+		</itemtype>
+
+
+		<itemtype code="Order"  generate="false" autocreate="false">
+			<attributes>
+			</attributes>
+		</itemtype>
+
+	</itemtypes>
+</items>
