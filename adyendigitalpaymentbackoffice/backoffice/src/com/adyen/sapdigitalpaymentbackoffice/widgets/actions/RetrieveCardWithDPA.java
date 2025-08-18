@@ -49,7 +49,6 @@ public class RetrieveCardWithDPA extends AbstractComponentWidgetAdapterAware imp
 	@Override
 	public ActionResult<Object> perform(final ActionContext<OrderModel> context) {
 
-
 		final OrderModel orderModel = context.getData();
 		final SAPDigitalPaymentConfigurationModel sapDigitalPaymentConfiguration = orderModel.getStore().getSapDigitalPaymentConfiguration();
 		final PaymentCardResult paymentCardResult = adyenSapDigitalPaymentService.getPaymentCardDetails(orderModel.getPaymentInfo().getAdyenDPAPaymentCardToken(), sapDigitalPaymentConfiguration).toBlocking().first();
@@ -57,27 +56,30 @@ public class RetrieveCardWithDPA extends AbstractComponentWidgetAdapterAware imp
 		final StringBuilder dataToSaveToModel = new StringBuilder();
 
 		if (paymentCardResult != null) {
-			final DPAOperationResultModel dpaOperationResult = new DPAOperationResultModel();
 			dataToSaveToModel.append("Raw data:").append(new Gson().toJson(paymentCardResult));
-			dpaOperationResult.setDpaOperationPayload(dataToSaveToModel.toString());
-			dpaOperationResult.setDpaOperation(DPA_OPERATION);
-			dpaOperationResult.setDpaOperationTime(Date.from(Instant.now()));
-			dpaOperationResult.setDpaCardReference(paymentCardResult.getPaytCardByDigitalPaymentSrvc());
+			final DPAOperationResultModel dpaOperationResult = buildDPAOperationResultModel(dataToSaveToModel, paymentCardResult);
 			modelService.save(dpaOperationResult);
 
 			final String formatted = prepareCardInfo(paymentCardResult);
 			dataToDisplay.append(formatted);
 
 		} else {
-
-			dataToDisplay.append("Card doesn't exist!!! ");
+			dataToDisplay.append("Card doesn't exist.");
 		}
-
 
 		Messagebox.show(dataToDisplay.toString(), "Retrived Card Details", new Messagebox.Button[]
 				{Messagebox.Button.OK, Messagebox.Button.CANCEL}, null, null, null);
 
 		return new ActionResult(ActionResult.SUCCESS);
+	}
+
+	private static DPAOperationResultModel buildDPAOperationResultModel(final StringBuilder dataToSaveToModel, final PaymentCardResult paymentCardResult) {
+		final DPAOperationResultModel dpaOperationResult = new DPAOperationResultModel();
+		dpaOperationResult.setDpaOperationPayload(dataToSaveToModel.toString());
+		dpaOperationResult.setDpaOperation(DPA_OPERATION);
+		dpaOperationResult.setDpaOperationTime(Date.from(Instant.now()));
+		dpaOperationResult.setDpaCardReference(paymentCardResult.getPaytCardByDigitalPaymentSrvc());
+		return dpaOperationResult;
 	}
 
 	private static String prepareCardInfo(PaymentCardResult paymentCardResult) {

@@ -1,29 +1,13 @@
 package com.adyen.client;
 
-import de.hybris.platform.cissapdigitalpayment.client.SapDigitalPaymentClient;
+import com.adyen.model.*;
+import com.adyen.model.authorization.*;
+import com.hybris.charon.annotations.*;
+import de.hybris.platform.cissapdigitalpayment.client.*;
+import rx.*;
 
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
-import javax.ws.rs.core.MediaType;
-
-import com.adyen.model.DigitalGetPaymentCardList;
-import com.adyen.model.DigitalPaymentGetAuthorizationList;
-import com.adyen.model.DigitalPaymentGetAuthorizationResultList;
-import com.adyen.model.DigitalPaymentGetCaptureList;
-import com.adyen.model.DigitalPaymentGetCaptureResultList;
-import com.adyen.model.DigitalPaymentGetCardWithAuthorizationList;
-import com.adyen.model.DigitalPaymentGetCardWithAuthorizationResultModelList;
-import com.adyen.model.DigitalPaymentsCardResultList;
-import com.adyen.model.PaymentCardResult;
-import com.adyen.model.authorization.FetchAuthorizationList;
-
-import com.hybris.charon.annotations.Control;
-import com.hybris.charon.annotations.OAuth;
-
-import rx.Observable;
+import javax.ws.rs.*;
+import javax.ws.rs.core.*;
 
 /*
  *Client to connect to SAP Digital Payment Addon using Charon API.

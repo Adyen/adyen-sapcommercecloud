@@ -56,10 +56,8 @@ public class RetrieveAuthWithDPA extends AbstractComponentWidgetAdapterAware imp
 	@Resource
 	private ConfigurationService configurationService;
 
-
 	@Override
 	public ActionResult<Object> perform(final ActionContext<OrderModel> context) {
-
 
 		final OrderModel orderModel = context.getData();
 		final SAPDigitalPaymentConfigurationModel sapDigitalPaymentConfiguration = orderModel.getStore().getSapDigitalPaymentConfiguration();
@@ -78,13 +76,7 @@ public class RetrieveAuthWithDPA extends AbstractComponentWidgetAdapterAware imp
 
 			for (DigitalPaymentGetAuthorizationResult authorizationResultModel : results.getAuthorizationResults()) {
 				dataToSaveToModel.append("Raw data:").append(new Gson().toJson(authorizationResultModel));
-				final DPAOperationResultModel dpaOperationResult = new DPAOperationResultModel();
-				dpaOperationResult.setDpaOperationPayload(dataToSaveToModel.toString());
-				dpaOperationResult.setDpaOperationTime(Date.from(Instant.now()));
-				dpaOperationResult.setDpaAuthCode(authorizationResultModel.getAuthorization().getAuthorizationByPaytSrvcPrvdr());
-				dpaOperationResult.setDpaOperation(DPA_OPERATION);
-				dpaOperationResult.setDpaResult(authorizationResultModel.getDigitalPaymentTransaction().getDigitalPaytTransResult());
-				dpaOperationResult.setDpaOperationResultDesc(authorizationResultModel.getDigitalPaymentTransaction().getDigitalPaytTransRsltDesc());
+				final DPAOperationResultModel dpaOperationResult = buildDPAOperationResultModel(authorizationResultModel, dataToSaveToModel);
 				modelService.save(dpaOperationResult);
 				if (authorizationResultModel.getAuthorization() != null) {
 					final String formatted = prepareAuthInfo(authorizationResultModel);
@@ -102,13 +94,24 @@ public class RetrieveAuthWithDPA extends AbstractComponentWidgetAdapterAware imp
 			}
 		} else {
 
-			dataToDisplay.append("Authorization doesn't exist!");
+			dataToDisplay.append("Authorization doesn't exist.");
 		}
 
 		Messagebox.show(dataToDisplay.toString(), "Received Authorization Details", new Messagebox.Button[]
 				{Messagebox.Button.OK, Messagebox.Button.CANCEL}, null, null, null);
 
 		return new ActionResult(ActionResult.SUCCESS);
+	}
+
+	private static DPAOperationResultModel buildDPAOperationResultModel(final DigitalPaymentGetAuthorizationResult authorizationResultModel, final StringBuilder dataToSaveToModel) {
+		final DPAOperationResultModel dpaOperationResult = new DPAOperationResultModel();
+		dpaOperationResult.setDpaOperationPayload(dataToSaveToModel.toString());
+		dpaOperationResult.setDpaOperationTime(Date.from(Instant.now()));
+		dpaOperationResult.setDpaAuthCode(authorizationResultModel.getAuthorization().getAuthorizationByPaytSrvcPrvdr());
+		dpaOperationResult.setDpaOperation(DPA_OPERATION);
+		dpaOperationResult.setDpaResult(authorizationResultModel.getDigitalPaymentTransaction().getDigitalPaytTransResult());
+		dpaOperationResult.setDpaOperationResultDesc(authorizationResultModel.getDigitalPaymentTransaction().getDigitalPaytTransRsltDesc());
+		return dpaOperationResult;
 	}
 
 	private static String prepareAuthInfo(final DigitalPaymentGetAuthorizationResult authorizationResultModel) {

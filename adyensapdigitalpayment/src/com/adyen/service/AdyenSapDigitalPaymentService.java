@@ -22,14 +22,13 @@ import com.adyen.model.authorization.FetchAuthorizationList;
 import rx.Observable;
 
 
-public interface AdyenSapDigitalPaymentService extends CisSapDigitalPaymentService
-{
+public interface AdyenSapDigitalPaymentService extends CisSapDigitalPaymentService {
 	/**
 	 * Requests for initiate credit card into the SAP Digital Payment Addon
 	 */
 	DigitalPaymentsCardResultList getForPaymentCard(final DigitalGetPaymentCardList paymentCardRequestList,
-			final SAPDigitalPaymentConfigurationModel
-					sapDigitalPaymentConfig);
+	                                                final SAPDigitalPaymentConfigurationModel
+			                                                sapDigitalPaymentConfig);
 
 	/**
 	 * Requests for initiate card authorization into the SAP Digital Payment Addon
@@ -42,7 +41,7 @@ public interface AdyenSapDigitalPaymentService extends CisSapDigitalPaymentServi
 	 * Requests for initiate card capture into the SAP Digital Payment Addon
 	 */
 	DigitalPaymentGetCaptureResultList getForDirectCapture(final DigitalPaymentGetCaptureList captureList,
-			final SAPDigitalPaymentConfigurationModel sapDigitalPaymentConfig);
+	                                                       final SAPDigitalPaymentConfigurationModel sapDigitalPaymentConfig);
 
 	/**
 	 * Requests for initiate card with authorization into the SAP Digital Payment Addon
@@ -50,8 +49,10 @@ public interface AdyenSapDigitalPaymentService extends CisSapDigitalPaymentServi
 	DigitalPaymentGetCardWithAuthorizationResultModelList getForPaymentCardWithAuthorizationForDPA(
 			final DigitalPaymentGetCardWithAuthorizationList authorizationList,
 			SAPDigitalPaymentConfigurationModel sapDigitalPaymentConfig);
+
 	/**
 	 * Requests for initiate an authorization into the SAP Digital Payment Addon
+	 *
 	 * @param paymentCardRequestList
 	 * @return
 	 */
@@ -60,7 +61,7 @@ public interface AdyenSapDigitalPaymentService extends CisSapDigitalPaymentServi
 			final SAPDigitalPaymentConfigurationModel sapDigitalPaymentConfig);
 
 	/**
-	* Requests for initiate authorizations into the SAP Digital Payment Addon
+	 * Requests for initiate authorizations into the SAP Digital Payment Addon
 	 */
 	DigitalPaymentGetAuthorizationResultList getAuthorization(final FetchAuthorizationList authorizationList,
 	                                                          final SAPDigitalPaymentConfigurationModel sapDigitalPaymentConfig);

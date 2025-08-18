@@ -12,7 +12,6 @@
     <actionClassName>com.adyen.sapdigitalpaymentbackoffice.widgets.actions.RetrieveAuthWithDPA</actionClassName>
     <inputType>de.hybris.platform.core.model.order.OrderModel</inputType>
 
-
     <iconUri>icons/credit-card-auth-info.png</iconUri>
     <iconDisabledUri>icons/credit-card-auth-info.png</iconDisabledUri>
     <iconHoverUri>icons/credit-card-auth-info.png</iconHoverUri>

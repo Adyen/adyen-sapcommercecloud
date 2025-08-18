@@ -31,53 +31,45 @@ import com.hybris.charon.Charon;
 import rx.Observable;
 
 
-public class DefaultAdyenSapDigitalPaymentService extends DefaultCisSapDigitalPaymentService implements AdyenSapDigitalPaymentService
-{
+public class DefaultAdyenSapDigitalPaymentService extends DefaultCisSapDigitalPaymentService implements AdyenSapDigitalPaymentService {
 	private static final Logger LOG = LoggerFactory.getLogger(DefaultAdyenSapDigitalPaymentService.class);
 
-	private static void logSuccess(final String message)
-	{
+	private static void logSuccess(final String message) {
 		LOG.info(message);
 	}
 
-	private static void logError(final Throwable error)
-	{
+	private static void logError(final Throwable error) {
 		LOG.error("Error while fetching the response" + error);
 	}
 
 	@Override
 	public DigitalPaymentsCardResultList getForPaymentCard(final DigitalGetPaymentCardList paymentCardRequestList,
-			final SAPDigitalPaymentConfigurationModel sapDigitalPaymentConfig)
-	{
+	                                                       final SAPDigitalPaymentConfigurationModel sapDigitalPaymentConfig) {
 		return getAdyenCisSapDigitalPaymentClient(sapDigitalPaymentConfig).getForPaymentCard(paymentCardRequestList);
 	}
 
 	@Override
 	public DigitalPaymentGetAuthorizationResultList getForPaymentCardAuthorization(
 			final DigitalPaymentGetAuthorizationList authorizationList,
-			final SAPDigitalPaymentConfigurationModel sapDigitalPaymentConfig)
-	{
+			final SAPDigitalPaymentConfigurationModel sapDigitalPaymentConfig) {
 		return getAdyenCisSapDigitalPaymentClient(sapDigitalPaymentConfig).getForPaymentCardAuthorization(authorizationList);
 	}
 
 	@Override
 	public DigitalPaymentGetCaptureResultList getForDirectCapture(final DigitalPaymentGetCaptureList captureList,
-			final SAPDigitalPaymentConfigurationModel sapDigitalPaymentConfig)
-	{
+	                                                              final SAPDigitalPaymentConfigurationModel sapDigitalPaymentConfig) {
 		return getAdyenCisSapDigitalPaymentClient(sapDigitalPaymentConfig).getForDirectCapture(captureList);
 	}
 
 	@Override
 	public DigitalPaymentGetCardWithAuthorizationResultModelList getForPaymentCardWithAuthorizationForDPA(
 			final DigitalPaymentGetCardWithAuthorizationList authorizationList,
-			final SAPDigitalPaymentConfigurationModel sapDigitalPaymentConfig)
-	{
+			final SAPDigitalPaymentConfigurationModel sapDigitalPaymentConfig) {
 		return getAdyenCisSapDigitalPaymentClient(sapDigitalPaymentConfig).getForPaymentCardWithAuthorization(authorizationList);
 	}
 
 	public AdyenSapDigitalPaymentClient getAdyenCisSapDigitalPaymentClient(
-			final SAPDigitalPaymentConfigurationModel sapDigitalPaymentConfig)
-	{
+			final SAPDigitalPaymentConfigurationModel sapDigitalPaymentConfig) {
 
 		return Charon.from(AdyenSapDigitalPaymentClient.class).config(createDigitalPaymentConfigurationMap(sapDigitalPaymentConfig))
 				.build();
@@ -86,22 +78,19 @@ public class DefaultAdyenSapDigitalPaymentService extends DefaultCisSapDigitalPa
 
 	public DigitalPaymentGetAuthorizationResultList getForPaymentAuthorization(
 			final DigitalPaymentGetAuthorizationList paymentCardRequestList,
-			final SAPDigitalPaymentConfigurationModel sapDigitalPaymentConfig)
-	{
+			final SAPDigitalPaymentConfigurationModel sapDigitalPaymentConfig) {
 		return getAdyenCisSapDigitalPaymentClient(sapDigitalPaymentConfig).getForAuthorization(paymentCardRequestList);
 	}
 
 
 	@Override
 	public Observable<CisSapDigitalPaymentPollRegisteredCardResult> pollRegisteredCard(final String sessionId,
-			final SAPDigitalPaymentConfigurationModel sapDigiPayConfig)
-	{
+	                                                                                   final SAPDigitalPaymentConfigurationModel sapDigiPayConfig) {
 		return getCisSapDigitalPaymentClient(sapDigiPayConfig).pollRegisteredCard(sessionId);
 	}
 
 	@Override
-	protected Map<String, String> createDigitalPaymentConfigurationMap(SAPDigitalPaymentConfigurationModel sapDigitalPaymentConfig)
-	{
+	protected Map<String, String> createDigitalPaymentConfigurationMap(SAPDigitalPaymentConfigurationModel sapDigitalPaymentConfig) {
 		Map<String, String> ret = super.createDigitalPaymentConfigurationMap(sapDigitalPaymentConfig);
 		ret.put(SAP_DIGITAL_PAYMENT_PAYMENT_METHOD_KEY,
 				sapDigitalPaymentConfig.getPaymentMethod());
@@ -110,15 +99,13 @@ public class DefaultAdyenSapDigitalPaymentService extends DefaultCisSapDigitalPa
 	}
 
 	public DigitalPaymentGetAuthorizationResultList getAuthorization(final FetchAuthorizationList authorizationList,
-	                                                                 final SAPDigitalPaymentConfigurationModel sapDigitalPaymentConfig)
-	{
+	                                                                 final SAPDigitalPaymentConfigurationModel sapDigitalPaymentConfig) {
 		return getAdyenCisSapDigitalPaymentClient(sapDigitalPaymentConfig).getAuthorization(authorizationList);
 	}
 
 	@Override
 	public Observable<PaymentCardResult> getPaymentCardDetails(final String dpaToken,
-			final SAPDigitalPaymentConfigurationModel sapDigitalPaymentConfig)
-	{
+	                                                           final SAPDigitalPaymentConfigurationModel sapDigitalPaymentConfig) {
 		return getAdyenCisSapDigitalPaymentClient(sapDigitalPaymentConfig).getPaymentCardDetails(dpaToken).map(card ->
 		{
 			logSuccess("Successfully poll the registered card");

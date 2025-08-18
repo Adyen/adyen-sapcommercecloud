@@ -67,7 +67,7 @@
 	<context merge-by="source" component="notification-area" source="editorArea">
 		<na:notification-area xmlns:na="http://www.hybris.com/cockpitng/config/notifications" xmlns:cb="http://www.hybris.com/cockpitng/config/collectionbrowser" xmlns:df="http://www.hybris.com/cockpitng/component/dynamicForms" xmlns:dnd="http://www.hybris.com/cockpitng/component/dragAndDrop" xmlns:ea="http://www.hybris.com/cockpitng/component/editorArea" xmlns:ful="http://www.hybris.com/cockpitng/config/fulltextsearch" xmlns:lv="http://www.hybris.com/cockpitng/component/listView" xmlns:ql="http://www.hybris.com/cockpitng/component/quick-list" xmlns:sv="http://www.hybris.com/cockpitng/component/summaryview" xmlns:vc="http://www.hybris.com/cockpitng/component/valuechooser" xmlns:wz="http://www.hybris.com/cockpitng/config/wizard-config" xmlns:y="http://www.hybris.com/cockpit/config/hybris" xmlns:yc="http://www.hybris.com/cockpitng/config/common" xmlns:ysl="http://www.hybris.com/cockpitng/config/simplelist">
 			<na:notifications eventType="General" level="SUCCESS">
-				<na:message>dpa.rocks</na:message>
+				<na:message>dpa.works</na:message>
 				<na:timeout>10000</na:timeout>
 			</na:notifications>
 			<na:notifications eventType="CardRegistration" level="SUCCESS">

@@ -12,7 +12,6 @@
     <actionClassName>com.adyen.sapdigitalpaymentbackoffice.widgets.actions.RegisterCardWithDPA</actionClassName>
     <inputType>de.hybris.platform.core.model.order.OrderModel</inputType>
 
-
     <iconUri>icons/credit-card-icon.png</iconUri>
     <iconDisabledUri>icons/credit-card-icon.png</iconDisabledUri>
     <iconHoverUri>icons/credit-card-icon.png</iconHoverUri>
@@ -20,5 +19,4 @@
     <settings>
         <setting key="viewMode" default-value="iconAndText"/>
     </settings>
-
 </action-definition>

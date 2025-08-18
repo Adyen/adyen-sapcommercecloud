@@ -104,12 +104,24 @@
 				</attribute>
 
 				<attribute qualifier="dpaResult" type="java.lang.String">
-					<persistence type="property">
-						<columntype>
-							<value>longvarchar</value>
-						</columntype>
-					</persistence>
-				</attribute>
+                    <persistence type="property">
+                        <columntype database="sap">
+                            <value>nvarchar(5000)</value>
+                        </columntype>
+                        <columntype database="oracle">
+                            <value>varchar2(4000)</value>
+                        </columntype>
+                        <columntype database="mysql">
+                            <value>text</value>
+                        </columntype>
+                        <columntype database="sqlserver">
+                            <value>nvarchar(max)</value>
+                        </columntype>
+                        <columntype database="hsqldb">
+                            <value>LONGVARCHAR</value>
+                        </columntype>
+                    </persistence>
+                </attribute>
 
 				<attribute qualifier="dpaOperationResultDesc" type="java.lang.String">
 					<persistence type="property"></persistence>
@@ -132,11 +144,23 @@
 				</attribute>
                 <attribute qualifier="dpaOperationPayload" type="java.lang.String">
                     <persistence type="property">
-                        <columntype>
-                            <value>longvarchar</value>
+                        <columntype database="sap">
+                            <value>nvarchar(5000)</value>
+                        </columntype>
+                        <columntype database="oracle">
+                            <value>varchar2(4000)</value>
+                        </columntype>
+                        <columntype database="mysql">
+                            <value>text</value>
+                        </columntype>
+                        <columntype database="sqlserver">
+                            <value>nvarchar(max)</value>
+                        </columntype>
+                        <columntype database="hsqldb">
+                            <value>LONGVARCHAR</value>
                         </columntype>
                     </persistence>
-				</attribute>
+                </attribute>
 			</attributes>
 		</itemtype>
 

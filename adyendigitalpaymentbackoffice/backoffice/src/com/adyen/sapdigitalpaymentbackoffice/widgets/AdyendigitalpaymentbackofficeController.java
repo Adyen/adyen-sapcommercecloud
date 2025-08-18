@@ -12,8 +12,7 @@ import com.hybris.cockpitng.util.DefaultWidgetController;
 import com.adyen.sapdigitalpaymentbackoffice.services.AdyendigitalpaymentbackofficeService;
 
 
-public class AdyendigitalpaymentbackofficeController extends DefaultWidgetController
-{
+public class AdyendigitalpaymentbackofficeController extends DefaultWidgetController {
 	private static final long serialVersionUID = 1L;
 	private Label label;
 
@@ -21,8 +20,7 @@ public class AdyendigitalpaymentbackofficeController extends DefaultWidgetContro
 	private transient AdyendigitalpaymentbackofficeService adyendigitalpaymentbackofficeService;
 
 	@Override
-	public void initialize(final Component comp)
-	{
+	public void initialize(final Component comp) {
 		super.initialize(comp);
 		label.setValue(adyendigitalpaymentbackofficeService.getHello() + " AdyendigitalpaymentbackofficeController");
 	}
