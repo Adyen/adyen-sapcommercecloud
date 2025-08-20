@@ -1,4 +1,5 @@
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { Building2 } from 'lucide-react';
 import { MerchantData } from '../types/merchant.types';
 import StatusBadge from './StatusBadge';
@@ -6,9 +7,10 @@ import StatusBadge from './StatusBadge';
 interface MerchantsTableProps {
   merchants: MerchantData[];
   searchTerm: string;
+  loading?: boolean;
 }
 
-const MerchantsTable: React.FC<MerchantsTableProps> = ({ merchants, searchTerm }) => {
+const MerchantsTable: React.FC<MerchantsTableProps> = ({ merchants, searchTerm, loading = false }) => {
   if (merchants.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -33,7 +35,12 @@ const MerchantsTable: React.FC<MerchantsTableProps> = ({ merchants, searchTerm }
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 relative">
+      {loading && (
+        <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10 rounded-lg">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+      )}
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <TableHeader />
@@ -77,38 +84,50 @@ interface MerchantRowProps {
   merchant: MerchantData;
 }
 
-const MerchantRow: React.FC<MerchantRowProps> = ({ merchant }) => (
-  <tr className="hover:bg-gray-50">
-    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-      {merchant.id}
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-      {merchant.name || '-'}
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap">
-      <StatusBadge status={merchant.status} />
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-      {merchant.merchantCity || '-'}
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-      {merchant.primarySettlementCurrency || '-'}
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-      {merchant.shopWebAddress ? (
-        <a
-          href={merchant.shopWebAddress}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-600 hover:text-blue-800 hover:underline"
-        >
-          {merchant.shopWebAddress}
-        </a>
-      ) : (
-        '-'
-      )}
-    </td>
-  </tr>
-);
+const MerchantRow: React.FC<MerchantRowProps> = ({ merchant }) => {
+  const router = useRouter();
+
+  const handleRowClick = () => {
+    router.push(`/merchant-detail?id=${merchant.id}`);
+  };
+
+  return (
+    <tr
+      className="hover:bg-gray-50 cursor-pointer transition-colors"
+      onClick={handleRowClick}
+    >
+      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600 hover:text-blue-800">
+        {merchant.id}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+        {merchant.name || '-'}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <StatusBadge status={merchant.status} />
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+        {merchant.merchantCity || '-'}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+        {merchant.primarySettlementCurrency || '-'}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {merchant.shopWebAddress ? (
+          <a
+            href={merchant.shopWebAddress}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:text-blue-800 hover:underline"
+            onClick={(e) => e.stopPropagation()} // Prevent row click when clicking website link
+          >
+            {merchant.shopWebAddress}
+          </a>
+        ) : (
+          '-'
+        )}
+      </td>
+    </tr>
+  );
+};
 
 export default MerchantsTable;

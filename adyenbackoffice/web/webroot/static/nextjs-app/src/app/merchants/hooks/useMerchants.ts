@@ -1,18 +1,21 @@
 import { useState, useEffect } from 'react';
-import { MerchantData, MerchantResponse } from '../types/merchant.types';
+import { MerchantData, MerchantResponse, MerchantFilters } from '../types/merchant.types';
 
 interface UseMerchantsReturn {
   merchants: MerchantData[];
   loading: boolean;
+  paginationLoading: boolean;
   error: string | null;
   currentPage: number;
   pageSize: number;
   totalItems: number;
   totalPages: number;
   searchTerm: string;
+  filters: MerchantFilters;
   setCurrentPage: (page: number) => void;
   setPageSize: (size: number) => void;
   setSearchTerm: (term: string) => void;
+  setFilters: (filters: MerchantFilters) => void;
   handlePageChange: (newPage: number) => void;
   handlePageSizeChange: (newSize: number) => void;
   filteredMerchants: MerchantData[];
@@ -21,16 +24,28 @@ interface UseMerchantsReturn {
 export const useMerchants = (): UseMerchantsReturn => {
   const [merchants, setMerchants] = useState<MerchantData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [paginationLoading, setPaginationLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
+  const [filters, setFilters] = useState<MerchantFilters>({
+    status: '',
+    location: '',
+    currency: '',
+  });
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   const fetchMerchants = async (page: number, size: number) => {
     try {
-      setLoading(true);
+      if (isInitialLoad) {
+        setLoading(true);
+      } else {
+        setPaginationLoading(true);
+      }
+      
       const response = await fetch(`/adyenbackoffice/api/merchants?pageNumber=${page}&pageSize=${size}`);
       
       if (!response.ok) {
@@ -44,7 +59,12 @@ export const useMerchants = (): UseMerchantsReturn => {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch merchants');
     } finally {
-      setLoading(false);
+      if (isInitialLoad) {
+        setLoading(false);
+        setIsInitialLoad(false);
+      } else {
+        setPaginationLoading(false);
+      }
     }
   };
 
@@ -63,24 +83,43 @@ export const useMerchants = (): UseMerchantsReturn => {
     setCurrentPage(1); // Reset to first page when changing page size
   };
 
-  const filteredMerchants = merchants.filter(merchant =>
-    merchant.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    merchant.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    merchant.merchantCity?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredMerchants = merchants.filter(merchant => {
+    // Search filter
+    const matchesSearch = !searchTerm ||
+      merchant.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      merchant.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      merchant.merchantCity?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    // Status filter
+    const matchesStatus = !filters.status ||
+      merchant.status?.toLowerCase() === filters.status.toLowerCase();
+
+    // Location filter
+    const matchesLocation = !filters.location ||
+      merchant.merchantCity?.toLowerCase().includes(filters.location.toLowerCase());
+
+    // Currency filter
+    const matchesCurrency = !filters.currency ||
+      merchant.primarySettlementCurrency?.toLowerCase() === filters.currency.toLowerCase();
+
+    return matchesSearch && matchesStatus && matchesLocation && matchesCurrency;
+  });
 
   return {
     merchants,
     loading,
+    paginationLoading,
     error,
     currentPage,
     pageSize,
     totalItems,
     totalPages,
     searchTerm,
+    filters,
     setCurrentPage,
     setPageSize,
     setSearchTerm,
+    setFilters,
     handlePageChange,
     handlePageSizeChange,
     filteredMerchants,
