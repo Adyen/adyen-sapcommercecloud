@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+
+<action-definition id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.retrieveDPAAuth"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:noNamespaceSchemaLocation="http://www.hybris.com/schema/cockpitng/action-definition.xsd">
+
+    <name>Show DPA Auth Details</name>
+    <description>Show DPA Auth Details</description>
+    <author>hybris</author>
+    <version>0.1</version>
+
+    <actionClassName>com.adyen.sapdigitalpaymentbackoffice.widgets.actions.RetrieveAuthWithDPA</actionClassName>
+    <inputType>de.hybris.platform.core.model.order.OrderModel</inputType>
+
+    <iconUri>icons/credit-card-auth-info.png</iconUri>
+    <iconDisabledUri>icons/credit-card-auth-info.png</iconDisabledUri>
+    <iconHoverUri>icons/credit-card-auth-info.png</iconHoverUri>
+
+    <settings>
+        <setting key="viewMode" default-value="iconAndText"/>
+    </settings>
+</action-definition>

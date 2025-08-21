@@ -1,0 +1,13 @@
+@charset "utf-8";
+@import "./support/adyensapdigitalpaymentbackofficewidget-variables.scss";
+
+.yw-labelstyle
+{
+	color: $adyensapdigitalpaymentbackoffice-label-text-color;
+}
+
+.adyensapdigitalpaymentbackoffice-container {
+	background: $adyensapdigitalpaymentbackoffice-container-background;
+	font-family: $adyensapdigitalpaymentbackoffice-container-font-family;
+	font-size: $adyensapdigitalpaymentbackoffice-container-font-size;
+}
