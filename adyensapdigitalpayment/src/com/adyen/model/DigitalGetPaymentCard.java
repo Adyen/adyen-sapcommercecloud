@@ -1,6 +1,3 @@
-/*
- * Copyright (c) 2022 SAP SE or an SAP affiliate company. All rights reserved.
- */
 package com.adyen.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;

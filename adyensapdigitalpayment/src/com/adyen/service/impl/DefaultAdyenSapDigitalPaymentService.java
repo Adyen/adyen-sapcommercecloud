@@ -1,6 +1,3 @@
-/*
- * Copyright (c) 2021 SAP SE or an SAP affiliate company. All rights reserved.
- */
 package com.adyen.service.impl;
 
 import static de.hybris.platform.cissapdigitalpayment.constants.CisSapDigitalPaymentConstant.SAP_DIGITAL_PAYMENT_PAYMENT_METHOD_KEY;
