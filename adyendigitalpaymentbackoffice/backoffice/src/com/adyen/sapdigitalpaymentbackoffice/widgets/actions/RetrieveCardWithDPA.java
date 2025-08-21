@@ -1,6 +1,7 @@
 package com.adyen.sapdigitalpaymentbackoffice.widgets.actions;
 
 import com.adyen.model.*;
+import com.adyen.sapdigitalpaymentbackoffice.widgets.actions.utils.*;
 import com.adyen.service.*;
 import com.google.gson.*;
 import com.hybris.cockpitng.actions.*;
@@ -16,9 +17,12 @@ import javax.annotation.*;
 import java.time.*;
 import java.util.*;
 
+import static com.adyen.sapdigitalpaymentbackoffice.widgets.actions.utils.ActionConstants.CARD_DOESN_T_EXIST;
+import static com.adyen.sapdigitalpaymentbackoffice.widgets.actions.utils.ActionConstants.RETRIEVE_CARD_WITH_DPA;
+import static com.adyen.sapdigitalpaymentbackoffice.widgets.actions.utils.ActionConstants.RETRIVED_CARD_DETAILS;
+
 public class RetrieveCardWithDPA extends AbstractComponentWidgetAdapterAware implements CockpitAction<OrderModel, Object> {
 
-	private static final String DPA_OPERATION = "RetrieveCardWithDPA";
 	private static final String CARD_INFORMATION = """
 			Received following card information from DPA:
 			Card Holder: %s
@@ -62,21 +66,16 @@ public class RetrieveCardWithDPA extends AbstractComponentWidgetAdapterAware imp
 
 			final String formatted = prepareCardInfo(paymentCardResult);
 			dataToDisplay.append(formatted);
-
 		} else {
-			dataToDisplay.append("Card doesn't exist.");
+			dataToDisplay.append(CARD_DOESN_T_EXIST);
 		}
-
-		Messagebox.show(dataToDisplay.toString(), "Retrived Card Details", new Messagebox.Button[]
-				{Messagebox.Button.OK, Messagebox.Button.CANCEL}, null, null, null);
-
-		return new ActionResult(ActionResult.SUCCESS);
+		return MessageBoxUtil.showSuccess(dataToDisplay.toString(),RETRIVED_CARD_DETAILS);
 	}
 
 	private static DPAOperationResultModel buildDPAOperationResultModel(final StringBuilder dataToSaveToModel, final PaymentCardResult paymentCardResult) {
 		final DPAOperationResultModel dpaOperationResult = new DPAOperationResultModel();
 		dpaOperationResult.setDpaOperationPayload(dataToSaveToModel.toString());
-		dpaOperationResult.setDpaOperation(DPA_OPERATION);
+		dpaOperationResult.setDpaOperation(RETRIEVE_CARD_WITH_DPA);
 		dpaOperationResult.setDpaOperationTime(Date.from(Instant.now()));
 		dpaOperationResult.setDpaCardReference(paymentCardResult.getPaytCardByDigitalPaymentSrvc());
 		return dpaOperationResult;

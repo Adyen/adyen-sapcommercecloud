@@ -46,7 +46,7 @@ public class RegisterCardWithDPA extends AbstractComponentWidgetAdapterAware imp
 		final Optional<DigitalPaymentsCardResultModel> resultModel = resultModelList.getDigitalPaymentsCardResultModels().stream().findFirst();
 
 		if (resultModel.isEmpty()) {
-			return prepareErrorActionResult(RESULT_MODEL_IS_EMPTY);
+			return showError(RESULT_MODEL_IS_EMPTY);
 		}
 
 		final String dataToDisplay = buildDisplayData(resultModel);
@@ -57,16 +57,11 @@ public class RegisterCardWithDPA extends AbstractComponentWidgetAdapterAware imp
 		final DPAOperationResultModel dpaOperationResultModel = buildCardResultModel(resultModel);
 		modelService.save(dpaOperationResultModel);
 		if (dpaOperationResultModel.getDpaResult().equals(DPA_SUCCESS_RESULT)) {
-			showMessageBox(dataToDisplay.toString(), "Card registered successfully in DPA.");
+			showMessageBox(dataToDisplay.toString(), CARD_REGISTERED_SUCCESSFULLY_IN_DPA);
 			return new ActionResult<>(ActionResult.SUCCESS, resultModelList);
 		} else {
-			return prepareErrorActionResult(dpaOperationResultModel.getDpaOperationResultDesc());
+			return showError(dpaOperationResultModel.getDpaOperationResultDesc());
 		}
-	}
-
-	private static ActionResult<Object> prepareErrorActionResult(String message) {
-		showMessageBox(message, ERROR_DETAILS);
-		return new ActionResult<>(ActionResult.ERROR);
 	}
 
 	private DPAOperationResultModel buildCardResultModel(final Optional<DigitalPaymentsCardResultModel> resultModel) {
@@ -107,6 +102,4 @@ public class RegisterCardWithDPA extends AbstractComponentWidgetAdapterAware imp
 	public boolean canPerform(ActionContext<OrderModel> ctx) {
 		return true;
 	}
-
-
 }

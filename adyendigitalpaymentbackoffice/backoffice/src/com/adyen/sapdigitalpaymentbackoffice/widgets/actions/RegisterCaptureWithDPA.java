@@ -19,7 +19,6 @@ import java.util.*;
 import static com.adyen.sapdigitalpaymentbackoffice.widgets.actions.utils.ActionConstants.*;
 import static com.adyen.sapdigitalpaymentbackoffice.widgets.actions.utils.MessageBoxUtil.*;
 
-
 public class RegisterCaptureWithDPA extends AbstractComponentWidgetAdapterAware implements CockpitAction<OrderModel, Object> {
 
 	@Resource
@@ -43,7 +42,7 @@ public class RegisterCaptureWithDPA extends AbstractComponentWidgetAdapterAware 
 		final Optional<DigitalPaymentGetCaptureList> captureListOpt =
 				buildCaptureList(orderModel, adyenPSP, adyenDirectCaptureType);
 		if (captureListOpt.isEmpty()) {
-			return prepareErrorActionResult("No Capture Transaction");
+			return showError(NO_CAPTURE_TRANSACTION);
 		}
 		final DigitalPaymentGetCaptureResultList resultModelList =
 				adyenSapDigitalPaymentService.getForDirectCapture(captureListOpt.get(), sapDigitalPaymentConfigurationModel);
@@ -53,7 +52,7 @@ public class RegisterCaptureWithDPA extends AbstractComponentWidgetAdapterAware 
 		final Optional<DigitalPaymentGetCaptureResultModel> optionalResult = resultModelList.getCaptures().stream().findFirst();
 
 		if (optionalResult.isEmpty()) {
-			return prepareErrorActionResult(RESULT_MODEL_IS_EMPTY);
+			return showError(RESULT_MODEL_IS_EMPTY);
 		}
 		final DigitalPaymentGetCaptureResultModel result = optionalResult.get();
 		final String displayData = buildDisplayData(result);
@@ -65,16 +64,11 @@ public class RegisterCaptureWithDPA extends AbstractComponentWidgetAdapterAware 
 
 		modelService.save(dpaOperationResultModel);
 		if (dpaOperationResultModel.getDpaResult().equals(DPA_SUCCESS_RESULT)) {
-			showMessageBox(displayData, "Capture registered successfully in DPA.");
+			showMessageBox(displayData, CAPTURE_REGISTERED_SUCCESSFULLY_IN_DPA);
 			return new ActionResult<>(ActionResult.SUCCESS, resultModelList);
 		} else {
-			return prepareErrorActionResult(dpaOperationResultModel.getDpaOperationResultDesc());
+			return showError(dpaOperationResultModel.getDpaOperationResultDesc());
 		}
-	}
-
-	private static ActionResult<Object> prepareErrorActionResult(String message) {
-		showMessageBox(message, ERROR_DETAILS);
-		return new ActionResult<>(ActionResult.ERROR);
 	}
 
 	private DPAOperationResultModel buildCaptureResultModel(DigitalPaymentGetCaptureResultModel result) {

@@ -42,7 +42,7 @@ public class RegisterCardAuthDPA extends AbstractComponentWidgetAdapterAware imp
 		final String adyenAuthorizationType = configurationService.getConfiguration().getString("adyen.authorizationType");
 
 		if (getCardAuth(paymentTransactions).isEmpty()) {
-			return prepareErrorActionResult("AUTHORIZATION transaction not found.");
+			return showError(AUTHORIZATION_TRANSACTION_NOT_FOUND);
 		}
 		final DigitalPaymentGetAuthorizationList digitalPaymentGetAuthorizationList = buildAuthorizationList(paymentTransactions, adyenAuthorizationType, orderModel, adyenPSP);
 
@@ -52,28 +52,21 @@ public class RegisterCardAuthDPA extends AbstractComponentWidgetAdapterAware imp
 		final Optional<DigitalPaymentGetAuthorizationResult> resultModel = resultModelList.getAuthorizationResults().stream().findFirst();
 
 		if (resultModel.isEmpty()) {
-			return prepareErrorActionResult(RESULT_MODEL_IS_EMPTY);
+			return showError(RESULT_MODEL_IS_EMPTY);
 		}
 
 		final String dataToDisplay = buildDisplayData(resultModel);
-
 		orderModel.getPaymentInfo().setAdyenDPAAuthorizationCode(resultModel.get().getAuthorization().getAuthorizationByDigitalPaytSrvc());
 		modelService.save(orderModel.getPaymentInfo());
-
 		final DPAOperationResultModel dpaOperationResultModel = buildAuthorizationResultModel(resultModel);
 		modelService.save(dpaOperationResultModel);
 
 		if (dpaOperationResultModel.getDpaResult().equals(DPA_SUCCESS_RESULT)) {
-			showMessageBox(dataToDisplay.toString(), "Card authorization registered successfully in DPA.");
+			showMessageBox(dataToDisplay.toString(), CARD_AUTHORIZATION_REGISTERED_SUCCESSFULLY_IN_DPA);
 			return new ActionResult<>(ActionResult.SUCCESS, resultModelList);
 		} else {
-			return prepareErrorActionResult(dpaOperationResultModel.getDpaOperationResultDesc());
+			return showError(dpaOperationResultModel.getDpaOperationResultDesc());
 		}
-	}
-
-	private static ActionResult<Object> prepareErrorActionResult(String message) {
-		showMessageBox(message, ERROR_DETAILS);
-		return new ActionResult<>(ActionResult.ERROR);
 	}
 
 	private String buildDisplayData(final Optional<DigitalPaymentGetAuthorizationResult> resultModel) {

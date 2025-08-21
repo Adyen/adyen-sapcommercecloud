@@ -1,14 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<!--
- Copyright (c) 2020 SAP SE or an SAP affiliate company. All rights reserved
--->
+
 <config xmlns="http://www.hybris.com/cockpit/config">
-
-	<!-- adyendigitalpaymentbackoffice UI configuration should be provided here -->
-
-	<!--<context component="component-code" module="adyendigitalpaymentbackoffice">-->
-		<!--Please check documentation for code snippets for specific components-->
-	<!--</context>-->
 
 	<context merge-by="type" type="Order" principal="adminsync" component="editorareaactions">
 		<y:actions xmlns:y="http://www.hybris.com/cockpit/config/hybris">

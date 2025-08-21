@@ -2,6 +2,7 @@ package com.adyen.sapdigitalpaymentbackoffice.widgets.actions;
 
 import com.adyen.model.*;
 import com.adyen.model.authorization.*;
+import com.adyen.sapdigitalpaymentbackoffice.widgets.actions.utils.*;
 import com.adyen.service.*;
 import com.google.gson.*;
 import com.hybris.cockpitng.actions.*;
@@ -19,9 +20,12 @@ import javax.annotation.*;
 import java.time.*;
 import java.util.*;
 
+import static com.adyen.sapdigitalpaymentbackoffice.widgets.actions.utils.ActionConstants.AUTHORIZATION_DOESN_T_EXIST;
+import static com.adyen.sapdigitalpaymentbackoffice.widgets.actions.utils.ActionConstants.RECEIVED_AUTHORIZATION_DETAILS;
+import static com.adyen.sapdigitalpaymentbackoffice.widgets.actions.utils.ActionConstants.RETRIEVE_AUTH_WITH_DPA;
+
 public class RetrieveAuthWithDPA extends AbstractComponentWidgetAdapterAware implements CockpitAction<OrderModel, Object> {
 
-	private static final String DPA_OPERATION = "Retrieve Auth With DPA";
 	private static final String AUTHORIZATION_DETAILS = """
 			Received following AUTHORIZATION information:
 			Authorization Amount: %s
@@ -78,29 +82,27 @@ public class RetrieveAuthWithDPA extends AbstractComponentWidgetAdapterAware imp
 				dataToSaveToModel.append("Raw data:").append(new Gson().toJson(authorizationResultModel));
 				final DPAOperationResultModel dpaOperationResult = buildDPAOperationResultModel(authorizationResultModel, dataToSaveToModel);
 				modelService.save(dpaOperationResult);
-				if (authorizationResultModel.getAuthorization() != null) {
-					final String formatted = prepareAuthInfo(authorizationResultModel);
-
-					dataToDisplay.append(formatted);
-				}
-				if (authorizationResultModel.getSource() != null && authorizationResultModel.getSource().getCard() != null) {
-					dataToDisplay.append("\n Card DPA Token: ").
-							append(authorizationResultModel.getSource().getCard().getPaytCardByDigitalPaymentSrvc());
-				}
-				if (authorizationResultModel.getSource() != null && authorizationResultModel.getSource().getMerchant() != null) {
-					dataToDisplay.append(" \n Merchant Account: ").
-							append(authorizationResultModel.getSource().getMerchant().getAccount());
-				}
+				createDisplayData(authorizationResultModel, dataToDisplay);
 			}
 		} else {
-
-			dataToDisplay.append("Authorization doesn't exist.");
+			dataToDisplay.append(AUTHORIZATION_DOESN_T_EXIST);
 		}
+		return MessageBoxUtil.showSuccess(dataToDisplay.toString(), RECEIVED_AUTHORIZATION_DETAILS);
+	}
 
-		Messagebox.show(dataToDisplay.toString(), "Received Authorization Details", new Messagebox.Button[]
-				{Messagebox.Button.OK, Messagebox.Button.CANCEL}, null, null, null);
-
-		return new ActionResult(ActionResult.SUCCESS);
+	private static void createDisplayData(final DigitalPaymentGetAuthorizationResult authorizationResultModel, final StringBuilder dataToDisplay) {
+		if (authorizationResultModel.getAuthorization() != null) {
+			final String formatted = prepareAuthInfo(authorizationResultModel);
+			dataToDisplay.append(formatted);
+		}
+		if (authorizationResultModel.getSource() != null && authorizationResultModel.getSource().getCard() != null) {
+			dataToDisplay.append("\n Card DPA Token: ").
+					append(authorizationResultModel.getSource().getCard().getPaytCardByDigitalPaymentSrvc());
+		}
+		if (authorizationResultModel.getSource() != null && authorizationResultModel.getSource().getMerchant() != null) {
+			dataToDisplay.append(" \n Merchant Account: ").
+					append(authorizationResultModel.getSource().getMerchant().getAccount());
+		}
 	}
 
 	private static DPAOperationResultModel buildDPAOperationResultModel(final DigitalPaymentGetAuthorizationResult authorizationResultModel, final StringBuilder dataToSaveToModel) {
@@ -108,7 +110,7 @@ public class RetrieveAuthWithDPA extends AbstractComponentWidgetAdapterAware imp
 		dpaOperationResult.setDpaOperationPayload(dataToSaveToModel.toString());
 		dpaOperationResult.setDpaOperationTime(Date.from(Instant.now()));
 		dpaOperationResult.setDpaAuthCode(authorizationResultModel.getAuthorization().getAuthorizationByPaytSrvcPrvdr());
-		dpaOperationResult.setDpaOperation(DPA_OPERATION);
+		dpaOperationResult.setDpaOperation(RETRIEVE_AUTH_WITH_DPA);
 		dpaOperationResult.setDpaResult(authorizationResultModel.getDigitalPaymentTransaction().getDigitalPaytTransResult());
 		dpaOperationResult.setDpaOperationResultDesc(authorizationResultModel.getDigitalPaymentTransaction().getDigitalPaytTransRsltDesc());
 		return dpaOperationResult;
