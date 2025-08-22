@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { CreditCard, CheckCircle, XCircle, Globe, DollarSign, Settings } from 'lucide-react';
+import { CreditCard, CheckCircle, XCircle, Globe, DollarSign, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
 import { PaymentMethodData, PaymentMethodResponse } from '../../merchants/types/payment-method.types';
 import LoadingSpinner from '../../merchants/components/LoadingSpinner';
 import ErrorMessage from '../../merchants/components/ErrorMessage';
@@ -15,6 +15,9 @@ const PaymentMethodsList: React.FC<PaymentMethodsListProps> = ({ merchantId }) =
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [totalMethods, setTotalMethods] = useState<number>(0);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize] = useState<number>(10);
+  const [totalPages, setTotalPages] = useState<number>(0);
 
   useEffect(() => {
     const fetchPaymentMethods = async () => {
@@ -22,7 +25,12 @@ const PaymentMethodsList: React.FC<PaymentMethodsListProps> = ({ merchantId }) =
         setLoading(true);
         setError(null);
         
-        const response = await fetch(`/adyenbackoffice/api/merchants/${merchantId}/payment-methods`);
+        const params = new URLSearchParams({
+          page: currentPage.toString(),
+          size: pageSize.toString()
+        });
+        
+        const response = await fetch(`/adyenbackoffice/api/merchants/${merchantId}/payment-methods?${params}`);
         
         if (!response.ok) {
           if (response.status === 404) {
@@ -35,6 +43,7 @@ const PaymentMethodsList: React.FC<PaymentMethodsListProps> = ({ merchantId }) =
         const paymentMethodResponse: PaymentMethodResponse = await response.json();
         setPaymentMethods(paymentMethodResponse.data || []);
         setTotalMethods(paymentMethodResponse.itemsTotal || 0);
+        setTotalPages(Math.ceil((paymentMethodResponse.itemsTotal || 0) / pageSize));
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch payment methods');
       } finally {
@@ -45,7 +54,33 @@ const PaymentMethodsList: React.FC<PaymentMethodsListProps> = ({ merchantId }) =
     if (merchantId) {
       fetchPaymentMethods();
     }
-  }, [merchantId]);
+  }, [merchantId, currentPage, pageSize]);
+
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      const startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+      const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+      
+      for (let i = startPage; i <= endPage; i++) {
+        pages.push(i);
+      }
+    }
+    
+    return pages;
+  };
 
   const formatCurrencies = (currencies?: string[]) => {
     if (!currencies || currencies.length === 0) return 'No currencies specified';
@@ -93,6 +128,11 @@ const PaymentMethodsList: React.FC<PaymentMethodsListProps> = ({ merchantId }) =
           </div>
           <span className="text-sm text-gray-500">
             {totalMethods} {totalMethods === 1 ? 'method' : 'methods'}
+            {totalPages > 1 && (
+              <span className="ml-2">
+                (Page {currentPage} of {totalPages})
+              </span>
+            )}
           </span>
         </div>
       </div>
@@ -106,108 +146,160 @@ const PaymentMethodsList: React.FC<PaymentMethodsListProps> = ({ merchantId }) =
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Payment Method
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Type
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Currencies
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Countries
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Store ID
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {paymentMethods.map((method) => (
-                <tr key={method.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10">
-                        <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                          <CreditCard className="h-5 w-5 text-blue-600" />
-                        </div>
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">
-                          {method.name}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          ID: {method.id}
-                        </div>
-                        {method.description && (
-                          <div className="text-xs text-gray-400 mt-1">
-                            {method.description}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      method.enabled 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {method.enabled ? (
-                        <>
-                          <CheckCircle className="h-3 w-3 mr-1" />
-                          Enabled
-                        </>
-                      ) : (
-                        <>
-                          <XCircle className="h-3 w-3 mr-1" />
-                          Disabled
-                        </>
-                      )}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{method.type}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-start">
-                      <DollarSign className="h-4 w-4 text-gray-400 mr-1 mt-0.5 flex-shrink-0" />
-                      <span className="text-sm text-gray-600">
-                        {formatCurrencies(method.currencies)}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-start">
-                      <Globe className="h-4 w-4 text-gray-400 mr-1 mt-0.5 flex-shrink-0" />
-                      <span className="text-sm text-gray-600">
-                        {formatCountries(method.countries)}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {method.storeId || 'N/A'}
-                    </div>
-                    {method.businessLineId && (
-                      <div className="text-xs text-gray-500">
-                        Business Line: {method.businessLineId}
-                      </div>
-                    )}
-                  </td>
+        <>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Payment Method
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Type
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Currencies
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Countries
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Store ID
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {paymentMethods.map((method) => (
+                  <tr key={method.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-10 w-10">
+                          <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                            <CreditCard className="h-5 w-5 text-blue-600" />
+                          </div>
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">
+                            {method.name}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            ID: {method.id}
+                          </div>
+                          {method.description && (
+                            <div className="text-xs text-gray-400 mt-1">
+                              {method.description}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        method.enabled
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {method.enabled ? (
+                          <>
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Enabled
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="h-3 w-3 mr-1" />
+                            Disabled
+                          </>
+                        )}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{method.type}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-start">
+                        <DollarSign className="h-4 w-4 text-gray-400 mr-1 mt-0.5 flex-shrink-0" />
+                        <span className="text-sm text-gray-600">
+                          {formatCurrencies(method.currencies)}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-start">
+                        <Globe className="h-4 w-4 text-gray-400 mr-1 mt-0.5 flex-shrink-0" />
+                        <span className="text-sm text-gray-600">
+                          {formatCountries(method.countries)}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        {method.storeId || 'N/A'}
+                      </div>
+                      {method.businessLineId && (
+                        <div className="text-xs text-gray-500">
+                          Business Line: {method.businessLineId}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          
+          {totalPages > 1 && (
+            <div className="px-6 py-4 border-t border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-700">
+                  Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalMethods)} of {totalMethods} results
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className={`inline-flex items-center px-2 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+                      currentPage === 1
+                        ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                        : 'text-gray-700 bg-white hover:bg-gray-50'
+                    }`}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  
+                  {getPageNumbers().map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => handlePageChange(page)}
+                      className={`inline-flex items-center px-3 py-2 border text-sm font-medium rounded-md ${
+                        page === currentPage
+                          ? 'border-blue-500 bg-blue-50 text-blue-600'
+                          : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                  
+                  <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className={`inline-flex items-center px-2 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+                      currentPage === totalPages
+                        ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                        : 'text-gray-700 bg-white hover:bg-gray-50'
+                    }`}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
