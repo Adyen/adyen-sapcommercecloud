@@ -13,6 +13,7 @@ interface PaymentMethodsListProps {
 const PaymentMethodsList: React.FC<PaymentMethodsListProps> = ({ merchantId }) => {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [paginationLoading, setPaginationLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [totalMethods, setTotalMethods] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -20,9 +21,15 @@ const PaymentMethodsList: React.FC<PaymentMethodsListProps> = ({ merchantId }) =
   const [totalPages, setTotalPages] = useState<number>(0);
 
   useEffect(() => {
-    const fetchPaymentMethods = async () => {
+    const fetchPaymentMethods = async (isPageChange = false) => {
       try {
-        setLoading(true);
+        // For initial load, use main loading state
+        // For page changes, use pagination loading state
+        if (isPageChange) {
+          setPaginationLoading(true);
+        } else {
+          setLoading(true);
+        }
         setError(null);
         
         const params = new URLSearchParams({
@@ -48,17 +55,25 @@ const PaymentMethodsList: React.FC<PaymentMethodsListProps> = ({ merchantId }) =
         setError(err instanceof Error ? err.message : 'Failed to fetch payment methods');
       } finally {
         setLoading(false);
+        setPaginationLoading(false);
       }
     };
 
     if (merchantId) {
-      fetchPaymentMethods();
+      // Check if this is a page change (not initial load)
+      const isPageChange = currentPage > 1 || paymentMethods.length > 0;
+      fetchPaymentMethods(isPageChange);
     }
   }, [merchantId, currentPage, pageSize]);
 
   const handlePageChange = (page: number) => {
-    if (page >= 1 && page <= totalPages) {
+    if (page >= 1 && page <= totalPages && page !== currentPage) {
       setCurrentPage(page);
+      // Smooth scroll to top of table
+      const tableElement = document.querySelector('.payment-methods-table');
+      if (tableElement) {
+        tableElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     }
   };
 
@@ -147,7 +162,7 @@ const PaymentMethodsList: React.FC<PaymentMethodsListProps> = ({ merchantId }) =
         </div>
       ) : (
         <>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto payment-methods-table">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
@@ -171,8 +186,41 @@ const PaymentMethodsList: React.FC<PaymentMethodsListProps> = ({ merchantId }) =
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {paymentMethods.map((method) => (
+              <tbody className={`bg-white divide-y divide-gray-200 ${paginationLoading ? 'opacity-50 pointer-events-none' : ''}`}>
+                {paginationLoading ? (
+                  // Show skeleton rows during pagination loading
+                  Array.from({ length: pageSize }).map((_, index) => (
+                    <tr key={`skeleton-${index}`} className="animate-pulse">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0 h-10 w-10">
+                            <div className="h-10 w-10 rounded-lg bg-gray-200"></div>
+                          </div>
+                          <div className="ml-4">
+                            <div className="h-4 bg-gray-200 rounded w-32 mb-2"></div>
+                            <div className="h-3 bg-gray-200 rounded w-24"></div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="h-6 bg-gray-200 rounded-full w-20"></div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="h-4 bg-gray-200 rounded w-16"></div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-4 bg-gray-200 rounded w-24"></div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-4 bg-gray-200 rounded w-20"></div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="h-4 bg-gray-200 rounded w-16"></div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  paymentMethods.map((method) => (
                   <tr key={method.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
@@ -244,8 +292,9 @@ const PaymentMethodsList: React.FC<PaymentMethodsListProps> = ({ merchantId }) =
                         </div>
                       )}
                     </td>
-                  </tr>
-                ))}
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -260,9 +309,9 @@ const PaymentMethodsList: React.FC<PaymentMethodsListProps> = ({ merchantId }) =
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    className={`inline-flex items-center px-2 py-2 border border-gray-300 text-sm font-medium rounded-md ${
-                      currentPage === 1
+                    disabled={currentPage === 1 || paginationLoading}
+                    className={`inline-flex items-center px-2 py-2 border border-gray-300 text-sm font-medium rounded-md transition-colors ${
+                      currentPage === 1 || paginationLoading
                         ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
                         : 'text-gray-700 bg-white hover:bg-gray-50'
                     }`}
@@ -274,9 +323,12 @@ const PaymentMethodsList: React.FC<PaymentMethodsListProps> = ({ merchantId }) =
                     <button
                       key={page}
                       onClick={() => handlePageChange(page)}
-                      className={`inline-flex items-center px-3 py-2 border text-sm font-medium rounded-md ${
+                      disabled={paginationLoading}
+                      className={`inline-flex items-center px-3 py-2 border text-sm font-medium rounded-md transition-colors ${
                         page === currentPage
                           ? 'border-blue-500 bg-blue-50 text-blue-600'
+                          : paginationLoading
+                          ? 'border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed'
                           : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
                       }`}
                     >
@@ -286,9 +338,9 @@ const PaymentMethodsList: React.FC<PaymentMethodsListProps> = ({ merchantId }) =
                   
                   <button
                     onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                    className={`inline-flex items-center px-2 py-2 border border-gray-300 text-sm font-medium rounded-md ${
-                      currentPage === totalPages
+                    disabled={currentPage === totalPages || paginationLoading}
+                    className={`inline-flex items-center px-2 py-2 border border-gray-300 text-sm font-medium rounded-md transition-colors ${
+                      currentPage === totalPages || paginationLoading
                         ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
                         : 'text-gray-700 bg-white hover:bg-gray-50'
                     }`}

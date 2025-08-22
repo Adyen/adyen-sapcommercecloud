@@ -125,13 +125,16 @@ const MerchantDetailClient: React.FC<MerchantDetailClientProps> = ({ merchantId 
           <ConfigurationDetails merchant={merchant} />
         </div>
 
-        {/* Associated Stores */}
-        <StoresList merchantId={merchant.id} />
-
         {/* Payment Methods */}
         <div className="mt-6">
           <PaymentMethodsList merchantId={merchant.id} />
         </div>
+
+        {/* Associated Stores */}
+        <div className="mt-6">
+          <StoresList merchantId={merchant.id} />
+        </div>
+
       </div>
     </div>
   );
