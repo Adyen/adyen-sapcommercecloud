@@ -104,8 +104,8 @@ public class RegisterCardAuthDPA extends AbstractComponentWidgetAdapterAware imp
 		final DigitalPaymentGetAuthorizationList digitalPaymentGetAuthorizationList = new DigitalPaymentGetAuthorizationList();
 		final DigitalPaymentGetAuthorization digitalPaymentGetAuthorization = new DigitalPaymentGetAuthorization();
 		digitalPaymentGetAuthorization.setAuthorizationByPaytSrvcPrvdr(getCardAuth(paymentTransactions).get().getRequestId());
-		digitalPaymentGetAuthorization.setAuthorizationCurrency(getCardAuth(paymentTransactions).get().getCurrency().getIsocode());
-		digitalPaymentGetAuthorization.setAuthorizedAmountInAuthznCrcy(getCardAuth(paymentTransactions).get().getAmount().toString());
+		digitalPaymentGetAuthorization.setAuthorizationCurrency(orderModel.getCurrency().getIsocode());
+		digitalPaymentGetAuthorization.setAuthorizedAmountInAuthznCrcy(orderModel.getTotalPrice().toString());
 		digitalPaymentGetAuthorization.setDigitalPaymentAuthorizationType(adyenAuthorizationType);
 		digitalPaymentGetAuthorization.setMerchantAccount(orderModel.getStore().getAdyenMerchantAccount());
 		digitalPaymentGetAuthorization.setPaymentServiceProvider(adyenPSP);
