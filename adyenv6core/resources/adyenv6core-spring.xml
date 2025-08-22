@@ -527,6 +527,11 @@
         <property name="baseStoreService" ref="baseStoreService"/>
     </bean>
 
+    <alias name="defaultAdyenShopperIpResolverService" alias="adyenShopperIpResolverService"/>
+    <bean id="defaultAdyenShopperIpResolverService" class="com.adyen.v6.service.DefaultAdyenShopperIpResolverService">
+        <property name="configurationService" ref="configurationService"/>
+    </bean>
+
     <!-- To support getCheckoutCart for non credit cards (CreditCardPaymentInfoModel) -->
     <alias name="adyenCheckoutFlowFacade" alias="checkoutFlowFacade"/>
     <bean id="adyenCheckoutFlowFacade" class="com.adyen.v6.acceleratorfacades.flow.impl.AdyenCheckoutFlowFacade" parent="defaultCheckoutFlowFacade" />
