@@ -2,6 +2,7 @@ package com.adyen.backoffice.service.impl;
 
 import com.adyen.backoffice.dto.MerchantDataWsDTO;
 import com.adyen.backoffice.dto.MerchantResponseWsDTO;
+import com.adyen.backoffice.dto.PaymentMethodResponseWsDTO;
 import com.adyen.backoffice.dto.StoreResponseWsDTO;
 import com.adyen.backoffice.service.AdyenManagementService;
 import de.hybris.platform.servicelayer.config.ConfigurationService;
@@ -95,6 +96,45 @@ public class AdyenManagementServiceImpl implements AdyenManagementService {
                 HttpMethod.GET,
                 entity,
                 StoreResponseWsDTO.class
+        );
+
+        return response.getBody();
+    }
+
+    @Override
+    public PaymentMethodResponseWsDTO getAllPaymentMethods(final String merchantId, final String storeId, final String businessLineId, final Integer pageSize, final Integer pageNumber) {
+        final String endpoint = getConfigurationService().getConfiguration().getString("adyen.management.api.endpoint");
+        final String apiKey = getConfigurationService().getConfiguration().getString("adyen.management.api.key");
+
+        final HttpHeaders headers = new HttpHeaders();
+        headers.set("X-API-Key", apiKey);
+
+        final HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        // Build the payment method settings endpoint URL
+        final String paymentMethodsEndpoint = endpoint + "/" + merchantId + "/paymentMethodSettings";
+
+        final UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl(paymentMethodsEndpoint);
+        
+        // Add optional query parameters if provided
+        if (storeId != null) {
+            uriBuilder.queryParam("storeId", storeId);
+        }
+        if (businessLineId != null) {
+            uriBuilder.queryParam("businessLineId", businessLineId);
+        }
+        if (pageSize != null) {
+            uriBuilder.queryParam("pageSize", pageSize);
+        }
+        if (pageNumber != null) {
+            uriBuilder.queryParam("pageNumber", pageNumber);
+        }
+
+        final ResponseEntity<PaymentMethodResponseWsDTO> response = restTemplate.exchange(
+                uriBuilder.toUriString(),
+                HttpMethod.GET,
+                entity,
+                PaymentMethodResponseWsDTO.class
         );
 
         return response.getBody();
