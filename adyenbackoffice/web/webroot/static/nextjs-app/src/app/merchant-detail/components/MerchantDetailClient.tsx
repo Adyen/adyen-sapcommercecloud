@@ -6,6 +6,7 @@ import { ArrowLeft, Building2 } from 'lucide-react';
 import { MerchantDetailData } from '../../merchants/types/merchant-detail.types';
 import ConfigurationDetails from './ConfigurationDetails';
 import StoresList from './StoresList';
+import PaymentMethodsList from './PaymentMethodsList';
 import LoadingSpinner from '../../merchants/components/LoadingSpinner';
 import ErrorMessage from '../../merchants/components/ErrorMessage';
 
@@ -126,6 +127,11 @@ const MerchantDetailClient: React.FC<MerchantDetailClientProps> = ({ merchantId 
 
         {/* Associated Stores */}
         <StoresList merchantId={merchant.id} />
+
+        {/* Payment Methods */}
+        <div className="mt-6">
+          <PaymentMethodsList merchantId={merchant.id} />
+        </div>
       </div>
     </div>
   );

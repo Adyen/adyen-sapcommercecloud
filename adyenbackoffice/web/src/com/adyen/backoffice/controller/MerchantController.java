@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import com.adyen.backoffice.dto.MerchantDataWsDTO;
 import com.adyen.backoffice.dto.MerchantResponseWsDTO;
+import com.adyen.backoffice.dto.PaymentMethodResponseWsDTO;
 import com.adyen.backoffice.dto.StoreResponseWsDTO;
 
 import com.adyen.backoffice.service.AdyenManagementService;
@@ -47,6 +48,19 @@ public class MerchantController {
 			@RequestParam(required = false) Integer pageNumber) {
 		
 		StoreResponseWsDTO response = adyenManagementService.getStoresByMerchantId(merchantId, pageSize, pageNumber);
+		
+		return ResponseEntity.ok(response);
+	}
+
+	@GetMapping("/{merchantId}/payment-methods")
+	public ResponseEntity<PaymentMethodResponseWsDTO> getPaymentMethodsByMerchantId(
+			@PathVariable String merchantId,
+			@RequestParam(required = false) String storeId,
+			@RequestParam(required = false) String businessLineId,
+			@RequestParam(required = false) Integer pageSize,
+			@RequestParam(required = false) Integer pageNumber) {
+		
+		PaymentMethodResponseWsDTO response = adyenManagementService.getAllPaymentMethods(merchantId, storeId, businessLineId, pageSize, pageNumber);
 		
 		return ResponseEntity.ok(response);
 	}
