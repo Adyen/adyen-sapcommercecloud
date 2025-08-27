@@ -16,16 +16,6 @@
 	<context:component-scan base-package="com.adyen.commerce.occ.controllers"/>
 
 
-	<bean id="webServicesBaseUrlResolver" class="com.adyen.commerce.occ.utils.WebServicesBaseUrlResolver">
-		<property name="configurationService" ref="configurationService"/>
-	</bean>
-
-	<bean id="paymentRedirectReturnUrlResolver" class="com.adyen.commerce.occ.resolver.PaymentRedirectReturnUrlResolver">
-		<property name="baseSiteService" ref="baseSiteService"/>
-		<property name="commerceCommonI18NService" ref="commerceCommonI18NService"/>
-		<property name="webServicesBaseUrlResolver" ref="webServicesBaseUrlResolver"/>
-	</bean>
-
 	<bean id="adyenOccAddressValidator"
 		  class="com.adyen.commerce.occ.validators.AdyenOccAddressValidator">
 	</bean>

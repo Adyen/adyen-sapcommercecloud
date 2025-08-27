@@ -472,6 +472,9 @@
         <property name="checkoutCustomerStrategy" ref="checkoutCustomerStrategy"/>
         <property name="countryConverter" ref="countryConverter"/>
         <property name="impersonationService" ref="impersonationService"/>
+        <property name="baseSiteService" ref="baseSiteService"/>
+        <property name="siteBaseUrlResolutionService" ref="siteBaseUrlResolutionService"/>
+        <property name="occPaymentRedirectReturnUrlResolver" ref="occPaymentRedirectReturnUrlResolver"/>
     </bean>
 
     <bean id="adyenPayPalExpressCheckoutFacade" class="com.adyen.v6.facades.impl.DefaultAdyenPayPalExpressCheckoutFacade">
@@ -542,5 +545,15 @@
     <bean parent="modifyPopulatorList">
         <property name="list" ref="addressConverter"/>
         <property name="add" ref="adyenAddressPopulator"/>
+    </bean>
+
+    <bean id="webServicesBaseUrlResolver" class="com.adyen.v6.util.WebServicesBaseUrlResolver">
+        <property name="configurationService" ref="configurationService"/>
+    </bean>
+
+    <bean id="occPaymentRedirectReturnUrlResolver" class="com.adyen.v6.resolver.OccPaymentRedirectReturnUrlResolver">
+        <property name="baseSiteService" ref="baseSiteService"/>
+        <property name="commerceCommonI18NService" ref="commerceCommonI18NService"/>
+        <property name="webServicesBaseUrlResolver" ref="webServicesBaseUrlResolver"/>
     </bean>
 </beans>

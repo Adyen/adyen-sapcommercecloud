@@ -29,6 +29,13 @@ public interface AdyenControllerConstants
 	String COMPONENT_PREFIX = "/adyen/component";
 	String AMAZON_RETURN_URL = "/checkout/multi/adyen/summary/amazonpay/placeorder";
 	String CHECKOUT_RESULT_URL = "/checkout-adyen-response";
+
+    String REDIRECT_RESULT = "redirectResult";
+    String PAYLOAD = "payload";
+    String CHECKOUT_ERROR_AUTHORIZATION_PAYMENT_REFUSED = "checkout.error.authorization.payment.refused";
+    String CHECKOUT_ERROR_AUTHORIZATION_PAYMENT_CANCELLED = "checkout.error.authorization.payment.cancelled";
+    String CHECKOUT_ERROR_AUTHORIZATION_PAYMENT_ERROR = "checkout.error.authorization.payment.error";
+
 	/**
 	 * Class with view name constants
 	 */

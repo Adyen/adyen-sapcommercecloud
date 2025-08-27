@@ -14,6 +14,7 @@ import de.hybris.platform.commerceservices.request.mapping.annotation.ApiVersion
 import de.hybris.platform.servicelayer.config.ConfigurationService;
 import de.hybris.platform.site.BaseSiteService;
 import io.swagger.v3.oas.annotations.Parameter;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -61,6 +62,17 @@ public class RedirectController extends RedirectControllerBase implements Redire
     public String getErrorRedirectUrl(String errorMessage) {
         String encodedMessage = Base64.getUrlEncoder().encodeToString(errorMessage.getBytes());
         return getSpartacusUrlPrefix() + ADYEN_REDIRECT_URL + "error/" + encodedMessage;
+    }
+
+    @Override
+    public String getExpressErrorRedirectUrl(String errorMessage, String productCode) {
+        String encodedMessage = Base64.getUrlEncoder().encodeToString(errorMessage.getBytes());
+
+        if (StringUtils.isNotEmpty(productCode)) {
+            return getSpartacusUrlPrefix() + ADYEN_REDIRECT_URL + "error/" + encodedMessage + "/productCode/" + productCode;
+        }
+
+        return getSpartacusUrlPrefix() + ADYEN_REDIRECT_URL + "error/" + encodedMessage + "/cart/true";
     }
 
     @Override

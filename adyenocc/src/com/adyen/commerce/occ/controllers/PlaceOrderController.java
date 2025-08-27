@@ -4,11 +4,11 @@ import com.adyen.commerce.constants.AdyenoccConstants;
 import com.adyen.commerce.controllerbase.PlaceOrderControllerBase;
 import com.adyen.commerce.facades.AdyenCheckoutApiFacade;
 import com.adyen.commerce.occ.api.AdyenPlaceOrderApi;
-import com.adyen.commerce.occ.resolver.PaymentRedirectReturnUrlResolver;
 import com.adyen.commerce.request.PlaceOrderRequest;
 import com.adyen.commerce.response.OCCPlaceOrderResponse;
 import com.adyen.model.checkout.PaymentDetailsRequest;
 import com.adyen.v6.facades.AdyenCheckoutFacade;
+import com.adyen.v6.resolver.OccPaymentRedirectReturnUrlResolver;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import de.hybris.platform.acceleratorfacades.flow.CheckoutFlowFacade;
 import de.hybris.platform.acceleratorservices.urlresolver.SiteBaseUrlResolutionService;
@@ -53,7 +53,7 @@ public class PlaceOrderController extends PlaceOrderControllerBase implements Ad
     private CheckoutCustomerStrategy checkoutCustomerStrategy;
 
     @Autowired
-    private PaymentRedirectReturnUrlResolver paymentRedirectReturnUrlResolver;
+    private OccPaymentRedirectReturnUrlResolver occPaymentRedirectReturnUrlResolver;
 
     @Override
     @Secured({"ROLE_CUSTOMERGROUP", "ROLE_CLIENT", "ROLE_CUSTOMERMANAGERGROUP", "ROLE_TRUSTED_CLIENT"})
@@ -78,7 +78,7 @@ public class PlaceOrderController extends PlaceOrderControllerBase implements Ad
 
     @Override
     public String getPaymentRedirectReturnUrl() {
-        return paymentRedirectReturnUrlResolver.resolvePaymentRedirectReturnUrl();
+        return occPaymentRedirectReturnUrlResolver.resolvePaymentRedirectReturnUrl();
     }
 
     @Override
