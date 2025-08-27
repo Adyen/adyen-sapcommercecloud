@@ -213,11 +213,5 @@
 			</attributes>
 		</itemtype>
 
-
-		<itemtype code="Order"  generate="false" autocreate="false">
-			<attributes>
-			</attributes>
-		</itemtype>
-
 	</itemtypes>
 </items>
