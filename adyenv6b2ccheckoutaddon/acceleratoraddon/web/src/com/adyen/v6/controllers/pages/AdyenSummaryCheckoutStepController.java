@@ -162,6 +162,9 @@ public class AdyenSummaryCheckoutStepController extends AbstractCheckoutStepCont
                 final ProductData product = getProductFacade().getProductForCodeAndOptions(productCode, Arrays.asList(ProductOption.BASIC, ProductOption.PRICE));
                 entry.setProduct(product);
             }
+        } else {
+            GlobalMessages.addFlashMessage(redirectAttributes, GlobalMessages.ERROR_MESSAGES_HOLDER, CHECKOUT_ERROR_AUTHORIZATION_PAYMENT_ERROR, null);
+            return REDIRECT_PREFIX + CART_PREFIX;
         }
 
         model.addAttribute("cartData", cartData);
@@ -611,6 +614,11 @@ public class AdyenSummaryCheckoutStepController extends AbstractCheckoutStepCont
         if (!getCheckoutFacade().containsTaxValues()) {
             LOGGER.error(String.format("Cart %s does not have any tax values, which means the tax cacluation was not properly done, placement of order can't continue", cartData.getCode()));
             GlobalMessages.addErrorMessage(model, "checkout.error.tax.missing");
+            invalid = true;
+        }
+
+        if (cartData.getEntries().isEmpty()) {
+            LOGGER.error("Cart is empty");
             invalid = true;
         }
 

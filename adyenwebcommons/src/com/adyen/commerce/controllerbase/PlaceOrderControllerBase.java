@@ -125,6 +125,11 @@ public abstract class PlaceOrderControllerBase {
             throw new AdyenControllerException(CHECKOUT_ERROR_FORM_ENTRY_INVALID, getFieldCodesFromValidation(bindingResult));
         }
 
+        CartData sessionCart = getCartFacade().getSessionCart();
+        if (sessionCart == null || sessionCart.getEntries().isEmpty()) {
+            throw new AdyenControllerException();
+        }
+
         getAdyenCheckoutApiFacade().preHandlePlaceOrder(placeOrderRequest.getPaymentRequest(), adyenPaymentMethod,
                 placeOrderRequest.getBillingAddress(), placeOrderRequest.isUseAdyenDeliveryAddress());
     }
