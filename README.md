@@ -178,11 +178,6 @@ By default 3DS2 is enabled (Except for OCC). If you want to disable 3DS2 in your
 ```
 is3DS2allowed = false
 ```
-## POS Timeout configuration
-POS timeout (time calculated since initiating a payment) is max time to keep terminal connection open. It is set to 130 seconds by default already. If you want to change it, please add following property in local.properties file, build your environment and restart the server. (Change 130 to your desired time, in seconds).
-```
-pos.totaltimeout = 130
-```
 ## Credit card holder name configuration
 By default Credit card holder name is a mandatory field, You can disable it by setting following property in `local.properties` file.
 ```
