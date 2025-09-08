@@ -131,48 +131,6 @@ Pix is supported via Adyen component and API.
 
 Supported via Adyen Checkout.
 
-
-## Usage with OCC
-
-The plugin supports the following OCC v2 compatible methods via [com.adyen.v6.facades.AdyenCheckoutFacade](adyenv6core/src/com/adyen/v6/facades/AdyenCheckoutFacade.java):
-
-1. PaymentDetailsListWsDTO getPaymentDetails(String userId) throws IOException, ApiException;
-
-```
-    OCC controller: UsersController.getPaymentInfos
-    Endpoint: GET /{userId}/paymentdetails
-```
-
-This method that will return the stored cards associated to the shopping cart user via Adyen API.
-
-2. PaymentDetailsWsDTO addPaymentDetails(PaymentDetailsWsDTO paymentDetails, DataMapper dataMapper);
-
-```
-    OCC controller: CartsController.addPaymentDetails
-    Endpoint: POST /{cartId}/paymentdetails
-```
-
-This method that will receive the payment method selection and rest of payment details and store them in the Cart.
-
-For Credit Card payments - it expects encrypted card holder data obtained from your frontend implementation using Secured Fields
-
-For Stored Cards payments - selected Adyen recurringReference of the card and encrypted cvc
-
-For Boleto payments - social security number
-
-
-3. OrderData authorisePayment(CartData cartData) throws Exception;
-
-```
-    OCC controller: OrdersController.placeOrder
-    Endpoint: POST /users/{userId}/orders
-```
-
-This method will place the payment request using the previously stored payment method selection data. Upon successful response from Adyen API, it will register payment response in cart/order level.
-
-It returns an instance of OrderWSDTO obtained from OrderData of the placed order.
-For Boleto, it will contain the pdf url, the base64 encoded data, expiration date and due date.
-
 ## 3DS2 configuration
 By default 3DS2 is enabled (Except for OCC). If you want to disable 3DS2 in your system, please set following property in local.properties file, build your environment and restart the server.
 ```
