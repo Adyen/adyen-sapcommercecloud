@@ -37,6 +37,13 @@ public class PaymentRequestBuilder {
         return this;
     }
 
+    public PaymentRequestBuilder amount(java.math.BigDecimal amount, String currency) {
+        if (amount != null && StringUtils.isNotEmpty(currency)) {
+            paymentRequest.setAmount(AmountUtil.createAmount(amount, currency));
+        }
+        return this;
+    }
+
     public PaymentRequestBuilder reference(String reference) {
         paymentRequest.setReference(reference);
         return this;
@@ -110,6 +117,11 @@ public class PaymentRequestBuilder {
 
     public PaymentRequestBuilder channel(PaymentRequest.ChannelEnum channel) {
         paymentRequest.setChannel(channel);
+        return this;
+    }
+
+    public PaymentRequestBuilder order(EncryptedOrderData order) {
+        paymentRequest.setOrder(order);
         return this;
     }
 

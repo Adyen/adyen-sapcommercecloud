@@ -1,5 +1,6 @@
 package com.adyen.commerce.services;
 
+import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.model.checkout.PaymentRequest;
 import com.adyen.model.recurring.DisableRequest;
 import com.adyen.model.recurring.RecurringDetailsRequest;
@@ -42,7 +43,8 @@ public interface AdyenRequestService {
                                         final RequestInfo requestInfo,
                                         final CustomerModel customerModel,
                                         final RecurringContractMode recurringContractMode,
-                                        final Boolean guestUserTokenizationEnabled);
+                                        final Boolean guestUserTokenizationEnabled,
+                                        final AdyenPartialPaymentOrderData partialPaymentOrderData);
 
     RecurringDetailsRequest createListRecurringDetailsRequest(final String merchantAccount, final String customerId);
 

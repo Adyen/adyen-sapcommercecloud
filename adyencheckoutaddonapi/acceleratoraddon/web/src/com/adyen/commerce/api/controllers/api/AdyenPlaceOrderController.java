@@ -6,6 +6,7 @@ import com.adyen.commerce.request.PlaceOrderRequest;
 import com.adyen.commerce.response.PlaceOrderResponse;
 import com.adyen.model.checkout.PaymentDetailsRequest;
 import com.adyen.v6.facades.AdyenCheckoutFacade;
+import com.adyen.v6.service.AdyenPartialPaymentService;
 import de.hybris.platform.acceleratorfacades.flow.CheckoutFlowFacade;
 import de.hybris.platform.acceleratorservices.urlresolver.SiteBaseUrlResolutionService;
 import de.hybris.platform.acceleratorstorefrontcommons.annotations.RequireHardLogIn;
@@ -14,6 +15,7 @@ import de.hybris.platform.commercefacades.order.CartFacade;
 import de.hybris.platform.commerceservices.strategies.CheckoutCustomerStrategy;
 import de.hybris.platform.order.InvalidCartException;
 import de.hybris.platform.order.exceptions.CalculationException;
+import de.hybris.platform.servicelayer.model.ModelService;
 import de.hybris.platform.site.BaseSiteService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -53,6 +55,12 @@ public class AdyenPlaceOrderController extends PlaceOrderControllerBase {
 
     @Resource(name = "checkoutCustomerStrategy")
     private CheckoutCustomerStrategy checkoutCustomerStrategy;
+
+    @Resource(name = "modelService")
+    private ModelService modelService;
+
+    @Resource(name = "adyenPartialPaymentService")
+    private AdyenPartialPaymentService adyenPartialPaymentService;
 
     @RequireHardLogIn
     @PostMapping("/place-order")
@@ -120,5 +128,15 @@ public class AdyenPlaceOrderController extends PlaceOrderControllerBase {
     @Override
     public CheckoutCustomerStrategy getCheckoutCustomerStrategy() {
         return checkoutCustomerStrategy;
+    }
+
+    @Override
+    public ModelService getModelService() {
+        return modelService;
+    }
+
+    @Override
+    public AdyenPartialPaymentService getAdyenPartialPaymentService() {
+        return adyenPartialPaymentService;
     }
 }

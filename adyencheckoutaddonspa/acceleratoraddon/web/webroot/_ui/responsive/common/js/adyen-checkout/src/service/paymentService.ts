@@ -15,7 +15,14 @@ export interface PlaceOrderResponse {
     paymentDetailsResponse?: PaymentResponseData,
     error?: string,
     errorFieldCodes?: string[]
-    orderNumber?: string
+    orderNumber?: string,
+    // Partial payment specific fields
+    isPartialPayment?: boolean,
+    partialPaymentId?: string,
+    remainingAmount?: { value: number; currency: string },
+    chargedAmount?: { value: number; currency: string },
+    orderData?: string,  // Encrypted order data from Adyen for partial payments
+    pspReference?: string  // PSP reference for the partial payment
 }
 
 export class PaymentService {
@@ -34,7 +41,20 @@ export class PaymentService {
                     executeAction: placeOrderData.executeAction,
                     paymentsAction: placeOrderData.paymentsAction,
                     orderNumber: placeOrderData.orderNumber,
-                    paymentsResponse: placeOrderData.paymentsResponse
+                    paymentsResponse: placeOrderData.paymentsResponse,
+                    // Map partial payment fields from backend response
+                    isPartialPayment: placeOrderData.partialPayment || false,
+                    partialPaymentId: placeOrderData.partialPaymentId,
+                    remainingAmount: placeOrderData.remainingAmountValue && placeOrderData.remainingAmountCurrency ? {
+                        value: placeOrderData.remainingAmountValue,
+                        currency: placeOrderData.remainingAmountCurrency
+                    } : undefined,
+                    chargedAmount: placeOrderData.chargedAmountValue && placeOrderData.chargedAmountCurrency ? {
+                        value: placeOrderData.chargedAmountValue,
+                        currency: placeOrderData.chargedAmountCurrency
+                    } : undefined,
+                    orderData: placeOrderData.orderData,  // Encrypted order data from Adyen
+                    pspReference: placeOrderData.pspReference  // PSP reference for partial payment
                 }
             })
             .catch((errorResponse: AxiosError<ErrorResponse>): PlaceOrderResponse | void => {
@@ -64,7 +84,20 @@ export class PaymentService {
                     executeAction: placeOrderData.executeAction,
                     paymentsAction: placeOrderData.paymentsAction,
                     orderNumber: placeOrderData.orderNumber,
-                    paymentsResponse: placeOrderData.paymentDetailsResponse
+                    paymentsResponse: placeOrderData.paymentDetailsResponse,
+                    // Map partial payment fields from backend response
+                    isPartialPayment: placeOrderData.partialPayment || false,
+                    partialPaymentId: placeOrderData.partialPaymentId,
+                    remainingAmount: placeOrderData.remainingAmountValue && placeOrderData.remainingAmountCurrency ? {
+                        value: placeOrderData.remainingAmountValue,
+                        currency: placeOrderData.remainingAmountCurrency
+                    } : undefined,
+                    chargedAmount: placeOrderData.chargedAmountValue && placeOrderData.chargedAmountCurrency ? {
+                        value: placeOrderData.chargedAmountValue,
+                        currency: placeOrderData.chargedAmountCurrency
+                    } : undefined,
+                    orderData: placeOrderData.orderData,  // Encrypted order data from Adyen
+                    pspReference: placeOrderData.pspReference  // PSP reference for partial payment
                 }
             })
             .catch((errorResponse: AxiosError<ErrorResponse>): PlaceOrderResponse | void => {
@@ -108,13 +141,67 @@ export class PaymentService {
         }
     }
 
-    static preparePlaceOrderRequest(data: any, useDifferentBillingAddress: boolean, saveInAddressBook: boolean, billingAddress?: AddressModel): PlaceOrderRequest {
+    static preparePlaceOrderRequest(data: any, useDifferentBillingAddress: boolean, saveInAddressBook: boolean, billingAddress?: AddressModel, partialPaymentId?: string): PlaceOrderRequest {
         return {
             paymentRequest: data,
             useAdyenDeliveryAddress: !useDifferentBillingAddress,
             billingAddress: useDifferentBillingAddress ? this.convertBillingAddress(billingAddress, saveInAddressBook) : null,
             storefrontType: "SPA",
             storefrontVersion: storefrontVersion,
+            partialPaymentId: partialPaymentId,
         }
+    }
+
+    /**
+     * Check gift card balance for partial payments
+     * @param request Gift card balance request
+     * @returns Promise with balance response
+     */
+    static async checkGiftCardBalance(request: {
+        cardNumber: string;
+        pin?: string;
+        amount: { value: number; currency: string };
+        brand: string;
+        type: string;
+    }) {
+        return adyenAxios.post(urlContextPath + '/api/giftcard/balance', request, {
+            headers: {
+                'Content-Type': 'application/json',
+                'CSRFToken': CSRFToken
+            }
+        })
+            .then((response: AxiosResponse<any>) => {
+                return response.data;
+            })
+            .catch((error: AxiosError) => {
+                console.error('Error checking gift card balance:', error);
+                throw error;
+            });
+    }
+
+    /**
+     * Create partial payment order
+     * @param request Partial payment order request
+     * @returns Promise with order response
+     */
+    static async createPartialPaymentOrder(request: {
+        amount: { value: number; currency: string };
+        paymentMethod: any;
+        shopperReference?: string;
+        partialPaymentId?: string;
+    }) {
+        return adyenAxios.post(urlContextPath + '/api/orders/partial-payment', request, {
+            headers: {
+                'Content-Type': 'application/json',
+                'CSRFToken': CSRFToken
+            }
+        })
+            .then((response: AxiosResponse<any>) => {
+                return response.data;
+            })
+            .catch((error: AxiosError) => {
+                console.error('Error creating partial payment order:', error);
+                throw error;
+            });
     }
 }
