@@ -38,6 +38,7 @@ interface State {
     errorCode: string
     errorFieldCodes: string[]
     orderNumber: string
+    partialPaymentId?: string
 }
 
 interface ComponentProps {
@@ -85,7 +86,8 @@ class Payment extends React.Component<Props, State> {
             saveInAddressBook: false,
             errorCode: this.props.errorCode ? this.props.errorCode : "",
             errorFieldCodes: [],
-            orderNumber: ""
+            orderNumber: "",
+            partialPaymentId: undefined
         }
         this.paymentRef = React.createRef();
         this.threeDSRef = React.createRef();
@@ -115,6 +117,10 @@ class Payment extends React.Component<Props, State> {
         this.initiateDropIn(adyenCheckout)
     }
 
+    /**
+     * Get Adyen Checkout configuration including partial payments support for gift cards
+     * @returns CoreConfiguration object with all necessary settings
+     */
     private getAdyenCheckoutConfig(): CoreConfiguration {
         return {
             paymentMethodsResponse: {
@@ -137,7 +143,10 @@ class Payment extends React.Component<Props, State> {
                 this.handleError()
             },
             onSubmit: (state: any, element: UIElement, actions: SubmitActions) => this.handlePayment(state.data, actions),
-            onAdditionalDetails: (state: any, element: UIElement,actions: AdditionalDetailsActions) => this.handleAdditionalDetails(state.data, actions)
+            onAdditionalDetails: (state: any, element: UIElement,actions: AdditionalDetailsActions) => this.handleAdditionalDetails(state.data, actions),
+            // Partial payments callbacks for gift cards
+            onBalanceCheck: (resolve: any, reject: any, data: any) => this.handleBalanceCheck(resolve, reject, {...data, amount: this.props.adyenConfig.amount}),
+            onOrderRequest: (resolve: any, reject: any, data: any) => this.handleOrderRequest(resolve, reject, {...data, amount: this.props.adyenConfig.amount})
         }
     }
 
@@ -177,8 +186,27 @@ class Payment extends React.Component<Props, State> {
                          firstName: this.props.shippingAddressFromCart.firstName,
                          lastName: this.props.shippingAddressFromCart.lastName,
                      }
+                 },
+                 // Gift card configuration for partial payments
+                 giftcard: {
+                     // @ts-ignore - Gift card styling configuration
+                     styles: {
+                         base: {
+                             fontSize: '16px',
+                             color: '#333'
+                         }
+                     }
                  }
             },
+            // Critical: Enable partial payments functionality
+            // @ts-ignore - Enable showing pay button for partial payments
+            showPayButton: true,
+            // @ts-ignore - Allow removal of payment methods in partial payment flow
+            showRemovePaymentMethodButton: true,
+            // @ts-ignore - Enable partial payment mode
+            isPartialPayment: false, // Will be set to true dynamically when needed
+            // @ts-ignore - Show remaining amount when in partial payment mode
+            showRemainingAmount: true
         }).mount(this.paymentRef.current);
 
     }
@@ -190,13 +218,148 @@ class Payment extends React.Component<Props, State> {
 
     private async handlePayment(data: any, actions: SubmitActions) {
         let adyenPaymentForm = PaymentService.preparePlaceOrderRequest(data,
-            this.state.useDifferentBillingAddress, this.isSaveInAddressBook(), this.props.billingAddress);
+            this.state.useDifferentBillingAddress, this.isSaveInAddressBook(), this.props.billingAddress, this.state.partialPaymentId);
 
         await this.executePaymentRequest(adyenPaymentForm, actions)
     }
 
     private async handleAdditionalDetails(data: any,actions: AdditionalDetailsActions) {
         await this.executeAdditionalDetails(data,actions)
+    }
+
+    /**
+     * Handle balance check for gift cards in partial payments
+     * This method will be called when a gift card balance needs to be verified
+     *
+     * @param resolve - Function to call with successful balance response
+     * @param reject - Function to call with error response
+     * @param data - Gift card data including card number and amount
+     *
+     * Expected backend endpoint: POST /api/giftcard/balance
+     * Request payload: { cardNumber: string, pin?: string, amount: { value: number, currency: string } }
+     * Response: { balance: { value: number, currency: string }, transactionLimit: { value: number, currency: string } }
+     */
+    private async handleBalanceCheck(resolve: any, reject: any, data: any) {
+        try {
+            console.log('Balance check requested for gift card:', data);
+            
+            // Extract gift card data from Adyen Web Components structure
+            // For gift cards, the data structure is different from regular payment methods
+            const paymentMethod = data.paymentMethod || {};
+            const cardNumber = paymentMethod.number || paymentMethod.encryptedCardNumber || paymentMethod.cardNumber;
+            const pin = paymentMethod.cvc || paymentMethod.encryptedSecurityCode || paymentMethod.pin;
+            const amount = data.amount;
+            
+            // Validate required fields
+            if (!cardNumber) {
+                console.error('Gift card number is missing from payment data');
+                reject({
+                    errorCode: 'missing_card_number',
+                    message: 'Gift card number is required'
+                });
+                return;
+            }
+            
+            if (!amount) {
+                console.error('Amount is missing from payment data');
+                reject({
+                    errorCode: 'missing_amount',
+                    message: 'Amount is required for balance check'
+                });
+                return;
+            }
+            
+            // Call the real backend endpoint
+            const response = await PaymentService.checkGiftCardBalance({
+                cardNumber: cardNumber,
+                pin: pin,
+                amount: amount,
+                brand: paymentMethod.brand,
+                type: paymentMethod.type
+            });
+            
+            console.log('Balance check response:', response);
+            
+            // Store partialPaymentId if present in the response
+            if (response.partialPaymentId) {
+                this.setState({ partialPaymentId: response.partialPaymentId });
+                console.log('Stored partialPaymentId:', response.partialPaymentId);
+            }
+
+            const balanceResponse = {
+                balance: response.balance,
+                transactionLimit: response.transactionLimit || response.balance,
+                // Include partial payment metadata if present
+                partialPaymentId: response.partialPaymentId,
+                chargedAmount: response.chargedAmount,
+                remainingAmount: response.remainingAmount
+            };
+            
+            // Log the response for debugging
+            console.log('Formatted balance response:', balanceResponse);
+            console.log('Balance value:', response.balance?.value, 'Requested amount:', amount.value);
+            
+            resolve(balanceResponse);
+        } catch (error) {
+            console.error('Balance check failed:', error);
+            reject({
+                errorCode: 'balance_check_failed',
+                message: 'Unable to verify gift card balance'
+            });
+        }
+    }
+
+    /**
+     * Handle order request for partial payments
+     * This method will be called when an order needs to be created for partial payment
+     *
+     * @param resolve - Function to call with successful order response
+     * @param reject - Function to call with error response
+     * @param data - Order data including amount and payment method details
+     *
+     * Expected backend endpoint: POST /api/orders/partial-payment
+     * Request payload: { amount: { value: number, currency: string }, paymentMethod: object }
+     * Response: { orderData: string, pspReference: string }
+     */
+    private async handleOrderRequest(resolve: any, reject: any, data: any) {
+        try {
+            console.log('Order request for partial payment:', data);
+            
+            // Call the real backend endpoint
+            const response = await PaymentService.createPartialPaymentOrder({
+                amount: data.amount,
+                paymentMethod: data.paymentMethod,
+                shopperReference: this.props.adyenConfig.shopperEmail, // Use shopperEmail as reference or undefined
+                partialPaymentId: this.state.partialPaymentId // Include the stored partialPaymentId
+            });
+            
+            console.log('Order request response:', response);
+            
+            // Validate response has required fields
+            if (!response.orderData || !response.pspReference) {
+                console.error('Invalid order response: missing orderData or pspReference', response);
+                reject({
+                    errorCode: 'invalid_order_response',
+                    message: 'Invalid order response: missing required fields'
+                });
+                return;
+            }
+
+            const orderResponse = {
+                orderData: response.orderData,
+                pspReference: response.pspReference
+            };
+            
+            console.log('Resolving order request with:', orderResponse);
+            resolve(orderResponse);
+            
+        } catch (error) {
+            console.error('Order request failed:', error);
+            reject({
+                errorCode: 'order_creation_failed',
+                message: 'Unable to create order for partial payment: ' + (error.message || 'Unknown error')
+            });
+        }
     }
 
     private isSaveInAddressBook(): boolean {

@@ -74,6 +74,47 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
         return paymentsResponse;
     }
 
+    /**
+     * Process partial payment request with custom amount
+     */
+    @Override
+    public PaymentResponse processPartialPaymentRequest(final CartData cartData,
+                                                       PaymentRequest originPaymentsRequest,
+                                                       final RequestInfo requestInfo,
+                                                       final CustomerModel customerModel,
+                                                       final BigDecimal customAmount,
+                                                       final String currency) throws Exception {
+        LOG.debug("Processing partial payment with custom amount: " + customAmount + " " + currency);
+
+        PaymentsApi checkoutApi = new PaymentsApi(client);
+
+        // Use the new partial payment method from DefaultAdyenRequestService
+        if (adyenRequestService instanceof com.adyen.commerce.services.impl.DefaultAdyenRequestService) {
+            com.adyen.commerce.services.impl.DefaultAdyenRequestService defaultService =
+                (com.adyen.commerce.services.impl.DefaultAdyenRequestService) adyenRequestService;
+            
+            PaymentRequest paymentsRequest = defaultService.createPartialPaymentRequest(merchantAccount,
+                    cartData,
+                    originPaymentsRequest,
+                    requestInfo,
+                    customerModel,
+                    baseStore.getAdyenRecurringContractMode(),
+                    baseStore.getAdyenGuestUserTokenization(),
+                    customAmount,
+                    currency);
+
+            adyenRequestService.applyAdditionalData(cartData, paymentsRequest);
+
+            LOG.debug(paymentsRequest);
+            PaymentResponse paymentsResponse = checkoutApi.payments(paymentsRequest);
+            LOG.debug(paymentsResponse);
+
+            return paymentsResponse;
+        } else {
+            throw new IllegalStateException("AdyenRequestService must be an instance of DefaultAdyenRequestService for partial payments");
+        }
+    }
+
     public PaymentResponse sendPaymentRequest(final PaymentRequest paymentRequest, final RequestInfo requestInfo) throws IOException, ApiException {
         PaymentsApi checkoutApi = new PaymentsApi(client);
 

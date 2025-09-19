@@ -14,6 +14,9 @@ public class PlaceOrderRequest {
 
     private StorefrontType storefrontType;
     private String storefrontVersion;
+    
+    // Partial payment support
+    private String partialPaymentId;
 
     public PaymentRequest getPaymentRequest() {
         return paymentRequest;
@@ -54,5 +57,13 @@ public class PlaceOrderRequest {
 
     public void setStorefrontVersion(String storefrontVersion) {
         this.storefrontVersion = storefrontVersion;
+    }
+    
+    public String getPartialPaymentId() {
+        return partialPaymentId;
+    }
+    
+    public void setPartialPaymentId(String partialPaymentId) {
+        this.partialPaymentId = partialPaymentId;
     }
 }

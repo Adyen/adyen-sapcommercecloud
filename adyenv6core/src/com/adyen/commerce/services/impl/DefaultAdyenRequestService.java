@@ -1,6 +1,7 @@
 package com.adyen.commerce.services.impl;
 
 import com.adyen.commerce.services.AdyenRequestService;
+import com.adyen.commerce.services.impl.AddressConverter;
 import com.adyen.model.checkout.*;
 import com.adyen.model.recurring.DisableRequest;
 import com.adyen.model.recurring.RecurringDetailsRequest;
@@ -91,6 +92,38 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
             merchantAccount, cartData, originPaymentsRequest, requestInfo, customerModel);
 
         handlePaymentMethodSpecificLogic(paymentRequest, cartData, originPaymentsRequest, 
+            recurringContractMode, customerModel, guestUserTokenizationEnabled);
+
+        return paymentRequest;
+    }
+
+    /**
+     * Create payment request for partial payments with custom amount
+     */
+    public PaymentRequest createPartialPaymentRequest(final String merchantAccount,
+                                                    final CartData cartData,
+                                                    final PaymentRequest originPaymentsRequest,
+                                                    final RequestInfo requestInfo,
+                                                    final CustomerModel customerModel,
+                                                    final RecurringContractMode recurringContractMode,
+                                                    final Boolean guestUserTokenizationEnabled,
+                                                    final java.math.BigDecimal customAmount,
+                                                    final String currency) {
+        
+        validatePaymentRequestInputs(merchantAccount, cartData, requestInfo, customerModel);
+        
+        if (customAmount == null || customAmount.compareTo(java.math.BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Custom amount must be positive for partial payments");
+        }
+        
+        if (org.apache.commons.lang3.StringUtils.isEmpty(currency)) {
+            throw new IllegalArgumentException("Currency cannot be null or empty for partial payments");
+        }
+
+        PaymentRequest paymentRequest = buildPartialPaymentRequest(
+            merchantAccount, cartData, originPaymentsRequest, requestInfo, customerModel, customAmount, currency);
+
+        handlePaymentMethodSpecificLogic(paymentRequest, cartData, originPaymentsRequest,
             recurringContractMode, customerModel, guestUserTokenizationEnabled);
 
         return paymentRequest;
@@ -275,6 +308,45 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
         // Set return URL
         String returnUrl = StringUtils.isNotEmpty(cartData.getAdyenReturnUrl()) ? 
             cartData.getAdyenReturnUrl() : 
+            (originPaymentsRequest != null ? originPaymentsRequest.getReturnUrl() : null);
+        builder.returnUrl(returnUrl);
+
+        // Set addresses
+        AddressData billingAddress = getBillingAddress(cartData);
+        AddressData deliveryAddress = cartData.getDeliveryAddress();
+        
+        PaymentRequest paymentRequest = builder.build();
+        paymentRequest.setDeliveryAddress(AddressConverter.convertToDeliveryAddress(deliveryAddress));
+        paymentRequest.setBillingAddress(AddressConverter.convertToBillingAddress(billingAddress));
+        
+        if (billingAddress != null) {
+            paymentRequest.setTelephoneNumber(billingAddress.getPhone());
+        }
+
+        paymentRequest.setApplicationInfo(createApplicationInfo(requestInfo));
+        setRiskData(paymentRequest, cartData, originPaymentsRequest);
+
+        return paymentRequest;
+    }
+
+    protected PaymentRequest buildPartialPaymentRequest(String merchantAccount, CartData cartData,
+                                                      PaymentRequest originPaymentsRequest, RequestInfo requestInfo,
+                                                      CustomerModel customerModel, java.math.BigDecimal customAmount, String currency) {
+        
+        PaymentRequestBuilder builder = new PaymentRequestBuilder()
+            .merchantAccount(merchantAccount)
+            .amount(customAmount, currency)  // Use custom amount instead of cart amount
+            .reference(cartData.getCode() + "_partial_" + System.currentTimeMillis())
+            .browserInfo(requestInfo.getUserAgent(), requestInfo.getAcceptHeader())
+            .shopperDetails(customerModel)
+            .requestInfo(requestInfo)
+            .redirectMethods()
+            .countryCode(getCountryCode(cartData))
+            .company(createCompany(cartData));
+
+        // Set return URL
+        String returnUrl = StringUtils.isNotEmpty(cartData.getAdyenReturnUrl()) ?
+            cartData.getAdyenReturnUrl() :
             (originPaymentsRequest != null ? originPaymentsRequest.getReturnUrl() : null);
         builder.returnUrl(returnUrl);
 

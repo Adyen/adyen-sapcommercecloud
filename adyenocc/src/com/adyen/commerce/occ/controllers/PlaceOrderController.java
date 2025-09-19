@@ -15,6 +15,8 @@ import de.hybris.platform.acceleratorservices.urlresolver.SiteBaseUrlResolutionS
 import de.hybris.platform.commercefacades.order.CartFacade;
 import de.hybris.platform.commerceservices.request.mapping.annotation.ApiVersion;
 import de.hybris.platform.commerceservices.strategies.CheckoutCustomerStrategy;
+import de.hybris.platform.servicelayer.search.FlexibleSearchService;
+import de.hybris.platform.servicelayer.model.ModelService;
 import de.hybris.platform.site.BaseSiteService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -54,6 +56,12 @@ public class PlaceOrderController extends PlaceOrderControllerBase implements Ad
 
     @Autowired
     private PaymentRedirectReturnUrlResolver paymentRedirectReturnUrlResolver;
+
+    @Resource(name = "flexibleSearchService")
+    private FlexibleSearchService flexibleSearchService;
+
+    @Resource(name = "modelService")
+    private ModelService modelService;
 
     @Override
     @Secured({"ROLE_CUSTOMERGROUP", "ROLE_CLIENT", "ROLE_CUSTOMERMANAGERGROUP", "ROLE_TRUSTED_CLIENT"})
@@ -114,5 +122,15 @@ public class PlaceOrderController extends PlaceOrderControllerBase implements Ad
     @Override
     public CheckoutCustomerStrategy getCheckoutCustomerStrategy() {
         return checkoutCustomerStrategy;
+    }
+
+    @Override
+    public FlexibleSearchService getFlexibleSearchService() {
+        return flexibleSearchService;
+    }
+
+    @Override
+    public ModelService getModelService() {
+        return modelService;
     }
 }

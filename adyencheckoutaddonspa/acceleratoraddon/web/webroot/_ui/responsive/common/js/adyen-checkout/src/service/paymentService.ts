@@ -108,13 +108,67 @@ export class PaymentService {
         }
     }
 
-    static preparePlaceOrderRequest(data: any, useDifferentBillingAddress: boolean, saveInAddressBook: boolean, billingAddress?: AddressModel): PlaceOrderRequest {
+    static preparePlaceOrderRequest(data: any, useDifferentBillingAddress: boolean, saveInAddressBook: boolean, billingAddress?: AddressModel, partialPaymentId?: string): PlaceOrderRequest {
         return {
             paymentRequest: data,
             useAdyenDeliveryAddress: !useDifferentBillingAddress,
             billingAddress: useDifferentBillingAddress ? this.convertBillingAddress(billingAddress, saveInAddressBook) : null,
             storefrontType: "SPA",
             storefrontVersion: storefrontVersion,
+            partialPaymentId: partialPaymentId,
         }
+    }
+
+    /**
+     * Check gift card balance for partial payments
+     * @param request Gift card balance request
+     * @returns Promise with balance response
+     */
+    static async checkGiftCardBalance(request: {
+        cardNumber: string;
+        pin?: string;
+        amount: { value: number; currency: string };
+        brand: string;
+        type: string;
+    }) {
+        return adyenAxios.post(urlContextPath + '/api/giftcard/balance', request, {
+            headers: {
+                'Content-Type': 'application/json',
+                'CSRFToken': CSRFToken
+            }
+        })
+            .then((response: AxiosResponse<any>) => {
+                return response.data;
+            })
+            .catch((error: AxiosError) => {
+                console.error('Error checking gift card balance:', error);
+                throw error;
+            });
+    }
+
+    /**
+     * Create partial payment order
+     * @param request Partial payment order request
+     * @returns Promise with order response
+     */
+    static async createPartialPaymentOrder(request: {
+        amount: { value: number; currency: string };
+        paymentMethod: any;
+        shopperReference?: string;
+        partialPaymentId?: string;
+    }) {
+        return adyenAxios.post(urlContextPath + '/api/orders/partial-payment', request, {
+            headers: {
+                'Content-Type': 'application/json',
+                'CSRFToken': CSRFToken
+            }
+        })
+            .then((response: AxiosResponse<any>) => {
+                return response.data;
+            })
+            .catch((error: AxiosError) => {
+                console.error('Error creating partial payment order:', error);
+                throw error;
+            });
     }
 }

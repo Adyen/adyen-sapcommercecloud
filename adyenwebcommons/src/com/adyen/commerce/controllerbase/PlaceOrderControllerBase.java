@@ -8,11 +8,19 @@ import com.adyen.commerce.response.OCCPlaceOrderResponse;
 import com.adyen.commerce.response.PlaceOrderResponse;
 import com.adyen.commerce.validators.PaymentRequestValidator;
 import com.adyen.model.checkout.PaymentDetailsRequest;
+import com.adyen.model.checkout.PaymentRequest;
 import com.adyen.model.checkout.PaymentResponse;
+import com.adyen.model.checkout.Amount;
+import com.adyen.model.checkout.CheckoutPaymentMethod;
+import com.adyen.model.checkout.CardDetails;
 import com.adyen.v6.constants.StorefrontType;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
 import com.adyen.v6.facades.AdyenCheckoutFacade;
 import com.adyen.v6.model.RequestInfo;
+import com.adyen.v6.model.AdyenPartialPaymentOrderModel;
+import com.adyen.v6.service.AdyenCheckoutApiService;
+import com.adyen.v6.util.AmountUtil;
+import com.adyen.v6.enums.AdyenPartialPaymentStatus;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.hybris.platform.acceleratorfacades.flow.CheckoutFlowFacade;
@@ -23,6 +31,9 @@ import de.hybris.platform.commercefacades.order.data.OrderData;
 import de.hybris.platform.commerceservices.strategies.CheckoutCustomerStrategy;
 import de.hybris.platform.order.InvalidCartException;
 import de.hybris.platform.order.exceptions.CalculationException;
+import de.hybris.platform.servicelayer.search.FlexibleSearchService;
+import de.hybris.platform.servicelayer.search.FlexibleSearchQuery;
+import de.hybris.platform.servicelayer.search.SearchResult;
 import de.hybris.platform.site.BaseSiteService;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.log4j.Logger;
@@ -31,6 +42,7 @@ import org.springframework.validation.BeanPropertyBindingResult;
 
 import javax.servlet.http.HttpServletRequest;
 import java.lang.reflect.InvocationTargetException;
+import java.math.BigDecimal;
 
 import static com.adyen.commerce.constants.AdyenwebcommonsConstants.CHECKOUT_ERROR_AUTHORIZATION_FAILED;
 import static com.adyen.commerce.util.ErrorMessageUtil.getErrorMessageByRefusalReason;
@@ -177,6 +189,13 @@ public abstract class PlaceOrderControllerBase {
             RequestInfo requestInfo = new RequestInfo(request);
             requestInfo.setStorefrontType(placeOrderRequest.getStorefrontType());
             requestInfo.setStorefrontVersion(placeOrderRequest.getStorefrontVersion());
+            
+            // Handle partial payment if partialPaymentId is present
+            if (placeOrderRequest.getPartialPaymentId() != null && !placeOrderRequest.getPartialPaymentId().isEmpty()) {
+                LOGGER.info("Processing partial payment with ID: " + placeOrderRequest.getPartialPaymentId());
+                return handlePartialPayment(request, placeOrderRequest, cartData, requestInfo);
+            }
+            
             OrderPaymentResult orderPaymentResult = getAdyenCheckoutApiFacade().placeOrderWithPayment(request, cartData, placeOrderRequest.getPaymentRequest(), requestInfo);
             OrderData orderData = orderPaymentResult.getOrderData();
             String orderCode = getCheckoutCustomerStrategy().isAnonymousCheckout() ? orderData.getGuid() : orderData.getCode();
@@ -216,6 +235,98 @@ public abstract class PlaceOrderControllerBase {
         return placeOrderResponse;
     }
 
+    /**
+     * Handle partial payment processing for gift cards
+     * Retrieves the partial payment from database and makes authorization call to Adyen
+     */
+    private OCCPlaceOrderResponse handlePartialPayment(HttpServletRequest request, PlaceOrderRequest placeOrderRequest,
+                                                      CartData cartData, RequestInfo requestInfo) {
+        try {
+            // Retrieve partial payment from database
+            AdyenPartialPaymentOrderModel partialPayment = findPartialPaymentOrderByPspReference(placeOrderRequest.getPartialPaymentId());
+            if (partialPayment == null) {
+                LOGGER.error("Partial payment not found for ID: " + placeOrderRequest.getPartialPaymentId());
+                throw new AdyenControllerException(CHECKOUT_ERROR_AUTHORIZATION_FAILED);
+            }
+
+            LOGGER.info("Found partial payment: " + partialPayment.getPspReference() +
+                       " with charged amount: " + partialPayment.getGiftCardChargedAmount());
+
+            // Get Adyen checkout API service
+            AdyenCheckoutApiService adyenService = getAdyenCheckoutApiFacade().getAdyenPaymentService();
+            
+            // Make authorization call to Adyen with the gift card amount instead of full cart amount
+            PaymentResponse paymentResponse = adyenService.processPartialPaymentRequest(
+                cartData,
+                placeOrderRequest.getPaymentRequest(),
+                requestInfo,
+                getCheckoutCustomerStrategy().getCurrentUserForCheckout(),
+                partialPayment.getGiftCardChargedAmount(),
+                partialPayment.getCurrency().getIsocode()
+            );
+
+            LOGGER.info("Gift card authorization response: " + paymentResponse.getResultCode() +
+                       " PSP Reference: " + paymentResponse.getPspReference());
+
+            // Handle the payment response
+            if (PaymentResponse.ResultCodeEnum.AUTHORISED == paymentResponse.getResultCode()) {
+                // Update partial payment with authorization details
+                partialPayment.setPspReference(paymentResponse.getPspReference());
+                partialPayment.setStatus(AdyenPartialPaymentStatus.AUTHORIZED);
+                partialPayment.setProcessedAt(new java.util.Date());
+                getModelService().save(partialPayment);
+
+                // Return response indicating partial payment was processed but order not placed
+                OCCPlaceOrderResponse response = new OCCPlaceOrderResponse();
+                response.setPaymentsResponse(paymentResponse);
+                response.setPartialPaymentProcessed(true);
+                response.setRemainingAmount(partialPayment.getRemainingAmount());
+                
+                LOGGER.info("Partial payment authorized successfully. Remaining amount: " + partialPayment.getRemainingAmount());
+                return response;
+                
+            } else if (REDIRECTSHOPPER == paymentResponse.getResultCode() || CHALLENGESHOPPER == paymentResponse.getResultCode() ||
+                      IDENTIFYSHOPPER == paymentResponse.getResultCode() || PENDING == paymentResponse.getResultCode() ||
+                      PRESENTTOSHOPPER == paymentResponse.getResultCode()) {
+                
+                LOGGER.debug("Gift card payment requires action: " + paymentResponse.getResultCode());
+                return executeAction(paymentResponse);
+                
+            } else {
+                LOGGER.error("Gift card authorization failed: " + paymentResponse.getResultCode() +
+                           " Refusal reason: " + paymentResponse.getRefusalReason());
+                String errorMessage = getErrorMessageByRefusalReason(paymentResponse.getRefusalReason());
+                throw new AdyenControllerException(errorMessage);
+            }
+
+        } catch (AdyenControllerException e) {
+            throw e;
+        } catch (Exception e) {
+            LOGGER.error("Error processing partial payment: " + ExceptionUtils.getStackTrace(e));
+            throw new AdyenControllerException(CHECKOUT_ERROR_AUTHORIZATION_FAILED);
+        }
+    }
+
+
+    /**
+     * Find partial payment order by PSP reference
+     */
+    private AdyenPartialPaymentOrderModel findPartialPaymentOrderByPspReference(String pspReference) {
+        try {
+            String query = "SELECT {pk} FROM {AdyenPartialPaymentOrder} WHERE {pspReference} = ?pspReference";
+            FlexibleSearchQuery searchQuery = new FlexibleSearchQuery(query);
+            searchQuery.addQueryParameter("pspReference", pspReference);
+            
+            SearchResult<AdyenPartialPaymentOrderModel> result = getFlexibleSearchService().search(searchQuery);
+            if (result.getCount() > 0) {
+                return result.getResult().get(0);
+            }
+        } catch (Exception e) {
+            LOGGER.error("Error finding partial payment order by PSP reference: " + pspReference, e);
+        }
+        return null;
+    }
+
     public abstract String getPaymentRedirectReturnUrl();
 
     public abstract AdyenCheckoutApiFacade getAdyenCheckoutApiFacade();
@@ -231,5 +342,9 @@ public abstract class PlaceOrderControllerBase {
     public abstract AdyenCheckoutFacade getAdyenCheckoutFacade();
 
     public abstract CheckoutCustomerStrategy getCheckoutCustomerStrategy();
+
+    public abstract FlexibleSearchService getFlexibleSearchService();
+
+    public abstract de.hybris.platform.servicelayer.model.ModelService getModelService();
 
 }
