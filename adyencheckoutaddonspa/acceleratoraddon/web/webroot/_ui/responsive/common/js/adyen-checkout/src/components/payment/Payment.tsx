@@ -366,6 +366,31 @@ class Payment extends React.Component<Props, State> {
         return this.state.saveInAddressBook && this.state.useDifferentBillingAddress
     }
 
+    /**
+     * Handle payment response from backend, including partial payment scenarios for gift cards
+     *
+     * This method processes the response from the place order API call and determines how to
+     * inform the Adyen DropIn component about the payment status.
+     *
+     * For partial payments with gift cards:
+     * 1. When a gift card has insufficient balance, the backend will:
+     *    - Charge the available amount from the gift card
+     *    - Return isPartialPayment=true with remainingAmount > 0
+     *    - Provide partialPaymentId for subsequent payment attempts
+     *
+     * 2. This method will then:
+     *    - Store the partialPaymentId for the next payment attempt
+     *    - Resolve the DropIn with 'PartiallyAuthorised' result code
+     *    - Update DropIn configuration to show remaining amount
+     *    - Allow user to select another payment method for the remaining amount
+     *
+     * 3. For complete payments (remainingAmount = 0):
+     *    - Resolve with the actual result code from Adyen
+     *    - Redirect to thank you page if successful
+     *
+     * @param response Promise containing the backend response
+     * @param actions SubmitActions from Adyen DropIn to resolve/reject the payment
+     */
     private async handleResponse(response: Promise<void | PlaceOrderResponse>, actions: SubmitActions) {
         this.setState({errorFieldCodes: []})
 
@@ -375,11 +400,39 @@ class Payment extends React.Component<Props, State> {
                 if (responseData.executeAction) {
                     this.dropIn.handleAction(responseData.paymentsAction)
                 } else {
-                    actions.resolve({
-                        resultCode: responseData.paymentsResponse.resultCode
-                    });
-                    this.setState({orderNumber: responseData.orderNumber})
-                    this.setState({redirectToNextStep: true})
+                    // Handle partial payment scenarios
+                    if (responseData.paymentsResponse && responseData.paymentsResponse.order && responseData.paymentsResponse.order.remainingAmount.value > 0) {
+                        console.log('Partial payment detected:', {
+                            partialPaymentId: responseData.partialPaymentId,
+                            chargedAmount: responseData.chargedAmount,
+                            remainingAmount: responseData.remainingAmount
+                        });
+                        
+                        // Store the partial payment ID for subsequent payments
+                        if (responseData.partialPaymentId) {
+                             this.setState({ partialPaymentId: responseData.partialPaymentId });
+                        }
+                        
+                        // Inform DropIn about partial payment success
+                        // For partial payments, we need to resolve with PartiallyAuthorised result code
+                        // This tells DropIn that the gift card payment was successful but more payment is needed
+                        actions.resolve(responseData.paymentsResponse);
+                        
+                        
+                        console.log('DropIn informed about partial payment, remaining amount:', responseData.remainingAmount);
+                        
+                    } else {
+                        // Handle complete payment (no remaining amount)
+                        actions.resolve({
+                            resultCode: responseData.paymentsResponse.resultCode
+                        });
+                        
+                        // Only redirect if payment is fully completed
+                        if (responseData.orderNumber) {
+                            this.setState({orderNumber: responseData.orderNumber});
+                            this.setState({redirectToNextStep: true});
+                        }
+                    }
                 }
             } else {
                 this.setState({errorFieldCodes: responseData.errorFieldCodes})

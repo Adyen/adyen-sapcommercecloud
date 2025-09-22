@@ -1,5 +1,6 @@
 package com.adyen.commerce.services.impl;
 
+import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.commerce.services.AdyenRequestService;
 import com.adyen.commerce.services.impl.AddressConverter;
 import com.adyen.model.checkout.*;
@@ -84,12 +85,13 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
                                               final RequestInfo requestInfo,
                                               final CustomerModel customerModel,
                                               final RecurringContractMode recurringContractMode,
-                                              final Boolean guestUserTokenizationEnabled) {
+                                              final Boolean guestUserTokenizationEnabled,
+                                              final AdyenPartialPaymentOrderData partialPaymentOrderData) {
         
         validatePaymentRequestInputs(merchantAccount, cartData, requestInfo, customerModel);
 
         PaymentRequest paymentRequest = buildBasePaymentRequest(
-            merchantAccount, cartData, originPaymentsRequest, requestInfo, customerModel);
+            merchantAccount, cartData, originPaymentsRequest, requestInfo, customerModel, partialPaymentOrderData);
 
         handlePaymentMethodSpecificLogic(paymentRequest, cartData, originPaymentsRequest, 
             recurringContractMode, customerModel, guestUserTokenizationEnabled);
@@ -292,7 +294,7 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
 
     protected PaymentRequest buildBasePaymentRequest(String merchantAccount, CartData cartData,
                                                  PaymentRequest originPaymentsRequest, RequestInfo requestInfo, 
-                                                 CustomerModel customerModel) {
+                                                 CustomerModel customerModel, AdyenPartialPaymentOrderData partialPaymentOrderData) {
         
         PaymentRequestBuilder builder = new PaymentRequestBuilder()
             .merchantAccount(merchantAccount)
@@ -304,6 +306,10 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
             .redirectMethods()
             .countryCode(getCountryCode(cartData))
             .company(createCompany(cartData));
+
+        if (partialPaymentOrderData != null) {
+            builder.amount(partialPaymentOrderData.getRemainingAmount(), partialPaymentOrderData.getCurrency().getIsocode());
+        }
 
         // Set return URL
         String returnUrl = StringUtils.isNotEmpty(cartData.getAdyenReturnUrl()) ? 
@@ -342,7 +348,8 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
             .requestInfo(requestInfo)
             .redirectMethods()
             .countryCode(getCountryCode(cartData))
-            .company(createCompany(cartData));
+            .company(createCompany(cartData))
+            .order(originPaymentsRequest.getOrder());
 
         // Set return URL
         String returnUrl = StringUtils.isNotEmpty(cartData.getAdyenReturnUrl()) ?

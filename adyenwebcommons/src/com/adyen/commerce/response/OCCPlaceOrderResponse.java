@@ -8,6 +8,8 @@ public class OCCPlaceOrderResponse extends PlaceOrderResponse {
     private OrderData orderData;
     private boolean partialPaymentProcessed;
     private BigDecimal remainingAmount;
+    private boolean partialPaymentCompleted;
+    private String partialPaymentId;
 
     public OrderData getOrderData() {
         return orderData;
@@ -31,5 +33,21 @@ public class OCCPlaceOrderResponse extends PlaceOrderResponse {
 
     public void setRemainingAmount(BigDecimal remainingAmount) {
         this.remainingAmount = remainingAmount;
+    }
+
+    public boolean isPartialPaymentCompleted() {
+        return partialPaymentCompleted;
+    }
+
+    public void setPartialPaymentCompleted(boolean partialPaymentCompleted) {
+        this.partialPaymentCompleted = partialPaymentCompleted;
+    }
+
+    public String getPartialPaymentId() {
+        return partialPaymentId;
+    }
+
+    public void setPartialPaymentId(String partialPaymentId) {
+        this.partialPaymentId = partialPaymentId;
     }
 }

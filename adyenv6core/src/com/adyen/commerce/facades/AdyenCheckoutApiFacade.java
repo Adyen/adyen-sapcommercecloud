@@ -1,5 +1,6 @@
 package com.adyen.commerce.facades;
 
+import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.commerce.dto.OrderPaymentResult;
 import com.adyen.model.checkout.PaymentDetailsRequest;
 import com.adyen.model.checkout.PaymentRequest;
@@ -15,6 +16,8 @@ public interface AdyenCheckoutApiFacade extends AdyenCheckoutFacade {
     void preHandlePlaceOrder(PaymentRequest paymentRequest, String adyenPaymentMethod, AddressForm billingAddress, Boolean useAdyenDeliveryAddress);
 
     OrderPaymentResult placeOrderWithPayment(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest, RequestInfo requestInfo) throws Exception;
+
+    OrderPaymentResult placeOrderWithPayment(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest, RequestInfo requestInfo, AdyenPartialPaymentOrderData partialPaymentOrderData) throws Exception;
 
     OrderPaymentResult placeOrderWithPaymentOCC(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest, RequestInfo requestInfo) throws Exception;
 

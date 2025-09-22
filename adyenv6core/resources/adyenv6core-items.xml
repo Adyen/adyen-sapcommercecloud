@@ -19,6 +19,7 @@
     <collectiontypes>
         <collectiontype code="AdyenCardTypeSet" elementtype="AdyenCardTypeEnum" autocreate="true" generate="true" type="set"/>
         <collectiontype code="AdyenMerchantConfigList" elementtype="AdyenMerchantConfig" type="list"/>
+        <collectiontype code="AdyenPartialPaymentOrderList" elementtype="AdyenPartialPaymentOrder" autocreate="true" generate="true" type="list"/>
     </collectiontypes>
 
     <enumtypes>
@@ -108,6 +109,18 @@
                     <description>Amazon Pay configuration</description>
                     <persistence type="property"/>
                 </attribute>
+                <attribute qualifier="adyenPartialPaymentOrders" type="AdyenPartialPaymentOrderList">
+                    <description>Collection of Adyen partial payment orders associated with this cart</description>
+                    <persistence type="property"/>
+                </attribute>
+<!--                <attribute qualifier="adyenPartialPaymentRemainingAmount" type="java.math.BigDecimal">
+                    <description>Remaining amount to complete partial payments </description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="adyenPartialPaymentStatus" type="java.math.BigDecimal">
+                    <description>Remaining amount to complete partial payments </description>
+                    <persistence type="property"/>
+                </attribute>-->
             </attributes>
         </itemtype>
 
@@ -745,39 +758,13 @@
                 <attribute qualifier="pspReference" type="java.lang.String">
                     <description>PSP Reference from Adyen</description>
                     <modifiers optional="false" unique="true"/>
-                    <persistence type="property">
-                        <columntype database="oracle">
-                            <value>VARCHAR2(500)</value>
-                        </columntype>
-                        <columntype database="mysql">
-                            <value>VARCHAR(500)</value>
-                        </columntype>
-                        <columntype database="hsqldb">
-                            <value>VARCHAR(500)</value>
-                        </columntype>
-                        <columntype>
-                            <value>VARCHAR(500)</value>
-                        </columntype>
-                    </persistence>
+                    <persistence type="property"/>
                 </attribute>
 
                 <attribute qualifier="orderData" type="java.lang.String">
                     <description>Order data from Adyen CreateOrderResponse</description>
                     <modifiers optional="false"/>
-                    <persistence type="property">
-                        <columntype database="oracle">
-                            <value>CLOB</value>
-                        </columntype>
-                        <columntype database="mysql">
-                            <value>TEXT</value>
-                        </columntype>
-                        <columntype database="hsqldb">
-                            <value>LONGVARCHAR</value>
-                        </columntype>
-                        <columntype>
-                            <value>TEXT</value>
-                        </columntype>
-                    </persistence>
+                    <persistence type="property"/>
                 </attribute>
 
                 <!-- Request Information -->

@@ -120,6 +120,11 @@ public class PaymentRequestBuilder {
         return this;
     }
 
+    public PaymentRequestBuilder order(EncryptedOrderData order) {
+        paymentRequest.setOrder(order);
+        return this;
+    }
+
     public PaymentRequest build() {
         return paymentRequest;
     }

@@ -1,5 +1,6 @@
 package com.adyen.commerce.facades.impl;
 
+import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.commerce.dto.OrderPaymentResult;
 import com.adyen.commerce.facades.AdyenCheckoutApiFacade;
 import com.adyen.model.checkout.AfterpayDetails;
@@ -97,7 +98,12 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
     }
 
     @Override
-    public OrderPaymentResult placeOrderWithPayment(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest, RequestInfo requestInfo) throws Exception{
+    public OrderPaymentResult placeOrderWithPayment(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest, RequestInfo requestInfo) throws Exception {
+        return placeOrderWithPayment(request, cartData, paymentRequest, requestInfo, null);
+    }
+
+    @Override
+    public OrderPaymentResult placeOrderWithPayment(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest, RequestInfo requestInfo, AdyenPartialPaymentOrderData partialPaymentOrderData) throws Exception{
         requestInfo.setShopperLocale(getShopperLocale());
 
         PaymentResponse paymentResponse = getAdyenPaymentService().processPaymentRequest(cartData, paymentRequest, requestInfo, getCheckoutCustomerStrategy().getCurrentUserForCheckout());

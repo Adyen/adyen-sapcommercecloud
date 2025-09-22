@@ -63,7 +63,7 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
                 cartData,
                 originPaymentsRequest,
                 requestInfo,
-                customerModel, baseStore.getAdyenRecurringContractMode(), baseStore.getAdyenGuestUserTokenization());
+                customerModel, baseStore.getAdyenRecurringContractMode(), baseStore.getAdyenGuestUserTokenization(), null);
 
         adyenRequestService.applyAdditionalData(cartData, paymentsRequest);
 

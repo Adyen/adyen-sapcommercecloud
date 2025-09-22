@@ -15,7 +15,14 @@ export interface PlaceOrderResponse {
     paymentDetailsResponse?: PaymentResponseData,
     error?: string,
     errorFieldCodes?: string[]
-    orderNumber?: string
+    orderNumber?: string,
+    // Partial payment specific fields
+    isPartialPayment?: boolean,
+    partialPaymentId?: string,
+    remainingAmount?: { value: number; currency: string },
+    chargedAmount?: { value: number; currency: string },
+    orderData?: string,  // Encrypted order data from Adyen for partial payments
+    pspReference?: string  // PSP reference for the partial payment
 }
 
 export class PaymentService {
@@ -34,7 +41,20 @@ export class PaymentService {
                     executeAction: placeOrderData.executeAction,
                     paymentsAction: placeOrderData.paymentsAction,
                     orderNumber: placeOrderData.orderNumber,
-                    paymentsResponse: placeOrderData.paymentsResponse
+                    paymentsResponse: placeOrderData.paymentsResponse,
+                    // Map partial payment fields from backend response
+                    isPartialPayment: placeOrderData.partialPayment || false,
+                    partialPaymentId: placeOrderData.partialPaymentId,
+                    remainingAmount: placeOrderData.remainingAmountValue && placeOrderData.remainingAmountCurrency ? {
+                        value: placeOrderData.remainingAmountValue,
+                        currency: placeOrderData.remainingAmountCurrency
+                    } : undefined,
+                    chargedAmount: placeOrderData.chargedAmountValue && placeOrderData.chargedAmountCurrency ? {
+                        value: placeOrderData.chargedAmountValue,
+                        currency: placeOrderData.chargedAmountCurrency
+                    } : undefined,
+                    orderData: placeOrderData.orderData,  // Encrypted order data from Adyen
+                    pspReference: placeOrderData.pspReference  // PSP reference for partial payment
                 }
             })
             .catch((errorResponse: AxiosError<ErrorResponse>): PlaceOrderResponse | void => {
@@ -64,7 +84,20 @@ export class PaymentService {
                     executeAction: placeOrderData.executeAction,
                     paymentsAction: placeOrderData.paymentsAction,
                     orderNumber: placeOrderData.orderNumber,
-                    paymentsResponse: placeOrderData.paymentDetailsResponse
+                    paymentsResponse: placeOrderData.paymentDetailsResponse,
+                    // Map partial payment fields from backend response
+                    isPartialPayment: placeOrderData.partialPayment || false,
+                    partialPaymentId: placeOrderData.partialPaymentId,
+                    remainingAmount: placeOrderData.remainingAmountValue && placeOrderData.remainingAmountCurrency ? {
+                        value: placeOrderData.remainingAmountValue,
+                        currency: placeOrderData.remainingAmountCurrency
+                    } : undefined,
+                    chargedAmount: placeOrderData.chargedAmountValue && placeOrderData.chargedAmountCurrency ? {
+                        value: placeOrderData.chargedAmountValue,
+                        currency: placeOrderData.chargedAmountCurrency
+                    } : undefined,
+                    orderData: placeOrderData.orderData,  // Encrypted order data from Adyen
+                    pspReference: placeOrderData.pspReference  // PSP reference for partial payment
                 }
             })
             .catch((errorResponse: AxiosError<ErrorResponse>): PlaceOrderResponse | void => {
