@@ -273,6 +273,16 @@
         <property name="configurationService" ref="configurationService"/>
     </bean>
 
+    <alias name="defaultAdyenGiftCardFacade" alias="adyenGiftCardFacade" />
+    <bean id="defaultAdyenGiftCardFacade" class="com.adyen.commerce.facades.impl.DefaultAdyenGiftCardFacade">
+        <property name="baseStoreService" ref="baseStoreService"/>
+        <property name="adyenPaymentServiceFactory" ref="adyenPaymentServiceFactory"/>
+        <property name="adyenPartialPaymentService" ref="adyenPartialPaymentService"/>
+        <property name="cartService" ref="cartService"/>
+        <property name="modelService" ref="modelService"/>
+        <property name="commonI18NService" ref="commonI18NService"/>
+    </bean>
+
     <alias name="defaultAdyenDataCollectionFacade" alias="adyenDataCollectionFacade" />
     <bean id="defaultAdyenDataCollectionFacade" class="com.adyen.v6.facades.impl.DefaultAdyenDataCollectionFacade">
         <property name="adyenCheckoutFacade" ref="adyenCheckoutFacade"/>
