@@ -12,6 +12,7 @@ import com.adyen.backoffice.dto.MerchantDataWsDTO;
 import com.adyen.backoffice.dto.MerchantResponseWsDTO;
 import com.adyen.backoffice.dto.PaymentMethodResponseWsDTO;
 import com.adyen.backoffice.dto.StoreResponseWsDTO;
+import com.adyen.backoffice.dto.WebhookResponseWsDTO;
 
 import com.adyen.backoffice.service.AdyenManagementService;
 
@@ -61,6 +62,17 @@ public class MerchantController {
 			@RequestParam(required = false) Integer pageNumber) {
 		
 		PaymentMethodResponseWsDTO response = adyenManagementService.getAllPaymentMethods(merchantId, storeId, businessLineId, pageSize, pageNumber);
+		
+		return ResponseEntity.ok(response);
+	}
+
+	@GetMapping("/{merchantId}/webhooks")
+	public ResponseEntity<WebhookResponseWsDTO> getWebhooksByMerchantId(
+			@PathVariable String merchantId,
+			@RequestParam(required = false) Integer pageSize,
+			@RequestParam(required = false) Integer pageNumber) {
+		
+		WebhookResponseWsDTO response = adyenManagementService.getWebhooksByMerchantId(merchantId, pageSize, pageNumber);
 		
 		return ResponseEntity.ok(response);
 	}
