@@ -7,6 +7,7 @@ import { MerchantDetailData } from '../../merchants/types/merchant-detail.types'
 import ConfigurationDetails from './ConfigurationDetails';
 import StoresList from './StoresList';
 import PaymentMethodsList from './PaymentMethodsList';
+import WebhooksList from './WebhooksList';
 import LoadingSpinner from '../../merchants/components/LoadingSpinner';
 import ErrorMessage from '../../merchants/components/ErrorMessage';
 
@@ -133,6 +134,11 @@ const MerchantDetailClient: React.FC<MerchantDetailClientProps> = ({ merchantId 
         {/* Associated Stores */}
         <div className="mt-6">
           <StoresList merchantId={merchant.id} />
+        </div>
+
+        {/* Webhooks */}
+        <div className="mt-6">
+          <WebhooksList merchantId={merchant.id} />
         </div>
 
       </div>
