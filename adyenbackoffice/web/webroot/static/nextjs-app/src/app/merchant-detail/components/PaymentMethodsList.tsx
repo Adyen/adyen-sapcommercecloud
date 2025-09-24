@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { CreditCard, CheckCircle, XCircle, Globe, DollarSign, Settings } from 'lucide-react';
+import { CreditCard, CheckCircle, XCircle, Globe, DollarSign, Settings, Eye } from 'lucide-react';
 import { PaymentMethodData, PaymentMethodResponse } from '../../merchants/types/payment-method.types';
 import LoadingSpinner from '../../merchants/components/LoadingSpinner';
 import ErrorMessage from '../../merchants/components/ErrorMessage';
 import Pagination from '../../components/shared/Pagination';
+import PaymentMethodSettingsModal from './PaymentMethodSettingsModal';
 
 interface PaymentMethodsListProps {
   merchantId: string;
@@ -20,6 +21,13 @@ const PaymentMethodsList: React.FC<PaymentMethodsListProps> = ({ merchantId }) =
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize] = useState<number>(10);
   const [totalPages, setTotalPages] = useState<number>(0);
+  
+  // Modal state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   useEffect(() => {
     const fetchPaymentMethods = async (isPageChange = false) => {
@@ -86,6 +94,19 @@ const PaymentMethodsList: React.FC<PaymentMethodsListProps> = ({ merchantId }) =
     if (!countries || countries.length === 0) return 'No countries specified';
     if (countries.length <= 3) return countries.join(', ');
     return `${countries.slice(0, 3).join(', ')} +${countries.length - 3} more`;
+  };
+
+  const handlePaymentMethodClick = (paymentMethod: PaymentMethodData) => {
+    setSelectedPaymentMethod({
+      id: paymentMethod.id,
+      name: paymentMethod.name
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedPaymentMethod(null);
   };
 
   if (loading) {
@@ -163,6 +184,9 @@ const PaymentMethodsList: React.FC<PaymentMethodsListProps> = ({ merchantId }) =
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Store ID
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className={`bg-white divide-y divide-gray-200 ${paginationLoading ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -196,11 +220,14 @@ const PaymentMethodsList: React.FC<PaymentMethodsListProps> = ({ merchantId }) =
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="h-4 bg-gray-200 rounded w-16"></div>
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="h-6 bg-gray-200 rounded w-24"></div>
+                      </td>
                     </tr>
                   ))
                 ) : (
                   paymentMethods.map((method) => (
-                  <tr key={method.id} className="hover:bg-gray-50">
+                  <tr key={method.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => handlePaymentMethodClick(method)}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-10 w-10">
@@ -271,6 +298,19 @@ const PaymentMethodsList: React.FC<PaymentMethodsListProps> = ({ merchantId }) =
                         </div>
                       )}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePaymentMethodClick(method);
+                        }}
+                        className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        title="View payment method settings"
+                      >
+                        <Eye className="h-3 w-3 mr-1" />
+                        View Settings
+                      </button>
+                    </td>
                     </tr>
                   ))
                 )}
@@ -287,6 +327,17 @@ const PaymentMethodsList: React.FC<PaymentMethodsListProps> = ({ merchantId }) =
             loading={paginationLoading}
           />
         </>
+      )}
+      
+      {/* Payment Method Settings Modal */}
+      {selectedPaymentMethod && (
+        <PaymentMethodSettingsModal
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          merchantId={merchantId}
+          paymentMethodId={selectedPaymentMethod.id}
+          paymentMethodName={selectedPaymentMethod.name}
+        />
       )}
     </div>
   );

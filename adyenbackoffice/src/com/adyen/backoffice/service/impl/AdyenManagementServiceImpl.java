@@ -3,6 +3,7 @@ package com.adyen.backoffice.service.impl;
 import com.adyen.backoffice.dto.MerchantDataWsDTO;
 import com.adyen.backoffice.dto.MerchantResponseWsDTO;
 import com.adyen.backoffice.dto.PaymentMethodResponseWsDTO;
+import com.adyen.backoffice.dto.PaymentMethodSettingsWsDTO;
 import com.adyen.backoffice.dto.StoreResponseWsDTO;
 import com.adyen.backoffice.dto.WebhookResponseWsDTO;
 import com.adyen.backoffice.service.AdyenManagementService;
@@ -169,6 +170,29 @@ public class AdyenManagementServiceImpl implements AdyenManagementService {
                 HttpMethod.GET,
                 entity,
                 WebhookResponseWsDTO.class
+        );
+
+        return response.getBody();
+    }
+
+    @Override
+    public PaymentMethodSettingsWsDTO getPaymentMethodSettings(final String merchantId, final String paymentMethodId) {
+        final String endpoint = getConfigurationService().getConfiguration().getString("adyen.management.api.endpoint");
+        final String apiKey = getConfigurationService().getConfiguration().getString("adyen.management.api.key");
+
+        final HttpHeaders headers = new HttpHeaders();
+        headers.set("X-API-Key", apiKey);
+
+        final HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        // Build the payment method settings endpoint URL
+        final String paymentMethodSettingsEndpoint = endpoint + "/" + merchantId + "/paymentMethodSettings/" + paymentMethodId;
+
+        final ResponseEntity<PaymentMethodSettingsWsDTO> response = restTemplate.exchange(
+                paymentMethodSettingsEndpoint,
+                HttpMethod.GET,
+                entity,
+                PaymentMethodSettingsWsDTO.class
         );
 
         return response.getBody();
