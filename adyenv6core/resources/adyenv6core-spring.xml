@@ -567,4 +567,13 @@
         <property name="modelService" ref="modelService"/>
         <property name="commonI18NService" ref="commonI18NService"/>
     </bean>
+
+    <alias name="defaultAdyenOrderApiFacade" alias="adyenOrderApiFacade" />
+    <bean id="defaultAdyenOrderApiFacade" class="com.adyen.commerce.facades.impl.DefaultAdyenOrderApiFacade">
+        <property name="cartFacade" ref="cartFacade"/>
+        <property name="baseStoreService" ref="baseStoreService"/>
+        <property name="adyenPaymentServiceFactory" ref="adyenPaymentServiceFactory"/>
+        <property name="modelService"  ref="defaultModelService"/>
+        <property name="flexibleSearchService" ref="defaultFlexibleSearchService" />
+    </bean>
 </beans>
