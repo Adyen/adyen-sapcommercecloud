@@ -260,41 +260,6 @@ class PaymentComponentFactory {
                     this.helper.handleResult({resultCode: ErrorMessages.TermsNotAccepted}, true);
                 }
             },
-            onValidateMerchant: (resolve, reject, validationURL) => {
-                if (!this.helper.isTermsAccepted(label)) {
-                    reject();
-                    this.helper.handleResult({resultCode: ErrorMessages.TermsNotAccepted}, true);
-                    return;
-                }
-                
-                // Validate merchant with Apple Pay servers
-                $.ajax({
-                    url: ACC.config.encodedContextPath + '/adyen/component/applepay/validate-merchant',
-                    type: "POST",
-                    data: JSON.stringify({
-                        validationURL: validationURL,
-                        merchantIdentifier: applePayMerchantIdentifier
-                    }),
-                    contentType: "application/json; charset=utf-8",
-                    success: function (response) {
-                        try {
-                            if (response && response.merchantSession) {
-                                resolve(response.merchantSession);
-                            } else {
-                                console.log('Invalid merchant session response');
-                                reject();
-                            }
-                        } catch (e) {
-                            console.log('Error parsing merchant validation response: ' + e);
-                            reject();
-                        }
-                    },
-                    error: function (xhr, exception) {
-                        console.log('Error validating Apple Pay merchant: ' + xhr.responseText);
-                        reject();
-                    }
-                });
-            },
             onAdditionalDetails: (state, component) => {
                 this.helper.submitDetails(state.data, this.helper.handleResult);
             },
