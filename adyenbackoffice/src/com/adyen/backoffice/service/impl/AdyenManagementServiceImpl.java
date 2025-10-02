@@ -5,6 +5,8 @@ import com.adyen.backoffice.dto.MerchantResponseWsDTO;
 import com.adyen.backoffice.dto.PaymentMethodResponseWsDTO;
 import com.adyen.backoffice.dto.PaymentMethodSettingsWsDTO;
 import com.adyen.backoffice.dto.StoreResponseWsDTO;
+import com.adyen.backoffice.dto.WebhookCreateRequestWsDTO;
+import com.adyen.backoffice.dto.WebhookDataWsDTO;
 import com.adyen.backoffice.dto.WebhookResponseWsDTO;
 import com.adyen.backoffice.service.AdyenManagementService;
 import de.hybris.platform.servicelayer.config.ConfigurationService;
@@ -196,6 +198,29 @@ public class AdyenManagementServiceImpl implements AdyenManagementService {
                 HttpMethod.GET,
                 entity,
                 PaymentMethodSettingsWsDTO.class
+        );
+
+        return response.getBody();
+    }
+
+    @Override
+    public WebhookDataWsDTO createWebhook(final String merchantId, final WebhookCreateRequestWsDTO webhookRequest) {
+        final String endpoint = getConfigurationService().getConfiguration().getString(ADYEN_MANAGEMENT_API_ENDPOINT);
+        final String apiKey = getConfigurationService().getConfiguration().getString(ADYEN_MANAGEMENT_API_KEY);
+
+        final String webhookEndpoint = endpoint + "/" + merchantId + "/webhooks";
+
+        final HttpHeaders headers = new HttpHeaders();
+        headers.set(X_API_KEY, apiKey);
+        headers.set("Content-Type", "application/json");
+
+        final HttpEntity<WebhookCreateRequestWsDTO> entity = new HttpEntity<>(webhookRequest, headers);
+
+        final ResponseEntity<WebhookDataWsDTO> response = restTemplate.exchange(
+                webhookEndpoint,
+                HttpMethod.POST,
+                entity,
+                WebhookDataWsDTO.class
         );
 
         return response.getBody();
