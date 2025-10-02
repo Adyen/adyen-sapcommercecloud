@@ -3,6 +3,7 @@ package com.adyen.backoffice.service.impl;
 import com.adyen.backoffice.dto.MerchantDataWsDTO;
 import com.adyen.backoffice.dto.MerchantResponseWsDTO;
 import com.adyen.backoffice.dto.PaymentMethodResponseWsDTO;
+import com.adyen.backoffice.dto.PaymentMethodSettingsWsDTO;
 import com.adyen.backoffice.dto.StoreResponseWsDTO;
 import com.adyen.backoffice.dto.WebhookResponseWsDTO;
 import com.adyen.backoffice.service.AdyenManagementService;
@@ -18,6 +19,9 @@ import javax.annotation.Resource;
 
 public class AdyenManagementServiceImpl implements AdyenManagementService {
 
+    public static final String ADYEN_MANAGEMENT_API_ENDPOINT = "adyen.management.api.endpoint";
+    public static final String ADYEN_MANAGEMENT_API_KEY = "adyen.management.api.key";
+    public static final String X_API_KEY = "X-API-Key";
     @Resource(name = "configurationService")
     private ConfigurationService configurationService;
 
@@ -25,11 +29,11 @@ public class AdyenManagementServiceImpl implements AdyenManagementService {
 
     @Override
     public MerchantResponseWsDTO getMerchants(final Integer pageSize, final Integer pageNumber) {
-        final String endpoint = getConfigurationService().getConfiguration().getString("adyen.management.api.endpoint");
-        final String apiKey = getConfigurationService().getConfiguration().getString("adyen.management.api.key");
+        final String endpoint = getConfigurationService().getConfiguration().getString(ADYEN_MANAGEMENT_API_ENDPOINT);
+        final String apiKey = getConfigurationService().getConfiguration().getString(ADYEN_MANAGEMENT_API_KEY);
 
         final HttpHeaders headers = new HttpHeaders();
-        headers.set("X-API-Key", apiKey);
+        headers.set(X_API_KEY, apiKey);
 
         final HttpEntity<String> entity = new HttpEntity<>(headers);
 
@@ -49,11 +53,11 @@ public class AdyenManagementServiceImpl implements AdyenManagementService {
 
     @Override
     public MerchantDataWsDTO getMerchantById(final String merchantId) {
-        final String endpoint = getConfigurationService().getConfiguration().getString("adyen.management.api.endpoint");
-        final String apiKey = getConfigurationService().getConfiguration().getString("adyen.management.api.key");
+        final String endpoint = getConfigurationService().getConfiguration().getString(ADYEN_MANAGEMENT_API_ENDPOINT);
+        final String apiKey = getConfigurationService().getConfiguration().getString(ADYEN_MANAGEMENT_API_KEY);
 
         final HttpHeaders headers = new HttpHeaders();
-        headers.set("X-API-Key", apiKey);
+        headers.set(X_API_KEY, apiKey);
 
         final HttpEntity<String> entity = new HttpEntity<>(headers);
 
@@ -71,11 +75,11 @@ public class AdyenManagementServiceImpl implements AdyenManagementService {
 
     @Override
     public StoreResponseWsDTO getStoresByMerchantId(final String merchantId, final Integer pageSize, final Integer pageNumber) {
-        final String endpoint = getConfigurationService().getConfiguration().getString("adyen.management.api.endpoint");
-        final String apiKey = getConfigurationService().getConfiguration().getString("adyen.management.api.key");
+        final String endpoint = getConfigurationService().getConfiguration().getString(ADYEN_MANAGEMENT_API_ENDPOINT);
+        final String apiKey = getConfigurationService().getConfiguration().getString(ADYEN_MANAGEMENT_API_KEY);
 
         final HttpHeaders headers = new HttpHeaders();
-        headers.set("X-API-Key", apiKey);
+        headers.set(X_API_KEY, apiKey);
 
         final HttpEntity<String> entity = new HttpEntity<>(headers);
 
@@ -104,11 +108,11 @@ public class AdyenManagementServiceImpl implements AdyenManagementService {
 
     @Override
     public PaymentMethodResponseWsDTO getAllPaymentMethods(final String merchantId, final String storeId, final String businessLineId, final Integer pageSize, final Integer pageNumber) {
-        final String endpoint = getConfigurationService().getConfiguration().getString("adyen.management.api.endpoint");
-        final String apiKey = getConfigurationService().getConfiguration().getString("adyen.management.api.key");
+        final String endpoint = getConfigurationService().getConfiguration().getString(ADYEN_MANAGEMENT_API_ENDPOINT);
+        final String apiKey = getConfigurationService().getConfiguration().getString(ADYEN_MANAGEMENT_API_KEY);
 
         final HttpHeaders headers = new HttpHeaders();
-        headers.set("X-API-Key", apiKey);
+        headers.set(X_API_KEY, apiKey);
 
         final HttpEntity<String> entity = new HttpEntity<>(headers);
 
@@ -143,11 +147,11 @@ public class AdyenManagementServiceImpl implements AdyenManagementService {
 
     @Override
     public WebhookResponseWsDTO getWebhooksByMerchantId(final String merchantId, final Integer pageSize, final Integer pageNumber) {
-        final String endpoint = getConfigurationService().getConfiguration().getString("adyen.management.api.endpoint");
-        final String apiKey = getConfigurationService().getConfiguration().getString("adyen.management.api.key");
+        final String endpoint = getConfigurationService().getConfiguration().getString(ADYEN_MANAGEMENT_API_ENDPOINT);
+        final String apiKey = getConfigurationService().getConfiguration().getString(ADYEN_MANAGEMENT_API_KEY);
 
         final HttpHeaders headers = new HttpHeaders();
-        headers.set("X-API-Key", apiKey);
+        headers.set(X_API_KEY, apiKey);
 
         final HttpEntity<String> entity = new HttpEntity<>(headers);
 
@@ -169,6 +173,29 @@ public class AdyenManagementServiceImpl implements AdyenManagementService {
                 HttpMethod.GET,
                 entity,
                 WebhookResponseWsDTO.class
+        );
+
+        return response.getBody();
+    }
+
+    @Override
+    public PaymentMethodSettingsWsDTO getPaymentMethodSettings(final String merchantId, final String paymentMethodId) {
+        final String endpoint = getConfigurationService().getConfiguration().getString(ADYEN_MANAGEMENT_API_ENDPOINT);
+        final String apiKey = getConfigurationService().getConfiguration().getString(ADYEN_MANAGEMENT_API_KEY);
+
+        final HttpHeaders headers = new HttpHeaders();
+        headers.set(X_API_KEY, apiKey);
+
+        final HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        // Build the payment method settings endpoint URL
+        final String paymentMethodSettingsEndpoint = endpoint + "/" + merchantId + "/paymentMethodSettings/" + paymentMethodId;
+
+        final ResponseEntity<PaymentMethodSettingsWsDTO> response = restTemplate.exchange(
+                paymentMethodSettingsEndpoint,
+                HttpMethod.GET,
+                entity,
+                PaymentMethodSettingsWsDTO.class
         );
 
         return response.getBody();

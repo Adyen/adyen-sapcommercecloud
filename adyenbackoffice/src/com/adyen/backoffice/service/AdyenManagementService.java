@@ -3,6 +3,7 @@ package com.adyen.backoffice.service;
 import com.adyen.backoffice.dto.MerchantDataWsDTO;
 import com.adyen.backoffice.dto.MerchantResponseWsDTO;
 import com.adyen.backoffice.dto.PaymentMethodResponseWsDTO;
+import com.adyen.backoffice.dto.PaymentMethodSettingsWsDTO;
 import com.adyen.backoffice.dto.StoreResponseWsDTO;
 import com.adyen.backoffice.dto.WebhookResponseWsDTO;
 
@@ -56,5 +57,14 @@ public interface AdyenManagementService {
      * @return A {@link WebhookResponseWsDTO} containing the list of webhook configurations.
      */
     WebhookResponseWsDTO getWebhooksByMerchantId(String merchantId, Integer pageSize, Integer pageNumber);
+
+    /**
+     * Retrieves the full settings for a specific payment method from the Adyen Management API.
+     *
+     * @param merchantId The ID of the merchant.
+     * @param paymentMethodId The unique identifier of the payment method.
+     * @return A {@link PaymentMethodSettingsWsDTO} containing the full payment method settings.
+     */
+    PaymentMethodSettingsWsDTO getPaymentMethodSettings(String merchantId, String paymentMethodId);
 
 }
