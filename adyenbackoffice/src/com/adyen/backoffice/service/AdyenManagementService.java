@@ -4,6 +4,9 @@ import com.adyen.backoffice.dto.MerchantDataWsDTO;
 import com.adyen.backoffice.dto.MerchantResponseWsDTO;
 import com.adyen.backoffice.dto.PaymentMethodResponseWsDTO;
 import com.adyen.backoffice.dto.StoreResponseWsDTO;
+import com.adyen.backoffice.dto.WebhookCreateRequestWsDTO;
+import com.adyen.backoffice.dto.WebhookDataWsDTO;
+import com.adyen.backoffice.dto.WebhookResponseWsDTO;
 
 public interface AdyenManagementService {
 
@@ -45,5 +48,24 @@ public interface AdyenManagementService {
      * @return A {@link PaymentMethodResponseWsDTO} containing the list of payment methods.
      */
     PaymentMethodResponseWsDTO getAllPaymentMethods(String merchantId, String storeId, String businessLineId, Integer pageSize, Integer pageNumber);
+
+    /**
+     * Retrieves all webhook configurations for a specific merchant from the Adyen Management API.
+     *
+     * @param merchantId The ID of the merchant to retrieve webhooks for.
+     * @param pageSize The number of items to have on a page (optional).
+     * @param pageNumber The number of the page to fetch (optional).
+     * @return A {@link WebhookResponseWsDTO} containing the list of webhook configurations.
+     */
+    WebhookResponseWsDTO getWebhooksByMerchantId(String merchantId, Integer pageSize, Integer pageNumber);
+
+        /**
+     * Creates a new webhook configuration for a specific merchant in the Adyen Management API.
+     *
+     * @param merchantId The ID of the merchant to create the webhook for.
+     * @param webhookRequest The webhook configuration data.
+     * @return A {@link WebhookDataWsDTO} containing the created webhook details.
+     */
+    WebhookDataWsDTO createWebhook(String merchantId, WebhookCreateRequestWsDTO webhookRequest);
 
 }
