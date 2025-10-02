@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Globe, AlertCircle, CheckCircle, XCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Globe, AlertCircle, CheckCircle, XCircle, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { WebhookResponse, WebhookData } from '../types/webhook.types';
 import LoadingSpinner from '../../merchants/components/LoadingSpinner';
 import ErrorMessage from '../../merchants/components/ErrorMessage';
+import CreateWebhookDialog, { WebhookCreateRequest } from './CreateWebhookDialog';
 
 interface WebhooksListProps {
   merchantId: string;
@@ -17,6 +18,7 @@ const WebhooksList: React.FC<WebhooksListProps> = ({ merchantId }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [hasNextPage, setHasNextPage] = useState(false);
   const [hasPrevPage, setHasPrevPage] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const pageSize = 10;
 
   const fetchWebhooks = async (page: number = 1) => {
@@ -47,6 +49,31 @@ const WebhooksList: React.FC<WebhooksListProps> = ({ merchantId }) => {
       setError(err instanceof Error ? err.message : 'Failed to fetch webhooks');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const createWebhook = async (webhookData: WebhookCreateRequest) => {
+    try {
+      const response = await fetch(
+        `/adyenbackoffice/api/webhooks/merchants/${merchantId}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(webhookData),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to create webhook: ${response.status} ${errorText}`);
+      }
+
+      // Refresh the webhooks list after successful creation
+      await fetchWebhooks(currentPage);
+    } catch (err) {
+      throw err; // Re-throw to be handled by the dialog
     }
   };
 
@@ -138,9 +165,18 @@ const WebhooksList: React.FC<WebhooksListProps> = ({ merchantId }) => {
             <Globe className="h-5 w-5 text-gray-400 mr-2" />
             <h3 className="text-lg font-medium text-gray-900">Webhooks</h3>
           </div>
-          <span className="text-sm text-gray-500">
-            {webhooks.length} webhook{webhooks.length !== 1 ? 's' : ''}
-          </span>
+          <div className="flex items-center space-x-4">
+            <span className="text-sm text-gray-500">
+              {webhooks.length} webhook{webhooks.length !== 1 ? 's' : ''}
+            </span>
+            <button
+              onClick={() => setIsCreateDialogOpen(true)}
+              className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Create Webhook
+            </button>
+          </div>
         </div>
       </div>
 
@@ -151,6 +187,15 @@ const WebhooksList: React.FC<WebhooksListProps> = ({ merchantId }) => {
           <p className="mt-1 text-sm text-gray-500">
             This merchant account has no webhook configurations.
           </p>
+          <div className="mt-6">
+            <button
+              onClick={() => setIsCreateDialogOpen(true)}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Create Your First Webhook
+            </button>
+          </div>
         </div>
       ) : (
         <>
@@ -276,6 +321,13 @@ const WebhooksList: React.FC<WebhooksListProps> = ({ merchantId }) => {
           )}
         </>
       )}
+
+      <CreateWebhookDialog
+        isOpen={isCreateDialogOpen}
+        onClose={() => setIsCreateDialogOpen(false)}
+        onSubmit={createWebhook}
+        merchantId={merchantId}
+      />
     </div>
   );
 };
