@@ -84,10 +84,8 @@ public class AdyenSummaryCheckoutStepController extends AbstractCheckoutStepCont
 
     private static final String SUMMARY = "summary";
     private static final String AUTHORISE_3D_SECURE_PAYMENT_URL = "/authorise-3d-adyen-response";
-    protected static final String CHECKOUT_RESULT_URL = "/checkout-adyen-response";
     private static final String REDIRECT_RESULT = "redirectResult";
     private static final String ACTION = "action";
-    private static final String PAYLOAD = "payload";
     private static final String CHECKOUT_ERROR_AUTHORIZATION_FAILED = "checkout.error.authorization.failed";
     private static final String PAYMENT_NOT_SUPPORTED = "checkout.error.payment.not.supported";
     private static final String CART_NOT_VALID = "checkout.error.cart.not.valid";
@@ -95,9 +93,6 @@ public class AdyenSummaryCheckoutStepController extends AbstractCheckoutStepCont
     private static final String API_EXCEPTION_START_MESSAGE = "API exception ";
     private static final String HANDLING_ADYEN_NON_AUTHORIZED_PAYMENT_EXCEPTION = "Handling AdyenNonAuthorizedPaymentException";
     private static final String REDIRECTING_TO_CART_PAGE = "Redirecting to cart page...";
-    private static final String CHECKOUT_ERROR_AUTHORIZATION_PAYMENT_REFUSED = "checkout.error.authorization.payment.refused";
-    private static final String CHECKOUT_ERROR_AUTHORIZATION_PAYMENT_CANCELLED = "checkout.error.authorization.payment.cancelled";
-    private static final String CHECKOUT_ERROR_AUTHORIZATION_PAYMENT_ERROR = "checkout.error.authorization.payment.error";
     private static final String NON_AUTHORIZED_ERROR = "Handling AdyenNonAuthorizedPaymentException. Checking PaymentResponse.";
 
     @Resource(name = "siteBaseUrlResolutionService")

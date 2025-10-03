@@ -234,7 +234,7 @@ var AdyenExpressCheckoutHybris = (function () {
                     },
                     //onValidateMerchant is required if you're using your own Apple Pay certificate
                     onSubmit: (data, component, actions) => {
-                        this.makePayment(this.prepareDataApple(paymentData, cartData), this.getAppleUrl(), actions.resolve, actions.reject)
+                        this.makePayment(this.prepareDataApple(paymentData, cartData), this.getAppleUrl(), applePayComponent, actions.resolve, actions.reject)
                     },
                     onAuthorized: (data, actions) => {
                         paymentData = data;
@@ -260,6 +260,7 @@ var AdyenExpressCheckoutHybris = (function () {
             } = params;
 
             const googlePayNodes = document.getElementsByClassName('adyen-google-pay-button');
+            let googlePayComponent;
 
             let paymentData;
             let cartData;
@@ -370,7 +371,7 @@ var AdyenExpressCheckoutHybris = (function () {
                 },
 
                 onSubmit: (state, element, actions) => {
-                    this.makePayment(this.prepareDataGoogle(paymentData, cartData), this.getGoogleUrl(), actions.resolve, actions.reject)
+                    this.makePayment(this.prepareDataGoogle(paymentData, cartData), this.getGoogleUrl(), googlePayComponent, actions.resolve, actions.reject)
                 },
                 onAuthorized: (data, actions) => {
                     paymentData = data;
@@ -383,7 +384,7 @@ var AdyenExpressCheckoutHybris = (function () {
             }
 
             for (let googlePayNode of googlePayNodes) {
-                let googlePayComponent = new AdyenWeb.GooglePay(checkout, googlePayConfig);
+                googlePayComponent = new AdyenWeb.GooglePay(checkout, googlePayConfig);
                 googlePayComponent.isAvailable()
                     .then(function () {
                         googlePayComponent.mount(googlePayNode);
@@ -476,7 +477,7 @@ var AdyenExpressCheckoutHybris = (function () {
                     this.onPayPalAuthorize(this.getPayPalUrl(), this.prepareDataPayPal(paymentData, cartGuid), actions.resolve, actions.reject)
                 },
                 onAdditionalDetails: (state) => {
-                    this.makePayment(state.data, this.getAdditionalDataUrl())
+                    this.makePayment(state.data, this.getAdditionalDataUrl(), payPalComponent)
                 }
             }
 
@@ -572,7 +573,7 @@ var AdyenExpressCheckoutHybris = (function () {
                 }
             })
         },
-        makePayment: function (data, url, resolve = () => {
+        makePayment: function (data, url, component, resolve = () => {
         }, reject = () => {
         }) {
             $.ajax({
@@ -582,7 +583,12 @@ var AdyenExpressCheckoutHybris = (function () {
                 contentType: "application/json; charset=utf-8",
                 success: function (response) {
                     try {
-                        if (response.resultCode && (response.resultCode === 'Authorised' || response.resultCode === 'RedirectShopper')) {
+                        if (response.action && (response.resultCode && (response.resultCode === 'Pending' ||
+                            response.resultCode === 'RedirectShopper' || response.resultCode === 'IdentifyShopper' ||
+                            response.resultCode === 'ChallengeShopper' || response.resultCode === 'PresentToShopper' ||
+                            response.resultCode === 'Await') || (response.action && response.action.type))) {
+                            component.handleAction(response.action);
+                        } else if (response.resultCode && (response.resultCode === 'Authorised' || response.resultCode === 'RedirectShopper')) {
                             resolve({
                                 resultCode: response.resultCode
                             });
