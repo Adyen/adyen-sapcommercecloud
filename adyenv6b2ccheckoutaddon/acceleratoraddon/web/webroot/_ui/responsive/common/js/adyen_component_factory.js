@@ -225,29 +225,8 @@ class PaymentComponentFactory {
 
     createApplePay(params) {
         const {amount, countryCode, applePayMerchantIdentifier, applePayMerchantName, label} = params;
-        const applePayConfiguration = {
-            //onValidateMerchant is required if you're using your own Apple Pay certificate
-            onValidateMerchant: (resolve, reject, validationURL) => {
-                if (this.helper.isTermsAccepted(label)) {
-                    resolve();
-                } else {
-                    reject();
-                    this.helper.handleResult({resultCode: ErrorMessages.TermsNotAccepted}, true);
-                }
-                // Your server uses the validation URL to request a session from the Apple Pay server.
-                // Call resolve(MERCHANTSESSION) or reject() to complete merchant validation.
-                /*validateMerchant(validationURL)
-                    .then(response => {
-                        // Complete merchant validation with resolve(MERCHANTSESSION) after receiving an opaque merchant session object, MerchantSession
-                        resolve(response);
-                    })
-                    .catch(error => {
-                        // Complete merchant validation with reject() if any error occurs
-                        reject();
-                       });*/
-                console.log(validationURL, reject, resolve);
-            }
-        };
+        const applePayNode = document.getElementById('adyen-component-button-container-' + label);
+        
         const adyenComponent = new AdyenWeb.ApplePay(this.checkout, {
             amount: {
                 currency: amount.currency,
@@ -280,8 +259,15 @@ class PaymentComponentFactory {
                     reject();
                     this.helper.handleResult({resultCode: ErrorMessages.TermsNotAccepted}, true);
                 }
+            },
+            onAdditionalDetails: (state, component) => {
+                this.helper.submitDetails(state.data, this.helper.handleResult);
+            },
+            onError: (error, component) => {
+                console.log('Apple Pay error: ' + error);
+                this.helper.handleResult({resultCode: ErrorMessages.PaymentError}, true);
             }
-        }).mount('adyen-component-button-container-' + label);
+        });
 
         adyenComponent.isAvailable()
             .then(() => {
