@@ -8,6 +8,10 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import javax.validation.constraints.Max;
+import javax.validation.constraints.Min;
+import javax.validation.Valid;
+
 import com.adyen.backoffice.dto.MerchantDataWsDTO;
 import com.adyen.backoffice.dto.MerchantResponseWsDTO;
 import com.adyen.backoffice.dto.PaymentMethodResponseWsDTO;
@@ -26,8 +30,8 @@ public class MerchantController {
 
 	@GetMapping
 	public ResponseEntity<MerchantResponseWsDTO> getMerchants(
-			@RequestParam(defaultValue = "10") Integer pageSize,
-			@RequestParam(defaultValue = "1") Integer pageNumber) {
+			@RequestParam(defaultValue = "10") @Min(1) @Max(100) Integer pageSize,
+			@RequestParam(defaultValue = "1") @Min(1) Integer pageNumber) {
 		
 		MerchantResponseWsDTO response = adyenManagementService.getMerchants(pageSize, pageNumber);
 		
@@ -45,8 +49,8 @@ public class MerchantController {
 	@GetMapping("/{merchantId}/stores")
 	public ResponseEntity<StoreResponseWsDTO> getStoresByMerchantId(
 			@PathVariable String merchantId,
-			@RequestParam(required = false) Integer pageSize,
-			@RequestParam(required = false) Integer pageNumber) {
+			@RequestParam(defaultValue = "10") @Min(1) @Max(100) Integer pageSize,
+			@RequestParam(defaultValue = "1") @Min(1) Integer pageNumber) {
 		
 		StoreResponseWsDTO response = adyenManagementService.getStoresByMerchantId(merchantId, pageSize, pageNumber);
 		
@@ -58,8 +62,8 @@ public class MerchantController {
 			@PathVariable String merchantId,
 			@RequestParam(required = false) String storeId,
 			@RequestParam(required = false) String businessLineId,
-			@RequestParam(required = false) Integer pageSize,
-			@RequestParam(required = false) Integer pageNumber) {
+			@RequestParam(defaultValue = "10") @Min(1) @Max(100) Integer pageSize,
+			@RequestParam(defaultValue = "1") @Min(1) Integer pageNumber) {
 		
 		PaymentMethodResponseWsDTO response = adyenManagementService.getAllPaymentMethods(merchantId, storeId, businessLineId, pageSize, pageNumber);
 		
@@ -69,8 +73,8 @@ public class MerchantController {
 	@GetMapping("/{merchantId}/webhooks")
 	public ResponseEntity<WebhookResponseWsDTO> getWebhooksByMerchantId(
 			@PathVariable String merchantId,
-			@RequestParam(required = false) Integer pageSize,
-			@RequestParam(required = false) Integer pageNumber) {
+			@RequestParam(defaultValue = "10") @Min(1) @Max(100) Integer pageSize,
+			@RequestParam(defaultValue = "1") @Min(1) Integer pageNumber) {
 		
 		WebhookResponseWsDTO response = adyenManagementService.getWebhooksByMerchantId(merchantId, pageSize, pageNumber);
 		
