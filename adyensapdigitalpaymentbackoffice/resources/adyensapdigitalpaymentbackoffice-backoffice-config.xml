@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+
+<config xmlns="http://www.hybris.com/cockpit/config">
+
+	<context merge-by="type" type="Order" principal="adminsync" component="editorareaactions">
+		<y:actions xmlns:y="http://www.hybris.com/cockpit/config/hybris">
+			<y:group merge-mode="merge" qualifier="common">
+				<y:label>actiongroup.common</y:label>
+				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.retrieveDPACard" property="currentObject"/>
+				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.retrieveDPAAuth" property="currentObject"/>
+				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.RegisterCardAuthDPA" property="currentObject"/>
+				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.RegisterCaptureWithDPA" property="currentObject" />
+				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.RegisterCardWithDPA" property="currentObject" />
+			</y:group>
+		</y:actions>
+	</context>
+
+	<context merge-by="type" type="Order" component="editorareaactions">
+		<y:actions xmlns:y="http://www.hybris.com/cockpit/config/hybris">
+			<y:group merge-mode="merge" qualifier="common">
+				<y:label>actiongroup.common</y:label>
+				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.retrieveDPACard" property="currentObject"/>
+				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.retrieveDPAAuth" property="currentObject"/>
+				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.RegisterCardAuthDPA" property="currentObject"/>
+				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.RegisterCaptureWithDPA" property="currentObject" />
+				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.RegisterCardWithDPA" property="currentObject" />
+			</y:group>
+		</y:actions>
+	</context>
+
+
+	<context merge-by="type" type="Order" component="editorareaactions" module="adyensapdigitalpaymentbackoffice" principal="commerce">
+		<y:actions xmlns:y="http://www.hybris.com/cockpit/config/hybris">
+			<y:group merge-mode="merge" qualifier="common">
+				<y:label>actiongroup.common</y:label>
+				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.retrieveDPACard" property="currentObject"/>
+				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.retrieveDPAAuth" property="currentObject"/>
+				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.RegisterCardAuthDPA" property="currentObject"/>
+				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.RegisterCaptureWithDPA" property="currentObject" />
+				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.RegisterCardWithDPA" property="currentObject" />
+			</y:group>
+		</y:actions>
+	</context>
+
+	<context merge-by="type" type="Order" component="editorareaactions" module="adyensapdigitalpaymentbackoffice" principal="erp">
+		<y:actions xmlns:y="http://www.hybris.com/cockpit/config/hybris">
+			<y:group merge-mode="merge" qualifier="common">
+				<y:label>actiongroup.common</y:label>
+				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.retrieveDPACard" property="currentObject"/>
+				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.RegisterCardAuthDPA" property="currentObject"/>
+				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.RegisterCaptureWithDPA" property="currentObject" />
+				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.RegisterCardWithDPA" property="currentObject" />
+			</y:group>
+		</y:actions>
+	</context>
+
+
+
+	<context merge-by="source" component="notification-area" source="editorArea">
+		<na:notification-area xmlns:na="http://www.hybris.com/cockpitng/config/notifications" xmlns:cb="http://www.hybris.com/cockpitng/config/collectionbrowser" xmlns:df="http://www.hybris.com/cockpitng/component/dynamicForms" xmlns:dnd="http://www.hybris.com/cockpitng/component/dragAndDrop" xmlns:ea="http://www.hybris.com/cockpitng/component/editorArea" xmlns:ful="http://www.hybris.com/cockpitng/config/fulltextsearch" xmlns:lv="http://www.hybris.com/cockpitng/component/listView" xmlns:ql="http://www.hybris.com/cockpitng/component/quick-list" xmlns:sv="http://www.hybris.com/cockpitng/component/summaryview" xmlns:vc="http://www.hybris.com/cockpitng/component/valuechooser" xmlns:wz="http://www.hybris.com/cockpitng/config/wizard-config" xmlns:y="http://www.hybris.com/cockpit/config/hybris" xmlns:yc="http://www.hybris.com/cockpitng/config/common" xmlns:ysl="http://www.hybris.com/cockpitng/config/simplelist">
+			<na:notifications eventType="General" level="SUCCESS">
+				<na:message>dpa.works</na:message>
+				<na:timeout>10000</na:timeout>
+			</na:notifications>
+			<na:notifications eventType="CardRegistration" level="SUCCESS">
+				<na:message>dpa.card.registration.ok</na:message>
+				<na:timeout>30000</na:timeout>
+			</na:notifications>
+			<na:notifications eventType="CardRegistration" level="WARNING">
+				<na:message>dpa.card.registration.timeout</na:message>
+				<na:timeout>30000</na:timeout>
+			</na:notifications>
+			<na:notifications eventType="CardRegistration" level="FAILURE">
+				<na:message>dpa.card.registration.nok</na:message>
+				<na:timeout>30000</na:timeout>
+			</na:notifications>
+			<na:notifications eventType="General" level="FAILURE">
+				<na:message>dpa.error</na:message>
+				<na:timeout>10000</na:timeout>
+			</na:notifications>
+		</na:notification-area>
+	</context>
+
+</config>

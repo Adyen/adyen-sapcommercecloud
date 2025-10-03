@@ -9,7 +9,6 @@ import com.adyen.commerce.response.PlaceOrderResponse;
 import com.adyen.commerce.validators.PaymentRequestValidator;
 import com.adyen.model.checkout.PaymentDetailsRequest;
 import com.adyen.model.checkout.PaymentResponse;
-import com.adyen.v6.constants.StorefrontType;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
 import com.adyen.v6.facades.AdyenCheckoutFacade;
 import com.adyen.v6.model.RequestInfo;
@@ -125,6 +124,11 @@ public abstract class PlaceOrderControllerBase {
             LOGGER.warn("Payment form is invalid.");
             LOGGER.warn(bindingResult.getAllErrors().stream().map(DefaultMessageSourceResolvable::getCode).reduce((x, y) -> (x + " " + y)));
             throw new AdyenControllerException(CHECKOUT_ERROR_FORM_ENTRY_INVALID, getFieldCodesFromValidation(bindingResult));
+        }
+
+        CartData sessionCart = getCartFacade().getSessionCart();
+        if (sessionCart == null || sessionCart.getEntries().isEmpty()) {
+            throw new AdyenControllerException();
         }
 
         getAdyenCheckoutApiFacade().preHandlePlaceOrder(placeOrderRequest.getPaymentRequest(), adyenPaymentMethod,

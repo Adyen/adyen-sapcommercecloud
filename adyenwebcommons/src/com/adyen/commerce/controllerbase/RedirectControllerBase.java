@@ -6,7 +6,6 @@ import com.adyen.model.checkout.PaymentDetailsResponse;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
 import com.adyen.v6.facades.AdyenCheckoutFacade;
 import de.hybris.platform.commercefacades.order.data.OrderData;
-import de.hybris.platform.commerceservices.i18n.CommerceCommonI18NService;
 import de.hybris.platform.order.InvalidCartException;
 import de.hybris.platform.order.exceptions.CalculationException;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -24,6 +23,8 @@ public abstract class RedirectControllerBase {
 
     private static final Logger LOGGER = Logger.getLogger(RedirectControllerBase.class);
     private static final String REDIRECT_RESULT = "redirectResult";
+    private static final String PRODUCT_CODE = "productCode";
+    private static final String EXPRESS = "express";
     private static final String PAYLOAD = "payload";
     private static final String NON_AUTHORIZED_ERROR = "Handling AdyenNonAuthorizedPaymentException. Checking PaymentResponse.";
     private static final String REDIRECTING_TO_CART_PAGE = "Redirecting to cart page...";
@@ -31,6 +32,9 @@ public abstract class RedirectControllerBase {
 
     public String authoriseRedirectGetPayment(final HttpServletRequest request) {
         String redirectResult = request.getParameter(REDIRECT_RESULT);
+        String productCode = request.getParameter(PRODUCT_CODE);
+        String express = request.getParameter(EXPRESS);
+
         PaymentDetailsRequest paymentDetailsRequest = new PaymentDetailsRequest();
         if (redirectResult != null && !redirectResult.isEmpty()) {
             PaymentCompletionDetails details = new PaymentCompletionDetails();
@@ -44,15 +48,15 @@ public abstract class RedirectControllerBase {
                 paymentDetailsRequest.details(details);
             }
         }
-        return authoriseRedirectPayment(paymentDetailsRequest);
+        return authoriseRedirectPayment(paymentDetailsRequest, productCode, "true".equals(express));
     }
 
 
     public String authoriseRedirectPostPayment(final PaymentDetailsRequest detailsRequest) {
-        return authoriseRedirectPayment(detailsRequest);
+        return authoriseRedirectPayment(detailsRequest, null, false);
     }
 
-    private String authoriseRedirectPayment(final PaymentDetailsRequest details) {
+    private String authoriseRedirectPayment(final PaymentDetailsRequest details, final String productCode, final boolean isExpress) {
         LOGGER.info("Redirect payment authorization");
 
         try {
@@ -76,6 +80,11 @@ public abstract class RedirectControllerBase {
                             + response.getRefusalReason());
                 }
             }
+
+            if (isExpress) {
+                return getExpressErrorRedirectUrl(errorMessage, productCode);
+            }
+
             return getErrorRedirectUrl(errorMessage);
         } catch (CalculationException | InvalidCartException e) {
             LOGGER.warn(e.getMessage(), e);
@@ -88,6 +97,8 @@ public abstract class RedirectControllerBase {
     }
 
     public abstract String getErrorRedirectUrl(String errorMessage);
+
+    public abstract String getExpressErrorRedirectUrl(String errorMessage, String productCode);
 
     public abstract String getOrderConfirmationUrl(OrderData orderData);
 

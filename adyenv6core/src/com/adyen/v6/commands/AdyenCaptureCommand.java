@@ -21,7 +21,7 @@
 package com.adyen.v6.commands;
 
 
-import com.adyen.model.checkout.PaymentCaptureResponse;
+import com.adyen.model.checkout.*;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
 import com.adyen.v6.repository.OrderRepository;
 import com.adyen.v6.service.AdyenModificationsApiService;
@@ -33,12 +33,15 @@ import de.hybris.platform.payment.commands.result.CaptureResult;
 import de.hybris.platform.payment.dto.TransactionStatus;
 import de.hybris.platform.payment.dto.TransactionStatusDetails;
 import de.hybris.platform.store.BaseStoreModel;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 import org.springframework.util.Assert;
 
 import java.math.BigDecimal;
-import java.util.Currency;
-import java.util.Date;
+import java.util.*;
+
+import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_CC;
+import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_ONECLICK;
 
 /**
  * Issues a Capture request
@@ -127,45 +130,30 @@ public class AdyenCaptureCommand implements CaptureCommand {
     }
 
     protected boolean supportsManualCapture(String paymentMethod) {
-        switch (paymentMethod) {
-            case "cup":
-            case "cartebancaire":
-            case "visa":
-            case "visadankort":
-            case "mc":
-            case "uatp":
-            case "amex":
-            case "maestro":
-            case "maestrouk":
-            case "diners":
-            case "discover":
-            case "jcb":
-            case "laser":
-            case "paypal":
-            case "klarna":
-            case "afterpay":
-            case "afterpaytouch":
-            case "clearpay":
-            case "ratepay":
-            case "afterpay_default":
-            case "sepadirectdebit":
-            case "dankort":
-            case "elo":
-            case "hipercard":
-            case "mc_applepay":
-            case "visa_applepay":
-            case "amex_applepay":
-            case "discover_applepay":
-            case "maestro_applepay":
-            case "paywithgoogle":
-            case "amazonpay":
-            case "twint":
-            case "klarna_account":
-            case "klarna_paynow":
-                return true;
+        if (StringUtils.isEmpty(paymentMethod)) {
+            return false;
         }
 
-        return false;
+        if (paymentMethod.startsWith(PAYMENT_METHOD_ONECLICK)) {
+            return true;
+        }
+
+        List<String> supportedPaymentMethods = new ArrayList<String>();
+        supportedPaymentMethods.add(PAYMENT_METHOD_CC);
+
+        supportedPaymentMethods.addAll(Arrays.stream(CardDetails.TypeEnum.values()).map(CardDetails.TypeEnum::getValue).toList());
+        supportedPaymentMethods.addAll(Arrays.stream(PayPalDetails.TypeEnum.values()).map(PayPalDetails.TypeEnum::getValue).toList());
+        supportedPaymentMethods.addAll(Arrays.stream(KlarnaDetails.TypeEnum.values()).map(KlarnaDetails.TypeEnum::getValue).toList());
+        supportedPaymentMethods.addAll(Arrays.stream(AfterpayDetails.TypeEnum.values()).map(AfterpayDetails.TypeEnum::getValue).toList());
+        supportedPaymentMethods.addAll(Arrays.stream(RatepayDetails.TypeEnum.values()).map(RatepayDetails.TypeEnum::getValue).toList());
+        supportedPaymentMethods.addAll(Arrays.stream(SepaDirectDebitDetails.TypeEnum.values()).map(SepaDirectDebitDetails.TypeEnum::getValue).toList());
+        supportedPaymentMethods.addAll(Arrays.stream(ApplePayDetails.TypeEnum.values()).map(ApplePayDetails.TypeEnum::getValue).toList());
+        supportedPaymentMethods.addAll(Arrays.stream(GooglePayDetails.TypeEnum.values()).map(GooglePayDetails.TypeEnum::getValue).toList());
+        supportedPaymentMethods.addAll(Arrays.stream(PayWithGoogleDetails.TypeEnum.values()).map(PayWithGoogleDetails.TypeEnum::getValue).toList());
+        supportedPaymentMethods.addAll(Arrays.stream(AmazonPayDetails.TypeEnum.values()).map(AmazonPayDetails.TypeEnum::getValue).toList());
+        supportedPaymentMethods.addAll(Arrays.stream(TwintDetails.TypeEnum.values()).map(TwintDetails.TypeEnum::getValue).toList());
+
+        return supportedPaymentMethods.contains(paymentMethod);
     }
 
     public AdyenPaymentServiceFactory getAdyenPaymentServiceFactory() {

@@ -273,6 +273,11 @@
         <property name="configurationService" ref="configurationService"/>
     </bean>
 
+    <alias name="defaultAdyenDataCollectionFacade" alias="adyenDataCollectionFacade" />
+    <bean id="defaultAdyenDataCollectionFacade" class="com.adyen.v6.facades.impl.DefaultAdyenDataCollectionFacade">
+        <property name="adyenCheckoutFacade" ref="adyenCheckoutFacade"/>
+        <property name="baseStoreService" ref="baseStoreService"/>
+    </bean>
 
     <bean name="adyenAbstractOrderPopulator" class="com.adyen.v6.populator.AbstractOrderPopulator">
         <property name="addressConverter" ref="addressConverter"/>
@@ -467,6 +472,9 @@
         <property name="checkoutCustomerStrategy" ref="checkoutCustomerStrategy"/>
         <property name="countryConverter" ref="countryConverter"/>
         <property name="impersonationService" ref="impersonationService"/>
+        <property name="baseSiteService" ref="baseSiteService"/>
+        <property name="siteBaseUrlResolutionService" ref="siteBaseUrlResolutionService"/>
+        <property name="occPaymentRedirectReturnUrlResolver" ref="occPaymentRedirectReturnUrlResolver"/>
     </bean>
 
     <bean id="adyenPayPalExpressCheckoutFacade" class="com.adyen.v6.facades.impl.DefaultAdyenPayPalExpressCheckoutFacade">
@@ -522,6 +530,11 @@
         <property name="baseStoreService" ref="baseStoreService"/>
     </bean>
 
+    <alias name="defaultAdyenShopperIpResolverService" alias="adyenShopperIpResolverService"/>
+    <bean id="defaultAdyenShopperIpResolverService" class="com.adyen.v6.service.DefaultAdyenShopperIpResolverService">
+        <property name="configurationService" ref="configurationService"/>
+    </bean>
+
     <!-- To support getCheckoutCart for non credit cards (CreditCardPaymentInfoModel) -->
     <alias name="adyenCheckoutFlowFacade" alias="checkoutFlowFacade"/>
     <bean id="adyenCheckoutFlowFacade" class="com.adyen.v6.acceleratorfacades.flow.impl.AdyenCheckoutFlowFacade" parent="defaultCheckoutFlowFacade" />
@@ -537,5 +550,15 @@
     <bean parent="modifyPopulatorList">
         <property name="list" ref="addressConverter"/>
         <property name="add" ref="adyenAddressPopulator"/>
+    </bean>
+
+    <bean id="webServicesBaseUrlResolver" class="com.adyen.v6.util.WebServicesBaseUrlResolver">
+        <property name="configurationService" ref="configurationService"/>
+    </bean>
+
+    <bean id="occPaymentRedirectReturnUrlResolver" class="com.adyen.v6.resolver.OccPaymentRedirectReturnUrlResolver">
+        <property name="baseSiteService" ref="baseSiteService"/>
+        <property name="commerceCommonI18NService" ref="commerceCommonI18NService"/>
+        <property name="webServicesBaseUrlResolver" ref="webServicesBaseUrlResolver"/>
     </bean>
 </beans>

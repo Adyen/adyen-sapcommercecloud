@@ -320,7 +320,7 @@ class AdyenCheckoutHelper {
 
     addRiskData() {
         try {
-            $('input[name="riskData"]').val(getData());
+            $('input[name="riskData"]').val(adyenGetData());
         } catch (e) {
             //in case of risk data collection script not enabled
         }

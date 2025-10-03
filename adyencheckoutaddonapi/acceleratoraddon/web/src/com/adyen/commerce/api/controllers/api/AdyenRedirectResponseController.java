@@ -6,6 +6,7 @@ import com.adyen.v6.facades.AdyenCheckoutFacade;
 import de.hybris.platform.acceleratorstorefrontcommons.annotations.RequireHardLogIn;
 import de.hybris.platform.commercefacades.order.data.OrderData;
 import de.hybris.platform.commerceservices.strategies.CheckoutCustomerStrategy;
+import org.apache.commons.lang.NotImplementedException;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -49,6 +50,11 @@ public class AdyenRedirectResponseController extends RedirectControllerBase {
     @Override
     public String getErrorRedirectUrl(String errorMessage) {
         return REDIRECT_PREFIX + SELECT_PAYMENT_METHOD_URL + "/error/" + Base64.getUrlEncoder().encodeToString(errorMessage.getBytes());
+    }
+
+    @Override
+    public String getExpressErrorRedirectUrl(String errorMessage, String productCode) {
+        throw new NotImplementedException("Express checkout not used with SPA");
     }
 
     @Override

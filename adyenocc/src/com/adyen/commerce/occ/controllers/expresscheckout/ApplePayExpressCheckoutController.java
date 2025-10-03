@@ -3,7 +3,6 @@
  import com.adyen.commerce.constants.AdyenoccConstants;
  import com.adyen.commerce.occ.api.expresscheclout.ApplePayExpressCheckoutApi;
  import com.adyen.commerce.occ.request.ApplePayExpressRequest;
- import com.adyen.commerce.occ.resolver.PaymentRedirectReturnUrlResolver;
  import com.adyen.commerce.response.OCCPlaceOrderResponse;
  import com.adyen.model.checkout.ApplePayDetails;
  import com.adyen.model.checkout.CheckoutPaymentMethod;
@@ -37,9 +36,6 @@ public class ApplePayExpressCheckoutController extends ExpressCheckoutController
 
     @Autowired
     private AdyenExpressCheckoutFacade adyenExpressCheckoutFacade;
-
-    @Autowired
-    private PaymentRedirectReturnUrlResolver paymentRedirectReturnUrlResolver;
 
 
     @Override
@@ -84,11 +80,6 @@ public class ApplePayExpressCheckoutController extends ExpressCheckoutController
     @Override
     public CheckoutCustomerStrategy getCheckoutCustomerStrategy() {
         return checkoutCustomerStrategy;
-    }
-
-    @Override
-    public String getPaymentRedirectReturnUrl() {
-        return paymentRedirectReturnUrlResolver.resolvePaymentRedirectReturnUrl();
     }
 
     @Override

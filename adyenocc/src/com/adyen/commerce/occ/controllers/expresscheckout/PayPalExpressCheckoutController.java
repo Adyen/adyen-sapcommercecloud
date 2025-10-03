@@ -5,7 +5,6 @@ import com.adyen.commerce.occ.api.expresscheclout.PayPalExpressCheckoutApi;
 import com.adyen.commerce.occ.request.PayPalExpressCartRequest;
 import com.adyen.commerce.occ.request.PayPalExpressPDPRequest;
 import com.adyen.commerce.occ.request.PayPalIntermediateRequest;
-import com.adyen.commerce.occ.resolver.PaymentRedirectReturnUrlResolver;
 import com.adyen.commerce.response.OCCPlaceOrderResponse;
 import com.adyen.model.checkout.*;
 import com.adyen.service.exception.ApiException;
@@ -43,9 +42,6 @@ public class PayPalExpressCheckoutController extends ExpressCheckoutControllerBa
 
     @Autowired
     private AdyenExpressCheckoutFacade adyenExpressCheckoutFacade;
-
-    @Autowired
-    private PaymentRedirectReturnUrlResolver paymentRedirectReturnUrlResolver;
 
     @Autowired
     private AdyenPayPalExpressCheckoutFacade adyenPayPalExpressCheckoutFacade;
@@ -129,11 +125,6 @@ public class PayPalExpressCheckoutController extends ExpressCheckoutControllerBa
     @Override
     public CheckoutCustomerStrategy getCheckoutCustomerStrategy() {
         return checkoutCustomerStrategy;
-    }
-
-    @Override
-    public String getPaymentRedirectReturnUrl() {
-        return paymentRedirectReturnUrlResolver.resolvePaymentRedirectReturnUrl();
     }
 
     @Override
