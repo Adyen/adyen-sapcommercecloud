@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+
+<project name="adyensapdigitalpaymentbackoffice_buildcallbacks">
+    	
+    <property name="adyensapdigitalpaymentbackofficeWebFragmentSrc" value="${ext.adyensapdigitalpaymentbackoffice.path}/resources/web-fragment.xml"/>
+    	
+    <property name="adyensapdigitalpaymentbackofficeWebFragmentDestJar" value="${ext.backoffice.path}/web/webroot/WEB-INF/lib/webfragmentExt_adyensapdigitalpaymentbackoffice.jar"/>
+    	
+
+	
+
+	
+    <macrodef name="adyensapdigitalpaymentbackoffice_after_clean">
+        		
+        <sequential>
+            			
+            <adyensapdigitalpaymentbackoffice_remove_web_fragment/>
+            		
+        </sequential>
+        	
+    </macrodef>
+    	
+    <macrodef name="adyensapdigitalpaymentbackoffice_after_build">
+        		
+        <sequential>
+            			
+            <adyensapdigitalpaymentbackoffice_remove_web_fragment/>
+            			
+            <adyensapdigitalpaymentbackoffice_create_web_fragment/>
+            		
+        </sequential>
+        	
+    </macrodef>
+    	
+    <macrodef name="adyensapdigitalpaymentbackoffice_remove_web_fragment">
+        		
+        <sequential>
+            			
+            <if>
+                				
+                <available file="${adyensapdigitalpaymentbackofficeWebFragmentDestJar}"/>
+                				
+                <then>
+                    					
+                    <delete file="${adyensapdigitalpaymentbackofficeWebFragmentDestJar}"/>
+                    				
+                </then>
+                			
+            </if>
+            		
+        </sequential>
+        	
+    </macrodef>
+    	
+    <macrodef name="adyensapdigitalpaymentbackoffice_create_web_fragment">
+        		
+        <sequential>
+            			
+            <if>
+                				
+                <available file="${adyensapdigitalpaymentbackofficeWebFragmentSrc}"/>
+                				
+                <then>
+                    					
+                    <sequential>
+                        						
+                        <jar destfile="${adyensapdigitalpaymentbackofficeWebFragmentDestJar}">
+                            							
+                            <metainf file="${adyensapdigitalpaymentbackofficeWebFragmentSrc}"/>
+                            						
+                        </jar>
+                        					
+                    </sequential>
+                    				
+                </then>
+                			
+            </if>
+            		
+        </sequential>
+        	
+    </macrodef>
+    	
+    <patternset id="adyensapdigitalpaymentbackoffice.localization.pattern">
+        		
+        <!-- core and hmc  -->
+        		
+        <include name="**/*locales*_en.properties"/>
+        		
+        <exclude name="**/hmc/web/webroot/WEB-INF/classes/**/*"/>
+        		
+        <exclude name="**/unittest/**/*"/>
+        		
+        <!-- cockpit (ng) -->
+        		
+        <include name="**/i3-label_en.properties"/>
+        		
+        <include name="**/labels_en.properties"/>
+        		
+        <!-- messages -->
+        		
+        <include name="**/*messages_en.properties"/>
+        		
+        <include name="**/*messages.properties"/>
+        		
+        <!-- frontend properties files in WEB-INF/messages folder -->
+        		
+        <include name="**/WEB-INF/messages/*_en.properties"/>
+        		
+        <!-- csv and impex -->
+        		
+        <include name="**/*_en.csv"/>
+        		
+        <include name="**/*_en.impex"/>
+        		
+        <include name="**/lang-en.properties"/>
+        		
+        <!-- email localizations from yacceleratorcore -->
+        		
+        <include name="resources/**/messages/*_en.properties"/>
+        		
+        <!-- include validation messages -->
+        		
+        <include name="resources/**/ValidationMessages.properties"/>
+        	
+    </patternset>
+    	
+    <macrodef name="adyensapdigitalpaymentbackoffice_before_build">
+		<sequential>
+			<register_sass_extension extensionname="adyensapdigitalpaymentbackoffice"/>
+			<register_sass_extension extensionname="adyensapdigitalpaymentbackoffice" resources="resources" destination=""/>
+		</sequential>
+	</macrodef>
+    
+</project>

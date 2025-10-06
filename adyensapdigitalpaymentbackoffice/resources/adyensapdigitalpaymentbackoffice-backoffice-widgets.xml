@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+
+<widgets xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:noNamespaceSchemaLocation="http://www.hybris.com/schema/cockpitng/widgets.xsd">
+
+    <widget-extension widgetId="backofficeMainSlot">
+        <widget id="adyensapdigitalpaymentbackoffice-perspective" widgetDefinitionId="com.adyen.sapdigitalpaymentbackoffice.widgets.adyensapdigitalpaymentbackofficewidget"
+            template="false" slotId="perspectives" title="Hello adyensapdigitalpaymentbackoffice">
+        </widget>
+    </widget-extension>
+
+</widgets>

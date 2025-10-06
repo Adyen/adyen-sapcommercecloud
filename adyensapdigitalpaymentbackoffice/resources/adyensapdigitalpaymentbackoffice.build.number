@@ -1,0 +1,11 @@
+#Ant properties
+#Thu Aug 24 15:59:07 UTC 2023
+version.api=2211
+vendor=hybris
+group.id=de.hybris.platform
+name=adyensapdigitalpaymentbackoffice
+description=adyensapdigitalpaymentbackoffice
+builddate=20230824 1558
+releasedate=20230824 1558
+version=2211.12
+module.name=platform-module

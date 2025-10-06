@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<widget-definition xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:noNamespaceSchemaLocation="http://www.hybris.com/schema/cockpitng/widget-definition.xsd"
+	id="com.adyen.sapdigitalpaymentbackoffice.widgets.adyensapdigitalpaymentbackofficewidget">
+	<name>adyensapdigitalpaymentbackoffice Sample Widget</name>
+	<description>adyensapdigitalpaymentbackoffice Sample Widget</description>
+	<defaultTitle>adyensapdigitalpaymentbackoffice Sample Widget</defaultTitle>
+	<author>Extgen</author>
+	<version>1.0</version>
+	<view src="adyensapdigitalpaymentbackofficewidget.zul" />
+	<keywords>
+		<keyword>adyensapdigitalpaymentbackoffice</keyword>
+	</keywords>
+	<controller class="com.adyen.sapdigitalpaymentbackoffice.widgets.AdyensapdigitalpaymentbackofficeController" />
+</widget-definition>
