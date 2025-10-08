@@ -159,6 +159,11 @@ public class CheckoutConfigDTOBuilder {
         return this;
     }
 
+    public CheckoutConfigDTOBuilder setInstallmentOptions(InstallmentOptionsDTO installmentOptions) {
+        checkoutConfigDTO.setInstallmentOptions(installmentOptions);
+        return this;
+    }
+
     public CheckoutConfigDTO build() {
         return checkoutConfigDTO;
     }

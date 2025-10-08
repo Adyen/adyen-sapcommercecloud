@@ -763,7 +763,8 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
                 .setAmountDecimal(cartData.getTotalPriceWithTax().getValue())
                 .setMerchantDisplayName(baseStore.getName())
                 .setShopperEmail(customerModel.getContactEmail())
-                .setClickToPayLocale(baseStore.getClickToPayLocale());
+                .setClickToPayLocale(baseStore.getClickToPayLocale())
+                .setInstallmentOptions(getInstallmentOptions());
 
         ExpressPaymentConfigModel expressPaymentConfigModel = baseStore.getExpressPaymentConfig();
         if (expressPaymentConfigModel != null) {
@@ -1673,6 +1674,71 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
             holderNameRequired = configuration.getBoolean(IS_CARD_HOLDER_NAME_REQUIRED_PROPERTY);
         }
         return holderNameRequired;
+    }
+
+    protected InstallmentOptionsDTO getInstallmentOptions() {
+        // Default installment options - can be configured via properties or base store
+        Configuration configuration = this.configurationService.getConfiguration();
+        String installmentOptionsConfig = configuration.getString("adyen.installment.options", "1,3,6,9,12");
+        String installmentPlansConfig = configuration.getString("adyen.installment.plans", "regular,revolving");
+        String showInstallmentAmountsConfig = configuration.getString("adyen.installment.show.amounts", "1,2,3");
+        String showInstallmentPlansConfig = configuration.getString("adyen.installment.show.plans", "regular");
+        
+        List<Integer> installmentValues;
+        if (StringUtils.isEmpty(installmentOptionsConfig)) {
+            installmentValues = Arrays.asList(1, 3, 6, 9, 12);
+        } else {
+            String[] values = StringUtils.split(installmentOptionsConfig, ',');
+            installmentValues = Arrays.stream(values)
+                    .map(String::trim)
+                    .map(Integer::parseInt)
+                    .collect(Collectors.toList());
+        }
+        
+        List<String> installmentPlans;
+        if (StringUtils.isEmpty(installmentPlansConfig)) {
+            installmentPlans = Arrays.asList("regular", "revolving");
+        } else {
+            String[] plans = StringUtils.split(installmentPlansConfig, ',');
+            installmentPlans = Arrays.stream(plans)
+                    .map(String::trim)
+                    .collect(Collectors.toList());
+        }
+        
+        List<Integer> showAmountValues;
+        if (StringUtils.isEmpty(showInstallmentAmountsConfig)) {
+            showAmountValues = Arrays.asList(1, 2, 3);
+        } else {
+            String[] values = StringUtils.split(showInstallmentAmountsConfig, ',');
+            showAmountValues = Arrays.stream(values)
+                    .map(String::trim)
+                    .map(Integer::parseInt)
+                    .collect(Collectors.toList());
+        }
+        
+        List<String> showAmountPlans;
+        if (StringUtils.isEmpty(showInstallmentPlansConfig)) {
+            showAmountPlans = Arrays.asList("regular");
+        } else {
+            String[] plans = StringUtils.split(showInstallmentPlansConfig, ',');
+            showAmountPlans = Arrays.stream(plans)
+                    .map(String::trim)
+                    .collect(Collectors.toList());
+        }
+        
+        InstallmentOptionsDTO installmentOptionsDTO = new InstallmentOptionsDTO();
+        
+        InstallmentOptionsDTO.CardInstallmentOptions cardOptions = new InstallmentOptionsDTO.CardInstallmentOptions();
+        cardOptions.setValues(installmentValues);
+        cardOptions.setPlans(installmentPlans);
+        installmentOptionsDTO.setCard(cardOptions);
+        
+        InstallmentOptionsDTO.ShowInstallmentAmounts showAmounts = new InstallmentOptionsDTO.ShowInstallmentAmounts();
+        showAmounts.setValues(showAmountValues);
+        showAmounts.setPlans(showAmountPlans);
+        installmentOptionsDTO.setShowInstallmentAmounts(showAmounts);
+        
+        return installmentOptionsDTO;
     }
 
     public Set<String> getStoredCards() {
