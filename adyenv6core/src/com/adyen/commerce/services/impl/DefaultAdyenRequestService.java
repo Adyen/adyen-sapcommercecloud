@@ -285,6 +285,7 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
         PaymentRequest paymentRequest = builder.build();
         paymentRequest.setDeliveryAddress(AddressConverter.convertToDeliveryAddress(deliveryAddress));
         paymentRequest.setBillingAddress(AddressConverter.convertToBillingAddress(billingAddress));
+        paymentRequest.setInstallments(originPaymentsRequest != null ? originPaymentsRequest.getInstallments() : null);
         
         if (billingAddress != null) {
             paymentRequest.setTelephoneNumber(billingAddress.getPhone());

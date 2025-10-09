@@ -1677,12 +1677,18 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     }
 
     protected InstallmentOptionsDTO getInstallmentOptions() {
-        // Default installment options - can be configured via properties or base store
-        Configuration configuration = this.configurationService.getConfiguration();
-        String installmentOptionsConfig = configuration.getString("adyen.installment.options", "1,3,6,9,12");
-        String installmentPlansConfig = configuration.getString("adyen.installment.plans", "regular,revolving");
-        String showInstallmentAmountsConfig = configuration.getString("adyen.installment.show.amounts", "1,2,3");
-        String showInstallmentPlansConfig = configuration.getString("adyen.installment.show.plans", "regular");
+
+        BaseStoreModel baseStore = baseStoreService.getCurrentBaseStore();
+        
+        // Check if installments are enabled
+        if (baseStore.getAdyenInstallmentsEnabled() == null || !baseStore.getAdyenInstallmentsEnabled()) {
+            return null;
+        }
+        
+        String installmentOptionsConfig = baseStore.getAdyenInstallmentOptions();
+        String installmentPlansConfig = baseStore.getAdyenInstallmentPlans();
+        String showInstallmentAmountsConfig = baseStore.getAdyenShowInstallmentAmounts();
+        String showInstallmentPlansConfig = baseStore.getAdyenShowInstallmentPlans();
         
         List<Integer> installmentValues;
         if (StringUtils.isEmpty(installmentOptionsConfig)) {
