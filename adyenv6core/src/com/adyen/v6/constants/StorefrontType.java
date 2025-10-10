@@ -5,7 +5,8 @@ public enum StorefrontType {
     SPA("spa"),
     SPARTACUS("spartacus"),
     CUSTOM("custom"),
-    EXPRESSOCC("expressocc");
+    EXPRESSOCC("expressocc"),
+    SUBSCRIPTION("subscription");
 
     private final String value;
 

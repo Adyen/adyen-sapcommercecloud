@@ -19,7 +19,11 @@ public class PaymentMethodHandlerFactory {
             new CreditCardPaymentHandler(),
             new OneClickPaymentHandler(),
             new SchemePaymentHandler(),
-            new AlternativePaymentHandler()
+            new AlternativePaymentHandler(),
+            new CreditCardSubscriptionHandler(),
+            new IdealSubscriptionHandler(),
+            new KlarnaSubscriptionHandler(),
+            new PayPalSubscriptionHandler()
         );
     }
 
