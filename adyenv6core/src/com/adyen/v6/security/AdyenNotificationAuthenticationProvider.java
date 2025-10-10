@@ -63,12 +63,17 @@ public class AdyenNotificationAuthenticationProvider {
     }
 
     public boolean authenticate(final HttpServletRequest request, final String requestBody, String baseSiteId) {
-        LOG.debug("Trying to authenticate for baseSiteId " + baseSiteId);
+        //TODO
+        LOG.info("Trying to authenticate for baseSiteId " + baseSiteId);
 
         BaseStoreModel baseStore = getBaseStore(baseSiteId);
 
         boolean basicAuthenticated = authenticateBasic(request, baseStore);
         boolean checkHMAC = checkHMACFromHeader(request, requestBody, baseStore);
+
+        //TODO
+        LOG.info("Basic Authenticated: " + basicAuthenticated);
+        LOG.info("Check HMAC: " + checkHMAC);
 
         return basicAuthenticated && checkHMAC;
     }
@@ -146,6 +151,9 @@ public class AdyenNotificationAuthenticationProvider {
     protected boolean checkHMACFromHeader(final HttpServletRequest request, final String requestBody, BaseStoreModel baseStore) {
         String hmacSignature = request.getHeader("hmacsignature");
         String hmacKey = baseStore.getAdyenNotificationHMACKey();
+
+        //TODO
+        LOG.info("HMAC signature: " + hmacSignature);
 
         if (StringUtils.isNotEmpty(hmacKey)) {
             HMACValidator hmacValidator = new HMACValidator();

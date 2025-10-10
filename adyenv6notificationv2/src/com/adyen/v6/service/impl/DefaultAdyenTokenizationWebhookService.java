@@ -3,14 +3,21 @@ package com.adyen.v6.service.impl;
 import com.adyen.commerce.data.TokenWebhookRequestData;
 import com.adyen.v6.events.TokenizationEvent;
 import com.adyen.v6.request.TokenizationWebhookRequest;
+import com.adyen.v6.service.AdyenTokenizationWebhookService;
 import de.hybris.platform.servicelayer.dto.converter.Converter;
 import de.hybris.platform.servicelayer.event.EventService;
+import org.apache.log4j.Logger;
 
-public class DefaultAdyenTokenizationWebhookService {
+public class DefaultAdyenTokenizationWebhookService implements AdyenTokenizationWebhookService {
+    private static final Logger LOG = Logger.getLogger(DefaultAdyenTokenizationWebhookService.class);
+
     private EventService eventService;
     private Converter<TokenizationWebhookRequest, TokenWebhookRequestData> tokenWebhookRequestConverter;
 
     public void onRequest(TokenizationWebhookRequest tokenizationWebhookRequest) {
+        //TODO
+        LOG.info("Processing tokenization webhook request: " + tokenizationWebhookRequest);
+
         TokenWebhookRequestData requestData = tokenWebhookRequestConverter.convert(tokenizationWebhookRequest);
 
         TokenizationEvent tokenizationEvent = new TokenizationEvent(requestData);

@@ -6,13 +6,18 @@ import com.adyen.v6.repository.PaymentTransactionRepository;
 import de.hybris.platform.core.model.order.AbstractOrderModel;
 import de.hybris.platform.payment.model.PaymentTransactionModel;
 import de.hybris.platform.servicelayer.event.impl.AbstractEventListener;
+import de.hybris.platform.servicelayer.model.ModelService;
 import org.apache.commons.lang.NotImplementedException;
+import org.apache.log4j.Logger;
 
 import java.util.Objects;
 
 
 public class TokenizationWebhookEventListener extends AbstractEventListener<TokenizationEvent> {
+    private static final Logger LOG = Logger.getLogger(TokenizationWebhookEventListener.class);
+
     private PaymentTransactionRepository paymentTransactionRepository;
+    private ModelService modelService;
 
     protected static String TOKEN_CREATED = "recurring.token.created";
 
@@ -22,6 +27,8 @@ public class TokenizationWebhookEventListener extends AbstractEventListener<Toke
 
     @Override
     protected void onEvent(TokenizationEvent tokenizationEvent) {
+        //TODO
+        LOG.info("Processing Tokenization event");
 
         TokenWebhookRequestData data = tokenizationEvent.getData();
         PaymentTransactionModel transactionModel = paymentTransactionRepository.getTransactionModel(data.getEventId());
@@ -39,6 +46,7 @@ public class TokenizationWebhookEventListener extends AbstractEventListener<Toke
 
         if (TOKEN_CREATED.equals(data.getEventType())) {
             order.getPaymentInfo().setAdyenSelectedReference(data.getStoredPaymentMethodId());
+            modelService.save(order);
         } else {
             throw new NotImplementedException("TokenizationWebhookEventListener not implemented for type " + data.getEventType());
         }
@@ -63,5 +71,9 @@ public class TokenizationWebhookEventListener extends AbstractEventListener<Toke
 
     public void setPaymentTransactionRepository(PaymentTransactionRepository paymentTransactionRepository) {
         this.paymentTransactionRepository = paymentTransactionRepository;
+    }
+
+    public void setModelService(ModelService modelService) {
+        this.modelService = modelService;
     }
 }

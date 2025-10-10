@@ -46,5 +46,16 @@ public class TokenizationWebhookRequest {
     public void setData(TokenizationWebhookData data) {
         this.data = data;
     }
+
+    @Override
+    public String toString() {
+        return "TokenizationWebhookRequest{" +
+                "createdAt='" + createdAt + '\'' +
+                ", eventId='" + eventId + '\'' +
+                ", environment='" + environment + '\'' +
+                ", type='" + type + '\'' +
+                ", data=" + data +
+                '}';
+    }
 }
 
