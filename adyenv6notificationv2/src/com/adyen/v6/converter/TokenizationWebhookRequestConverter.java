@@ -26,6 +26,6 @@ public class TokenizationWebhookRequestConverter implements Converter<Tokenizati
         tokenWebhookRequestData.setStoredPaymentMethodId(tokenizationWebhookRequest.getData().getStoredPaymentMethodId());
         tokenWebhookRequestData.setPaymentType(tokenizationWebhookRequest.getData().getType());
 
-        return null;
+        return tokenWebhookRequestData;
     }
 }
