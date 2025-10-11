@@ -138,9 +138,7 @@ public class DefaultAdyenGiftCardFacade implements AdyenGiftCardFacade {
         CurrencyModel currencyModel = getCommonI18NService().getCurrency(request.getAmount().getCurrency());
         partialPaymentOrder.setCurrency(currencyModel);
         partialPaymentOrder.setGiftCardBalance(availableBalance);
-        if (transactionLimit != null) {
-            partialPaymentOrder.setGiftCardTransactionLimit(transactionLimit);
-        }
+
         partialPaymentOrder.setGiftCardChargedAmount(chargedAmount);
         partialPaymentOrder.setRemainingAmount(remainingAmount);
         
@@ -162,7 +160,6 @@ public class DefaultAdyenGiftCardFacade implements AdyenGiftCardFacade {
         // Generate temporary PSP reference (will be updated when order is created)
         String tempPspReference = "TEMP_" + System.currentTimeMillis();
         partialPaymentOrder.setPspReference(tempPspReference);
-        partialPaymentOrder.setOrderData(""); // Will be set when order is created
         
         getModelService().save(partialPaymentOrder);
         List<AdyenPartialPaymentOrderModel> newPartialPayments = new ArrayList<>();

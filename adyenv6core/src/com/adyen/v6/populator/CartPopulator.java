@@ -95,7 +95,6 @@ public class CartPopulator implements Populator<CartModel, CartData> {
         final AdyenPartialPaymentOrderData target = new AdyenPartialPaymentOrderData();
         
         target.setPspReference(source.getPspReference());
-        target.setOrderData(source.getOrderData());
         target.setRequestAmount(source.getRequestAmount());
         
         // Convert Currency to CurrencyData
@@ -108,7 +107,6 @@ public class CartPopulator implements Populator<CartModel, CartData> {
         }
         
         target.setGiftCardBalance(source.getGiftCardBalance());
-        target.setGiftCardTransactionLimit(source.getGiftCardTransactionLimit());
         target.setGiftCardChargedAmount(source.getGiftCardChargedAmount());
         target.setRemainingAmount(source.getRemainingAmount());
         target.setGiftCardNumber(source.getGiftCardNumber());

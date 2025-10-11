@@ -16,6 +16,9 @@ import de.hybris.platform.core.model.c2l.CurrencyModel;
 import de.hybris.platform.core.model.order.CartModel;
 import de.hybris.platform.servicelayer.i18n.CommonI18NService;
 import de.hybris.platform.servicelayer.model.ModelService;
+import de.hybris.platform.servicelayer.search.FlexibleSearchQuery;
+import de.hybris.platform.servicelayer.search.FlexibleSearchService;
+import de.hybris.platform.servicelayer.search.SearchResult;
 import de.hybris.platform.store.BaseStoreModel;
 import de.hybris.platform.store.services.BaseStoreService;
 import org.apache.log4j.Logger;
@@ -37,6 +40,7 @@ public class DefaultAdyenPartialPaymentService implements AdyenPartialPaymentSer
     private AdyenPaymentServiceFactory adyenPaymentServiceFactory;
     private ModelService modelService;
     private CommonI18NService commonI18NService;
+    private FlexibleSearchService flexibleSearchService;
 
     @Override
     public AdyenPartialPaymentOrderModel processPartialPayment(
@@ -91,7 +95,6 @@ public class DefaultAdyenPartialPaymentService implements AdyenPartialPaymentSer
 
             // Adyen Response Data
             partialPaymentOrder.setPspReference(orderResult.getPspReference());
-            partialPaymentOrder.setOrderData(orderResult.getOrderData());
 
             // Request Information
             partialPaymentOrder.setRequestAmount(requestAmount);
@@ -100,9 +103,7 @@ public class DefaultAdyenPartialPaymentService implements AdyenPartialPaymentSer
 
             // Balance Check Information
             partialPaymentOrder.setGiftCardBalance(availableBalance);
-            if (transactionLimit != null) {
-                partialPaymentOrder.setGiftCardTransactionLimit(transactionLimit);
-            }
+
             partialPaymentOrder.setGiftCardChargedAmount(chargedAmount);
             partialPaymentOrder.setRemainingAmount(remainingAmount);
 
@@ -279,6 +280,23 @@ public class DefaultAdyenPartialPaymentService implements AdyenPartialPaymentSer
         }
     }
 
+    @Override
+    public AdyenPartialPaymentOrderModel findPartialPaymentOrderByPspReference(String pspReference) {
+        try {
+            String query = "SELECT {pk} FROM {AdyenPartialPaymentOrder} WHERE {pspReference} = ?pspReference";
+            FlexibleSearchQuery searchQuery = new FlexibleSearchQuery(query);
+            searchQuery.addQueryParameter("pspReference", pspReference);
+            
+            SearchResult<AdyenPartialPaymentOrderModel> result = getFlexibleSearchService().search(searchQuery);
+            if (result.getCount() > 0) {
+                return result.getResult().get(0);
+            }
+        } catch (Exception e) {
+            LOG.error("Error finding partial payment order by PSP reference: " + pspReference, e);
+        }
+        return null;
+    }
+
     /**
      * Mask card number for security (show only last 4 digits)
      */
@@ -319,5 +337,13 @@ public class DefaultAdyenPartialPaymentService implements AdyenPartialPaymentSer
 
     public void setCommonI18NService(CommonI18NService commonI18NService) {
         this.commonI18NService = commonI18NService;
+    }
+
+    public FlexibleSearchService getFlexibleSearchService() {
+        return flexibleSearchService;
+    }
+
+    public void setFlexibleSearchService(FlexibleSearchService flexibleSearchService) {
+        this.flexibleSearchService = flexibleSearchService;
     }
 }

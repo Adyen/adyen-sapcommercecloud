@@ -113,14 +113,6 @@
                     <description>Collection of Adyen partial payment orders associated with this cart</description>
                     <persistence type="property"/>
                 </attribute>
-<!--                <attribute qualifier="adyenPartialPaymentRemainingAmount" type="java.math.BigDecimal">
-                    <description>Remaining amount to complete partial payments </description>
-                    <persistence type="property"/>
-                </attribute>
-                <attribute qualifier="adyenPartialPaymentStatus" type="java.math.BigDecimal">
-                    <description>Remaining amount to complete partial payments </description>
-                    <persistence type="property"/>
-                </attribute>-->
             </attributes>
         </itemtype>
 
@@ -761,12 +753,6 @@
                     <persistence type="property"/>
                 </attribute>
 
-                <attribute qualifier="orderData" type="java.lang.String">
-                    <description>Order data from Adyen CreateOrderResponse</description>
-                    <modifiers optional="false"/>
-                    <persistence type="property"/>
-                </attribute>
-
                 <!-- Request Information -->
                 <attribute qualifier="requestAmount" type="java.math.BigDecimal">
                     <description>Amount requested for partial payment</description>
@@ -783,12 +769,6 @@
                 <!-- Balance Check Information -->
                 <attribute qualifier="giftCardBalance" type="java.math.BigDecimal">
                     <description>Available balance on the gift card from balance check</description>
-                    <modifiers optional="true"/>
-                    <persistence type="property"/>
-                </attribute>
-
-                <attribute qualifier="giftCardTransactionLimit" type="java.math.BigDecimal">
-                    <description>Transaction limit from balance check response</description>
                     <modifiers optional="true"/>
                     <persistence type="property"/>
                 </attribute>

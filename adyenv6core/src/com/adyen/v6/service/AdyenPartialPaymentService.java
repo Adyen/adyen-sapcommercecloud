@@ -81,6 +81,14 @@ public interface AdyenPartialPaymentService {
     void updatePartialPaymentStatus(AdyenPartialPaymentOrderModel partialPaymentOrder, String newStatus);
 
     /**
+     * Find partial payment order by PSP reference
+     *
+     * @param pspReference The PSP reference to search for
+     * @return AdyenPartialPaymentOrderModel if found, null otherwise
+     */
+    AdyenPartialPaymentOrderModel findPartialPaymentOrderByPspReference(String pspReference);
+
+    /**
      * Result class for balance check
      */
     class BalanceCheckResult {

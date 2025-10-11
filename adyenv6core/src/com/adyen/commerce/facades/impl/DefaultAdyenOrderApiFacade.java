@@ -166,7 +166,7 @@ public class DefaultAdyenOrderApiFacade implements AdyenOrderApiFacade {
      */
     private void updatePartialPaymentOrder(AdyenPartialPaymentOrderModel partialPaymentOrder, CreateOrderResponse adyenResponse) {
         partialPaymentOrder.setPspReference(adyenResponse.getPspReference());
-        partialPaymentOrder.setOrderData(adyenResponse.getOrderData());
+        //partialPaymentOrder.setOrderData(adyenResponse.getOrderData());
         partialPaymentOrder.setStatus(AdyenPartialPaymentStatus.AUTHORIZED);
         partialPaymentOrder.setProcessedAt(new java.util.Date());
         getModelService().save(partialPaymentOrder);

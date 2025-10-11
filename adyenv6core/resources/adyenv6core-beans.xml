@@ -136,11 +136,9 @@
 
     <bean class="com.adyen.commerce.data.AdyenPartialPaymentOrderData">
         <property name="pspReference" type="String"/>
-        <property name="orderData" type="String"/>
         <property name="requestAmount" type="java.math.BigDecimal"/>
         <property name="currency" type="de.hybris.platform.commercefacades.storesession.data.CurrencyData"/>
         <property name="giftCardBalance" type="java.math.BigDecimal"/>
-        <property name="giftCardTransactionLimit" type="java.math.BigDecimal"/>
         <property name="giftCardChargedAmount" type="java.math.BigDecimal"/>
         <property name="remainingAmount" type="java.math.BigDecimal"/>
         <property name="giftCardNumber" type="String"/>
