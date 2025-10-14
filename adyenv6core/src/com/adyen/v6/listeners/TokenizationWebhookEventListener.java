@@ -56,9 +56,26 @@ public class TokenizationWebhookEventListener extends AbstractEventListener<Toke
     protected void crosscheckWithOrder(final AbstractOrderModel order, final TokenWebhookRequestData tokenWebhookRequestData) {
         boolean validationResult = true;
         validationResult &= order.getPaymentInfo().getUser().getUid().equals(tokenWebhookRequestData.getShopperReference());
+
+        //TODO
+        if(!validationResult) {
+            LOG.error("User id mismatch order: " + order.getPaymentInfo().getUser().getUid() + " request: " + tokenWebhookRequestData.getShopperReference());
+        }
+
         validationResult &= order.getStore().getAdyenMerchantAccount().equals(tokenWebhookRequestData.getMerchantAccount());
+
+        //TODO
+        if(!validationResult) {
+            LOG.error("Merchant account mismatch order: " + order.getStore().getAdyenMerchantAccount() + " request: " + tokenWebhookRequestData.getMerchantAccount());
+        }
+
         validationResult &= (order.getStore().getAdyenTestMode() && "test".equals(tokenWebhookRequestData.getEnvironment())) ||
                 (!order.getStore().getAdyenTestMode() && "live".equals(tokenWebhookRequestData.getEnvironment()));
+
+        //TODO
+        if(!validationResult) {
+            LOG.error("Environment mismatch order: " + order.getStore().getAdyenTestMode() + " request: " + tokenWebhookRequestData.getEnvironment());
+        }
 
         if (!validationResult) {
             throw new IllegalArgumentException("Token webhook request is not valid. EventId (pspReference): " + tokenWebhookRequestData.getEventId() +
