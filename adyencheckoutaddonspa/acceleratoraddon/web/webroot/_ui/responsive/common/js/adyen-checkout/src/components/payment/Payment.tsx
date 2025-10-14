@@ -142,7 +142,7 @@ class Payment extends React.Component<Props, State> {
     }
 
     private getAdyenCardConfig(): CardConfiguration {
-        return {
+        const config: CardConfiguration = {
             type: 'card',
             hasHolderName: true,
             holderNameRequired: this.props.adyenConfig.cardHolderNameRequired,
@@ -152,7 +152,14 @@ class Payment extends React.Component<Props, State> {
                 shopperEmail:  this.props.adyenConfig.shopperEmail,
                 locale: this.props.adyenConfig.clickToPayLocale,
             }
+        };
+
+        // Add installments configuration if available
+        if (this.props.adyenConfig.installmentOptions) {
+            config.installmentOptions = this.props.adyenConfig.installmentOptions;
         }
+
+        return config;
     }
 
     private castToEnvironment(env: string): CoreConfiguration['environment'] {

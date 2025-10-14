@@ -35,7 +35,7 @@ public final class Adyenv6coreConstants extends GeneratedAdyenv6coreConstants {
 	public static final String PAYMENT_PROVIDER = "Adyen";
 	public static final String PAYMENT_METHOD ="paymentMethod";
 
-	public static final String INTEGRATOR = "Portaltech";
+	public static final String INTEGRATOR = "SYSKOPLAN CX";
 
 	public static final String PAYMENT_METHOD_CC = "adyen_cc";
 	public static final String PAYMENT_METHOD_EPS = "eps";
