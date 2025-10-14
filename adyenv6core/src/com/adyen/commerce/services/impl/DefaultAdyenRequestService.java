@@ -317,7 +317,7 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
 
         // Use payment method handler
         paymentMethodHandlerFactory.getHandler(paymentMethod)
-            .ifPresent(handler -> handler.updatePaymentRequest(paymentRequest, cartData, 
+                .forEach(handler -> handler.updatePaymentRequest(paymentRequest, cartData,
                 recurringContractMode, customerModel, is3DS2Allowed, guestUserTokenizationEnabled));
     }
 
