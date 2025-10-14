@@ -156,7 +156,7 @@ class Payment extends React.Component<Props, State> {
 
         // Add installments configuration if available
         if (this.props.adyenConfig.installmentOptions) {
-            config.installmentOptions = this.props.adyenConfig.installmentOptions as any;
+            config.installmentOptions = this.props.adyenConfig.installmentOptions;
         }
 
         return config;
