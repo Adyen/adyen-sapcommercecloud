@@ -4,6 +4,7 @@ import com.adyen.commerce.data.TokenWebhookRequestData;
 import com.adyen.v6.events.TokenizationEvent;
 import com.adyen.v6.repository.PaymentTransactionRepository;
 import de.hybris.platform.core.model.order.AbstractOrderModel;
+import de.hybris.platform.core.model.user.CustomerModel;
 import de.hybris.platform.payment.model.PaymentTransactionModel;
 import de.hybris.platform.servicelayer.event.impl.AbstractEventListener;
 import de.hybris.platform.servicelayer.model.ModelService;
@@ -55,11 +56,11 @@ public class TokenizationWebhookEventListener extends AbstractEventListener<Toke
 
     protected void crosscheckWithOrder(final AbstractOrderModel order, final TokenWebhookRequestData tokenWebhookRequestData) {
         boolean validationResult = true;
-        validationResult &= order.getPaymentInfo().getUser().getUid().equals(tokenWebhookRequestData.getShopperReference());
+        validationResult &= ((CustomerModel) order.getPaymentInfo().getUser()).getCustomerID().equals(tokenWebhookRequestData.getShopperReference());
 
         //TODO
         if(!validationResult) {
-            LOG.error("User id mismatch order: " + order.getPaymentInfo().getUser().getUid() + " request: " + tokenWebhookRequestData.getShopperReference());
+            LOG.error("User id mismatch order: " + ((CustomerModel) order.getPaymentInfo().getUser()).getCustomerID() + " request: " + tokenWebhookRequestData.getShopperReference());
         }
 
         validationResult &= order.getStore().getAdyenMerchantAccount().equals(tokenWebhookRequestData.getMerchantAccount());
