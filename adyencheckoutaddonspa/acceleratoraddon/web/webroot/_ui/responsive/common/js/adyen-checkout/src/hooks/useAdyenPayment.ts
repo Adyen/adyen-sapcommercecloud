@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { Dropin } from '@adyen/adyen-web/auto';
 import { PaymentService, PlaceOrderResponse } from '../service/paymentService';
 import { PlaceOrderRequest } from '../types/paymentForm';
@@ -41,6 +41,7 @@ export const useAdyenPayment = (
     });
 
     const [dropIn, setDropInState] = useState<Dropin | null>(null);
+    const partialPaymentIdRef = useRef<string | undefined>(paymentState.partialPaymentId);
 
     const setDropIn = useCallback((newDropIn: Dropin) => {
         setDropInState(newDropIn);
@@ -51,6 +52,7 @@ export const useAdyenPayment = (
     }, []);
 
     const setPartialPaymentId = useCallback((partialPaymentId: string) => {
+        partialPaymentIdRef.current = partialPaymentId;
         setPaymentState(prev => ({ ...prev, partialPaymentId }));
     }, []);
 
@@ -78,24 +80,16 @@ export const useAdyenPayment = (
                         responseData.paymentsResponse.order.remainingAmount &&
                         responseData.paymentsResponse.order.remainingAmount.value > 0) {
                         
-                        console.log('Partial payment detected:', {
-                            partialPaymentId: responseData.partialPaymentId,
-                            chargedAmount: responseData.chargedAmount,
-                            remainingAmount: responseData.remainingAmount
-                        });
-                        
-                        // Store the partial payment ID for subsequent payments
-                        if (responseData.partialPaymentId) {
-                            setPaymentState(prev => ({ 
-                                ...prev, 
-                                partialPaymentId: responseData.partialPaymentId 
-                            }));
-                        }
+                        // // Store the partial payment ID for subsequent payments
+                        // if (responseData.partialPaymentId) {
+                        //     setPaymentState(prev => ({
+                        //         ...prev,
+                        //         partialPaymentId: responseData.partialPaymentId
+                        //     }));
+                        // }
                         
                         // Inform DropIn about partial payment success
                         actions.resolve(responseData.paymentsResponse);
-                        
-                        console.log('DropIn informed about partial payment, remaining amount:', responseData.remainingAmount);
                         
                     } else {
                         // Handle complete payment (no remaining amount)
@@ -130,11 +124,11 @@ export const useAdyenPayment = (
             useDifferentBillingAddress,
             isSaveInAddressBook(),
             billingAddress,
-            paymentState.partialPaymentId
+            partialPaymentIdRef.current
         );
 
         await handleResponse(PaymentService.placeOrder(adyenPaymentForm), actions);
-    }, [useDifferentBillingAddress, billingAddress, paymentState.partialPaymentId, handleResponse, isSaveInAddressBook]);
+    }, [useDifferentBillingAddress, billingAddress, handleResponse, isSaveInAddressBook]);
 
     const handleAdditionalDetails = useCallback(async (data: any, element: any, actions: AdditionalDetailsActions) => {
         await handleResponse(PaymentService.sendAdditionalDetails(data), actions);
@@ -142,28 +136,19 @@ export const useAdyenPayment = (
 
     const handleBalanceCheck = useCallback(async (resolve: any, reject: any, data: any) => {
         try {
-            console.log('Balance check requested for gift card:', data);
-            
+           
             const paymentMethod = data.paymentMethod || {};
             const cardNumber = paymentMethod.number || paymentMethod.encryptedCardNumber || paymentMethod.cardNumber;
             const pin = paymentMethod.cvc || paymentMethod.encryptedSecurityCode || paymentMethod.pin;
             const amount = data.amount;
             
             if (!cardNumber) {
-                console.error('Gift card number is missing from payment data');
-                reject({
-                    errorCode: 'missing_card_number',
-                    message: 'Gift card number is required'
-                });
+                reject();
                 return;
             }
             
             if (!amount) {
-                console.error('Amount is missing from payment data');
-                reject({
-                    errorCode: 'missing_amount',
-                    message: 'Amount is required for balance check'
-                });
+                reject();
                 return;
             }
             
@@ -175,14 +160,12 @@ export const useAdyenPayment = (
                 type: paymentMethod.type
             });
             
-            console.log('Balance check response:', response);
-            
             if (response.partialPaymentId) {
-                setPaymentState(prev => ({ 
-                    ...prev, 
-                    partialPaymentId: response.partialPaymentId 
+                partialPaymentIdRef.current = response.partialPaymentId;
+                setPaymentState(prev => ({
+                    ...prev,
+                    partialPaymentId: response.partialPaymentId
                 }));
-                console.log('Stored partialPaymentId:', response.partialPaymentId);
             }
 
             const balanceResponse = {
@@ -196,33 +179,22 @@ export const useAdyenPayment = (
             console.log('Formatted balance response:', balanceResponse);
             resolve(balanceResponse);
         } catch (error) {
-            console.error('Balance check failed:', error);
-            reject({
-                errorCode: 'balance_check_failed',
-                message: 'Unable to verify gift card balance'
-            });
+            reject();
         }
     }, []);
 
     const handleOrderRequest = useCallback(async (resolve: any, reject: any, data: any) => {
         try {
-            console.log('Order request for partial payment:', data);
-            
+           
             const response = await PaymentService.createPartialPaymentOrder({
                 amount: data.amount,
                 paymentMethod: data.paymentMethod,
-                shopperReference: undefined, // Will be set from adyenConfig in component
-                partialPaymentId: paymentState.partialPaymentId
+                shopperReference: undefined,
+                partialPaymentId: partialPaymentIdRef.current
             });
             
-            console.log('Order request response:', response);
-            
             if (!response.orderData || !response.pspReference) {
-                console.error('Invalid order response: missing orderData or pspReference', response);
-                reject({
-                    errorCode: 'invalid_order_response',
-                    message: 'Invalid order response: missing required fields'
-                });
+                reject();
                 return;
             }
 
@@ -236,12 +208,9 @@ export const useAdyenPayment = (
             
         } catch (error) {
             console.error('Order request failed:', error);
-            reject({
-                errorCode: 'order_creation_failed',
-                message: 'Unable to create order for partial payment: ' + ((error as Error).message || 'Unknown error')
-            });
+            reject();
         }
-    }, [paymentState.partialPaymentId]);
+    }, []);
 
     const handleError = useCallback(async () => {
         await PaymentService.sendPaymentCancel();

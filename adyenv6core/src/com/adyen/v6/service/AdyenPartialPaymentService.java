@@ -13,29 +13,6 @@ import java.math.BigDecimal;
 public interface AdyenPartialPaymentService {
 
     /**
-     * Process a partial payment with gift card
-     * This method combines balance check and order creation
-     *
-     * @param cartModel The cart to process
-     * @param giftCardNumber The gift card number
-     * @param giftCardPin The gift card PIN
-     * @param giftCardBrand The gift card brand
-     * @param giftCardType The gift card type
-     * @param requestAmount The amount to charge
-     * @param currency The currency code
-     * @return AdyenPartialPaymentOrderModel with all required information
-     */
-    AdyenPartialPaymentOrderModel processPartialPayment(
-            CartModel cartModel,
-            String giftCardNumber,
-            String giftCardPin,
-            String giftCardBrand,
-            String giftCardType,
-            BigDecimal requestAmount,
-            String currency
-    );
-
-    /**
      * Check gift card balance
      *
      * @param giftCardNumber The gift card number

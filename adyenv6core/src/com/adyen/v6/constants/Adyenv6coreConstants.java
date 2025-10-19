@@ -89,6 +89,18 @@ public final class Adyenv6coreConstants extends GeneratedAdyenv6coreConstants {
 
 	public static final String EXPRESS_PAYMENT_CONFIG = "expressPaymentConfig";
 
+    // Partial Payment Order API Error Constants
+    public static final String PARTIAL_PAYMENT_ERROR_REQUEST_REQUIRED = "partial.payment.error.request.required";
+    public static final String PARTIAL_PAYMENT_ERROR_AMOUNT_REQUIRED = "partial.payment.error.amount.required";
+    public static final String PARTIAL_PAYMENT_ERROR_AMOUNT_VALUE_REQUIRED = "partial.payment.error.amount.value.required";
+    public static final String PARTIAL_PAYMENT_ERROR_CURRENCY_REQUIRED = "partial.payment.error.currency.required";
+    public static final String PARTIAL_PAYMENT_ERROR_NO_ACTIVE_CART = "partial.payment.error.no.active.cart";
+    public static final String PARTIAL_PAYMENT_ERROR_ORDER_NOT_FOUND = "partial.payment.error.order.not.found";
+    public static final String PARTIAL_PAYMENT_ERROR_PAYMENT_SERVICE = "partial.payment.error.payment.service";
+    public static final String PARTIAL_PAYMENT_ERROR_COMMUNICATION = "partial.payment.error.communication";
+    public static final String PARTIAL_PAYMENT_ERROR_INTERNAL_SERVER = "partial.payment.error.internal.server";
+    public static final String PARTIAL_PAYMENT_ERROR_INVALID_RESPONSE = "partial.payment.error.invalid.response";
+
 	private Adyenv6coreConstants() {
 		//empty to avoid instantiating this constant class
 	}

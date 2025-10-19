@@ -1,6 +1,6 @@
 package com.adyen.commerce.facades.impl;
 
-import com.adyen.commerce.facades.AdyenOrderApiFacade;
+import com.adyen.commerce.facades.AdyenPartialPaymentOrderFacade;
 import com.adyen.commerce.request.PartialPaymentOrderRequest;
 import com.adyen.commerce.response.PartialPaymentOrderResponse;
 import com.adyen.model.checkout.CreateOrderRequest;
@@ -23,13 +23,15 @@ import org.apache.log4j.Logger;
 
 import java.io.IOException;
 
+import static com.adyen.v6.constants.Adyenv6coreConstants.*;
+
 /**
  * Default implementation of AdyenOrderFacade
  * Handles business logic for Adyen order operations
  */
-public class DefaultAdyenOrderApiFacade implements AdyenOrderApiFacade {
+public class DefaultPartialPaymentOrderFacade implements AdyenPartialPaymentOrderFacade {
     
-    private static final Logger LOG = Logger.getLogger(DefaultAdyenOrderApiFacade.class);
+    private static final Logger LOG = Logger.getLogger(DefaultPartialPaymentOrderFacade.class);
     
 
     private CartFacade cartFacade;
@@ -50,7 +52,7 @@ public class DefaultAdyenOrderApiFacade implements AdyenOrderApiFacade {
             CartData cartData = getCartFacade().getSessionCart();
             if (cartData == null) {
                 LOG.error("No active cart found for partial payment order");
-                throw new RuntimeException("No active cart found");
+                throw new RuntimeException(PARTIAL_PAYMENT_ERROR_NO_ACTIVE_CART);
             }
             
             // Find existing partial payment order if partialPaymentId is provided
@@ -59,7 +61,7 @@ public class DefaultAdyenOrderApiFacade implements AdyenOrderApiFacade {
                 partialPaymentOrder = findPartialPaymentOrderByPspReference(request.getPartialPaymentId());
                 if (partialPaymentOrder == null) {
                     LOG.error("Partial payment order not found for ID: " + request.getPartialPaymentId());
-                    throw new RuntimeException("Partial payment order not found");
+                    throw new RuntimeException(PARTIAL_PAYMENT_ERROR_ORDER_NOT_FOUND);
                 }
             }
             
@@ -98,13 +100,13 @@ public class DefaultAdyenOrderApiFacade implements AdyenOrderApiFacade {
             
         } catch (ApiException e) {
             LOG.error("Adyen API error during partial payment order creation", e);
-            throw new RuntimeException("Payment service error: " + e.getMessage());
+            throw new RuntimeException(PARTIAL_PAYMENT_ERROR_PAYMENT_SERVICE + ": " + e.getMessage());
         } catch (IOException e) {
             LOG.error("IO error during partial payment order creation", e);
-            throw new RuntimeException("Communication error with payment service");
+            throw new RuntimeException(PARTIAL_PAYMENT_ERROR_COMMUNICATION);
         } catch (Exception e) {
             LOG.error("Unexpected error during partial payment order creation", e);
-            throw new RuntimeException("Internal server error: " + e.getMessage());
+            throw new RuntimeException(PARTIAL_PAYMENT_ERROR_INTERNAL_SERVER + ": " + e.getMessage());
         }
     }
     
@@ -114,20 +116,20 @@ public class DefaultAdyenOrderApiFacade implements AdyenOrderApiFacade {
     private void validateRequest(PartialPaymentOrderRequest request) {
         if (request.getAmount() == null) {
             LOG.error("Amount is missing from partial payment order request");
-            throw new RuntimeException("Amount is required");
+            throw new RuntimeException(PARTIAL_PAYMENT_ERROR_AMOUNT_REQUIRED);
         }
         
         if (request.getAmount().getValue() == null || request.getAmount().getValue() <= 0) {
             LOG.error("Invalid amount value: " + request.getAmount().getValue());
-            throw new RuntimeException("Valid amount value is required");
+            throw new RuntimeException(PARTIAL_PAYMENT_ERROR_AMOUNT_VALUE_REQUIRED);
         }
         
         if (request.getAmount().getCurrency() == null || request.getAmount().getCurrency().trim().isEmpty()) {
             LOG.error("Currency is missing from amount");
-            throw new RuntimeException("Currency is required");
+            throw new RuntimeException(PARTIAL_PAYMENT_ERROR_CURRENCY_REQUIRED);
         }
     }
-    
+
     /**
      * Build the create order request for Adyen
      */
@@ -135,14 +137,7 @@ public class DefaultAdyenOrderApiFacade implements AdyenOrderApiFacade {
         CreateOrderRequest createOrderRequest = new CreateOrderRequest();
         createOrderRequest.setAmount(request.getAmount());
         createOrderRequest.setMerchantAccount(baseStore.getAdyenMerchantAccount());
-        
-        // Generate unique reference
-        String reference = "partial_payment_" + System.currentTimeMillis();
-        if (request.getShopperReference() != null && !request.getShopperReference().trim().isEmpty()) {
-            reference = "partial_payment_" + request.getShopperReference() + "_" + System.currentTimeMillis();
-        }
-        createOrderRequest.setReference(reference);
-        
+        createOrderRequest.setReference(request.getPartialPaymentId());
         return createOrderRequest;
     }
     
@@ -152,26 +147,24 @@ public class DefaultAdyenOrderApiFacade implements AdyenOrderApiFacade {
     private void validateAdyenResponse(CreateOrderResponse adyenResponse) {
         if (adyenResponse.getOrderData() == null || adyenResponse.getOrderData().trim().isEmpty()) {
             LOG.error("Adyen response missing orderData: " + adyenResponse);
-            throw new RuntimeException("Invalid response from payment service: missing order data");
+            throw new RuntimeException(PARTIAL_PAYMENT_ERROR_INVALID_RESPONSE + ": missing order data");
         }
         
         if (adyenResponse.getPspReference() == null || adyenResponse.getPspReference().trim().isEmpty()) {
             LOG.error("Adyen response missing pspReference: " + adyenResponse);
-            throw new RuntimeException("Invalid response from payment service: missing PSP reference");
+            throw new RuntimeException(PARTIAL_PAYMENT_ERROR_INVALID_RESPONSE + ": missing PSP reference");
         }
     }
-    
+
     /**
      * Update partial payment order with Adyen response data
      */
     private void updatePartialPaymentOrder(AdyenPartialPaymentOrderModel partialPaymentOrder, CreateOrderResponse adyenResponse) {
-        partialPaymentOrder.setPspReference(adyenResponse.getPspReference());
-        //partialPaymentOrder.setOrderData(adyenResponse.getOrderData());
-        partialPaymentOrder.setStatus(AdyenPartialPaymentStatus.AUTHORIZED);
+        partialPaymentOrder.setStatus(AdyenPartialPaymentStatus.CREATED);
         partialPaymentOrder.setProcessedAt(new java.util.Date());
         getModelService().save(partialPaymentOrder);
-        
-        LOG.info("Updated partial payment order with PSP reference: " + adyenResponse.getPspReference());
+
+        LOG.info("Updated partial payment order with PSP reference: " + partialPaymentOrder.getPspReference());
     }
     
     /**

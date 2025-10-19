@@ -43,101 +43,6 @@ public class DefaultAdyenPartialPaymentService implements AdyenPartialPaymentSer
     private FlexibleSearchService flexibleSearchService;
 
     @Override
-    public AdyenPartialPaymentOrderModel processPartialPayment(
-            CartModel cartModel,
-            String giftCardNumber,
-            String giftCardPin,
-            String giftCardBrand,
-            String giftCardType,
-            BigDecimal requestAmount,
-            String currency) {
-
-        LOG.info("Processing partial payment for cart: " + cartModel.getCode() + 
-                ", amount: " + requestAmount + " " + currency);
-
-        try {
-            // Step 1: Check gift card balance
-            Amount amountToCheck = new Amount();
-            amountToCheck.setValue(requestAmount.longValue());
-            amountToCheck.setCurrency(currency);
-
-            BalanceCheckResult balanceResult = checkGiftCardBalance(
-                    giftCardNumber, giftCardPin, giftCardBrand, giftCardType, amountToCheck);
-
-            if (!balanceResult.isSuccess()) {
-                throw new RuntimeException("Balance check failed: " + balanceResult.getErrorMessage());
-            }
-
-            // Step 2: Calculate actual charged amount
-            BigDecimal availableBalance = BigDecimal.valueOf(balanceResult.getBalance().getValue()).divide(BigDecimal.valueOf(100));
-            BigDecimal transactionLimit = balanceResult.getTransactionLimit() != null ? 
-                    BigDecimal.valueOf(balanceResult.getTransactionLimit().getValue()).divide(BigDecimal.valueOf(100)) : null;
-
-            BigDecimal chargedAmount = calculateChargedAmount(requestAmount, availableBalance, transactionLimit);
-            BigDecimal remainingAmount = requestAmount.subtract(chargedAmount);
-
-            LOG.info("Balance check result - Available: " + availableBalance + 
-                    ", Charged: " + chargedAmount + ", Remaining: " + remainingAmount);
-
-            // Step 3: Create order in Adyen for the charged amount
-            Amount orderAmount = new Amount();
-            orderAmount.setValue(chargedAmount.multiply(BigDecimal.valueOf(100)).longValue());
-            orderAmount.setCurrency(currency);
-
-            OrderCreationResult orderResult = createPartialPaymentOrder(orderAmount, currency);
-
-            if (!orderResult.isSuccess()) {
-                throw new RuntimeException("Order creation failed: " + orderResult.getErrorMessage());
-            }
-
-            // Step 4: Create and populate AdyenPartialPaymentOrderModel
-            AdyenPartialPaymentOrderModel partialPaymentOrder = getModelService().create(AdyenPartialPaymentOrderModel.class);
-
-            // Adyen Response Data
-            partialPaymentOrder.setPspReference(orderResult.getPspReference());
-
-            // Request Information
-            partialPaymentOrder.setRequestAmount(requestAmount);
-            CurrencyModel currencyModel = getCommonI18NService().getCurrency(currency);
-            partialPaymentOrder.setCurrency(currencyModel);
-
-            // Balance Check Information
-            partialPaymentOrder.setGiftCardBalance(availableBalance);
-
-            partialPaymentOrder.setGiftCardChargedAmount(chargedAmount);
-            partialPaymentOrder.setRemainingAmount(remainingAmount);
-
-            // Gift Card Details
-            partialPaymentOrder.setGiftCardNumber(maskCardNumber(giftCardNumber));
-            partialPaymentOrder.setGiftCardBrand(giftCardBrand);
-            partialPaymentOrder.setGiftCardType(giftCardType);
-
-            // Status and Tracking
-            partialPaymentOrder.setStatus(AdyenPartialPaymentStatus.CREATED);
-            partialPaymentOrder.setPaymentMethod("giftcard");
-
-            // Associations
-            partialPaymentOrder.setCart(cartModel);
-
-            // Timestamps
-            Date now = new Date();
-            partialPaymentOrder.setCreatedAt(now);
-            partialPaymentOrder.setBalanceCheckedAt(now);
-
-            // Save the model
-            getModelService().save(partialPaymentOrder);
-
-            LOG.info("Successfully created partial payment order with PSP reference: " + orderResult.getPspReference());
-
-            return partialPaymentOrder;
-
-        } catch (Exception e) {
-            LOG.error("Error processing partial payment", e);
-            throw new RuntimeException("Failed to process partial payment: " + e.getMessage(), e);
-        }
-    }
-
-    @Override
     public BalanceCheckResult checkGiftCardBalance(
             String giftCardNumber,
             String giftCardPin,
@@ -174,7 +79,7 @@ public class DefaultAdyenPartialPaymentService implements AdyenPartialPaymentSer
 
             LOG.debug("Sending balance check request to Adyen");
 
-            // Call Adyen API
+            // Call Adyen API // TODO: It should be executed only if there is no balance check result yet
             BalanceCheckResponse adyenResponse = ordersApi.getBalanceOfGiftCard(balanceCheckRequest);
 
             LOG.debug("Received balance check response from Adyen: " + adyenResponse);

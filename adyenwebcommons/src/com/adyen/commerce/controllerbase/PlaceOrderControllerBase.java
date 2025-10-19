@@ -38,6 +38,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.math.BigDecimal;
 
 import static com.adyen.commerce.constants.AdyenwebcommonsConstants.CHECKOUT_ERROR_AUTHORIZATION_FAILED;
+import static com.adyen.commerce.constants.AdyenwebcommonsConstants.CHECKOUT_ERROR_FORM_ENTRY_INVALID;
 import static com.adyen.commerce.util.ErrorMessageUtil.getErrorMessageByRefusalReason;
 import static com.adyen.commerce.util.FieldValidationUtil.getFieldCodesFromValidation;
 import static com.adyen.model.checkout.PaymentResponse.ResultCodeEnum.*;
@@ -46,7 +47,6 @@ public abstract class PlaceOrderControllerBase {
     private static final Logger LOGGER = Logger.getLogger(PlaceOrderControllerBase.class);
     protected static final ObjectMapper objectMapper = new ObjectMapper();
 
-    private static final String CHECKOUT_ERROR_FORM_ENTRY_INVALID = "checkout.error.paymentethod.formentry.invalid";
     private static final String GET_TYPE = "getType";
 
 
@@ -283,15 +283,13 @@ public abstract class PlaceOrderControllerBase {
                 java.math.BigDecimal giftCardAmount = partialPaymentData.getGiftCardChargedAmount();
                 java.math.BigDecimal remainingAmount = totalAmount.subtract(giftCardAmount);
 
-                // Need to update the database model for persistence, so retrieve it
-                AdyenPartialPaymentOrderModel partialPayment = getAdyenPartialPaymentService().findPartialPaymentOrderByPspReference(placeOrderRequest.getPartialPaymentId());
-                if (partialPayment != null) {
-                    partialPayment.setPspReference(paymentResponse.getPspReference());
-                    partialPayment.setStatus(AdyenPartialPaymentStatus.AUTHORIZED);
-                    partialPayment.setProcessedAt(new java.util.Date());
-                    partialPayment.setRemainingAmount(remainingAmount);
-                    getModelService().save(partialPayment);
-                }
+                // Update the partial payment through facade
+                getAdyenCheckoutApiFacade().updatePartialPaymentAfterAuthorization(
+                    placeOrderRequest.getPartialPaymentId(),
+                    paymentResponse.getPspReference(),
+                    AdyenPartialPaymentStatus.AUTHORIZED,
+                    remainingAmount
+                );
 
                 // Return response indicating partial payment was processed but order not placed
                 OCCPlaceOrderResponse response = new OCCPlaceOrderResponse();
@@ -352,9 +350,7 @@ public abstract class PlaceOrderControllerBase {
                 LOGGER.info("Remaining amount payment authorized. Proceeding with order placement.");
 
                 // Update partial payment status to completed
-                partialPayment.setStatus(AdyenPartialPaymentStatus.AUTHORIZED.getCode());
-                partialPayment.setProcessedAt(new java.util.Date());
-                getModelService().save(partialPayment);
+                getAdyenCheckoutApiFacade().updatePartialPaymentStatus(partialPayment, AdyenPartialPaymentStatus.AUTHORIZED);
                 // Return the order data from the payment result
                 OrderData orderData = orderPaymentResult.getOrderData();
                 String orderCode = getCheckoutCustomerStrategy().isAnonymousCheckout() ? orderData.getGuid() : orderData.getCode();
@@ -380,9 +376,7 @@ public abstract class PlaceOrderControllerBase {
                            " Refusal reason: " + paymentResponse.getRefusalReason());
 
                 // Mark partial payment as failed
-                partialPayment.setStatus(AdyenPartialPaymentStatus.FAILED.getCode());
-                partialPayment.setProcessedAt(new java.util.Date());
-                getModelService().save(partialPayment);
+                getAdyenCheckoutApiFacade().updatePartialPaymentStatus(partialPayment, AdyenPartialPaymentStatus.FAILED);
                 String errorMessage = getErrorMessageByRefusalReason(paymentResponse.getRefusalReason());
                 throw new AdyenControllerException(errorMessage);
             }
@@ -393,9 +387,7 @@ public abstract class PlaceOrderControllerBase {
             LOGGER.error("Error processing remaining amount payment: " + ExceptionUtils.getStackTrace(e));
 
             // Mark partial payment as failed
-            partialPayment.setStatus(AdyenPartialPaymentStatus.FAILED.getCode());
-            partialPayment.setProcessedAt(new java.util.Date());
-            getModelService().save(partialPayment);
+            getAdyenCheckoutApiFacade().updatePartialPaymentStatus(partialPayment, AdyenPartialPaymentStatus.FAILED);
             throw new AdyenControllerException(CHECKOUT_ERROR_AUTHORIZATION_FAILED);
         }
     }
@@ -429,8 +421,6 @@ public abstract class PlaceOrderControllerBase {
     public abstract AdyenCheckoutFacade getAdyenCheckoutFacade();
 
     public abstract CheckoutCustomerStrategy getCheckoutCustomerStrategy();
-
-    public abstract de.hybris.platform.servicelayer.model.ModelService getModelService();
 
     public abstract AdyenPartialPaymentService getAdyenPartialPaymentService();
 

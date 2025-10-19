@@ -52,4 +52,14 @@ public interface AdyenRequestService {
 
     void decoratePayPalSubmitPaymentRequest(final String merchantAccount, final PaymentRequest paymentRequest,
                                                     final RequestInfo requestInfo);
+
+    PaymentRequest createPartialPaymentRequest(final String merchantAccount,
+                                               final CartData cartData,
+                                               final PaymentRequest originPaymentsRequest,
+                                               final RequestInfo requestInfo,
+                                               final CustomerModel customerModel,
+                                               final RecurringContractMode recurringContractMode,
+                                               final Boolean guestUserTokenizationEnabled,
+                                               final java.math.BigDecimal customAmount,
+                                               final String currency);
 }

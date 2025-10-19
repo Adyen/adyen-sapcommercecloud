@@ -1692,7 +1692,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         
         List<Integer> installmentValues;
         if (StringUtils.isEmpty(installmentOptionsConfig)) {
-            installmentValues = Arrays.asList(1, 3, 6, 9, 12);
+            throw new RuntimeException("Installment options configuration is missing!");
         } else {
             String[] values = StringUtils.split(installmentOptionsConfig, ',');
             installmentValues = Arrays.stream(values)
@@ -1703,7 +1703,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         
         List<String> installmentPlans;
         if (StringUtils.isEmpty(installmentPlansConfig)) {
-            installmentPlans = Arrays.asList("regular", "revolving");
+            throw new RuntimeException("Installment options configuration is missing!");
         } else {
             String[] plans = StringUtils.split(installmentPlansConfig, ',');
             installmentPlans = Arrays.stream(plans)

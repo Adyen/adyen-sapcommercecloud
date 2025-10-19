@@ -12,11 +12,13 @@ import com.adyen.model.checkout.PaymentDetailsRequest;
 import com.adyen.model.checkout.PaymentDetailsResponse;
 import com.adyen.model.checkout.PaymentRequest;
 import com.adyen.model.checkout.PaymentResponse;
-import com.adyen.v6.constants.StorefrontType;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
 import com.adyen.v6.facades.impl.DefaultAdyenCheckoutFacade;
 import com.adyen.v6.forms.AddressForm;
 import com.adyen.v6.model.RequestInfo;
+import com.adyen.v6.model.AdyenPartialPaymentOrderModel;
+import com.adyen.v6.enums.AdyenPartialPaymentStatus;
+import com.adyen.v6.service.AdyenPartialPaymentService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import de.hybris.platform.commercefacades.order.data.CartData;
 import de.hybris.platform.commercefacades.order.data.OrderData;
@@ -28,10 +30,13 @@ import de.hybris.platform.core.model.user.AddressModel;
 import org.apache.commons.lang3.StringUtils;
 
 import javax.servlet.http.HttpServletRequest;
+import java.math.BigDecimal;
 
 public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade implements AdyenCheckoutApiFacade {
 
     public static final String EXCEPTION_DURING_PROCESSING_BROWSER_INFO = "Exception during processing BrowserInfo: ";
+
+    private AdyenPartialPaymentService adyenPartialPaymentService;
 
     public void preHandlePlaceOrder(PaymentRequest paymentRequest, String adyenPaymentMethod,
                                     AddressForm billingAddress, Boolean useAdyenDeliveryAddress) {
@@ -211,4 +216,32 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
         return paymentInfo;
     }
 
+    @Override
+    public void updatePartialPaymentAfterAuthorization(String pspReference, String newPspReference, AdyenPartialPaymentStatus status, BigDecimal remainingAmount) {
+        AdyenPartialPaymentOrderModel partialPayment = getAdyenPartialPaymentService().findPartialPaymentOrderByPspReference(pspReference);
+        if (partialPayment != null) {
+            partialPayment.setStatus(status);
+            partialPayment.setProcessedAt(new java.util.Date());
+            partialPayment.setRemainingAmount(remainingAmount);
+            getModelService().save(partialPayment);
+        }
+    }
+
+    @Override
+    public void updatePartialPaymentStatus(AdyenPartialPaymentOrderData partialPaymentData, AdyenPartialPaymentStatus status) {
+        AdyenPartialPaymentOrderModel partialPayment = getAdyenPartialPaymentService().findPartialPaymentOrderByPspReference(partialPaymentData.getPspReference());
+        if (partialPayment != null) {
+            partialPayment.setStatus(status);
+            partialPayment.setProcessedAt(new java.util.Date());
+            getModelService().save(partialPayment);
+        }
+    }
+
+    public AdyenPartialPaymentService getAdyenPartialPaymentService() {
+        return adyenPartialPaymentService;
+    }
+
+    public void setAdyenPartialPaymentService(AdyenPartialPaymentService adyenPartialPaymentService) {
+        this.adyenPartialPaymentService = adyenPartialPaymentService;
+    }
 }

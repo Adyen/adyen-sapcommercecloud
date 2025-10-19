@@ -12,6 +12,7 @@ import com.adyen.v6.factory.AdyenPaymentServiceFactory;
 import com.adyen.v6.service.AdyenPartialPaymentService;
 import com.adyen.v6.model.AdyenPartialPaymentOrderModel;
 import com.adyen.v6.enums.AdyenPartialPaymentStatus;
+import com.adyen.v6.util.AmountUtil;
 import de.hybris.platform.core.model.order.CartModel;
 import de.hybris.platform.order.CartService;
 import de.hybris.platform.servicelayer.model.ModelService;
@@ -75,17 +76,17 @@ public class DefaultAdyenGiftCardFacade implements AdyenGiftCardFacade {
             
             LOG.debug("Received balance check response from Adyen: " + adyenResponse);
             
-            // Calculate amounts
-            BigDecimal requestAmount = BigDecimal.valueOf(request.getAmount().getValue()).divide(BigDecimal.valueOf(100));
-            BigDecimal availableBalance = BigDecimal.valueOf(adyenResponse.getBalance().getValue()).divide(BigDecimal.valueOf(100));
-            BigDecimal transactionLimit = adyenResponse.getTransactionLimit() != null ?
-                    BigDecimal.valueOf(adyenResponse.getTransactionLimit().getValue()).divide(BigDecimal.valueOf(100)) : null;
+            // Calculate amounts (convert from minor units to major currency units)
+
+            BigDecimal requestAmount = AmountUtil.convertFromMinorUnits(request.getAmount().getValue(), request.getAmount().getCurrency());
+            BigDecimal availableBalance = AmountUtil.convertFromMinorUnits(adyenResponse.getBalance().getValue(), adyenResponse.getBalance().getCurrency());
+            BigDecimal transactionLimit = AmountUtil.convertFromMinorUnits(adyenResponse.getTransactionLimit() != null ? adyenResponse.getTransactionLimit().getValue() : null, adyenResponse.getTransactionLimit() != null ? adyenResponse.getTransactionLimit().getCurrency() : null);
             
             BigDecimal chargedAmount = getAdyenPartialPaymentService().calculateChargedAmount(requestAmount, availableBalance, transactionLimit);
             BigDecimal remainingAmount = requestAmount.subtract(chargedAmount);
             
             // Create and save partial payment order entry
-            String partialPaymentId = createPartialPaymentOrder(request, requestAmount, availableBalance, 
+            String partialPaymentId = createPartialPaymentOrder(request,adyenResponse, requestAmount, availableBalance,
                 transactionLimit, chargedAmount, remainingAmount);
             
             // Build and return response
@@ -127,7 +128,7 @@ public class DefaultAdyenGiftCardFacade implements AdyenGiftCardFacade {
     /**
      * Create partial payment order entry to store balance information
      */
-    private String createPartialPaymentOrder(GiftCardBalanceRequest request, BigDecimal requestAmount,
+    private String createPartialPaymentOrder(GiftCardBalanceRequest request, BalanceCheckResponse adyenResponse, BigDecimal requestAmount,
                                            BigDecimal availableBalance, BigDecimal transactionLimit,
                                            BigDecimal chargedAmount, BigDecimal remainingAmount) {
         CartModel cartModel = getCartService().getSessionCart();
@@ -156,20 +157,19 @@ public class DefaultAdyenGiftCardFacade implements AdyenGiftCardFacade {
         Date now = new Date();
         partialPaymentOrder.setCreatedAt(now);
         partialPaymentOrder.setBalanceCheckedAt(now);
-        
-        // Generate temporary PSP reference (will be updated when order is created)
-        String tempPspReference = "TEMP_" + System.currentTimeMillis();
-        partialPaymentOrder.setPspReference(tempPspReference);
-        
+
+        partialPaymentOrder.setPspReference(adyenResponse.getPspReference());
+
+
         getModelService().save(partialPaymentOrder);
         List<AdyenPartialPaymentOrderModel> newPartialPayments = new ArrayList<>();
         newPartialPayments.add(partialPaymentOrder);
         newPartialPayments.addAll(cartModel.getAdyenPartialPaymentOrders());
         cartModel.setAdyenPartialPaymentOrders(newPartialPayments);
         getModelService().save(cartModel);
-        LOG.info("Created partial payment order entry with temp PSP reference: " + tempPspReference);
-        
-        return tempPspReference;
+        LOG.info("Created partial payment order entry with temp PSP reference: " + adyenResponse.getPspReference());
+
+        return adyenResponse.getPspReference();
     }
     
     /**

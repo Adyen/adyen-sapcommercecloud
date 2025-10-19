@@ -143,7 +143,7 @@ export class PaymentService {
 
     static preparePlaceOrderRequest(data: any, useDifferentBillingAddress: boolean, saveInAddressBook: boolean, billingAddress?: AddressModel, partialPaymentId?: string): PlaceOrderRequest {
         return {
-            paymentRequest: data,
+            paymentRequest: {...data, reference: partialPaymentId},
             useAdyenDeliveryAddress: !useDifferentBillingAddress,
             billingAddress: useDifferentBillingAddress ? this.convertBillingAddress(billingAddress, saveInAddressBook) : null,
             storefrontType: "SPA",

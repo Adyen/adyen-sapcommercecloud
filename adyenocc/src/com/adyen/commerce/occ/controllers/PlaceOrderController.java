@@ -16,7 +16,6 @@ import de.hybris.platform.acceleratorservices.urlresolver.SiteBaseUrlResolutionS
 import de.hybris.platform.commercefacades.order.CartFacade;
 import de.hybris.platform.commerceservices.request.mapping.annotation.ApiVersion;
 import de.hybris.platform.commerceservices.strategies.CheckoutCustomerStrategy;
-import de.hybris.platform.servicelayer.model.ModelService;
 import de.hybris.platform.site.BaseSiteService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -56,9 +55,6 @@ public class PlaceOrderController extends PlaceOrderControllerBase implements Ad
 
     @Autowired
     private OccPaymentRedirectReturnUrlResolver occPaymentRedirectReturnUrlResolver;
-
-    @Resource(name = "modelService")
-    private ModelService modelService;
 
     @Resource(name = "adyenPartialPaymentService")
     private AdyenPartialPaymentService adyenPartialPaymentService;
@@ -122,11 +118,6 @@ public class PlaceOrderController extends PlaceOrderControllerBase implements Ad
     @Override
     public CheckoutCustomerStrategy getCheckoutCustomerStrategy() {
         return checkoutCustomerStrategy;
-    }
-
-    @Override
-    public ModelService getModelService() {
-        return modelService;
     }
 
     @Override

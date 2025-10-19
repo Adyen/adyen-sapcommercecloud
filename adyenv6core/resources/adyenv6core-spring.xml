@@ -271,6 +271,7 @@
         <property name="i18NFacade" ref="i18NFacade"/>
         <property name="userFacade" ref="userFacade"/>
         <property name="configurationService" ref="configurationService"/>
+        <property name="adyenPartialPaymentService" ref="adyenPartialPaymentService"/>
     </bean>
 
     <alias name="defaultAdyenGiftCardFacade" alias="adyenGiftCardFacade" />
@@ -579,10 +580,11 @@
         <property name="adyenPaymentServiceFactory" ref="adyenPaymentServiceFactory"/>
         <property name="modelService" ref="modelService"/>
         <property name="commonI18NService" ref="commonI18NService"/>
+        <property name="flexibleSearchService" ref="flexibleSearchService" />
     </bean>
 
     <alias name="defaultAdyenOrderApiFacade" alias="adyenOrderApiFacade" />
-    <bean id="defaultAdyenOrderApiFacade" class="com.adyen.commerce.facades.impl.DefaultAdyenOrderApiFacade">
+    <bean id="defaultAdyenOrderApiFacade" class="com.adyen.commerce.facades.impl.DefaultPartialPaymentOrderFacade">
         <property name="cartFacade" ref="cartFacade"/>
         <property name="baseStoreService" ref="baseStoreService"/>
         <property name="adyenPaymentServiceFactory" ref="adyenPaymentServiceFactory"/>

@@ -15,7 +15,6 @@ import de.hybris.platform.commercefacades.order.CartFacade;
 import de.hybris.platform.commerceservices.strategies.CheckoutCustomerStrategy;
 import de.hybris.platform.order.InvalidCartException;
 import de.hybris.platform.order.exceptions.CalculationException;
-import de.hybris.platform.servicelayer.model.ModelService;
 import de.hybris.platform.site.BaseSiteService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -55,9 +54,6 @@ public class AdyenPlaceOrderController extends PlaceOrderControllerBase {
 
     @Resource(name = "checkoutCustomerStrategy")
     private CheckoutCustomerStrategy checkoutCustomerStrategy;
-
-    @Resource(name = "modelService")
-    private ModelService modelService;
 
     @Resource(name = "adyenPartialPaymentService")
     private AdyenPartialPaymentService adyenPartialPaymentService;
@@ -128,11 +124,6 @@ public class AdyenPlaceOrderController extends PlaceOrderControllerBase {
     @Override
     public CheckoutCustomerStrategy getCheckoutCustomerStrategy() {
         return checkoutCustomerStrategy;
-    }
-
-    @Override
-    public ModelService getModelService() {
-        return modelService;
     }
 
     @Override

@@ -1,6 +1,6 @@
 package com.adyen.commerce.api.controllers.api;
 
-import com.adyen.commerce.facades.AdyenOrderApiFacade;
+import com.adyen.commerce.facades.AdyenPartialPaymentOrderFacade;
 import com.adyen.commerce.request.PartialPaymentOrderRequest;
 import com.adyen.commerce.response.PartialPaymentOrderResponse;
 import de.hybris.platform.acceleratorstorefrontcommons.annotations.RequireHardLogIn;
@@ -16,14 +16,16 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.adyen.v6.constants.Adyenv6coreConstants.*;
+
 @Controller
 @RequestMapping(value = "/api/orders")
-public class AdyenOrderController {
+public class AdyenPartialPaymentOrderController {
     
-    private static final Logger LOG = Logger.getLogger(AdyenOrderController.class);
+    private static final Logger LOG = Logger.getLogger(AdyenPartialPaymentOrderController.class);
     
     @Autowired
-    private AdyenOrderApiFacade adyenOrderApiFacade;
+    private AdyenPartialPaymentOrderFacade adyenPartialPaymentOrderFacade;
     
     /**
      * Create a partial payment order for gift cards
@@ -45,8 +47,8 @@ public class AdyenOrderController {
         }
         
         try {
-            // Delegate to facade for business logic
-            PartialPaymentOrderResponse response = adyenOrderApiFacade.createPartialPaymentOrder(request);
+
+            PartialPaymentOrderResponse response = adyenPartialPaymentOrderFacade.createPartialPaymentOrder(request);
             
             LOG.info("Partial payment order created successfully with PSP reference: " + response.getPspReference());
             
@@ -61,7 +63,7 @@ public class AdyenOrderController {
         } catch (Exception e) {
             LOG.error("Unexpected error during partial payment order creation", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(createErrorResponse("Internal server error"));
+                .body(createErrorResponse(PARTIAL_PAYMENT_ERROR_INTERNAL_SERVER));
         }
     }
     
@@ -72,25 +74,25 @@ public class AdyenOrderController {
         if (request == null) {
             LOG.error("Request is null");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(createErrorResponse("Request body is required"));
+                .body(createErrorResponse(PARTIAL_PAYMENT_ERROR_REQUEST_REQUIRED));
         }
         
         if (request.getAmount() == null) {
             LOG.error("Amount is missing from partial payment order request");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(createErrorResponse("Amount is required"));
+                .body(createErrorResponse(PARTIAL_PAYMENT_ERROR_AMOUNT_REQUIRED));
         }
         
         if (request.getAmount().getValue() == null || request.getAmount().getValue() <= 0) {
             LOG.error("Invalid amount value: " + request.getAmount().getValue());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(createErrorResponse("Valid amount value is required"));
+                .body(createErrorResponse(PARTIAL_PAYMENT_ERROR_AMOUNT_VALUE_REQUIRED));
         }
         
         if (request.getAmount().getCurrency() == null || request.getAmount().getCurrency().trim().isEmpty()) {
             LOG.error("Currency is missing from amount");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(createErrorResponse("Currency is required"));
+                .body(createErrorResponse(PARTIAL_PAYMENT_ERROR_CURRENCY_REQUIRED));
         }
         
         return null; // No validation errors
@@ -101,15 +103,15 @@ public class AdyenOrderController {
      */
     private HttpStatus determineHttpStatus(String errorMessage) {
         if (errorMessage != null) {
-            if (errorMessage.contains("No active cart found") ||
-                errorMessage.contains("Partial payment order not found") ||
-                errorMessage.contains("Payment service error")) {
+            if (errorMessage.contains(PARTIAL_PAYMENT_ERROR_NO_ACTIVE_CART) ||
+                errorMessage.contains(PARTIAL_PAYMENT_ERROR_ORDER_NOT_FOUND) ||
+                errorMessage.contains(PARTIAL_PAYMENT_ERROR_PAYMENT_SERVICE)) {
                 return HttpStatus.BAD_REQUEST;
-            } else if (errorMessage.contains("Communication error")) {
+            } else if (errorMessage.contains(PARTIAL_PAYMENT_ERROR_COMMUNICATION)) {
                 return HttpStatus.SERVICE_UNAVAILABLE;
-            } else if (errorMessage.contains("Amount is required") ||
-                      errorMessage.contains("Valid amount value is required") ||
-                      errorMessage.contains("Currency is required")) {
+            } else if (errorMessage.contains(PARTIAL_PAYMENT_ERROR_AMOUNT_REQUIRED) ||
+                      errorMessage.contains(PARTIAL_PAYMENT_ERROR_AMOUNT_VALUE_REQUIRED) ||
+                      errorMessage.contains(PARTIAL_PAYMENT_ERROR_CURRENCY_REQUIRED)) {
                 return HttpStatus.BAD_REQUEST;
             }
         }

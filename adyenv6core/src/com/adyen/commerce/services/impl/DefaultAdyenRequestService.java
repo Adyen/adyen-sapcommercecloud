@@ -342,8 +342,8 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
         
         PaymentRequestBuilder builder = new PaymentRequestBuilder()
             .merchantAccount(merchantAccount)
-            .amount(customAmount, currency)  // Use custom amount instead of cart amount
-            .reference(cartData.getCode() + "_partial_" + System.currentTimeMillis())
+            .amount(customAmount, currency)
+                .reference(originPaymentsRequest.getReference())
             .browserInfo(requestInfo.getUserAgent(), requestInfo.getAcceptHeader())
             .shopperDetails(customerModel)
             .requestInfo(requestInfo)

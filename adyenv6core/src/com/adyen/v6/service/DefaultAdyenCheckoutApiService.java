@@ -88,31 +88,24 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
 
         PaymentsApi checkoutApi = new PaymentsApi(client);
 
-        // Use the new partial payment method from DefaultAdyenRequestService
-        if (adyenRequestService instanceof com.adyen.commerce.services.impl.DefaultAdyenRequestService) {
-            com.adyen.commerce.services.impl.DefaultAdyenRequestService defaultService =
-                (com.adyen.commerce.services.impl.DefaultAdyenRequestService) adyenRequestService;
-            
-            PaymentRequest paymentsRequest = defaultService.createPartialPaymentRequest(merchantAccount,
-                    cartData,
-                    originPaymentsRequest,
-                    requestInfo,
-                    customerModel,
-                    baseStore.getAdyenRecurringContractMode(),
-                    baseStore.getAdyenGuestUserTokenization(),
-                    customAmount,
-                    currency);
 
-            adyenRequestService.applyAdditionalData(cartData, paymentsRequest);
+        PaymentRequest paymentsRequest = adyenRequestService.createPartialPaymentRequest(merchantAccount,
+                cartData,
+                originPaymentsRequest,
+                requestInfo,
+                customerModel,
+                baseStore.getAdyenRecurringContractMode(),
+                baseStore.getAdyenGuestUserTokenization(),
+                customAmount,
+                currency);
 
-            LOG.debug(paymentsRequest);
-            PaymentResponse paymentsResponse = checkoutApi.payments(paymentsRequest);
-            LOG.debug(paymentsResponse);
+        adyenRequestService.applyAdditionalData(cartData, paymentsRequest);
 
-            return paymentsResponse;
-        } else {
-            throw new IllegalStateException("AdyenRequestService must be an instance of DefaultAdyenRequestService for partial payments");
-        }
+        LOG.debug(paymentsRequest);
+        PaymentResponse paymentsResponse = checkoutApi.payments(paymentsRequest);
+        LOG.debug(paymentsResponse);
+
+        return paymentsResponse;
     }
 
     public PaymentResponse sendPaymentRequest(final PaymentRequest paymentRequest, final RequestInfo requestInfo) throws IOException, ApiException {

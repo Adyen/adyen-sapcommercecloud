@@ -6,7 +6,7 @@ import com.adyen.commerce.response.PartialPaymentOrderResponse;
 /**
  * Facade interface for Adyen order operations
  */
-public interface AdyenOrderApiFacade {
+public interface AdyenPartialPaymentOrderFacade {
     
     /**
      * Create a partial payment order for gift cards

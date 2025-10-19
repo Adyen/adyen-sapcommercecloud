@@ -118,7 +118,7 @@ export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
                 },
                 showPayButton: true,
                 showRemovePaymentMethodButton: true,
-                isPartialPayment: false,
+                isPartialPayment: true,
                 showRemainingAmount: true
             }).mount(paymentRef.current);
 
