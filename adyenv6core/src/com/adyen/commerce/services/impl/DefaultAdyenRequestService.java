@@ -270,7 +270,8 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
             .requestInfo(requestInfo)
             .redirectMethods()
             .countryCode(getCountryCode(cartData))
-            .company(createCompany(cartData));
+            .company(createCompany(cartData))
+            .shopperConversionId(cartData.getAdyenShopperConversionId());
 
         // Set return URL
         String returnUrl = StringUtils.isNotEmpty(cartData.getAdyenReturnUrl()) ? 

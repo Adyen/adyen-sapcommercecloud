@@ -97,6 +97,10 @@
                     <description>Amazon Pay configuration</description>
                     <persistence type="property"/>
                 </attribute>
+                <attribute qualifier="adyenShopperConversionId" type="java.lang.String">
+                    <description>Shopper conversion id</description>
+                    <persistence type="property"/>
+                </attribute>
             </attributes>
         </itemtype>
 

@@ -681,6 +681,9 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         PaymentMethodsResponse response = new PaymentMethodsResponse();
         CartModel cartModel = cartService.getSessionCart();
 
+        String shopperConversionId = UUID.randomUUID().toString();
+        cartModel.setAdyenShopperConversionId(shopperConversionId);
+
         Assert.notNull(cartModel.getDeliveryAddress(), "Delivery address is required");
 
         //to remove unwanted payment methods insert them here
@@ -690,7 +693,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         List<String> allowedPaymentMethods = getAllowedPaymentMethodsFromConfiguration();
 
         try {
-            response = getPaymentMethods(adyenPaymentService, cartData, customerModel, excludedPaymentMethods, allowedPaymentMethods);
+            response = getPaymentMethods(adyenPaymentService, cartData, customerModel, excludedPaymentMethods, allowedPaymentMethods, shopperConversionId);
         } catch (ApiException | IOException e) {
             LOGGER.error(ExceptionUtils.getStackTrace(e));
         }
@@ -821,10 +824,13 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         PaymentMethodsResponse response = new PaymentMethodsResponse();
         CartModel cartModel = cartService.getSessionCart();
 
+        String shopperConversionId = UUID.randomUUID().toString();
+        cartModel.setAdyenShopperConversionId(shopperConversionId);
+
         Assert.notNull(cartModel.getDeliveryAddress(), "Delivery address is required");
 
         try {
-            response = getPaymentMethods(adyenCheckoutApiService, cartData, customerModel);
+            response = getPaymentMethods(adyenCheckoutApiService, cartData, customerModel, shopperConversionId);
         } catch (ApiException | IOException e) {
             LOGGER.error(ExceptionUtils.getStackTrace(e));
         }
@@ -969,15 +975,16 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         return Collections.emptyList();
     }
 
-    protected PaymentMethodsResponse getPaymentMethods(AdyenCheckoutApiService adyenPaymentService, CartData cartData, CustomerModel customerModel) throws IOException, ApiException {
+    protected PaymentMethodsResponse getPaymentMethods(AdyenCheckoutApiService adyenPaymentService, CartData cartData, CustomerModel customerModel, String shopperConversionId) throws IOException, ApiException {
         return adyenPaymentService.getPaymentMethodsResponse(cartData.getTotalPriceWithTax().getValue(),
                 cartData.getTotalPriceWithTax().getCurrencyIso(),
                 cartData.getDeliveryAddress().getCountry().getIsocode(),
                 getShopperLocale(),
-                customerModel.getCustomerID());
+                customerModel.getCustomerID(),
+                shopperConversionId);
     }
 
-    protected PaymentMethodsResponse getPaymentMethods(AdyenCheckoutApiService adyenPaymentService, CartData cartData, CustomerModel customerModel, List<String> excludedPaymentMethods, List<String> allowedPaymentMethods) throws IOException, ApiException {
+    protected PaymentMethodsResponse getPaymentMethods(AdyenCheckoutApiService adyenPaymentService, CartData cartData, CustomerModel customerModel, List<String> excludedPaymentMethods, List<String> allowedPaymentMethods, String shopperConversionId) throws IOException, ApiException {
         if (adyenPaymentService == null || cartData == null || customerModel == null) {
             throw new IllegalArgumentException("Required parameters cannot be null");
         }
@@ -987,7 +994,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         String countryIso = cartData.getDeliveryAddress() != null && cartData.getDeliveryAddress().getCountry() != null ? cartData.getDeliveryAddress().getCountry().getIsocode() : StringUtils.EMPTY;
         String customerID = customerModel.getCustomerID() != null ? customerModel.getCustomerID() : StringUtils.EMPTY;
 
-        return adyenPaymentService.getPaymentMethodsResponse(totalPrice, currencyIso, countryIso, getShopperLocale(), customerID, excludedPaymentMethods, allowedPaymentMethods);
+        return adyenPaymentService.getPaymentMethodsResponse(totalPrice, currencyIso, countryIso, getShopperLocale(), customerID, excludedPaymentMethods, allowedPaymentMethods, shopperConversionId);
     }
 
 
@@ -1101,6 +1108,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
                     currency,
                     null,
                     getShopperLocale(),
+                    null,
                     null);
 
             Map<String, String> applePayConfig = getApplePayConfigFromPaymentMethods(paymentMethodsResponse.getPaymentMethods());

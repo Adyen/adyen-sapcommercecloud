@@ -34,6 +34,7 @@ public class CartPopulator implements Populator<CartModel, CartData> {
     @Override
     public void populate(final CartModel source, final CartData target) throws ConversionException {
         target.setAdyenDfValue(source.getAdyenDfValue());
+        target.setAdyenShopperConversionId(source.getAdyenShopperConversionId());
 
         final PaymentInfoModel paymentInfo = source.getPaymentInfo();
         if (paymentInfo != null && isAdyenPaymentInfo(paymentInfo)) {
