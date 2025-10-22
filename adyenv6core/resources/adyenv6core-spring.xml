@@ -87,7 +87,7 @@
     <bean id="adyenBaseStoreRepository" class="com.adyen.v6.repository.BaseStoreRepository" autowire="byName">
         <property name="orderRepository" ref="adyenOrderRepository" />
     </bean>
-
+    <bean id="adyenPartialPaymentOrderRepository" class="com.adyen.v6.repository.AdyenPartialPaymentOrderRepository" autowire="byName"/>
     <!-- Used for commands triggered by order-process -->
     <bean name="adyenCommandFactory" class="de.hybris.platform.payment.commands.factory.impl.DefaultCommandFactoryImpl" >
         <property name="paymentProvider" value="Adyen"/>
@@ -272,6 +272,7 @@
         <property name="userFacade" ref="userFacade"/>
         <property name="configurationService" ref="configurationService"/>
         <property name="adyenPartialPaymentService" ref="adyenPartialPaymentService"/>
+        <property name="adyenPartialPaymentOrderRepository" ref="adyenPartialPaymentOrderRepository" />
     </bean>
 
     <alias name="defaultAdyenGiftCardFacade" alias="adyenGiftCardFacade" />
@@ -580,7 +581,6 @@
         <property name="adyenPaymentServiceFactory" ref="adyenPaymentServiceFactory"/>
         <property name="modelService" ref="modelService"/>
         <property name="commonI18NService" ref="commonI18NService"/>
-        <property name="flexibleSearchService" ref="flexibleSearchService" />
     </bean>
 
     <alias name="defaultAdyenOrderApiFacade" alias="adyenOrderApiFacade" />
@@ -590,5 +590,6 @@
         <property name="adyenPaymentServiceFactory" ref="adyenPaymentServiceFactory"/>
         <property name="modelService"  ref="defaultModelService"/>
         <property name="flexibleSearchService" ref="defaultFlexibleSearchService" />
+        <property name="adyenPartialPaymentOrderRepository" ref="adyenPartialPaymentOrderRepository" />
     </bean>
 </beans>

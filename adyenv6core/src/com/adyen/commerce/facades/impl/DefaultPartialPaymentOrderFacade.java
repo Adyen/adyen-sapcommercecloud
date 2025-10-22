@@ -7,14 +7,13 @@ import com.adyen.model.checkout.CreateOrderRequest;
 import com.adyen.model.checkout.CreateOrderResponse;
 import com.adyen.service.checkout.OrdersApi;
 import com.adyen.service.exception.ApiException;
+import com.adyen.v6.repository.AdyenPartialPaymentOrderRepository;
 import com.adyen.v6.service.DefaultAdyenCheckoutApiService;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
 import com.adyen.v6.enums.AdyenPartialPaymentStatus;
 import com.adyen.v6.model.AdyenPartialPaymentOrderModel;
 import de.hybris.platform.servicelayer.model.ModelService;
 import de.hybris.platform.servicelayer.search.FlexibleSearchService;
-import de.hybris.platform.servicelayer.search.FlexibleSearchQuery;
-import de.hybris.platform.servicelayer.search.SearchResult;
 import de.hybris.platform.commercefacades.order.CartFacade;
 import de.hybris.platform.commercefacades.order.data.CartData;
 import de.hybris.platform.store.BaseStoreModel;
@@ -39,6 +38,7 @@ public class DefaultPartialPaymentOrderFacade implements AdyenPartialPaymentOrde
     private AdyenPaymentServiceFactory adyenPaymentServiceFactory;
     private ModelService modelService;
     private FlexibleSearchService flexibleSearchService;
+    private AdyenPartialPaymentOrderRepository adyenPartialPaymentOrderRepository;
     
     @Override
     public PartialPaymentOrderResponse createPartialPaymentOrder(PartialPaymentOrderRequest request) {
@@ -58,7 +58,7 @@ public class DefaultPartialPaymentOrderFacade implements AdyenPartialPaymentOrde
             // Find existing partial payment order if partialPaymentId is provided
             AdyenPartialPaymentOrderModel partialPaymentOrder = null;
             if (request.getPartialPaymentId() != null) {
-                partialPaymentOrder = findPartialPaymentOrderByPspReference(request.getPartialPaymentId());
+                partialPaymentOrder = adyenPartialPaymentOrderRepository.findPartialPaymentOrderByPspReference(request.getPartialPaymentId());
                 if (partialPaymentOrder == null) {
                     LOG.error("Partial payment order not found for ID: " + request.getPartialPaymentId());
                     throw new RuntimeException(PARTIAL_PAYMENT_ERROR_ORDER_NOT_FOUND);
@@ -177,25 +177,6 @@ public class DefaultPartialPaymentOrderFacade implements AdyenPartialPaymentOrde
         response.setResultCode("Success");
         return response;
     }
-    
-    /**
-     * Find partial payment order by PSP reference
-     */
-    private AdyenPartialPaymentOrderModel findPartialPaymentOrderByPspReference(String pspReference) {
-        try {
-            String query = "SELECT {pk} FROM {AdyenPartialPaymentOrder} WHERE {pspReference} = ?pspReference";
-            FlexibleSearchQuery searchQuery = new FlexibleSearchQuery(query);
-            searchQuery.addQueryParameter("pspReference", pspReference);
-            
-            SearchResult<AdyenPartialPaymentOrderModel> result = getFlexibleSearchService().search(searchQuery);
-            if (result.getCount() > 0) {
-                return result.getResult().get(0);
-            }
-        } catch (Exception e) {
-            LOG.error("Error finding partial payment order by PSP reference: " + pspReference, e);
-        }
-        return null;
-    }
 
     public CartFacade getCartFacade() {
         return cartFacade;
@@ -235,5 +216,13 @@ public class DefaultPartialPaymentOrderFacade implements AdyenPartialPaymentOrde
 
     public void setFlexibleSearchService(FlexibleSearchService flexibleSearchService) {
         this.flexibleSearchService = flexibleSearchService;
+    }
+
+    public AdyenPartialPaymentOrderRepository getAdyenPartialPaymentOrderRepository() {
+        return adyenPartialPaymentOrderRepository;
+    }
+
+    public void setAdyenPartialPaymentOrderRepository(AdyenPartialPaymentOrderRepository adyenPartialPaymentOrderRepository) {
+        this.adyenPartialPaymentOrderRepository = adyenPartialPaymentOrderRepository;
     }
 }

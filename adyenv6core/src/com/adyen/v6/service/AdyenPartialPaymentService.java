@@ -50,22 +50,6 @@ public interface AdyenPartialPaymentService {
     BigDecimal calculateChargedAmount(BigDecimal requestAmount, BigDecimal availableBalance, BigDecimal transactionLimit);
 
     /**
-     * Update partial payment order status
-     *
-     * @param partialPaymentOrder The partial payment order to update
-     * @param newStatus The new status
-     */
-    void updatePartialPaymentStatus(AdyenPartialPaymentOrderModel partialPaymentOrder, String newStatus);
-
-    /**
-     * Find partial payment order by PSP reference
-     *
-     * @param pspReference The PSP reference to search for
-     * @return AdyenPartialPaymentOrderModel if found, null otherwise
-     */
-    AdyenPartialPaymentOrderModel findPartialPaymentOrderByPspReference(String pspReference);
-
-    /**
      * Result class for balance check
      */
     class BalanceCheckResult {

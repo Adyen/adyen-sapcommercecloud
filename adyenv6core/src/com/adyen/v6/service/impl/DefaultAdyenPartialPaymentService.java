@@ -7,25 +7,19 @@ import com.adyen.model.checkout.CreateOrderRequest;
 import com.adyen.model.checkout.CreateOrderResponse;
 import com.adyen.service.checkout.OrdersApi;
 import com.adyen.service.exception.ApiException;
-import com.adyen.v6.enums.AdyenPartialPaymentStatus;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
-import com.adyen.v6.model.AdyenPartialPaymentOrderModel;
+import com.adyen.v6.repository.AdyenPartialPaymentOrderRepository;
 import com.adyen.v6.service.AdyenPartialPaymentService;
 import com.adyen.v6.service.DefaultAdyenCheckoutApiService;
-import de.hybris.platform.core.model.c2l.CurrencyModel;
-import de.hybris.platform.core.model.order.CartModel;
 import de.hybris.platform.servicelayer.i18n.CommonI18NService;
 import de.hybris.platform.servicelayer.model.ModelService;
-import de.hybris.platform.servicelayer.search.FlexibleSearchQuery;
 import de.hybris.platform.servicelayer.search.FlexibleSearchService;
-import de.hybris.platform.servicelayer.search.SearchResult;
 import de.hybris.platform.store.BaseStoreModel;
 import de.hybris.platform.store.services.BaseStoreService;
 import org.apache.log4j.Logger;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -40,7 +34,7 @@ public class DefaultAdyenPartialPaymentService implements AdyenPartialPaymentSer
     private AdyenPaymentServiceFactory adyenPaymentServiceFactory;
     private ModelService modelService;
     private CommonI18NService commonI18NService;
-    private FlexibleSearchService flexibleSearchService;
+
 
     @Override
     public BalanceCheckResult checkGiftCardBalance(
@@ -169,49 +163,6 @@ public class DefaultAdyenPartialPaymentService implements AdyenPartialPaymentSer
         return chargedAmount;
     }
 
-    @Override
-    public void updatePartialPaymentStatus(AdyenPartialPaymentOrderModel partialPaymentOrder, String newStatus) {
-        try {
-            AdyenPartialPaymentStatus statusEnum = AdyenPartialPaymentStatus.valueOf(newStatus);
-            partialPaymentOrder.setStatus(statusEnum);
-            partialPaymentOrder.setProcessedAt(new Date());
-            getModelService().save(partialPaymentOrder);
-            
-            LOG.info("Updated partial payment order status to: " + newStatus + 
-                    " for PSP reference: " + partialPaymentOrder.getPspReference());
-        } catch (IllegalArgumentException e) {
-            LOG.error("Invalid status: " + newStatus, e);
-            throw new RuntimeException("Invalid status: " + newStatus);
-        }
-    }
-
-    @Override
-    public AdyenPartialPaymentOrderModel findPartialPaymentOrderByPspReference(String pspReference) {
-        try {
-            String query = "SELECT {pk} FROM {AdyenPartialPaymentOrder} WHERE {pspReference} = ?pspReference";
-            FlexibleSearchQuery searchQuery = new FlexibleSearchQuery(query);
-            searchQuery.addQueryParameter("pspReference", pspReference);
-            
-            SearchResult<AdyenPartialPaymentOrderModel> result = getFlexibleSearchService().search(searchQuery);
-            if (result.getCount() > 0) {
-                return result.getResult().get(0);
-            }
-        } catch (Exception e) {
-            LOG.error("Error finding partial payment order by PSP reference: " + pspReference, e);
-        }
-        return null;
-    }
-
-    /**
-     * Mask card number for security (show only last 4 digits)
-     */
-    private String maskCardNumber(String cardNumber) {
-        if (cardNumber == null || cardNumber.length() < 4) {
-            return "****";
-        }
-        return "****" + cardNumber.substring(cardNumber.length() - 4);
-    }
-
     public BaseStoreService getBaseStoreService() {
         return baseStoreService;
     }
@@ -244,11 +195,4 @@ public class DefaultAdyenPartialPaymentService implements AdyenPartialPaymentSer
         this.commonI18NService = commonI18NService;
     }
 
-    public FlexibleSearchService getFlexibleSearchService() {
-        return flexibleSearchService;
-    }
-
-    public void setFlexibleSearchService(FlexibleSearchService flexibleSearchService) {
-        this.flexibleSearchService = flexibleSearchService;
-    }
 }
