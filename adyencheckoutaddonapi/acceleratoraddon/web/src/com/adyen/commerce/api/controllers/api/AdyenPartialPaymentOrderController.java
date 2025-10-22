@@ -70,7 +70,7 @@ public class AdyenPartialPaymentOrderController {
     /**
      * Validate the partial payment order request
      */
-    private ResponseEntity<?> validateRequest(PartialPaymentOrderRequest request) {
+    protected ResponseEntity<?> validateRequest(PartialPaymentOrderRequest request) {
         if (request == null) {
             LOG.error("Request is null");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -101,7 +101,7 @@ public class AdyenPartialPaymentOrderController {
     /**
      * Determine HTTP status based on exception message
      */
-    private HttpStatus determineHttpStatus(String errorMessage) {
+    protected HttpStatus determineHttpStatus(String errorMessage) {
         if (errorMessage != null) {
             if (errorMessage.contains(PARTIAL_PAYMENT_ERROR_NO_ACTIVE_CART) ||
                 errorMessage.contains(PARTIAL_PAYMENT_ERROR_ORDER_NOT_FOUND) ||
@@ -121,7 +121,7 @@ public class AdyenPartialPaymentOrderController {
     /**
      * Create error response map
      */
-    private Map<String, String> createErrorResponse(String message) {
+    protected Map<String, String> createErrorResponse(String message) {
         Map<String, String> error = new HashMap<>();
         error.put("error", message);
         return error;

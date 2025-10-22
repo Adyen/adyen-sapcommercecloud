@@ -107,7 +107,7 @@ public class DefaultAdyenGiftCardFacade implements AdyenGiftCardFacade {
     /**
      * Build balance check request for Adyen API
      */
-    private BalanceCheckRequest buildBalanceCheckRequest(BaseStoreModel baseStore, GiftCardBalanceRequest request) {
+    protected BalanceCheckRequest buildBalanceCheckRequest(BaseStoreModel baseStore, GiftCardBalanceRequest request) {
         BalanceCheckRequest balanceCheckRequest = new BalanceCheckRequest();
         balanceCheckRequest.setMerchantAccount(baseStore.getAdyenMerchantAccount());
         balanceCheckRequest.setAmount(request.getAmount());
@@ -128,7 +128,7 @@ public class DefaultAdyenGiftCardFacade implements AdyenGiftCardFacade {
     /**
      * Create partial payment order entry to store balance information
      */
-    private String createPartialPaymentOrder(GiftCardBalanceRequest request, BalanceCheckResponse adyenResponse, BigDecimal requestAmount,
+    protected String createPartialPaymentOrder(GiftCardBalanceRequest request, BalanceCheckResponse adyenResponse, BigDecimal requestAmount,
                                            BigDecimal availableBalance, BigDecimal transactionLimit,
                                            BigDecimal chargedAmount, BigDecimal remainingAmount) {
         CartModel cartModel = getCartService().getSessionCart();
@@ -175,7 +175,7 @@ public class DefaultAdyenGiftCardFacade implements AdyenGiftCardFacade {
     /**
      * Build gift card balance response
      */
-    private GiftCardBalanceResponse buildGiftCardBalanceResponse(BalanceCheckResponse adyenResponse,
+    protected GiftCardBalanceResponse buildGiftCardBalanceResponse(BalanceCheckResponse adyenResponse,
                                                                String partialPaymentId,
                                                                BigDecimal chargedAmount,
                                                                BigDecimal remainingAmount) {

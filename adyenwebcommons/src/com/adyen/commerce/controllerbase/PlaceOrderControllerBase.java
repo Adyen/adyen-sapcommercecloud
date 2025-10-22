@@ -247,7 +247,7 @@ public abstract class PlaceOrderControllerBase {
      * Handle partial payment processing for gift cards
      * Retrieves the partial payment from CartData and makes authorization call to Adyen
      */
-    private OCCPlaceOrderResponse handlePartialPayment(HttpServletRequest request, PlaceOrderRequest placeOrderRequest,
+    protected OCCPlaceOrderResponse handlePartialPayment(HttpServletRequest request, PlaceOrderRequest placeOrderRequest,
                                                       CartData cartData, RequestInfo requestInfo) {
         try {
             // Retrieve partial payment from CartData
@@ -328,7 +328,7 @@ public abstract class PlaceOrderControllerBase {
      * Handle the second payment call for remaining amount after gift card payment
      * This method processes the remaining amount with a different payment method and completes the order
      */
-    private OCCPlaceOrderResponse handleRemainingAmountPayment(HttpServletRequest request, PlaceOrderRequest placeOrderRequest,
+    protected OCCPlaceOrderResponse handleRemainingAmountPayment(HttpServletRequest request, PlaceOrderRequest placeOrderRequest,
                                                               CartData cartData, RequestInfo requestInfo,
                                                               AdyenPartialPaymentOrderData partialPayment) {
         try {
@@ -395,7 +395,7 @@ public abstract class PlaceOrderControllerBase {
     /**
      * Find partial payment order data from CartData by PSP reference
      */
-    private AdyenPartialPaymentOrderData findPartialPaymentOrderDataByPspReference(CartData cartData, String pspReference) {
+    protected AdyenPartialPaymentOrderData findPartialPaymentOrderDataByPspReference(CartData cartData, String pspReference) {
         if (cartData.getAdyenPartialPaymentOrders() != null) {
             for (AdyenPartialPaymentOrderData partialPaymentData : cartData.getAdyenPartialPaymentOrders()) {
                 if (pspReference.equals(partialPaymentData.getPspReference())) {

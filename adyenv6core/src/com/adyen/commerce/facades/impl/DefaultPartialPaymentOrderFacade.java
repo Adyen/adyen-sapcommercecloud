@@ -113,7 +113,7 @@ public class DefaultPartialPaymentOrderFacade implements AdyenPartialPaymentOrde
     /**
      * Validate the partial payment order request
      */
-    private void validateRequest(PartialPaymentOrderRequest request) {
+    protected void validateRequest(PartialPaymentOrderRequest request) {
         if (request.getAmount() == null) {
             LOG.error("Amount is missing from partial payment order request");
             throw new RuntimeException(PARTIAL_PAYMENT_ERROR_AMOUNT_REQUIRED);
@@ -133,7 +133,7 @@ public class DefaultPartialPaymentOrderFacade implements AdyenPartialPaymentOrde
     /**
      * Build the create order request for Adyen
      */
-    private CreateOrderRequest buildCreateOrderRequest(PartialPaymentOrderRequest request, BaseStoreModel baseStore) {
+    protected CreateOrderRequest buildCreateOrderRequest(PartialPaymentOrderRequest request, BaseStoreModel baseStore) {
         CreateOrderRequest createOrderRequest = new CreateOrderRequest();
         createOrderRequest.setAmount(request.getAmount());
         createOrderRequest.setMerchantAccount(baseStore.getAdyenMerchantAccount());
@@ -144,7 +144,7 @@ public class DefaultPartialPaymentOrderFacade implements AdyenPartialPaymentOrde
     /**
      * Validate the Adyen response
      */
-    private void validateAdyenResponse(CreateOrderResponse adyenResponse) {
+    protected void validateAdyenResponse(CreateOrderResponse adyenResponse) {
         if (adyenResponse.getOrderData() == null || adyenResponse.getOrderData().trim().isEmpty()) {
             LOG.error("Adyen response missing orderData: " + adyenResponse);
             throw new RuntimeException(PARTIAL_PAYMENT_ERROR_INVALID_RESPONSE + ": missing order data");
@@ -159,7 +159,7 @@ public class DefaultPartialPaymentOrderFacade implements AdyenPartialPaymentOrde
     /**
      * Update partial payment order with Adyen response data
      */
-    private void updatePartialPaymentOrder(AdyenPartialPaymentOrderModel partialPaymentOrder, CreateOrderResponse adyenResponse) {
+    protected void updatePartialPaymentOrder(AdyenPartialPaymentOrderModel partialPaymentOrder, CreateOrderResponse adyenResponse) {
         partialPaymentOrder.setStatus(AdyenPartialPaymentStatus.CREATED);
         partialPaymentOrder.setProcessedAt(new java.util.Date());
         getModelService().save(partialPaymentOrder);
@@ -170,7 +170,7 @@ public class DefaultPartialPaymentOrderFacade implements AdyenPartialPaymentOrde
     /**
      * Build the response from Adyen response
      */
-    private PartialPaymentOrderResponse buildResponse(CreateOrderResponse adyenResponse) {
+    protected PartialPaymentOrderResponse buildResponse(CreateOrderResponse adyenResponse) {
         PartialPaymentOrderResponse response = new PartialPaymentOrderResponse();
         response.setOrderData(adyenResponse.getOrderData());
         response.setPspReference(adyenResponse.getPspReference());

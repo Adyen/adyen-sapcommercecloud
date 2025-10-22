@@ -79,15 +79,7 @@ export const useAdyenPayment = (
                         responseData.paymentsResponse.order &&
                         responseData.paymentsResponse.order.remainingAmount &&
                         responseData.paymentsResponse.order.remainingAmount.value > 0) {
-                        
-                        // // Store the partial payment ID for subsequent payments
-                        // if (responseData.partialPaymentId) {
-                        //     setPaymentState(prev => ({
-                        //         ...prev,
-                        //         partialPaymentId: responseData.partialPaymentId
-                        //     }));
-                        // }
-                        
+
                         // Inform DropIn about partial payment success
                         actions.resolve(responseData.paymentsResponse);
                         

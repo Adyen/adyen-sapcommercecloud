@@ -65,7 +65,7 @@ public abstract class GiftCardControllerBase {
     /**
      * Validate the gift card balance request
      */
-    private ResponseEntity<?> validateRequest(GiftCardBalanceRequest request) {
+    protected ResponseEntity<?> validateRequest(GiftCardBalanceRequest request) {
         if (request.getCardNumber() == null || request.getCardNumber().trim().isEmpty()) {
             LOG.error("Gift card number is missing or empty");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -96,7 +96,7 @@ public abstract class GiftCardControllerBase {
     /**
      * Determine HTTP status based on exception message
      */
-    private HttpStatus determineHttpStatus(String errorMessage) {
+    protected HttpStatus determineHttpStatus(String errorMessage) {
         if (errorMessage != null) {
             if (errorMessage.contains("Balance check failed") || errorMessage.contains("API error")) {
                 return HttpStatus.BAD_REQUEST;
@@ -110,7 +110,7 @@ public abstract class GiftCardControllerBase {
     /**
      * Create error response map
      */
-    private Map<String, String> createErrorResponse(String message) {
+    protected Map<String, String> createErrorResponse(String message) {
         Map<String, String> error = new HashMap<>();
         error.put("error", message);
         return error;
