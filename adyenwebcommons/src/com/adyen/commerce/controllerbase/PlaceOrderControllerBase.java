@@ -12,6 +12,7 @@ import com.adyen.model.checkout.PaymentResponse;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
 import com.adyen.v6.facades.AdyenCheckoutFacade;
 import com.adyen.v6.model.RequestInfo;
+import com.adyen.v6.service.AdyenShopperIpResolverService;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.hybris.platform.acceleratorfacades.flow.CheckoutFlowFacade;
@@ -177,8 +178,10 @@ public abstract class PlaceOrderControllerBase {
         String errorMessage = CHECKOUT_ERROR_AUTHORIZATION_FAILED;
 
         try {
+            String shopperIp = getAdyenShopperIpResolverService().resolveShopperIp(request);
+
             cartData.setAdyenReturnUrl(getPaymentRedirectReturnUrl());
-            RequestInfo requestInfo = new RequestInfo(request);
+            RequestInfo requestInfo = new RequestInfo(request, shopperIp);
             requestInfo.setStorefrontType(placeOrderRequest.getStorefrontType());
             requestInfo.setStorefrontVersion(placeOrderRequest.getStorefrontVersion());
             OrderPaymentResult orderPaymentResult = getAdyenCheckoutApiFacade().placeOrderWithPayment(request, cartData, placeOrderRequest.getPaymentRequest(), requestInfo);
@@ -235,5 +238,7 @@ public abstract class PlaceOrderControllerBase {
     public abstract AdyenCheckoutFacade getAdyenCheckoutFacade();
 
     public abstract CheckoutCustomerStrategy getCheckoutCustomerStrategy();
+
+    public abstract AdyenShopperIpResolverService getAdyenShopperIpResolverService();
 
 }

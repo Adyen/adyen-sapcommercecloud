@@ -43,10 +43,7 @@ import com.adyen.v6.forms.validation.AdyenPaymentFormValidator;
 import com.adyen.v6.model.ExpressPaymentConfigModel;
 import com.adyen.v6.model.RequestInfo;
 import com.adyen.v6.repository.OrderRepository;
-import com.adyen.v6.service.AdyenBusinessProcessService;
-import com.adyen.v6.service.AdyenCheckoutApiService;
-import com.adyen.v6.service.AdyenOrderService;
-import com.adyen.v6.service.AdyenTransactionService;
+import com.adyen.v6.service.*;
 import com.adyen.v6.strategy.AdyenMerchantAccountStrategy;
 import com.adyen.v6.util.AmountUtil;
 import com.google.gson.Gson;
@@ -163,6 +160,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     private AdyenOrderFacade adyenOrderFacade;
     private ProductFacade productFacade;
     private CommerceCartService commerceCartService;
+    private AdyenShopperIpResolverService adyenShopperIpResolverService;
 
     public static final Logger LOGGER = Logger.getLogger(DefaultAdyenCheckoutFacade.class);
 
@@ -406,7 +404,9 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         updateCartWithSessionData(cartData);
         String adyenPaymentMethod = cartData.getAdyenPaymentMethod();
 
-        RequestInfo requestInfo = new RequestInfo(request);
+        String shopperIp = adyenShopperIpResolverService.resolveShopperIp(request);
+
+        RequestInfo requestInfo = new RequestInfo(request, shopperIp);
         requestInfo.setStorefrontType(StorefrontType.ACCELERATOR);
         requestInfo.setShopperLocale(getShopperLocale());
 
@@ -454,7 +454,9 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     public PaymentResponse componentPayment(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest) throws Exception {
         updateCartWithSessionData(cartData);
 
-        RequestInfo requestInfo = new RequestInfo(request);
+        String shopperIp = adyenShopperIpResolverService.resolveShopperIp(request);
+
+        RequestInfo requestInfo = new RequestInfo(request, shopperIp);
         requestInfo.setStorefrontType(StorefrontType.ACCELERATOR);
         requestInfo.setShopperLocale(getShopperLocale());
 
@@ -1989,5 +1991,9 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
 
     public void setCommerceCartService(CommerceCartService commerceCartService) {
         this.commerceCartService = commerceCartService;
+    }
+
+    public void setAdyenShopperIpResolverService(AdyenShopperIpResolverService adyenShopperIpResolverService) {
+        this.adyenShopperIpResolverService = adyenShopperIpResolverService;
     }
 }

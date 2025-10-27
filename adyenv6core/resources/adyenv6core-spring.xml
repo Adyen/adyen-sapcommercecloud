@@ -237,6 +237,7 @@
         <property name="adyenOrderFacade" ref="adyenOrderFacade"/>
         <property name="productFacade" ref="productFacade"/>
         <property name="commerceCartService" ref="commerceCartService"/>
+        <property name="adyenShopperIpResolverService" ref="adyenShopperIpResolverService"/>
     </bean>
 
     <alias name="defaultAdyenCheckoutApiFacade" alias="adyenCheckoutApiFacade" />
@@ -475,6 +476,7 @@
         <property name="baseSiteService" ref="baseSiteService"/>
         <property name="siteBaseUrlResolutionService" ref="siteBaseUrlResolutionService"/>
         <property name="occPaymentRedirectReturnUrlResolver" ref="occPaymentRedirectReturnUrlResolver"/>
+        <property name="adyenShopperIpResolverService" ref="adyenShopperIpResolverService"/>
     </bean>
 
     <bean id="adyenPayPalExpressCheckoutFacade" class="com.adyen.v6.facades.impl.DefaultAdyenPayPalExpressCheckoutFacade">
@@ -516,6 +518,7 @@
         <property name="countryConverter" ref="countryConverter"/>
         <property name="impersonationService" ref="impersonationService"/>
         <property name="adyenPaymentServiceFactory" ref="adyenPaymentServiceFactory"/>
+        <property name="adyenShopperIpResolverService" ref="adyenShopperIpResolverService"/>
     </bean>
 
     <bean id="adyenOrderFacade" class="com.adyen.v6.facades.impl.DefaultAdyenOrderFacade">
