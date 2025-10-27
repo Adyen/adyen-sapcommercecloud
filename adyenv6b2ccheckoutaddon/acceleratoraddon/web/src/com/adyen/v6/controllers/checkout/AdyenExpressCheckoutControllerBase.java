@@ -1,28 +1,40 @@
 package com.adyen.v6.controllers.checkout;
 
-import com.adyen.model.checkout.GooglePayDetails;
+import com.adyen.v6.helpers.AdyenUrlHelper;
 import de.hybris.platform.acceleratorservices.urlresolver.SiteBaseUrlResolutionService;
-import de.hybris.platform.basecommerce.model.site.BaseSiteModel;
 import de.hybris.platform.site.BaseSiteService;
 
-import static com.adyen.v6.constants.AdyenControllerConstants.CHECKOUT_RESULT_URL;
-import static com.adyen.v6.constants.AdyenControllerConstants.SUMMARY_CHECKOUT_PREFIX;
-
+/**
+ * Base class for express checkout controllers providing common URL generation functionality
+ */
 public abstract class AdyenExpressCheckoutControllerBase {
 
+    private AdyenUrlHelper adyenUrlHelper;
+
+    /**
+     * Generates the appropriate return URL based on payment method
+     * 
+     * @param paymentMethod the Adyen payment method
+     * @return the complete return URL
+     */
     protected String getReturnUrl(String paymentMethod) {
-        String url;
-        if (GooglePayDetails.TypeEnum.GOOGLEPAY.getValue().equals(paymentMethod)) {
-            //Google Pay will only use returnUrl if redirected to 3DS authentication
-            url = SUMMARY_CHECKOUT_PREFIX + "/authorise-3d-adyen-response";
-        } else {
-            url = SUMMARY_CHECKOUT_PREFIX + CHECKOUT_RESULT_URL;
+        if (adyenUrlHelper == null) {
+            adyenUrlHelper = new AdyenUrlHelper(getSiteBaseUrlResolutionService(), getBaseSiteService());
         }
-        BaseSiteModel currentBaseSite = getBaseSiteService().getCurrentBaseSite();
-        return getSiteBaseUrlResolutionService().getWebsiteUrlForSite(currentBaseSite, true, url);
+        return adyenUrlHelper.getReturnUrl(paymentMethod);
     }
 
-    abstract public BaseSiteService getBaseSiteService();
+    /**
+     * Gets the base site service
+     * 
+     * @return BaseSiteService instance
+     */
+    public abstract BaseSiteService getBaseSiteService();
 
-    abstract public SiteBaseUrlResolutionService getSiteBaseUrlResolutionService();
+    /**
+     * Gets the site base URL resolution service
+     * 
+     * @return SiteBaseUrlResolutionService instance
+     */
+    public abstract SiteBaseUrlResolutionService getSiteBaseUrlResolutionService();
 }
