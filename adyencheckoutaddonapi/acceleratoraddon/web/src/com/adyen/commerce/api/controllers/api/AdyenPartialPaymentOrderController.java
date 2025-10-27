@@ -59,11 +59,11 @@ public class AdyenPartialPaymentOrderController {
             
             // Determine appropriate HTTP status based on exception message
             HttpStatus status = determineHttpStatus(e.getMessage());
-            return ResponseEntity.status(status).body(createErrorResponse(e.getMessage()));
+            return ResponseEntity.status(status).body((e.getMessage()));
         } catch (Exception e) {
             LOG.error("Unexpected error during partial payment order creation", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(createErrorResponse(PARTIAL_PAYMENT_ERROR_INTERNAL_SERVER));
+                .body(PARTIAL_PAYMENT_ERROR_INTERNAL_SERVER);
         }
     }
     
@@ -74,25 +74,25 @@ public class AdyenPartialPaymentOrderController {
         if (request == null) {
             LOG.error("Request is null");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(createErrorResponse(PARTIAL_PAYMENT_ERROR_REQUEST_REQUIRED));
+                .body(PARTIAL_PAYMENT_ERROR_REQUEST_REQUIRED);
         }
         
         if (request.getAmount() == null) {
             LOG.error("Amount is missing from partial payment order request");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(createErrorResponse(PARTIAL_PAYMENT_ERROR_AMOUNT_REQUIRED));
+                .body(PARTIAL_PAYMENT_ERROR_AMOUNT_REQUIRED);
         }
         
         if (request.getAmount().getValue() == null || request.getAmount().getValue() <= 0) {
             LOG.error("Invalid amount value: " + request.getAmount().getValue());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(createErrorResponse(PARTIAL_PAYMENT_ERROR_AMOUNT_VALUE_REQUIRED));
+                .body(PARTIAL_PAYMENT_ERROR_AMOUNT_VALUE_REQUIRED);
         }
         
         if (request.getAmount().getCurrency() == null || request.getAmount().getCurrency().trim().isEmpty()) {
             LOG.error("Currency is missing from amount");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(createErrorResponse(PARTIAL_PAYMENT_ERROR_CURRENCY_REQUIRED));
+                .body(PARTIAL_PAYMENT_ERROR_CURRENCY_REQUIRED);
         }
         
         return null; // No validation errors
@@ -102,28 +102,14 @@ public class AdyenPartialPaymentOrderController {
      * Determine HTTP status based on exception message
      */
     protected HttpStatus determineHttpStatus(String errorMessage) {
-        if (errorMessage != null) {
-            if (errorMessage.contains(PARTIAL_PAYMENT_ERROR_NO_ACTIVE_CART) ||
-                errorMessage.contains(PARTIAL_PAYMENT_ERROR_ORDER_NOT_FOUND) ||
-                errorMessage.contains(PARTIAL_PAYMENT_ERROR_PAYMENT_SERVICE)) {
-                return HttpStatus.BAD_REQUEST;
-            } else if (errorMessage.contains(PARTIAL_PAYMENT_ERROR_COMMUNICATION)) {
+
+        if (errorMessage != null && !errorMessage.isEmpty()) {
+            if(errorMessage.contains(PARTIAL_PAYMENT_ERROR_COMMUNICATION)){
                 return HttpStatus.SERVICE_UNAVAILABLE;
-            } else if (errorMessage.contains(PARTIAL_PAYMENT_ERROR_AMOUNT_REQUIRED) ||
-                      errorMessage.contains(PARTIAL_PAYMENT_ERROR_AMOUNT_VALUE_REQUIRED) ||
-                      errorMessage.contains(PARTIAL_PAYMENT_ERROR_CURRENCY_REQUIRED)) {
+            }else {
                 return HttpStatus.BAD_REQUEST;
             }
         }
         return HttpStatus.INTERNAL_SERVER_ERROR;
-    }
-    
-    /**
-     * Create error response map
-     */
-    protected Map<String, String> createErrorResponse(String message) {
-        Map<String, String> error = new HashMap<>();
-        error.put("error", message);
-        return error;
     }
 }

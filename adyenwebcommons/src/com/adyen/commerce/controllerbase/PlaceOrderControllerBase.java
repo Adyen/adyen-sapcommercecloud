@@ -260,21 +260,14 @@ public abstract class PlaceOrderControllerBase {
             LOGGER.info("Found partial payment: " + partialPaymentData.getPspReference() +
                        " with charged amount: " + partialPaymentData.getGiftCardChargedAmount());
 
-            // Get Adyen checkout API service
-            AdyenCheckoutApiService adyenService = getAdyenCheckoutApiFacade().getAdyenPaymentService();
-
-            // Make authorization call to Adyen with the gift card amount instead of full cart amount
-            PaymentResponse paymentResponse = adyenService.processPartialPaymentRequest(
+            // Process partial payment authorization through facade
+            PaymentResponse paymentResponse = getAdyenCheckoutFacade().processPartialPaymentAuthorization(
                 cartData,
                 placeOrderRequest.getPaymentRequest(),
                 requestInfo,
                 getCheckoutCustomerStrategy().getCurrentUserForCheckout(),
-                partialPaymentData.getGiftCardChargedAmount(),
-                partialPaymentData.getCurrency().getIsocode()
+                partialPaymentData
             );
-
-            LOGGER.info("Gift card authorization response: " + paymentResponse.getResultCode() +
-                       " PSP Reference: " + paymentResponse.getPspReference());
 
             // Handle the payment response
             if (PaymentResponse.ResultCodeEnum.AUTHORISED == paymentResponse.getResultCode()) {

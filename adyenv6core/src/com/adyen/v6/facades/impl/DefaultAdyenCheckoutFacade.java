@@ -21,6 +21,7 @@
 package com.adyen.v6.facades.impl;
 
 
+import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.commerce.data.PaymentMethodsCartData;
 import com.adyen.model.checkout.*;
 import com.adyen.model.recurring.Recurring;
@@ -1989,5 +1990,31 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
 
     public void setCommerceCartService(CommerceCartService commerceCartService) {
         this.commerceCartService = commerceCartService;
+    }
+    /**
+     * Process partial payment authorization for gift cards
+     * Makes authorization call to Adyen with the gift card amount instead of full cart amount
+     */
+    public PaymentResponse processPartialPaymentAuthorization(CartData cartData,
+                                                              PaymentRequest paymentRequest,
+                                                             RequestInfo requestInfo, CustomerModel customer,
+                                                             AdyenPartialPaymentOrderData partialPaymentData) throws Exception {
+        // Get Adyen checkout API service
+        AdyenCheckoutApiService adyenService = getAdyenPaymentService();
+
+        // Make authorization call to Adyen with the gift card amount instead of full cart amount
+        PaymentResponse paymentResponse = adyenService.processPartialPaymentRequest(
+            cartData,
+            paymentRequest,
+            requestInfo,
+            customer,
+            partialPaymentData.getGiftCardChargedAmount(),
+            partialPaymentData.getCurrency().getIsocode()
+        );
+
+        LOGGER.info("Gift card authorization response: " + paymentResponse.getResultCode() +
+                   " PSP Reference: " + paymentResponse.getPspReference());
+
+        return paymentResponse;
     }
 }

@@ -167,8 +167,6 @@ export const useAdyenPayment = (
                 chargedAmount: response.chargedAmount,
                 remainingAmount: response.remainingAmount
             };
-            
-            console.log('Formatted balance response:', balanceResponse);
             resolve(balanceResponse);
         } catch (error) {
             reject();
@@ -194,12 +192,9 @@ export const useAdyenPayment = (
                 orderData: response.orderData,
                 pspReference: response.pspReference
             };
-            
-            console.log('Resolving order request with:', orderResponse);
             resolve(orderResponse);
             
         } catch (error) {
-            console.error('Order request failed:', error);
             reject();
         }
     }, []);

@@ -54,11 +54,11 @@ public abstract class GiftCardControllerBase {
             
             // Determine appropriate HTTP status based on exception message
             HttpStatus status = determineHttpStatus(e.getMessage());
-            return ResponseEntity.status(status).body(createErrorResponse(e.getMessage()));
+            return ResponseEntity.status(status).body(e.getMessage());
         } catch (Exception e) {
             LOG.error("Unexpected error during gift card balance check", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(createErrorResponse("Internal server error"));
+                .body("Internal server error");
         }
     }
     
@@ -69,25 +69,25 @@ public abstract class GiftCardControllerBase {
         if (request.getCardNumber() == null || request.getCardNumber().trim().isEmpty()) {
             LOG.error("Gift card number is missing or empty");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(createErrorResponse("Gift card number is required"));
+                .body("Gift card number is required");
         }
         
         if (request.getAmount() == null) {
             LOG.error("Amount is missing");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(createErrorResponse("Amount is required"));
+                .body("Amount is required");
         }
         
         if (request.getType() == null || request.getType().trim().isEmpty()) {
             LOG.error("Gift card type is missing");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(createErrorResponse("Gift card type is required"));
+                .body("Gift card type is required");
         }
         
         if (request.getBrand() == null || request.getBrand().trim().isEmpty()) {
             LOG.error("Gift card brand is missing");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(createErrorResponse("Gift card brand is required"));
+                .body("Gift card brand is required");
         }
         
         return null; // No validation errors
@@ -105,15 +105,6 @@ public abstract class GiftCardControllerBase {
             }
         }
         return HttpStatus.INTERNAL_SERVER_ERROR;
-    }
-    
-    /**
-     * Create error response map
-     */
-    protected Map<String, String> createErrorResponse(String message) {
-        Map<String, String> error = new HashMap<>();
-        error.put("error", message);
-        return error;
     }
     
     /**
