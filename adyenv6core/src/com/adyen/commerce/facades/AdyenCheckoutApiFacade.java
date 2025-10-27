@@ -4,6 +4,7 @@ import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.commerce.dto.OrderPaymentResult;
 import com.adyen.model.checkout.PaymentDetailsRequest;
 import com.adyen.model.checkout.PaymentRequest;
+import com.adyen.model.checkout.PaymentResponse;
 import com.adyen.v6.facades.AdyenCheckoutFacade;
 import com.adyen.v6.forms.AddressForm;
 import com.adyen.v6.model.RequestInfo;
@@ -42,4 +43,22 @@ public interface AdyenCheckoutApiFacade extends AdyenCheckoutFacade {
      * @param status The new status
      */
     void updatePartialPaymentStatus(AdyenPartialPaymentOrderData partialPaymentData, AdyenPartialPaymentStatus status);
+
+    /**
+     * Process partial payment authorization for gift cards
+     * Makes authorization call to Adyen with the gift card amount instead of full cart amount
+     *
+     * @param cartData cart data
+     * @param paymentRequest payment request object
+     * @param requestInfo request information
+     * @param customer customer model
+     * @param partialPaymentData partial payment data containing gift card information
+     * @return PaymentResponse from Adyen
+     * @throws Exception if payment processing fails
+     */
+    PaymentResponse processPartialPaymentAuthorization(CartData cartData,
+                                                       PaymentRequest paymentRequest,
+                                                       com.adyen.v6.model.RequestInfo requestInfo,
+                                                       de.hybris.platform.core.model.user.CustomerModel customer,
+                                                       com.adyen.commerce.data.AdyenPartialPaymentOrderData partialPaymentData) throws Exception;
 }

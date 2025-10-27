@@ -17,6 +17,7 @@ import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.v6.service.AdyenCheckoutApiService;
 import com.adyen.v6.service.AdyenPartialPaymentService;
 import com.adyen.v6.enums.AdyenPartialPaymentStatus;
+import com.adyen.v6.util.RemainingAmountCalculator;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.hybris.platform.acceleratorfacades.flow.CheckoutFlowFacade;
@@ -261,7 +262,7 @@ public abstract class PlaceOrderControllerBase {
                        " with charged amount: " + partialPaymentData.getGiftCardChargedAmount());
 
             // Process partial payment authorization through facade
-            PaymentResponse paymentResponse = getAdyenCheckoutFacade().processPartialPaymentAuthorization(
+            PaymentResponse paymentResponse = getAdyenCheckoutApiFacade().processPartialPaymentAuthorization(
                 cartData,
                 placeOrderRequest.getPaymentRequest(),
                 requestInfo,
@@ -271,18 +272,8 @@ public abstract class PlaceOrderControllerBase {
 
             // Handle the payment response
             if (PaymentResponse.ResultCodeEnum.AUTHORISED == paymentResponse.getResultCode()) {
-                // Calculate remaining amount (total cart amount - gift card charged amount)
-                java.math.BigDecimal totalAmount = cartData.getTotalPrice().getValue();
-                java.math.BigDecimal giftCardAmount = partialPaymentData.getGiftCardChargedAmount();
-                java.math.BigDecimal remainingAmount = totalAmount.subtract(giftCardAmount);
-
-                // Update the partial payment through facade
-                getAdyenCheckoutApiFacade().updatePartialPaymentAfterAuthorization(
-                    placeOrderRequest.getPartialPaymentId(),
-                    paymentResponse.getPspReference(),
-                    AdyenPartialPaymentStatus.AUTHORIZED,
-                    remainingAmount
-                );
+                // Calculate remaining amount using helper class
+                java.math.BigDecimal remainingAmount = RemainingAmountCalculator.calculateRemainingAmount(cartData, partialPaymentData);
 
                 // Return response indicating partial payment was processed but order not placed
                 OCCPlaceOrderResponse response = new OCCPlaceOrderResponse();

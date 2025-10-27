@@ -19,6 +19,7 @@ import com.adyen.v6.model.RequestInfo;
 import com.adyen.v6.model.AdyenPartialPaymentOrderModel;
 import com.adyen.v6.enums.AdyenPartialPaymentStatus;
 import com.adyen.v6.repository.AdyenPartialPaymentOrderRepository;
+import com.adyen.v6.service.AdyenCheckoutApiService;
 import com.adyen.v6.service.AdyenPartialPaymentService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import de.hybris.platform.commercefacades.order.data.CartData;
@@ -28,6 +29,7 @@ import de.hybris.platform.core.model.order.CartModel;
 import de.hybris.platform.core.model.order.OrderModel;
 import de.hybris.platform.core.model.order.payment.PaymentInfoModel;
 import de.hybris.platform.core.model.user.AddressModel;
+import de.hybris.platform.core.model.user.CustomerModel;
 import org.apache.commons.lang3.StringUtils;
 
 import javax.servlet.http.HttpServletRequest;
@@ -237,6 +239,48 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
             partialPayment.setProcessedAt(new java.util.Date());
             getModelService().save(partialPayment);
         }
+    }
+
+    /**
+     * Process partial payment authorization for gift cards
+     * Makes authorization call to Adyen with the gift card amount instead of full cart amount
+     */
+    public PaymentResponse processPartialPaymentAuthorization(CartData cartData,
+                                                              PaymentRequest paymentRequest,
+                                                              RequestInfo requestInfo, CustomerModel customer,
+                                                              AdyenPartialPaymentOrderData partialPaymentData) throws Exception {
+        // Get Adyen checkout API service
+        AdyenCheckoutApiService adyenService = getAdyenPaymentService();
+
+        // Make authorization call to Adyen with the gift card amount instead of full cart amount
+        PaymentResponse paymentResponse = adyenService.processPartialPaymentRequest(
+                cartData,
+                paymentRequest,
+                requestInfo,
+                customer,
+                partialPaymentData.getGiftCardChargedAmount(),
+                partialPaymentData.getCurrency().getIsocode()
+        );
+
+        LOGGER.info("Gift card authorization response: " + paymentResponse.getResultCode() +
+                " PSP Reference: " + paymentResponse.getPspReference());
+
+        // Handle the payment response
+        if (PaymentResponse.ResultCodeEnum.AUTHORISED == paymentResponse.getResultCode()) {
+            // Calculate remaining amount (total cart amount - gift card charged amount)
+            java.math.BigDecimal totalAmount = cartData.getTotalPrice().getValue();
+            java.math.BigDecimal giftCardAmount = partialPaymentData.getGiftCardChargedAmount();
+            java.math.BigDecimal remainingAmount = totalAmount.subtract(giftCardAmount);
+
+            // Update the partial payment through facade
+            updatePartialPaymentAfterAuthorization(
+                    partialPaymentData.getPspReference(),
+                    paymentResponse.getPspReference(),
+                    AdyenPartialPaymentStatus.AUTHORIZED,
+                    remainingAmount
+            );
+        }
+        return paymentResponse;
     }
 
     public AdyenPartialPaymentService getAdyenPartialPaymentService() {

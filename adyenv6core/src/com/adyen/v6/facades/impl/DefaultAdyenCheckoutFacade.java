@@ -31,6 +31,7 @@ import com.adyen.v6.constants.StorefrontType;
 import com.adyen.v6.controllers.dtos.PaymentResultDTO;
 import com.adyen.v6.dto.*;
 import com.adyen.v6.enums.AdyenCardTypeEnum;
+import com.adyen.v6.enums.AdyenPartialPaymentStatus;
 import com.adyen.v6.enums.AdyenRegions;
 import com.adyen.v6.enums.RecurringContractMode;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
@@ -50,6 +51,7 @@ import com.adyen.v6.service.AdyenOrderService;
 import com.adyen.v6.service.AdyenTransactionService;
 import com.adyen.v6.strategy.AdyenMerchantAccountStrategy;
 import com.adyen.v6.util.AmountUtil;
+import com.adyen.v6.util.RemainingAmountCalculator;
 import com.google.gson.Gson;
 import de.hybris.platform.commercefacades.i18n.I18NFacade;
 import de.hybris.platform.commercefacades.order.CheckoutFacade;
@@ -1990,31 +1992,5 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
 
     public void setCommerceCartService(CommerceCartService commerceCartService) {
         this.commerceCartService = commerceCartService;
-    }
-    /**
-     * Process partial payment authorization for gift cards
-     * Makes authorization call to Adyen with the gift card amount instead of full cart amount
-     */
-    public PaymentResponse processPartialPaymentAuthorization(CartData cartData,
-                                                              PaymentRequest paymentRequest,
-                                                             RequestInfo requestInfo, CustomerModel customer,
-                                                             AdyenPartialPaymentOrderData partialPaymentData) throws Exception {
-        // Get Adyen checkout API service
-        AdyenCheckoutApiService adyenService = getAdyenPaymentService();
-
-        // Make authorization call to Adyen with the gift card amount instead of full cart amount
-        PaymentResponse paymentResponse = adyenService.processPartialPaymentRequest(
-            cartData,
-            paymentRequest,
-            requestInfo,
-            customer,
-            partialPaymentData.getGiftCardChargedAmount(),
-            partialPaymentData.getCurrency().getIsocode()
-        );
-
-        LOGGER.info("Gift card authorization response: " + paymentResponse.getResultCode() +
-                   " PSP Reference: " + paymentResponse.getPspReference());
-
-        return paymentResponse;
     }
 }

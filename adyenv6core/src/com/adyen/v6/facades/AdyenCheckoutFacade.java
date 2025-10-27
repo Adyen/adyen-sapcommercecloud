@@ -208,22 +208,4 @@ public interface AdyenCheckoutFacade {
     AdyenCheckoutApiService  getAdyenPaymentService();
 
     OrderData placePendingOrder() throws InvalidCartException;
-
-    /**
-     * Process partial payment authorization for gift cards
-     * Makes authorization call to Adyen with the gift card amount instead of full cart amount
-     *
-     * @param cartData cart data
-     * @param paymentRequest payment request object
-     * @param requestInfo request information
-     * @param customer customer model
-     * @param partialPaymentData partial payment data containing gift card information
-     * @return PaymentResponse from Adyen
-     * @throws Exception if payment processing fails
-     */
-    PaymentResponse processPartialPaymentAuthorization(CartData cartData,
-                                                       PaymentRequest paymentRequest,
-                                                      com.adyen.v6.model.RequestInfo requestInfo,
-                                                      de.hybris.platform.core.model.user.CustomerModel customer,
-                                                      com.adyen.commerce.data.AdyenPartialPaymentOrderData partialPaymentData) throws Exception;
 }
