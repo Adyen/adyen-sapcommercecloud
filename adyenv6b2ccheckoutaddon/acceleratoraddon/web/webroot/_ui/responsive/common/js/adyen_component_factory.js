@@ -170,8 +170,8 @@ class PaymentComponentFactory {
                 value: amount.value
             },
             configuration: {
-                intent: "tokenize",
-                // intent: isImmediateCapture ? "capture" : "authorize",
+                // intent: "tokenize",
+                intent: isImmediateCapture ? "capture" : "authorize",
                 merchantId: (this.checkout.options.environment === 'test') ? null : paypalMerchantId,  // Your PayPal Merchant ID. Required for accepting live payments.
             },
             blockPayPalCreditButton: true,
