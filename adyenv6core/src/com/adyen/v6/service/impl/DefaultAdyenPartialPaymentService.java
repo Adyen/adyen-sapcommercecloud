@@ -73,7 +73,7 @@ public class DefaultAdyenPartialPaymentService implements AdyenPartialPaymentSer
 
             LOG.debug("Sending balance check request to Adyen: " + balanceCheckRequest);
 
-            // Call Adyen API // TODO: It should be executed only if there is no balance check result yet
+            // Call Adyen API
             BalanceCheckResponse adyenResponse = ordersApi.getBalanceOfGiftCard(balanceCheckRequest);
 
             LOG.debug("Received balance check response from Adyen: " + adyenResponse);
