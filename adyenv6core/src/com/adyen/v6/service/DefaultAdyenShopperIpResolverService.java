@@ -5,7 +5,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 
 import javax.servlet.http.HttpServletRequest;
-import java.util.Enumeration;
 import java.util.List;
 
 public class DefaultAdyenShopperIpResolverService implements AdyenShopperIpResolverService {
@@ -24,9 +23,6 @@ public class DefaultAdyenShopperIpResolverService implements AdyenShopperIpResol
     private ConfigurationService configurationService;
 
     public String resolveShopperIp(HttpServletRequest request) {
-
-        logHeaders(request);
-
         String customShopperIpHeader = configurationService.getConfiguration().getString(CUSTOM_HEADER_PROPERTIES_KEY);
 
         if (StringUtils.isNotEmpty(customShopperIpHeader)) {
@@ -54,28 +50,6 @@ public class DefaultAdyenShopperIpResolverService implements AdyenShopperIpResol
         LOG.debug("Using getRemoteAddr from request");
 
         return request.getRemoteAddr();
-    }
-
-    private void logHeaders(HttpServletRequest request) {
-        StringBuilder headersLogBuilder = new StringBuilder();
-
-        Enumeration<String> headerNames = request.getHeaderNames();
-        while (headerNames.hasMoreElements()) {
-            String headerName = headerNames.nextElement();
-            Enumeration<String> headerValue = request.getHeaders(headerName);
-
-            StringBuilder headerValueBuilder = new StringBuilder();
-            while (headerValue.hasMoreElements()) {
-                String value = headerValue.nextElement();
-
-                headerValueBuilder.append(value);
-                headerValueBuilder.append(",");
-            }
-            String headerValueString = headerValueBuilder.deleteCharAt(headerValueBuilder.length() - 1).toString();
-            headersLogBuilder.append(headerName).append("=").append(headerValueString).append(System.lineSeparator());
-        }
-
-        LOG.debug("Request headers:" + System.lineSeparator() + headersLogBuilder.toString());
     }
 
     public void setConfigurationService(ConfigurationService configurationService) {
