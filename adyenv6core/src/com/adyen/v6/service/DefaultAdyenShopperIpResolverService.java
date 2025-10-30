@@ -51,6 +51,8 @@ public class DefaultAdyenShopperIpResolverService implements AdyenShopperIpResol
             return headerValue.split(",")[0].trim();
         }
 
+        LOG.debug("Using getRemoteAddr from request");
+
         return request.getRemoteAddr();
     }
 
