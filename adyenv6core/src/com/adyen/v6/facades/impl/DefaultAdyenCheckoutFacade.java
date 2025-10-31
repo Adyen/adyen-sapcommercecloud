@@ -21,6 +21,7 @@
 package com.adyen.v6.facades.impl;
 
 
+import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.commerce.data.PaymentMethodsCartData;
 import com.adyen.model.checkout.*;
 import com.adyen.model.recurring.Recurring;
@@ -30,6 +31,7 @@ import com.adyen.v6.constants.StorefrontType;
 import com.adyen.v6.controllers.dtos.PaymentResultDTO;
 import com.adyen.v6.dto.*;
 import com.adyen.v6.enums.AdyenCardTypeEnum;
+import com.adyen.v6.enums.AdyenPartialPaymentStatus;
 import com.adyen.v6.enums.AdyenRegions;
 import com.adyen.v6.enums.RecurringContractMode;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
@@ -49,6 +51,7 @@ import com.adyen.v6.service.AdyenOrderService;
 import com.adyen.v6.service.AdyenTransactionService;
 import com.adyen.v6.strategy.AdyenMerchantAccountStrategy;
 import com.adyen.v6.util.AmountUtil;
+import com.adyen.v6.util.RemainingAmountCalculator;
 import com.google.gson.Gson;
 import de.hybris.platform.commercefacades.i18n.I18NFacade;
 import de.hybris.platform.commercefacades.order.CheckoutFacade;
@@ -1692,7 +1695,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         
         List<Integer> installmentValues;
         if (StringUtils.isEmpty(installmentOptionsConfig)) {
-            installmentValues = Arrays.asList(1, 3, 6, 9, 12);
+            throw new RuntimeException("Installment options configuration is missing!");
         } else {
             String[] values = StringUtils.split(installmentOptionsConfig, ',');
             installmentValues = Arrays.stream(values)
@@ -1703,7 +1706,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         
         List<String> installmentPlans;
         if (StringUtils.isEmpty(installmentPlansConfig)) {
-            installmentPlans = Arrays.asList("regular", "revolving");
+            throw new RuntimeException("Installment options configuration is missing!");
         } else {
             String[] plans = StringUtils.split(installmentPlansConfig, ',');
             installmentPlans = Arrays.stream(plans)
