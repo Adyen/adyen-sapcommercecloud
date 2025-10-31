@@ -123,20 +123,6 @@ public class RemainingAmountCalculatorTest {
         assertTrue(result);
     }
 
-    @Test
-    public void testCalculateCoveragePercentage() {
-        // Given
-        BigDecimal totalAmount = new BigDecimal("100.00");
-        BigDecimal giftCardAmount = new BigDecimal("25.00");
-        BigDecimal expectedPercentage = new BigDecimal("0.2500");
-
-        // When
-        BigDecimal result = RemainingAmountCalculator.calculateCoveragePercentage(totalAmount, giftCardAmount);
-
-        // Then
-        assertEquals(expectedPercentage, result);
-    }
-
     @Test(expected = IllegalArgumentException.class)
     public void testCalculateRemainingAmount_NullTotalAmount() {
         // Given

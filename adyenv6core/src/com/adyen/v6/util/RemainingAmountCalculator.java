@@ -108,19 +108,4 @@ public final class RemainingAmountCalculator {
         BigDecimal remainingAmount = calculateRemainingAmount(cartData, partialPaymentData);
         return remainingAmount.compareTo(BigDecimal.ZERO) <= 0;
     }
-
-    /**
-     * Calculates the percentage of the total amount covered by the gift card.
-     * 
-     * @param totalAmount the total cart amount
-     * @param giftCardAmount the amount charged to the gift card
-     * @return the percentage covered (0.0 to 1.0)
-     */
-    public static BigDecimal calculateCoveragePercentage(BigDecimal totalAmount, BigDecimal giftCardAmount) {
-        Validate.notNull(totalAmount, "Total amount cannot be null");
-        Validate.notNull(giftCardAmount, "Gift card amount cannot be null");
-        Validate.isTrue(totalAmount.compareTo(BigDecimal.ZERO) > 0, "Total amount must be positive for percentage calculation");
-
-        return giftCardAmount.divide(totalAmount, 4, BigDecimal.ROUND_HALF_UP);
-    }
 }
