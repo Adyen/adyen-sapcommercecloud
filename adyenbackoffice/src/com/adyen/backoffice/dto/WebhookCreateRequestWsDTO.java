@@ -1,6 +1,9 @@
 package com.adyen.backoffice.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
+
+@JsonInclude(JsonInclude.Include.NON_NULL)
 
 public class WebhookCreateRequestWsDTO {
 
@@ -9,7 +12,7 @@ public class WebhookCreateRequestWsDTO {
     private String url;
     private Boolean active;
     private String communicationFormat;
-    private List<String> includeEventCodes;
+    private AdditionalSettingsWsDTO additionalSettings;
     private String username;
     private String password;
 
@@ -56,12 +59,12 @@ public class WebhookCreateRequestWsDTO {
         this.communicationFormat = communicationFormat;
     }
 
-    public List<String> getIncludeEventCodes() {
-        return includeEventCodes;
+    public AdditionalSettingsWsDTO getAdditionalSettings() {
+        return additionalSettings;
     }
 
-    public void setIncludeEventCodes(List<String> includeEventCodes) {
-        this.includeEventCodes = includeEventCodes;
+    public void setAdditionalSettings(AdditionalSettingsWsDTO additionalSettings) {
+        this.additionalSettings = additionalSettings;
     }
 
     public String getUsername() {

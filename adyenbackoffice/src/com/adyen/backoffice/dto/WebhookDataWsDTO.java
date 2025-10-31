@@ -1,6 +1,9 @@
 package com.adyen.backoffice.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
+
+@JsonInclude(JsonInclude.Include.NON_NULL)
 
 public class WebhookDataWsDTO {
 
@@ -11,7 +14,7 @@ public class WebhookDataWsDTO {
     private Boolean active;
     private String communicationFormat;
     private Boolean hasError;
-    private List<String> includeEventCodes;
+    private AdditionalSettingsWsDTO additionalSettings;
 
     public WebhookDataWsDTO() {
     }
@@ -72,11 +75,11 @@ public class WebhookDataWsDTO {
         this.hasError = hasError;
     }
 
-    public List<String> getIncludeEventCodes() {
-        return includeEventCodes;
+    public AdditionalSettingsWsDTO getAdditionalSettings() {
+        return additionalSettings;
     }
 
-    public void setIncludeEventCodes(List<String> includeEventCodes) {
-        this.includeEventCodes = includeEventCodes;
+    public void setAdditionalSettings(AdditionalSettingsWsDTO additionalSettings) {
+        this.additionalSettings = additionalSettings;
     }
 }

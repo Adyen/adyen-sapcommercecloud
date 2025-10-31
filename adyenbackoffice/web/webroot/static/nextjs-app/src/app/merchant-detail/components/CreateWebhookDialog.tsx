@@ -207,7 +207,7 @@ const CreateWebhookDialog: React.FC<CreateWebhookDialogProps> = ({
               <select
                 value={formData.type}
                 onChange={(e) => handleInputChange('type', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 text-gray-900 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               >
                 {WEBHOOK_TYPES.map((type) => (
@@ -225,7 +225,7 @@ const CreateWebhookDialog: React.FC<CreateWebhookDialogProps> = ({
               <select
                 value={formData.communicationFormat}
                 onChange={(e) => handleInputChange('communicationFormat', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               >
                 {COMMUNICATION_FORMATS.map((format) => (
@@ -245,7 +245,7 @@ const CreateWebhookDialog: React.FC<CreateWebhookDialogProps> = ({
               type="text"
               value={formData.description}
               onChange={(e) => handleInputChange('description', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Enter webhook description"
               required
             />
@@ -259,7 +259,7 @@ const CreateWebhookDialog: React.FC<CreateWebhookDialogProps> = ({
               type="url"
               value={formData.url}
               onChange={(e) => handleInputChange('url', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="https://example.com/webhook"
               required
             />
@@ -274,7 +274,7 @@ const CreateWebhookDialog: React.FC<CreateWebhookDialogProps> = ({
                 type="text"
                 value={formData.username}
                 onChange={(e) => handleInputChange('username', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Basic auth username"
               />
             </div>
@@ -287,7 +287,7 @@ const CreateWebhookDialog: React.FC<CreateWebhookDialogProps> = ({
                 type="password"
                 value={formData.password}
                 onChange={(e) => handleInputChange('password', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Basic auth password"
               />
             </div>
@@ -332,7 +332,7 @@ const CreateWebhookDialog: React.FC<CreateWebhookDialogProps> = ({
                   type="text"
                   value={customEventCode}
                   onChange={(e) => setCustomEventCode(e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Add custom event code"
                   onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCustomEventCode())}
                 />
