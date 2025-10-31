@@ -2,6 +2,7 @@ package com.adyen.commerce.services.impl;
 
 import com.adyen.model.checkout.BrowserInfo;
 import com.adyen.model.checkout.Company;
+import com.adyen.model.checkout.EncryptedOrderData;
 import com.adyen.model.checkout.PaymentRequest;
 import com.adyen.v6.model.RequestInfo;
 import com.adyen.v6.util.AmountUtil;
