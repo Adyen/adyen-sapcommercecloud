@@ -104,7 +104,7 @@ public class AdyenPartialPaymentOrderController {
     protected HttpStatus determineHttpStatus(String errorMessage) {
 
         if (errorMessage != null && !errorMessage.isEmpty()) {
-            if(errorMessage.contains(PARTIAL_PAYMENT_ERROR_COMMUNICATION)) {
+            if (errorMessage.contains(PARTIAL_PAYMENT_ERROR_COMMUNICATION)) {
                 return HttpStatus.SERVICE_UNAVAILABLE;
             } else {
                 return HttpStatus.BAD_REQUEST;
