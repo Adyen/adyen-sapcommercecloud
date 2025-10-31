@@ -61,6 +61,7 @@
         <property name="adyenMultibancoDeadline" type="java.lang.String" />
         <property name="adyenMultibancoReference" type="java.lang.String" />
         <property name="adyenPosReceipt" type="java.lang.String" />
+        <property name="subscriptionOrder" type="java.lang.Boolean" />
     </bean>
 
     <bean class="de.hybris.platform.commercefacades.order.data.OrderEntryData">
