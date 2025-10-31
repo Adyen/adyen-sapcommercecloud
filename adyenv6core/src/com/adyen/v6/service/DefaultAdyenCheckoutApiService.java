@@ -63,7 +63,41 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
                 cartData,
                 originPaymentsRequest,
                 requestInfo,
-                customerModel, baseStore.getAdyenRecurringContractMode(), baseStore.getAdyenGuestUserTokenization());
+                customerModel, baseStore.getAdyenRecurringContractMode(), baseStore.getAdyenGuestUserTokenization(), null);
+
+        adyenRequestService.applyAdditionalData(cartData, paymentsRequest);
+
+        LOG.debug(paymentsRequest);
+        PaymentResponse paymentsResponse = checkoutApi.payments(paymentsRequest);
+        LOG.debug(paymentsResponse);
+
+        return paymentsResponse;
+    }
+
+    /**
+     * Process partial payment request with custom amount
+     */
+    @Override
+    public PaymentResponse processPartialPaymentRequest(final CartData cartData,
+                                                       PaymentRequest originPaymentsRequest,
+                                                       final RequestInfo requestInfo,
+                                                       final CustomerModel customerModel,
+                                                       final BigDecimal customAmount,
+                                                       final String currency) throws Exception {
+        LOG.debug("Processing partial payment with custom amount: " + customAmount + " " + currency);
+
+        PaymentsApi checkoutApi = new PaymentsApi(client);
+
+
+        PaymentRequest paymentsRequest = adyenRequestService.createPartialPaymentRequest(merchantAccount,
+                cartData,
+                originPaymentsRequest,
+                requestInfo,
+                customerModel,
+                baseStore.getAdyenRecurringContractMode(),
+                baseStore.getAdyenGuestUserTokenization(),
+                customAmount,
+                currency);
 
         adyenRequestService.applyAdditionalData(cartData, paymentsRequest);
 

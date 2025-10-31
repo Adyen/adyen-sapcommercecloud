@@ -20,6 +20,7 @@
  */
 package com.adyen.v6.facades;
 
+import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.model.checkout.*;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.controllers.dtos.PaymentResultDTO;

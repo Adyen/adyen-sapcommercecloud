@@ -38,6 +38,13 @@ public interface AdyenCheckoutApiService {
 
     PaymentResponse processPaymentRequest(CartData cartData, PaymentRequest originPaymentsRequest, RequestInfo requestInfo, CustomerModel customerModel) throws Exception;
 
+    /**
+     * Process partial payment request with custom amount for gift card scenarios
+     */
+    default PaymentResponse processPartialPaymentRequest(CartData cartData, PaymentRequest originPaymentsRequest, RequestInfo requestInfo, CustomerModel customerModel, BigDecimal customAmount, String currency) throws Exception {
+        throw new UnsupportedOperationException("Partial payment processing not supported by this implementation");
+    }
+
     PaymentResponse sendPaymentRequest(final PaymentRequest paymentRequest, final RequestInfo requestInfo) throws IOException, ApiException;
 
     PaymentDetailsResponse authorise3DSPayment(PaymentDetailsRequest paymentsDetailsRequest) throws Exception;

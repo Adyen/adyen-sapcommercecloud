@@ -19,6 +19,7 @@
     <collectiontypes>
         <collectiontype code="AdyenCardTypeSet" elementtype="AdyenCardTypeEnum" autocreate="true" generate="true" type="set"/>
         <collectiontype code="AdyenMerchantConfigList" elementtype="AdyenMerchantConfig" type="list"/>
+        <collectiontype code="AdyenPartialPaymentOrderList" elementtype="AdyenPartialPaymentOrder" autocreate="true" generate="true" type="list"/>
     </collectiontypes>
 
     <enumtypes>
@@ -69,6 +70,17 @@
         <enumtype code="AdyenMerchantAccountType" dynamic="false">
             <value code="WEB"/>
         </enumtype>
+        <!-- Status enumeration -->
+        <enumtype code="AdyenPartialPaymentStatus" generate="true" dynamic="true"
+                  autocreate="true">
+            <description>Status of Adyen partial payment orders</description>
+                <value code="CREATED"/>
+                <value code="AUTHORIZED"/>
+                <value code="CAPTURED"/>
+                <value code="FAILED"/>
+                <value code="CANCELLED"/>
+                <value code="EXPIRED"/>
+        </enumtype>
     </enumtypes>
 
     <itemtypes>
@@ -95,6 +107,10 @@
                 </attribute>
                 <attribute qualifier="adyenAmazonPayConfiguration" type="java.util.Map">
                     <description>Amazon Pay configuration</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="adyenPartialPaymentOrders" type="AdyenPartialPaymentOrderList">
+                    <description>Collection of Adyen partial payment orders associated with this cart</description>
                     <persistence type="property"/>
                 </attribute>
                 <attribute qualifier="adyenShopperConversionId" type="java.lang.String">
@@ -754,6 +770,117 @@
                 </attribute>
             </attributes>
         </itemtype>
+
+        <itemtype code="AdyenPartialPaymentOrder" generate="true" autocreate="true" jaloclass="com.adyen.v6.jalo.AdyenPartialPaymentOrder">
+            <description>Stores Adyen partial payment order information</description>
+            <deployment table="AdyenPartialPaymentOrder" typecode="10102"/>
+
+            <attributes>
+                <!-- Adyen Response Data -->
+                <attribute qualifier="pspReference" type="java.lang.String">
+                    <description>PSP Reference from Adyen</description>
+                    <modifiers optional="false" unique="true"/>
+                    <persistence type="property"/>
+                </attribute>
+
+                <!-- Request Information -->
+                <attribute qualifier="requestAmount" type="java.math.BigDecimal">
+                    <description>Amount requested for partial payment</description>
+                    <modifiers optional="false"/>
+                    <persistence type="property"/>
+                </attribute>
+
+                <attribute qualifier="currency" type="Currency">
+                    <description>Currency of the partial payment</description>
+                    <modifiers optional="false"/>
+                    <persistence type="property"/>
+                </attribute>
+
+                <!-- Balance Check Information -->
+                <attribute qualifier="giftCardBalance" type="java.math.BigDecimal">
+                    <description>Available balance on the gift card from balance check</description>
+                    <modifiers optional="true"/>
+                    <persistence type="property"/>
+                </attribute>
+
+                <attribute qualifier="giftCardChargedAmount" type="java.math.BigDecimal">
+                    <description>Actual amount charged to the gift card (min of balance and request amount)</description>
+                    <modifiers optional="true"/>
+                    <persistence type="property"/>
+                </attribute>
+
+                <attribute qualifier="remainingAmount" type="java.math.BigDecimal">
+                    <description>Remaining amount to be paid with other payment methods</description>
+                    <modifiers optional="true"/>
+                    <persistence type="property"/>
+                </attribute>
+
+                <!-- Gift Card Details -->
+                <attribute qualifier="giftCardNumber" type="java.lang.String">
+                    <description>Masked gift card number (last 4 digits for reference)</description>
+                    <modifiers optional="true"/>
+                    <persistence type="property"/>
+                </attribute>
+
+                <attribute qualifier="giftCardBrand" type="java.lang.String">
+                    <description>Gift card brand from balance check request</description>
+                    <modifiers optional="true"/>
+                    <persistence type="property"/>
+                </attribute>
+
+                <attribute qualifier="giftCardType" type="java.lang.String">
+                    <description>Gift card type from balance check request</description>
+                    <modifiers optional="true"/>
+                    <persistence type="property"/>
+                </attribute>
+
+                <!-- Status and Tracking -->
+                <attribute qualifier="status" type="AdyenPartialPaymentStatus">
+                    <description>Status of the partial payment</description>
+                    <modifiers optional="false"/>
+                    <persistence type="property"/>
+                    <defaultvalue>em().getEnumerationValue("AdyenPartialPaymentStatus","CREATED")</defaultvalue>
+                </attribute>
+
+                <attribute qualifier="paymentMethod" type="java.lang.String">
+                    <description>Payment method type (e.g., giftcard)</description>
+                    <persistence type="property"/>
+                </attribute>
+
+                <!-- Associations -->
+                <attribute qualifier="cart" type="Cart">
+                    <description>Associated cart</description>
+                    <modifiers optional="false"/>
+                    <persistence type="property"/>
+                </attribute>
+
+                <attribute qualifier="order" type="Order">
+                    <description>Associated order (when cart is converted)</description>
+                    <modifiers optional="true"/>
+                    <persistence type="property"/>
+                </attribute>
+
+                <!-- Timestamps -->
+                <attribute qualifier="createdAt" type="java.util.Date">
+                    <description>When the partial payment order was created</description>
+                    <modifiers optional="false"/>
+                    <persistence type="property"/>
+                </attribute>
+
+                <attribute qualifier="processedAt" type="java.util.Date">
+                    <description>When the partial payment was processed</description>
+                    <modifiers optional="true"/>
+                    <persistence type="property"/>
+                </attribute>
+
+                <attribute qualifier="balanceCheckedAt" type="java.util.Date">
+                    <description>When the balance check was performed</description>
+                    <modifiers optional="true"/>
+                    <persistence type="property"/>
+                </attribute>
+            </attributes>
+        </itemtype>
+
 
     </itemtypes>
 </items>
