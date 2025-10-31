@@ -7,6 +7,7 @@ import com.adyen.commerce.response.PlaceOrderResponse;
 import com.adyen.model.checkout.PaymentDetailsRequest;
 import com.adyen.v6.facades.AdyenCheckoutFacade;
 import com.adyen.v6.service.AdyenShopperIpResolverService;
+import com.adyen.v6.service.AdyenPartialPaymentService;
 import de.hybris.platform.acceleratorfacades.flow.CheckoutFlowFacade;
 import de.hybris.platform.acceleratorservices.urlresolver.SiteBaseUrlResolutionService;
 import de.hybris.platform.acceleratorstorefrontcommons.annotations.RequireHardLogIn;
@@ -57,6 +58,9 @@ public class AdyenPlaceOrderController extends PlaceOrderControllerBase {
 
     @Autowired
     private AdyenShopperIpResolverService adyenShopperIpResolverService;
+
+    @Resource(name = "adyenPartialPaymentService")
+    private AdyenPartialPaymentService adyenPartialPaymentService;
 
     @RequireHardLogIn
     @PostMapping("/place-order")
@@ -129,5 +133,10 @@ public class AdyenPlaceOrderController extends PlaceOrderControllerBase {
     @Override
     public AdyenShopperIpResolverService getAdyenShopperIpResolverService() {
         return adyenShopperIpResolverService;
+    }
+
+    @Override
+    public AdyenPartialPaymentService getAdyenPartialPaymentService() {
+        return adyenPartialPaymentService;
     }
 }
