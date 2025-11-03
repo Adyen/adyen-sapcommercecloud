@@ -52,14 +52,14 @@ public interface AdyenCheckoutApiService {
     /**
      * Get payment methods using /paymentMethods - Checkout API
      */
-    List<PaymentMethod> getPaymentMethods(BigDecimal amount, String currency, String countryCode, String shopperLocale, String shopperReference) throws IOException, ApiException;
+    List<PaymentMethod> getPaymentMethods(BigDecimal amount, String currency, String countryCode, String shopperLocale, String shopperReference, String shopperConversionId) throws IOException, ApiException;
 
-    PaymentMethodsResponse getPaymentMethodsResponse(BigDecimal amount, String currency, String countryCode, String shopperLocale, String shopperReference) throws IOException, ApiException;
+    PaymentMethodsResponse getPaymentMethodsResponse(BigDecimal amount, String currency, String countryCode, String shopperLocale, String shopperReference, String shopperConversionId) throws IOException, ApiException;
 
-    PaymentMethodsResponse getPaymentMethodsResponse(BigDecimal amount, String currency, String countryCode, String shopperLocale, String shopperReference, List<String> blockedPaymentMethods, List<String> allowedPaymentMethods) throws IOException, ApiException;
+    PaymentMethodsResponse getPaymentMethodsResponse(BigDecimal amount, String currency, String countryCode, String shopperLocale, String shopperReference, List<String> blockedPaymentMethods, List<String> allowedPaymentMethods, String shopperConversionId) throws IOException, ApiException;
 
     /**
-     * @deprecated use getPaymentMethods including shopperReference instead {@link #getPaymentMethods(BigDecimal amount, String currency, String countryCode, String shopperLocale, String shopperReference)
+     * @deprecated use getPaymentMethods including shopperReference instead {@link #getPaymentMethods(BigDecimal amount, String currency, String countryCode, String shopperLocale, String shopperReference, , String shopperConversionId)
      */
     @Deprecated
     List<PaymentMethod> getPaymentMethods(BigDecimal amount, String currency, String countryCode, String shopperLocale) throws HTTPClientException, SignatureException, IOException;
@@ -67,7 +67,7 @@ public interface AdyenCheckoutApiService {
     /**
      * Retrieve stored cards from recurring contracts via Adyen API
      *
-     * @deprecated use getPaymentMethodsResponse instead {@link #getPaymentMethodsResponse(BigDecimal amount, String currency, String countryCode, String shopperLocale, String shopperReference)} ()
+     * @deprecated use getPaymentMethodsResponse instead {@link #getPaymentMethodsResponse(BigDecimal amount, String currency, String countryCode, String shopperLocale, String shopperReference, String shopperConversionId)} ()
      */
     @Deprecated
     List<RecurringDetail> getStoredCards(String customerId) throws IOException, ApiException;

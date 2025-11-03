@@ -139,9 +139,10 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
                                                  final String currency,
                                                  final String countryCode,
                                                  final String shopperLocale,
-                                                 final String shopperReference) throws IOException, ApiException {
+                                                 final String shopperReference,
+                                                 final String shopperConversionId) throws IOException, ApiException {
 
-        final PaymentMethodsResponse response = getPaymentMethodsResponse(amount, currency, countryCode, shopperLocale, shopperReference);
+        final PaymentMethodsResponse response = getPaymentMethodsResponse(amount, currency, countryCode, shopperLocale, shopperReference, shopperConversionId);
         return response.getPaymentMethods();
     }
 
@@ -150,8 +151,9 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
                                                             final String currency,
                                                             final String countryCode,
                                                             final String shopperLocale,
-                                                            final String shopperReference) throws IOException, ApiException {
-        return getPaymentMethodsResponse(amount, currency, countryCode, shopperLocale, shopperReference, null, null);
+                                                            final String shopperReference,
+                                                            final String shopperConversionId) throws IOException, ApiException {
+        return getPaymentMethodsResponse(amount, currency, countryCode, shopperLocale, shopperReference, null, null, shopperConversionId);
     }
 
     @Override
@@ -161,7 +163,8 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
                                                             final String shopperLocale,
                                                             final String shopperReference,
                                                             final List<String> excludedPaymentMethods,
-                                                            final List<String> allowedPaymentMethods) throws IOException, ApiException {
+                                                            final List<String> allowedPaymentMethods,
+                                                            final String shopperConversionId) throws IOException, ApiException {
         LOG.debug("Get payment methods response");
 
         PaymentsApi checkout = new PaymentsApi(client);
@@ -170,12 +173,16 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
                 .amount(AmountUtil.createAmount(amount, currency))
                 .countryCode(countryCode);
 
-        if (!StringUtils.isEmpty(shopperLocale)) {
+        if (StringUtils.isNotEmpty(shopperLocale)) {
             request.setShopperLocale(shopperLocale);
+        } else {
+            LOG.warn("Empty shopper locale");
         }
 
-        if (!StringUtils.isEmpty(shopperReference)) {
+        if (StringUtils.isNotEmpty(shopperReference)) {
             request.setShopperReference(shopperReference);
+        } else {
+            LOG.warn("Empty shopper reference");
         }
 
         if (CollectionUtils.isNotEmpty(excludedPaymentMethods)) {
@@ -184,6 +191,12 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
 
         if (CollectionUtils.isNotEmpty(allowedPaymentMethods)) {
             request.setAllowedPaymentMethods(allowedPaymentMethods);
+        }
+
+        if (StringUtils.isNotEmpty(shopperConversionId)) {
+            request.setShopperConversionId(shopperConversionId);
+        } else {
+            LOG.warn("Empty shopper conversion id");
         }
 
         LOG.debug(request);
@@ -200,7 +213,7 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
                                                  final String countryCode,
                                                  final String shopperLocale) throws IOException {
         try {
-            return getPaymentMethods(amount, currency, countryCode, shopperLocale, null);
+            return getPaymentMethods(amount, currency, countryCode, shopperLocale, null, null);
         } catch (ApiException e) {
             LOG.error(e);
         }

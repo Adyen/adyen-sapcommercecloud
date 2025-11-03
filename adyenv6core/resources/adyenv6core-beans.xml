@@ -48,7 +48,7 @@
         <property name="adyenAmazonPayConfiguration" type="java.util.Map"/>
         <property name="riskData" type="java.lang.String"/>
         <property name="adyenPartialPaymentOrders" type="java.util.List&lt;com.adyen.commerce.data.AdyenPartialPaymentOrderData&gt;"/>
-
+        <property name="adyenShopperConversionId" type="java.lang.String"/>
     </bean>
 
     <bean class="de.hybris.platform.commercefacades.order.data.AbstractOrderData">

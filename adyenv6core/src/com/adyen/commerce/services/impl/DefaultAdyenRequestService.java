@@ -305,7 +305,8 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
             .requestInfo(requestInfo)
             .redirectMethods()
             .countryCode(getCountryCode(cartData))
-            .company(createCompany(cartData));
+            .company(createCompany(cartData))
+            .shopperConversionId(cartData.getAdyenShopperConversionId());
 
         if (partialPaymentOrderData != null) {
             builder.amount(partialPaymentOrderData.getRemainingAmount(), partialPaymentOrderData.getCurrency().getIsocode());
