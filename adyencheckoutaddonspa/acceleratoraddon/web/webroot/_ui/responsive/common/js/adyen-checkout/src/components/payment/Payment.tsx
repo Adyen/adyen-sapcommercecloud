@@ -8,9 +8,9 @@ import { StoreDispatch } from "../../store/store";
 import { AddressData } from "../../types/addressData";
 import { AddressService } from "../../service/addressService";
 import { AdyenConfigService } from "../../service/adyenConfigService";
-import { AdyenCheckoutError, Dropin, UIElement } from '@adyen/adyen-web/auto';
+import { Dropin } from '@adyen/adyen-web/auto';
 import { AdyenConfigData } from "../../types/adyenConfigData";
-import { isEmpty, isNotEmpty } from "../../util/stringUtil";
+import { isNotEmpty } from "../../util/stringUtil";
 import { routes } from "../../router/routes";
 import { Navigate } from "react-router-dom";
 import { PaymentError } from "./PaymentError";
@@ -54,6 +54,8 @@ const Payment: React.FC<Props> = (props) => {
     const [useDifferentBillingAddress, setUseDifferentBillingAddress] = useState(false);
     const [saveInAddressBook, setSaveInAddressBook] = useState(false);
 
+    const { errorCode, removeAdyenConfigFromStore, billingAddress, adyenConfig, shippingAddressFromCart } = props;
+
     const {
         paymentState,
         handlePayment,
@@ -63,7 +65,7 @@ const Payment: React.FC<Props> = (props) => {
         handleError,
         setDropIn,
         setErrorCode
-    } = useAdyenPayment(useDifferentBillingAddress, saveInAddressBook, props.billingAddress);
+    } = useAdyenPayment(useDifferentBillingAddress, saveInAddressBook, billingAddress);
 
     useEffect(() => {
         AddressService.fetchAddressConfig();
@@ -71,16 +73,16 @@ const Payment: React.FC<Props> = (props) => {
     }, []);
 
     useEffect(() => {
-        if (props.errorCode) {
-            setErrorCode(props.errorCode);
+        if (errorCode) {
+            setErrorCode(errorCode);
         }
-    }, [props.errorCode, setErrorCode]);
+    }, [errorCode, setErrorCode]);
 
     useEffect(() => {
         return () => {
-            props.removeAdyenConfigFromStore();
+            removeAdyenConfigFromStore();
         };
-    }, [props.removeAdyenConfigFromStore]);
+    }, [removeAdyenConfigFromStore]);
 
     const handleDropInReady = (dropIn: Dropin) => {
         setDropIn(dropIn);
@@ -90,7 +92,7 @@ const Payment: React.FC<Props> = (props) => {
         // Add shopperReference from adyenConfig
         const dataWithShopperRef = {
             ...data,
-            shopperReference: props.adyenConfig.shopperEmail
+            shopperReference: adyenConfig.shopperEmail
         };
         await handleOrderRequest(resolve, reject, dataWithShopperRef);
     };
@@ -120,12 +122,12 @@ const Payment: React.FC<Props> = (props) => {
             <PaymentHeader isActive={true} />
             <div className="step-body">
                 <div className="checkout-paymentmethod">
-                    <ShippingAddressHeading address={props.shippingAddressFromCart} />
+                    <ShippingAddressHeading address={shippingAddressFromCart} />
 
                     <BillingAddressForm
                         useDifferentBillingAddress={useDifferentBillingAddress}
                         saveInAddressBook={saveInAddressBook}
-                        billingAddress={props.billingAddress}
+                        billingAddress={billingAddress}
                         errorFieldCodes={paymentState.errorFieldCodes}
                         onUseDifferentBillingAddressChange={setUseDifferentBillingAddress}
                         onSaveInAddressBookChange={setSaveInAddressBook}
@@ -148,8 +150,8 @@ const Payment: React.FC<Props> = (props) => {
                     {renderErrorMessage()}
 
                     <PaymentDropIn
-                        adyenConfig={props.adyenConfig}
-                        shippingAddress={props.shippingAddressFromCart}
+                        adyenConfig={adyenConfig}
+                        shippingAddress={shippingAddressFromCart}
                         partialPaymentId={paymentState.partialPaymentId}
                         onPayment={handlePayment}
                         onAdditionalDetails={handleAdditionalDetails}
