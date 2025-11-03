@@ -1,7 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { Dropin } from '@adyen/adyen-web/auto';
 import { PaymentService, PlaceOrderResponse } from '../service/paymentService';
-import { PlaceOrderRequest } from '../types/paymentForm';
 import { AddressModel } from '../reducers/types';
 import { SubmitActions, AdditionalDetailsActions } from '@adyen/adyen-web';
 
@@ -60,8 +59,18 @@ export const useAdyenPayment = (
         return saveInAddressBook && useDifferentBillingAddress;
     }, [saveInAddressBook, useDifferentBillingAddress]);
 
+    const resetDropInComponent = useCallback(() => {
+        if (dropIn) {
+            dropIn.unmount();
+            const element = document.querySelector('.dropin-payment');
+            if (element) {
+                dropIn.mount(element as HTMLElement);
+            }
+        }
+    }, [dropIn]);
+
     const handleResponse = useCallback(async (
-        response: Promise<void | PlaceOrderResponse>, 
+        response: Promise<void | PlaceOrderResponse>,
         actions: SubmitActions
     ) => {
         setPaymentState(prev => ({ ...prev, errorFieldCodes: [] }));
@@ -108,7 +117,7 @@ export const useAdyenPayment = (
             }
             setPaymentState(prev => ({ ...prev, errorCode: responseData.error || '' }));
         }
-    }, [dropIn, saveInAddressBook, useDifferentBillingAddress]);
+    }, [dropIn, resetDropInComponent]);
 
     const handlePayment = useCallback(async (data: any, element: any, actions: SubmitActions) => {
         const adyenPaymentForm = PaymentService.preparePlaceOrderRequest(
@@ -202,17 +211,7 @@ export const useAdyenPayment = (
     const handleError = useCallback(async () => {
         await PaymentService.sendPaymentCancel();
         resetDropInComponent();
-    }, []);
-
-    const resetDropInComponent = useCallback(() => {
-        if (dropIn) {
-            dropIn.unmount();
-            const element = document.querySelector('.dropin-payment');
-            if (element) {
-                dropIn.mount(element as HTMLElement);
-            }
-        }
-    }, [dropIn]);
+    }, [resetDropInComponent]);
 
     return {
         paymentState,

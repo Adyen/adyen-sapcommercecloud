@@ -1,5 +1,5 @@
-import React, { RefObject, useEffect, useRef } from "react";
-import { AdyenCheckout, AdyenCheckoutError, Dropin, ICore } from '@adyen/adyen-web/auto';
+import React, { RefObject, useEffect, useRef, useCallback } from "react";
+import { AdyenCheckout, AdyenCheckoutError, Dropin } from '@adyen/adyen-web/auto';
 import '@adyen/adyen-web/styles/adyen.css';
 import {
     AdditionalDetailsActions,
@@ -45,7 +45,7 @@ export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
         throw new Error(`Invalid environment: ${env}`);
     };
 
-    const getAdyenCheckoutConfig = (): CoreConfiguration => {
+    const getAdyenCheckoutConfig = useCallback((): CoreConfiguration => {
         return {
             paymentMethodsResponse: {
                 paymentMethods: adyenConfig.paymentMethods,
@@ -69,9 +69,9 @@ export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
             onBalanceCheck: async (resolve: any, reject: any, data: any) => await onBalanceCheck(resolve, reject, {...data, amount: adyenConfig.amount}),
             onOrderRequest: async (resolve: any, reject: any, data: any) => await onOrderRequest(resolve, reject, {...data, amount: adyenConfig.amount})
         };
-    };
+    }, [adyenConfig, onError, onPayment, onAdditionalDetails, onBalanceCheck, onOrderRequest]);
 
-    const getAdyenCardConfig = (): CardConfiguration => {
+    const getAdyenCardConfig = useCallback((): CardConfiguration => {
         return {
             type: 'card',
             hasHolderName: true,
@@ -83,9 +83,9 @@ export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
                 locale: adyenConfig.clickToPayLocale,
             }
         };
-    };
+    }, [adyenConfig]);
 
-    const initializeDropIn = async () => {
+    const initializeDropIn = useCallback(async () => {
         if (!adyenConfig.adyenClientKey || !paymentRef.current) {
             return;
         }
@@ -128,7 +128,7 @@ export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
             console.error('Failed to initialize Adyen DropIn:', error);
             onError(error as AdyenCheckoutError);
         }
-    };
+    }, [adyenConfig, shippingAddress, onError, onDropInReady, getAdyenCheckoutConfig, getAdyenCardConfig]);
 
     useEffect(() => {
         initializeDropIn();
@@ -138,7 +138,7 @@ export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
                 dropInRef.current.unmount();
             }
         };
-    }, [adyenConfig.adyenClientKey]);
+    }, [adyenConfig.adyenClientKey, initializeDropIn]);
 
     return <div className="dropin-payment" ref={paymentRef} />;
 };
