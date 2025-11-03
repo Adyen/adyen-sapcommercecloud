@@ -44,8 +44,12 @@ public class DefaultAdyenShopperIpResolverService implements AdyenShopperIpResol
 
         String headerValue = request.getHeader(X_FORWARDED_FOR);
         if (StringUtils.isNotEmpty(headerValue)) {
+            LOG.debug("Using header: " + X_FORWARDED_FOR + " with value: " + headerValue);
+
             return headerValue.split(",")[0].trim();
         }
+
+        LOG.debug("Using getRemoteAddr from request");
 
         return request.getRemoteAddr();
     }

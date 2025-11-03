@@ -10,6 +10,7 @@ import com.adyen.model.checkout.PaymentDetailsRequest;
 import com.adyen.v6.facades.AdyenCheckoutFacade;
 import com.adyen.v6.resolver.OccPaymentRedirectReturnUrlResolver;
 import com.adyen.v6.service.AdyenPartialPaymentService;
+import com.adyen.v6.service.AdyenShopperIpResolverService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import de.hybris.platform.acceleratorfacades.flow.CheckoutFlowFacade;
 import de.hybris.platform.acceleratorservices.urlresolver.SiteBaseUrlResolutionService;
@@ -55,6 +56,9 @@ public class PlaceOrderController extends PlaceOrderControllerBase implements Ad
 
     @Autowired
     private OccPaymentRedirectReturnUrlResolver occPaymentRedirectReturnUrlResolver;
+
+    @Autowired
+    private AdyenShopperIpResolverService adyenShopperIpResolverService;
 
     @Resource(name = "adyenPartialPaymentService")
     private AdyenPartialPaymentService adyenPartialPaymentService;
@@ -118,6 +122,11 @@ public class PlaceOrderController extends PlaceOrderControllerBase implements Ad
     @Override
     public CheckoutCustomerStrategy getCheckoutCustomerStrategy() {
         return checkoutCustomerStrategy;
+    }
+
+    @Override
+    public AdyenShopperIpResolverService getAdyenShopperIpResolverService() {
+        return adyenShopperIpResolverService;
     }
 
     @Override

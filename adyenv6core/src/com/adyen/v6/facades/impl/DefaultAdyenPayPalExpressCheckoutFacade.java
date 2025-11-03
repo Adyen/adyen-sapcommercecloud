@@ -7,6 +7,7 @@ import com.adyen.v6.facades.AdyenPayPalExpressCheckoutFacade;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
 import com.adyen.v6.model.RequestInfo;
 import com.adyen.v6.response.PayPalExpressSubmitResponse;
+import com.adyen.v6.service.AdyenShopperIpResolverService;
 import com.adyen.v6.service.AdyenUtilityApiService;
 import com.adyen.v6.util.AmountUtil;
 import de.hybris.platform.basecommerce.model.site.BaseSiteModel;
@@ -46,6 +47,8 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
     private CalculationService calculationService;
     private BaseSiteService baseSiteService;
     private AdyenPaymentServiceFactory adyenPaymentServiceFactory;
+    private AdyenShopperIpResolverService adyenShopperIpResolverService;
+
 
 
     @Override
@@ -61,7 +64,9 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
 
         paymentRequest.setAmount(amount);
 
-        RequestInfo requestInfo = new RequestInfo(request);
+        String shopperIp = adyenShopperIpResolverService.resolveShopperIp(request);
+
+        RequestInfo requestInfo = new RequestInfo(request, shopperIp);
         requestInfo.setStorefrontType(StorefrontType.EXPRESSOCC);
         requestInfo.setShopperLocale(adyenCheckoutFacade.getShopperLocale());
 
@@ -94,7 +99,9 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
         paymentRequest.setReference(expressCart.getCode());
         paymentRequest.setAmount(amount);
 
-        RequestInfo requestInfo = new RequestInfo(request);
+        String shopperIp = adyenShopperIpResolverService.resolveShopperIp(request);
+
+        RequestInfo requestInfo = new RequestInfo(request, shopperIp);
         requestInfo.setStorefrontType(StorefrontType.ACCELERATOR);
         requestInfo.setShopperLocale(adyenCheckoutFacade.getShopperLocale());
 
@@ -122,7 +129,9 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
         paymentRequest.setAmount(amount);
         paymentRequest.setReference(sessionCart.getCode());
 
-        RequestInfo requestInfo = new RequestInfo(request);
+        String shopperIp = adyenShopperIpResolverService.resolveShopperIp(request);
+
+        RequestInfo requestInfo = new RequestInfo(request, shopperIp);
         requestInfo.setStorefrontType(StorefrontType.ACCELERATOR);
         requestInfo.setShopperLocale(adyenCheckoutFacade.getShopperLocale());
 
@@ -377,5 +386,10 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
 
     public void setAdyenPaymentServiceFactory(AdyenPaymentServiceFactory adyenPaymentServiceFactory) {
         this.adyenPaymentServiceFactory = adyenPaymentServiceFactory;
+    }
+
+    @Override
+    public void setAdyenShopperIpResolverService(AdyenShopperIpResolverService adyenShopperIpResolverService) {
+        this.adyenShopperIpResolverService = adyenShopperIpResolverService;
     }
 }
