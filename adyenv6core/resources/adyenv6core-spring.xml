@@ -490,7 +490,6 @@
     </bean>
 
     <bean id="adyenPayPalExpressCheckoutFacade" class="com.adyen.v6.facades.impl.DefaultAdyenPayPalExpressCheckoutFacade">
-        <property name="calculationService" ref="calculationService"/>
         <property name="baseSiteService" ref="baseSiteService"/>
         <property name="cartFactory" ref="cartFactory"/>
         <property name="cartService" ref="cartService"/>
