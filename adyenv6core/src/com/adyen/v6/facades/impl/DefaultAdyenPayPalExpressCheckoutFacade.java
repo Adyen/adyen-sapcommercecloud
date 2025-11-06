@@ -23,7 +23,6 @@ import de.hybris.platform.core.model.product.ProductModel;
 import de.hybris.platform.core.model.user.AddressModel;
 import de.hybris.platform.core.model.user.CustomerModel;
 import de.hybris.platform.core.model.user.UserModel;
-import de.hybris.platform.order.CalculationService;
 import de.hybris.platform.order.InvalidCartException;
 import de.hybris.platform.order.exceptions.CalculationException;
 import de.hybris.platform.site.BaseSiteService;
@@ -44,7 +43,6 @@ import static de.hybris.platform.servicelayer.util.ServicesUtil.validateParamete
 public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpressCheckoutFacade implements AdyenPayPalExpressCheckoutFacade {
     private static final Logger LOG = Logger.getLogger(DefaultAdyenPayPalExpressCheckoutFacade.class);
 
-    private CalculationService calculationService;
     private BaseSiteService baseSiteService;
     private AdyenPaymentServiceFactory adyenPaymentServiceFactory;
     private AdyenShopperIpResolverService adyenShopperIpResolverService;
@@ -354,7 +352,7 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
         sessionCart.setPaymentInfo(paymentInfoModel);
         getModelService().save(sessionCart);
 
-        calculationService.recalculate(sessionCart);
+        calculateCart(sessionCart);
     }
 
     protected CartModel getExpressCartForGuid(String expressCartGuid) {
@@ -373,12 +371,6 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
 
         return deliveryMode;
     }
-
-
-    public void setCalculationService(CalculationService calculationService) {
-        this.calculationService = calculationService;
-    }
-
 
     public void setBaseSiteService(BaseSiteService baseSiteService) {
         this.baseSiteService = baseSiteService;
