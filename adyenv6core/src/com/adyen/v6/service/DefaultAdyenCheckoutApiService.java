@@ -67,7 +67,7 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
 
         adyenRequestService.applyAdditionalData(cartData, paymentsRequest);
 
-        LOG.info(paymentsRequest);
+        LOG.debug(paymentsRequest);
         PaymentResponse paymentsResponse = checkoutApi.payments(paymentsRequest);
         LOG.debug(paymentsResponse);
 

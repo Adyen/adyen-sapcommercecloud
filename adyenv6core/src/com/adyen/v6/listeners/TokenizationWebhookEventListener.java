@@ -29,8 +29,7 @@ public class TokenizationWebhookEventListener extends AbstractEventListener<Toke
 
     @Override
     protected void onEvent(TokenizationEvent tokenizationEvent) {
-        //TODO
-        LOG.info("Processing Tokenization event");
+        LOG.debug("Processing Tokenization event");
 
         TokenWebhookRequestData data = tokenizationEvent.getData();
         PaymentTransactionModel transactionModel = paymentTransactionRepository.getTransactionModel(data.getEventId());
@@ -60,25 +59,10 @@ public class TokenizationWebhookEventListener extends AbstractEventListener<Toke
         boolean validationResult = true;
         validationResult &= ((CustomerModel) order.getPaymentInfo().getUser()).getCustomerID().equals(tokenWebhookRequestData.getShopperReference());
 
-        //TODO
-        if(!validationResult) {
-            LOG.error("User id mismatch order: " + ((CustomerModel) order.getPaymentInfo().getUser()).getCustomerID() + " request: " + tokenWebhookRequestData.getShopperReference());
-        }
-
         validationResult &= order.getStore().getAdyenMerchantAccount().equals(tokenWebhookRequestData.getMerchantAccount());
-
-        //TODO
-        if(!validationResult) {
-            LOG.error("Merchant account mismatch order: " + order.getStore().getAdyenMerchantAccount() + " request: " + tokenWebhookRequestData.getMerchantAccount());
-        }
 
         validationResult &= (order.getStore().getAdyenTestMode() && "test".equals(tokenWebhookRequestData.getEnvironment())) ||
                 (!order.getStore().getAdyenTestMode() && "live".equals(tokenWebhookRequestData.getEnvironment()));
-
-        //TODO
-        if(!validationResult) {
-            LOG.error("Environment mismatch order: " + order.getStore().getAdyenTestMode() + " request: " + tokenWebhookRequestData.getEnvironment());
-        }
 
         if (!validationResult) {
             throw new IllegalArgumentException("Token webhook request is not valid. EventId (pspReference): " + tokenWebhookRequestData.getEventId() +

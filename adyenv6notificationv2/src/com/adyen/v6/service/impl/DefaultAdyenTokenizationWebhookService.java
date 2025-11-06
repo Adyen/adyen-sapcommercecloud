@@ -15,8 +15,7 @@ public class DefaultAdyenTokenizationWebhookService implements AdyenTokenization
     private Converter<TokenizationWebhookRequest, TokenWebhookRequestData> tokenWebhookRequestConverter;
 
     public void onRequest(TokenizationWebhookRequest tokenizationWebhookRequest) {
-        //TODO
-        LOG.info("Processing tokenization webhook request: " + tokenizationWebhookRequest);
+        LOG.debug("Processing tokenization webhook request: " + tokenizationWebhookRequest);
 
         TokenWebhookRequestData requestData = tokenWebhookRequestConverter.convert(tokenizationWebhookRequest);
 
