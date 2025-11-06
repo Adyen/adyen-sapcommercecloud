@@ -113,11 +113,18 @@ export const useAdyenPayment = (
                     ...prev,
                     errorFieldCodes: responseData.errorFieldCodes || []
                 }));
-                resetDropInComponent();
+                // Call resetDropInComponent directly without dependency
+                if (dropIn) {
+                    dropIn.unmount();
+                    const element = document.querySelector('.dropin-payment');
+                    if (element) {
+                        dropIn.mount(element as HTMLElement);
+                    }
+                }
             }
             setPaymentState(prev => ({ ...prev, errorCode: responseData.error || '' }));
         }
-    }, [dropIn, resetDropInComponent]);
+    }, [dropIn]);
 
     const handlePayment = useCallback(async (data: any, element: any, actions: SubmitActions) => {
         const adyenPaymentForm = PaymentService.preparePlaceOrderRequest(
@@ -210,8 +217,15 @@ export const useAdyenPayment = (
 
     const handleError = useCallback(async () => {
         await PaymentService.sendPaymentCancel();
-        resetDropInComponent();
-    }, [resetDropInComponent]);
+        // Call resetDropInComponent logic directly without dependency
+        if (dropIn) {
+            dropIn.unmount();
+            const element = document.querySelector('.dropin-payment');
+            if (element) {
+                dropIn.mount(element as HTMLElement);
+            }
+        }
+    }, [dropIn]);
 
     return {
         paymentState,

@@ -36,6 +36,28 @@ export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
 }) => {
     const paymentRef: RefObject<HTMLDivElement> = useRef(null);
     const dropInRef = useRef<Dropin | null>(null);
+    
+    // Use refs to store callback functions to avoid dependency issues
+    const callbacksRef = useRef({
+        onPayment,
+        onAdditionalDetails,
+        onBalanceCheck,
+        onOrderRequest,
+        onError,
+        onDropInReady
+    });
+    
+    // Update refs when callbacks change
+    useEffect(() => {
+        callbacksRef.current = {
+            onPayment,
+            onAdditionalDetails,
+            onBalanceCheck,
+            onOrderRequest,
+            onError,
+            onDropInReady
+        };
+    }, [onPayment, onAdditionalDetails, onBalanceCheck, onOrderRequest, onError, onDropInReady]);
 
     const castToEnvironment = (env: string): CoreConfiguration['environment'] => {
         const validEnvironments: CoreConfiguration['environment'][] = ['test', 'live', 'live-us', 'live-au', 'live-apse', 'live-in'];
@@ -63,13 +85,21 @@ export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
             risk: {
                 enabled: true
             },
-            onError: onError,
-            onSubmit: (state: any, element: UIElement, actions: SubmitActions) => onPayment(state.data, element, actions),
-            onAdditionalDetails: (state: any, element: UIElement, actions: AdditionalDetailsActions) => onAdditionalDetails(state, element, actions),
-            onBalanceCheck: async (resolve: any, reject: any, data: any) => await onBalanceCheck(resolve, reject, {...data, amount: adyenConfig.amount}),
-            onOrderRequest: async (resolve: any, reject: any, data: any) => await onOrderRequest(resolve, reject, {...data, amount: adyenConfig.amount})
+            onError: callbacksRef.current.onError,
+            onSubmit: (state: any, element: UIElement, actions: SubmitActions) => callbacksRef.current.onPayment(state.data, element, actions),
+            onAdditionalDetails: (state: any, element: UIElement, actions: AdditionalDetailsActions) => callbacksRef.current.onAdditionalDetails(state, element, actions),
+            onBalanceCheck: async (resolve: any, reject: any, data: any) => await callbacksRef.current.onBalanceCheck(resolve, reject, {...data, amount: adyenConfig.amount}),
+            onOrderRequest: async (resolve: any, reject: any, data: any) => await callbacksRef.current.onOrderRequest(resolve, reject, {...data, amount: adyenConfig.amount})
         };
-    }, [adyenConfig, onError, onPayment, onAdditionalDetails, onBalanceCheck, onOrderRequest]);
+    }, [
+        adyenConfig.paymentMethods,
+        adyenConfig.storedPaymentMethodList,
+        adyenConfig.shopperLocale,
+        adyenConfig.environmentMode,
+        adyenConfig.adyenClientKey,
+        adyenConfig.countryCode,
+        adyenConfig.amount
+    ]);
 
     const getAdyenCardConfig = useCallback((): CardConfiguration => {
         return {
@@ -83,7 +113,13 @@ export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
                 locale: adyenConfig.clickToPayLocale,
             }
         };
-    }, [adyenConfig]);
+    }, [
+        adyenConfig.cardHolderNameRequired,
+        adyenConfig.showRememberTheseDetails,
+        adyenConfig.merchantDisplayName,
+        adyenConfig.shopperEmail,
+        adyenConfig.clickToPayLocale
+    ]);
 
     const initializeDropIn = useCallback(async () => {
         if (!adyenConfig.adyenClientKey || !paymentRef.current) {
@@ -123,12 +159,18 @@ export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
             }).mount(paymentRef.current);
 
             dropInRef.current = dropIn;
-            onDropInReady(dropIn);
+            callbacksRef.current.onDropInReady(dropIn);
         } catch (error) {
             console.error('Failed to initialize Adyen DropIn:', error);
-            onError(error as AdyenCheckoutError);
+            callbacksRef.current.onError(error as AdyenCheckoutError);
         }
-    }, [adyenConfig, shippingAddress, onError, onDropInReady, getAdyenCheckoutConfig, getAdyenCardConfig]);
+    }, [
+        adyenConfig.adyenClientKey,
+        shippingAddress.firstName,
+        shippingAddress.lastName,
+        getAdyenCheckoutConfig,
+        getAdyenCardConfig
+    ]);
 
     useEffect(() => {
         initializeDropIn();
