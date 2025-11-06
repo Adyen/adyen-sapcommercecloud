@@ -47,7 +47,8 @@
         <property name="adyenGiftCardBrand" type="java.lang.String"/>
         <property name="adyenAmazonPayConfiguration" type="java.util.Map"/>
         <property name="riskData" type="java.lang.String"/>
-
+        <property name="adyenPartialPaymentOrders" type="java.util.List&lt;com.adyen.commerce.data.AdyenPartialPaymentOrderData&gt;"/>
+        <property name="adyenShopperConversionId" type="java.lang.String"/>
     </bean>
 
     <bean class="de.hybris.platform.commercefacades.order.data.AbstractOrderData">
@@ -133,6 +134,7 @@
         <property name="checkoutShopperHost" type="String"/>
         <property name="dataCollectionEnabled" type="boolean"/>
     </bean>
+
     <bean class="com.adyen.commerce.data.TokenWebhookRequestData">
         <property name="createdAt" type="String"/>
         <property name="eventId" type="String"/>
@@ -143,5 +145,22 @@
         <property name="shopperReference" type="String"/>
         <property name="storedPaymentMethodId" type="String"/>
         <property name="paymentType" type="String"/>
+    </bean>
+
+    <bean class="com.adyen.commerce.data.AdyenPartialPaymentOrderData">
+        <property name="pspReference" type="String"/>
+        <property name="requestAmount" type="java.math.BigDecimal"/>
+        <property name="currency" type="de.hybris.platform.commercefacades.storesession.data.CurrencyData"/>
+        <property name="giftCardBalance" type="java.math.BigDecimal"/>
+        <property name="giftCardChargedAmount" type="java.math.BigDecimal"/>
+        <property name="remainingAmount" type="java.math.BigDecimal"/>
+        <property name="giftCardNumber" type="String"/>
+        <property name="giftCardBrand" type="String"/>
+        <property name="giftCardType" type="String"/>
+        <property name="status" type="String"/>
+        <property name="paymentMethod" type="String"/>
+        <property name="createdAt" type="java.util.Date"/>
+        <property name="processedAt" type="java.util.Date"/>
+        <property name="balanceCheckedAt" type="java.util.Date"/>
     </bean>
 </beans>

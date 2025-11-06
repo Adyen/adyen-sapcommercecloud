@@ -41,9 +41,11 @@ import org.mockito.Mockito;
 import org.mockito.runners.MockitoJUnitRunner;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Currency;
+import java.util.List;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -149,5 +151,51 @@ public class AdyenCaptureCommandTest {
         CaptureResult result = adyenCaptureCommand.perform(captureRequest);
         assertEquals(TransactionStatus.ACCEPTED, result.getTransactionStatus());
         assertEquals(TransactionStatusDetails.SUCCESFULL, result.getTransactionStatusDetails());
+    }
+
+    @Test
+    public void shouldReturnTrueForSupportedMethods() {
+        // All supported payment methods
+        String[] supportedMethods = {
+                "card", "adyen_cc", "scheme", "paypal", "klarna", "klarna_account", "klarna_paynow", "afterpay_default",
+                "afterpaytouch", "clearpay", "ratepay", "afterpay_default", "sepadirectdebit", "applepay",
+                "paywithgoogle", "googlepay", "amazonpay", "twint"
+        };
+
+        List<String> notSupportedMethods = new ArrayList<String>();
+
+        for (String method : supportedMethods) {
+            if (!adyenCaptureCommand.supportsManualCapture(method)) {
+                notSupportedMethods.add(method);
+            }
+        }
+
+        assertTrue("The method should support manual capture for: " + notSupportedMethods, notSupportedMethods.isEmpty());
+    }
+
+    @Test
+    public void shouldReturnTrueForStoredCard() {
+        String unsupportedMethod = "adyen_oneclick_A1234567";
+        assertTrue("The method should  support manual capture for stored card",
+                adyenCaptureCommand.supportsManualCapture(unsupportedMethod));
+    }
+
+    @Test
+    public void shouldReturnFalseForUnsupportedMethod() {
+        String unsupportedMethod = "banktransfer";
+        assertFalse("The method should not support manual capture for an unsupported method",
+                adyenCaptureCommand.supportsManualCapture(unsupportedMethod));
+    }
+
+    @Test
+    public void shouldReturnFalseForNullInput() {
+        assertFalse("The method should not support manual capture for null input",
+                adyenCaptureCommand.supportsManualCapture(null));
+    }
+
+    @Test
+    public void shouldReturnFalseForEmptyStringInput() {
+        assertFalse("The method should not support manual capture for an empty string input",
+                adyenCaptureCommand.supportsManualCapture(""));
     }
 }

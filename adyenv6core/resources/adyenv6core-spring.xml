@@ -87,7 +87,7 @@
     <bean id="adyenBaseStoreRepository" class="com.adyen.v6.repository.BaseStoreRepository" autowire="byName">
         <property name="orderRepository" ref="adyenOrderRepository" />
     </bean>
-
+    <bean id="adyenPartialPaymentOrderRepository" class="com.adyen.v6.repository.AdyenPartialPaymentOrderRepository" autowire="byName"/>
     <!-- Used for commands triggered by order-process -->
     <bean name="adyenCommandFactory" class="de.hybris.platform.payment.commands.factory.impl.DefaultCommandFactoryImpl" >
         <property name="paymentProvider" value="Adyen"/>
@@ -237,6 +237,7 @@
         <property name="adyenOrderFacade" ref="adyenOrderFacade"/>
         <property name="productFacade" ref="productFacade"/>
         <property name="commerceCartService" ref="commerceCartService"/>
+        <property name="adyenShopperIpResolverService" ref="adyenShopperIpResolverService"/>
     </bean>
 
     <alias name="defaultAdyenCheckoutApiFacade" alias="adyenCheckoutApiFacade" />
@@ -271,6 +272,18 @@
         <property name="i18NFacade" ref="i18NFacade"/>
         <property name="userFacade" ref="userFacade"/>
         <property name="configurationService" ref="configurationService"/>
+        <property name="adyenPartialPaymentService" ref="adyenPartialPaymentService"/>
+        <property name="adyenPartialPaymentOrderRepository" ref="adyenPartialPaymentOrderRepository" />
+    </bean>
+
+    <alias name="defaultAdyenGiftCardFacade" alias="adyenGiftCardFacade" />
+    <bean id="defaultAdyenGiftCardFacade" class="com.adyen.commerce.facades.impl.DefaultAdyenGiftCardFacade">
+        <property name="baseStoreService" ref="baseStoreService"/>
+        <property name="adyenPaymentServiceFactory" ref="adyenPaymentServiceFactory"/>
+        <property name="adyenPartialPaymentService" ref="adyenPartialPaymentService"/>
+        <property name="cartService" ref="cartService"/>
+        <property name="modelService" ref="modelService"/>
+        <property name="commonI18NService" ref="commonI18NService"/>
     </bean>
 
     <alias name="defaultAdyenDataCollectionFacade" alias="adyenDataCollectionFacade" />
@@ -477,6 +490,10 @@
         <property name="checkoutCustomerStrategy" ref="checkoutCustomerStrategy"/>
         <property name="countryConverter" ref="countryConverter"/>
         <property name="impersonationService" ref="impersonationService"/>
+        <property name="baseSiteService" ref="baseSiteService"/>
+        <property name="siteBaseUrlResolutionService" ref="siteBaseUrlResolutionService"/>
+        <property name="occPaymentRedirectReturnUrlResolver" ref="occPaymentRedirectReturnUrlResolver"/>
+        <property name="adyenShopperIpResolverService" ref="adyenShopperIpResolverService"/>
     </bean>
 
     <bean id="adyenPayPalExpressCheckoutFacade" class="com.adyen.v6.facades.impl.DefaultAdyenPayPalExpressCheckoutFacade">
@@ -518,6 +535,7 @@
         <property name="countryConverter" ref="countryConverter"/>
         <property name="impersonationService" ref="impersonationService"/>
         <property name="adyenPaymentServiceFactory" ref="adyenPaymentServiceFactory"/>
+        <property name="adyenShopperIpResolverService" ref="adyenShopperIpResolverService"/>
     </bean>
 
     <bean id="adyenOrderFacade" class="com.adyen.v6.facades.impl.DefaultAdyenOrderFacade">
@@ -552,5 +570,34 @@
     <bean parent="modifyPopulatorList">
         <property name="list" ref="addressConverter"/>
         <property name="add" ref="adyenAddressPopulator"/>
+    </bean>
+
+    <bean id="webServicesBaseUrlResolver" class="com.adyen.v6.util.WebServicesBaseUrlResolver">
+        <property name="configurationService" ref="configurationService"/>
+    </bean>
+
+    <bean id="occPaymentRedirectReturnUrlResolver" class="com.adyen.v6.resolver.OccPaymentRedirectReturnUrlResolver">
+        <property name="baseSiteService" ref="baseSiteService"/>
+        <property name="commerceCommonI18NService" ref="commerceCommonI18NService"/>
+        <property name="webServicesBaseUrlResolver" ref="webServicesBaseUrlResolver"/>
+    </bean>
+
+    <!-- Adyen Partial Payment Service -->
+    <alias name="defaultAdyenPartialPaymentService" alias="adyenPartialPaymentService"/>
+    <bean id="defaultAdyenPartialPaymentService" class="com.adyen.v6.service.impl.DefaultAdyenPartialPaymentService">
+        <property name="baseStoreService" ref="baseStoreService"/>
+        <property name="adyenPaymentServiceFactory" ref="adyenPaymentServiceFactory"/>
+        <property name="modelService" ref="modelService"/>
+        <property name="commonI18NService" ref="commonI18NService"/>
+    </bean>
+
+    <alias name="defaultAdyenOrderApiFacade" alias="adyenOrderApiFacade" />
+    <bean id="defaultAdyenOrderApiFacade" class="com.adyen.commerce.facades.impl.DefaultPartialPaymentOrderFacade">
+        <property name="cartFacade" ref="cartFacade"/>
+        <property name="baseStoreService" ref="baseStoreService"/>
+        <property name="adyenPaymentServiceFactory" ref="adyenPaymentServiceFactory"/>
+        <property name="modelService"  ref="defaultModelService"/>
+        <property name="flexibleSearchService" ref="defaultFlexibleSearchService" />
+        <property name="adyenPartialPaymentOrderRepository" ref="adyenPartialPaymentOrderRepository" />
     </bean>
 </beans>

@@ -114,6 +114,13 @@
 					<editorArea:attribute qualifier="adyenPaypalMerchantId"/>
 					<editorArea:attribute qualifier="l2L3ESDEnabled"/>
 				</editorArea:section>
+				<editorArea:section name="hmc.adyen.installments">
+					<editorArea:attribute qualifier="adyenInstallmentsEnabled" editor="com.hybris.cockpitng.editor.defaultboolean"/>
+					<editorArea:attribute qualifier="adyenInstallmentOptions"/>
+					<editorArea:attribute qualifier="adyenInstallmentPlans"/>
+					<editorArea:attribute qualifier="adyenShowInstallmentAmounts"/>
+					<editorArea:attribute qualifier="adyenShowInstallmentPlans"/>
+				</editorArea:section>
 				<editorArea:section name="hmc.adyen.dataCollection">
 					<editorArea:attribute qualifier="dataCollectionEnabled"/>
 				</editorArea:section>

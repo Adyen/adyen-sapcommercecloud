@@ -1,5 +1,6 @@
 package com.adyen.commerce.occ.controllers.expresscheckout;
 
+import com.adyen.commerce.dto.OrderPaymentResult;
 import com.adyen.commerce.exception.AdyenControllerException;
 import com.adyen.commerce.response.OCCPlaceOrderResponse;
 import com.adyen.model.checkout.PaymentRequest;
@@ -10,7 +11,6 @@ import com.adyen.v6.facades.AdyenExpressCheckoutFacade;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.hybris.platform.commercefacades.order.CartFacade;
-import de.hybris.platform.commercefacades.order.data.OrderData;
 import de.hybris.platform.commercefacades.user.data.AddressData;
 import de.hybris.platform.commerceservices.strategies.CheckoutCustomerStrategy;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -36,20 +36,25 @@ public abstract class ExpressCheckoutControllerBase {
         String errorMessage = CHECKOUT_ERROR_AUTHORIZATION_FAILED;
 
         try {
-            paymentRequest.setReturnUrl(getPaymentRedirectReturnUrl());
-            OrderData orderData;
+            OrderPaymentResult orderPaymentResult;
 
             if (isPDPCheckout) {
-                orderData = getAdyenCheckoutApiFacade().expressCheckoutPDPOCC(cartId, paymentRequest, paymentMethod, addressData, request);
+                orderPaymentResult = getAdyenCheckoutApiFacade().expressCheckoutPDPOCC(cartId, paymentRequest, paymentMethod, addressData, request);
             } else {
-                orderData = getAdyenCheckoutApiFacade().expressCheckoutCartOCC(paymentRequest, paymentMethod, addressData, request);
+                orderPaymentResult = getAdyenCheckoutApiFacade().expressCheckoutCartOCC(paymentRequest, paymentMethod, addressData, request);
             }
 
-            String orderCode = getCheckoutCustomerStrategy().isAnonymousCheckout() ? orderData.getGuid() : orderData.getCode();
+            String orderCode = getCheckoutCustomerStrategy().isAnonymousCheckout() ? orderPaymentResult.getOrderData().getGuid() : orderPaymentResult.getOrderData().getCode();
 
             OCCPlaceOrderResponse placeOrderResponse = new OCCPlaceOrderResponse();
             placeOrderResponse.setOrderNumber(orderCode);
-            placeOrderResponse.setOrderData(orderData);
+            placeOrderResponse.setOrderData(orderPaymentResult.getOrderData());
+
+            if (orderPaymentResult.getPaymentResponse().getAction() != null) {
+                placeOrderResponse.setExecuteAction(true);
+                placeOrderResponse.setPaymentsAction(orderPaymentResult.getPaymentResponse().getAction());
+            }
+
             return placeOrderResponse;
 
         } catch (ApiException e) {
@@ -87,8 +92,6 @@ public abstract class ExpressCheckoutControllerBase {
     public abstract CartFacade getCartFacade();
 
     public abstract CheckoutCustomerStrategy getCheckoutCustomerStrategy();
-
-    public abstract String getPaymentRedirectReturnUrl();
 
     public abstract AdyenExpressCheckoutFacade getAdyenCheckoutApiFacade();
 }

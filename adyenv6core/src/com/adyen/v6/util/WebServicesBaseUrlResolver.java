@@ -1,4 +1,4 @@
-package com.adyen.commerce.occ.utils;
+package com.adyen.v6.util;
 
 import de.hybris.platform.servicelayer.config.ConfigurationService;
 

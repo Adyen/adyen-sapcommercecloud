@@ -3,7 +3,6 @@ package com.adyen.commerce.occ.controllers.expresscheckout;
 import com.adyen.commerce.constants.AdyenoccConstants;
 import com.adyen.commerce.occ.api.expresscheclout.GooglePayExpressCheckoutApi;
 import com.adyen.commerce.occ.request.GooglePayExpressRequest;
-import com.adyen.commerce.occ.resolver.PaymentRedirectReturnUrlResolver;
 import com.adyen.commerce.response.OCCPlaceOrderResponse;
 import com.adyen.model.checkout.CheckoutPaymentMethod;
 import com.adyen.model.checkout.GooglePayDetails;
@@ -37,9 +36,6 @@ public class GooglePayExpressCheckoutController extends ExpressCheckoutControlle
 
     @Autowired
     private AdyenExpressCheckoutFacade adyenExpressCheckoutFacade;
-
-    @Autowired
-    private PaymentRedirectReturnUrlResolver paymentRedirectReturnUrlResolver;
 
 
     @Override
@@ -83,11 +79,6 @@ public class GooglePayExpressCheckoutController extends ExpressCheckoutControlle
     @Override
     public CheckoutCustomerStrategy getCheckoutCustomerStrategy() {
         return checkoutCustomerStrategy;
-    }
-
-    @Override
-    public String getPaymentRedirectReturnUrl() {
-        return paymentRedirectReturnUrlResolver.resolvePaymentRedirectReturnUrl();
     }
 
     @Override

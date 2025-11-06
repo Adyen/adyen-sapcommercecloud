@@ -1,5 +1,6 @@
 package com.adyen.commerce.services;
 
+import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.model.checkout.PaymentRequest;
 import com.adyen.model.recurring.DisableRequest;
 import com.adyen.model.recurring.RecurringDetailsRequest;
@@ -42,7 +43,8 @@ public interface AdyenRequestService {
                                         final RequestInfo requestInfo,
                                         final CustomerModel customerModel,
                                         final RecurringContractMode recurringContractMode,
-                                        final Boolean guestUserTokenizationEnabled);
+                                        final Boolean guestUserTokenizationEnabled,
+                                        final AdyenPartialPaymentOrderData partialPaymentOrderData);
 
     RecurringDetailsRequest createListRecurringDetailsRequest(final String merchantAccount, final String customerId);
 
@@ -50,4 +52,14 @@ public interface AdyenRequestService {
 
     void decoratePayPalSubmitPaymentRequest(final String merchantAccount, final PaymentRequest paymentRequest,
                                                     final RequestInfo requestInfo);
+
+    PaymentRequest createPartialPaymentRequest(final String merchantAccount,
+                                               final CartData cartData,
+                                               final PaymentRequest originPaymentsRequest,
+                                               final RequestInfo requestInfo,
+                                               final CustomerModel customerModel,
+                                               final RecurringContractMode recurringContractMode,
+                                               final Boolean guestUserTokenizationEnabled,
+                                               final java.math.BigDecimal customAmount,
+                                               final String currency);
 }

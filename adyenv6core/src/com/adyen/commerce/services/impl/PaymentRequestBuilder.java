@@ -1,16 +1,17 @@
 package com.adyen.commerce.services.impl;
 
-import com.adyen.model.checkout.*;
+import com.adyen.model.checkout.BrowserInfo;
+import com.adyen.model.checkout.Company;
+import com.adyen.model.checkout.EncryptedOrderData;
+import com.adyen.model.checkout.PaymentRequest;
 import com.adyen.v6.model.RequestInfo;
 import com.adyen.v6.util.AmountUtil;
 import de.hybris.platform.commercefacades.order.data.CartData;
-import de.hybris.platform.commercefacades.user.data.AddressData;
 import de.hybris.platform.core.model.user.CustomerModel;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.web.bind.annotation.RequestMethod;
 
 import java.util.HashMap;
-import java.util.Optional;
 
 /**
  * Builder class for creating PaymentRequest objects with fluent API
@@ -33,6 +34,13 @@ public class PaymentRequestBuilder {
                 cartData.getTotalPriceWithTax().getValue(),
                 cartData.getTotalPriceWithTax().getCurrencyIso()
             ));
+        }
+        return this;
+    }
+
+    public PaymentRequestBuilder amount(java.math.BigDecimal amount, String currency) {
+        if (amount != null && StringUtils.isNotEmpty(currency)) {
+            paymentRequest.setAmount(AmountUtil.createAmount(amount, currency));
         }
         return this;
     }
@@ -110,6 +118,16 @@ public class PaymentRequestBuilder {
 
     public PaymentRequestBuilder channel(PaymentRequest.ChannelEnum channel) {
         paymentRequest.setChannel(channel);
+        return this;
+    }
+
+    public PaymentRequestBuilder order(EncryptedOrderData order) {
+        paymentRequest.setOrder(order);
+        return this;
+    }
+
+    public PaymentRequestBuilder shopperConversionId(String shopperConversionId) {
+        paymentRequest.setShopperConversionId(shopperConversionId);
         return this;
     }
 

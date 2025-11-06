@@ -244,7 +244,7 @@ public class AdyenCheckoutFacadeTest {
         when(addressData.getCountry()).thenReturn(countryData);
         when(countryData.getIsocode()).thenReturn("NL");
         when(commonI18NService.getCurrentLanguage()).thenReturn(null);
-        when(adyenCheckoutApiService.getPaymentMethodsResponse(any(), any(), any(), any(), any())).thenReturn(createEpsPaymentMethodsResponse());
+        when(adyenCheckoutApiService.getPaymentMethodsResponse(any(), any(), any(), any(), any(), any())).thenReturn(createEpsPaymentMethodsResponse());
         when(baseStore.getAdyenRecurringContractMode()).thenReturn(RecurringContractMode.NONE);
         when(cartService.getSessionCart()).thenReturn(new CartModel());
         when(cartData.getAdyenPaymentMethod()).thenReturn(PAYMENT_METHOD_EPS);

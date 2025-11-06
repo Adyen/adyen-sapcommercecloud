@@ -27,6 +27,7 @@ export interface AdyenConfigData {
     merchantDisplayName: string,
     shopperEmail: string,
     clickToPayLocale: string,
+    installmentOptions?: AdyenInstallmentOptions;
 }
 
 interface StoredPaymentMethodData {
@@ -53,4 +54,16 @@ interface AmountData {
 interface AllowedCard {
     code: string,
     type: string
+}
+
+interface AdyenInstallmentOptions {
+    card?: {
+        values?: number[];
+        plans?: string[];
+    };
+    showInstallmentAmounts?: {
+        values?: number[];
+        plans?: string[];
+    };
+    [key: string]: any;
 }
