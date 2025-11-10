@@ -42,6 +42,7 @@ import com.adyen.v6.factory.AdyenPaymentServiceFactory;
 import com.adyen.v6.forms.AddressForm;
 import com.adyen.v6.forms.AdyenPaymentForm;
 import com.adyen.v6.forms.validation.AdyenPaymentFormValidator;
+import com.adyen.v6.model.AdyenJapanInstallmentConfigModel;
 import com.adyen.v6.model.ExpressPaymentConfigModel;
 import com.adyen.v6.model.RequestInfo;
 import com.adyen.v6.repository.OrderRepository;
@@ -164,6 +165,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     private ProductFacade productFacade;
     private CommerceCartService commerceCartService;
     private AdyenShopperIpResolverService adyenShopperIpResolverService;
+    private AdyenInstallmentsConfigurationService adyenInstallmentsConfigurationService;
 
     public static final Logger LOGGER = Logger.getLogger(DefaultAdyenCheckoutFacade.class);
 
@@ -772,7 +774,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
                 .setMerchantDisplayName(baseStore.getName())
                 .setShopperEmail(customerModel.getContactEmail())
                 .setClickToPayLocale(baseStore.getClickToPayLocale())
-                .setInstallmentOptions(getInstallmentOptions());
+                .setInstallmentOptions(adyenInstallmentsConfigurationService.getInstallmentOptionsForCountry());
 
         ExpressPaymentConfigModel expressPaymentConfigModel = baseStore.getExpressPaymentConfig();
         if (expressPaymentConfigModel != null) {
@@ -1689,76 +1691,6 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         return holderNameRequired;
     }
 
-    protected InstallmentOptionsDTO getInstallmentOptions() {
-
-        BaseStoreModel baseStore = baseStoreService.getCurrentBaseStore();
-        
-        // Check if installments are enabled
-        if (baseStore.getAdyenInstallmentsEnabled() == null || !baseStore.getAdyenInstallmentsEnabled()) {
-            return null;
-        }
-        
-        String installmentOptionsConfig = baseStore.getAdyenInstallmentOptions();
-        String installmentPlansConfig = baseStore.getAdyenInstallmentPlans();
-        String showInstallmentAmountsConfig = baseStore.getAdyenShowInstallmentAmounts();
-        String showInstallmentPlansConfig = baseStore.getAdyenShowInstallmentPlans();
-        
-        List<Integer> installmentValues;
-        if (StringUtils.isEmpty(installmentOptionsConfig)) {
-            throw new RuntimeException("Installment options configuration is missing!");
-        } else {
-            String[] values = StringUtils.split(installmentOptionsConfig, ',');
-            installmentValues = Arrays.stream(values)
-                    .map(String::trim)
-                    .map(Integer::parseInt)
-                    .collect(Collectors.toList());
-        }
-        
-        List<String> installmentPlans;
-        if (StringUtils.isEmpty(installmentPlansConfig)) {
-            throw new RuntimeException("Installment options configuration is missing!");
-        } else {
-            String[] plans = StringUtils.split(installmentPlansConfig, ',');
-            installmentPlans = Arrays.stream(plans)
-                    .map(String::trim)
-                    .collect(Collectors.toList());
-        }
-        
-        List<Integer> showAmountValues;
-        if (StringUtils.isEmpty(showInstallmentAmountsConfig)) {
-            showAmountValues = Arrays.asList(1, 2, 3);
-        } else {
-            String[] values = StringUtils.split(showInstallmentAmountsConfig, ',');
-            showAmountValues = Arrays.stream(values)
-                    .map(String::trim)
-                    .map(Integer::parseInt)
-                    .collect(Collectors.toList());
-        }
-        
-        List<String> showAmountPlans;
-        if (StringUtils.isEmpty(showInstallmentPlansConfig)) {
-            showAmountPlans = Arrays.asList("regular");
-        } else {
-            String[] plans = StringUtils.split(showInstallmentPlansConfig, ',');
-            showAmountPlans = Arrays.stream(plans)
-                    .map(String::trim)
-                    .collect(Collectors.toList());
-        }
-        
-        InstallmentOptionsDTO installmentOptionsDTO = new InstallmentOptionsDTO();
-        
-        InstallmentOptionsDTO.CardInstallmentOptions cardOptions = new InstallmentOptionsDTO.CardInstallmentOptions();
-        cardOptions.setValues(installmentValues);
-        cardOptions.setPlans(installmentPlans);
-        installmentOptionsDTO.setCard(cardOptions);
-        
-        InstallmentOptionsDTO.ShowInstallmentAmounts showAmounts = new InstallmentOptionsDTO.ShowInstallmentAmounts();
-        showAmounts.setValues(showAmountValues);
-        showAmounts.setPlans(showAmountPlans);
-        installmentOptionsDTO.setShowInstallmentAmounts(showAmounts);
-        
-        return installmentOptionsDTO;
-    }
 
     public Set<String> getStoredCards() {
         CartModel cartModel = cartService.getSessionCart();
@@ -2006,5 +1938,13 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
 
     public void setAdyenShopperIpResolverService(AdyenShopperIpResolverService adyenShopperIpResolverService) {
         this.adyenShopperIpResolverService = adyenShopperIpResolverService;
+    }
+
+    public AdyenInstallmentsConfigurationService getAdyenInstallmentsConfigurationService() {
+        return adyenInstallmentsConfigurationService;
+    }
+
+    public void setAdyenInstallmentsConfigurationService(AdyenInstallmentsConfigurationService adyenInstallmentsConfigurationService) {
+        this.adyenInstallmentsConfigurationService = adyenInstallmentsConfigurationService;
     }
 }
