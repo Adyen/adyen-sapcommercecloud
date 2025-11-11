@@ -20,6 +20,7 @@
  */
 package com.adyen.v6.service;
 
+import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.commerce.services.AdyenRequestService;
 import com.adyen.model.checkout.*;
 import com.adyen.model.recurring.*;
@@ -55,6 +56,11 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
 
     @Override
     public PaymentResponse processPaymentRequest(final CartData cartData, PaymentRequest originPaymentsRequest, final RequestInfo requestInfo, final CustomerModel customerModel) throws Exception {
+        return processPaymentRequest(cartData, originPaymentsRequest, requestInfo, customerModel, null);
+    }
+
+    @Override
+    public PaymentResponse processPaymentRequest(final CartData cartData, PaymentRequest originPaymentsRequest, final RequestInfo requestInfo, final CustomerModel customerModel, AdyenPartialPaymentOrderData partialPaymentOrderData) throws Exception {
         LOG.debug("Component payment");
 
         PaymentsApi checkoutApi = new PaymentsApi(client);
@@ -63,7 +69,7 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
                 cartData,
                 originPaymentsRequest,
                 requestInfo,
-                customerModel, baseStore.getAdyenRecurringContractMode(), baseStore.getAdyenGuestUserTokenization(), null);
+                customerModel, baseStore.getAdyenRecurringContractMode(), baseStore.getAdyenGuestUserTokenization(), partialPaymentOrderData);
 
         adyenRequestService.applyAdditionalData(cartData, paymentsRequest);
 
