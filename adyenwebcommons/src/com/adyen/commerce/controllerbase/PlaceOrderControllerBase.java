@@ -324,7 +324,7 @@ public abstract class PlaceOrderControllerBase {
 
 
             OrderPaymentResult orderPaymentResult = getAdyenCheckoutApiFacade().placeOrderWithPayment(
-                request, cartData, placeOrderRequest.getPaymentRequest(), requestInfo);
+                request, cartData, placeOrderRequest.getPaymentRequest(), requestInfo, partialPayment);
 
             PaymentResponse paymentResponse = orderPaymentResult.getPaymentResponse();
 

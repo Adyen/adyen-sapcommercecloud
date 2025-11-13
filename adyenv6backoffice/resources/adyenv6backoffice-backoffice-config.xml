@@ -99,30 +99,33 @@
 					<editorArea:attribute qualifier="amazonpayEnvironment"/>
 					<editorArea:attribute qualifier="amazonpayRegion"/>
 				</editorArea:section>
-				<editorArea:section name="hmc.adyen.amazonpay">
-					<editorArea:attribute qualifier="amazonpayPublicKey"/>
-					<editorArea:attribute qualifier="amazonpayEnvironment"/>
-					<editorArea:attribute qualifier="amazonpayRegion"/>
-				</editorArea:section>
-				<editorArea:section name="hmc.adyen.amazonpay">
-					<editorArea:attribute qualifier="amazonpayPublicKey"/>
-					<editorArea:attribute qualifier="amazonpayEnvironment"/>
-					<editorArea:attribute qualifier="amazonpayRegion"/>
-				</editorArea:section>
 				<editorArea:section name="hmc.adyen.advanced">
 					<editorArea:attribute qualifier="adyenBoleto"/>
 					<editorArea:attribute qualifier="adyenPaypalMerchantId"/>
 					<editorArea:attribute qualifier="l2L3ESDEnabled"/>
 				</editorArea:section>
 				<editorArea:section name="hmc.adyen.installments">
-					<editorArea:attribute qualifier="adyenInstallmentsEnabled" editor="com.hybris.cockpitng.editor.defaultboolean"/>
-					<editorArea:attribute qualifier="adyenInstallmentOptions"/>
-					<editorArea:attribute qualifier="adyenInstallmentPlans"/>
-					<editorArea:attribute qualifier="adyenShowInstallmentAmounts"/>
-					<editorArea:attribute qualifier="adyenShowInstallmentPlans"/>
+					<editorArea:attribute qualifier="adyenInstallmentConfigs"/>
 				</editorArea:section>
 				<editorArea:section name="hmc.adyen.dataCollection">
 					<editorArea:attribute qualifier="dataCollectionEnabled"/>
+				</editorArea:section>
+			</editorArea:tab>
+		</editorArea:editorArea>
+	</context>
+
+	<context merge-by="type" type="AdyenInstallmentConfig" component="editor-area">
+		<editorArea:editorArea xmlns:editorArea="http://www.hybris.com/cockpitng/component/editorArea">
+			<editorArea:tab name="hmc.adyen.installments.config">
+				<editorArea:section name="hmc.adyen.installments.config.general">
+					<editorArea:attribute qualifier="country"/>
+					<editorArea:attribute qualifier="enabled" editor="com.hybris.cockpitng.editor.defaultboolean"/>
+				</editorArea:section>
+				<editorArea:section name="hmc.adyen.installments.config.options">
+					<editorArea:attribute qualifier="installmentOptions" editor="com.hybris.cockpitng.editor.defaulttext"/>
+					<editorArea:attribute qualifier="installmentPlans" editor="com.hybris.cockpitng.editor.defaulttext"/>
+					<editorArea:attribute qualifier="showInstallmentAmounts" editor="com.hybris.cockpitng.editor.defaulttext"/>
+					<editorArea:attribute qualifier="showInstallmentPlans" editor="com.hybris.cockpitng.editor.defaulttext"/>
 				</editorArea:section>
 			</editorArea:tab>
 		</editorArea:editorArea>

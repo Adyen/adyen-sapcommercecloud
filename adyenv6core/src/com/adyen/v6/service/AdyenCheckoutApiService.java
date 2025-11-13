@@ -20,6 +20,7 @@
  */
 package com.adyen.v6.service;
 
+import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.httpclient.HTTPClientException;
 import com.adyen.model.checkout.*;
 import com.adyen.model.recurring.RecurringDetail;
@@ -37,6 +38,12 @@ public interface AdyenCheckoutApiService {
 
 
     PaymentResponse processPaymentRequest(CartData cartData, PaymentRequest originPaymentsRequest, RequestInfo requestInfo, CustomerModel customerModel) throws Exception;
+
+
+    default PaymentResponse processPaymentRequest(CartData cartData, PaymentRequest originPaymentsRequest, RequestInfo requestInfo, CustomerModel customerModel, AdyenPartialPaymentOrderData partialPaymentOrderData) throws Exception {
+        throw new UnsupportedOperationException("Partial payment processing not supported by this implementation");
+    }
+
 
     /**
      * Process partial payment request with custom amount for gift card scenarios

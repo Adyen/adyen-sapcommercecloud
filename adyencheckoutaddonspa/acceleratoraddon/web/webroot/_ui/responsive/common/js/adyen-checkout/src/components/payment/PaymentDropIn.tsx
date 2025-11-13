@@ -102,7 +102,7 @@ export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
     ]);
 
     const getAdyenCardConfig = useCallback((): CardConfiguration => {
-        return {
+         const config: CardConfiguration ={
             type: 'card',
             hasHolderName: true,
             holderNameRequired: adyenConfig.cardHolderNameRequired,
@@ -111,8 +111,14 @@ export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
                 merchantDisplayName: adyenConfig.merchantDisplayName,
                 shopperEmail: adyenConfig.shopperEmail,
                 locale: adyenConfig.clickToPayLocale,
-            }
+            },
         };
+
+        if (adyenConfig.installmentOptions) {
+            config.installmentOptions = adyenConfig.installmentOptions;
+        }
+        
+        return config;
     }, [
         adyenConfig.cardHolderNameRequired,
         adyenConfig.showRememberTheseDetails,

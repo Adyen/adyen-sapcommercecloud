@@ -20,6 +20,7 @@
         <collectiontype code="AdyenCardTypeSet" elementtype="AdyenCardTypeEnum" autocreate="true" generate="true" type="set"/>
         <collectiontype code="AdyenMerchantConfigList" elementtype="AdyenMerchantConfig" type="list"/>
         <collectiontype code="AdyenPartialPaymentOrderList" elementtype="AdyenPartialPaymentOrder" autocreate="true" generate="true" type="list"/>
+        <collectiontype code="AdyenInstallmentConfigList" elementtype="AdyenInstallmentConfig" type="list"/>
     </collectiontypes>
 
     <enumtypes>
@@ -69,6 +70,16 @@
         </enumtype>
         <enumtype code="AdyenMerchantAccountType" dynamic="false">
             <value code="WEB"/>
+        </enumtype>
+        <enumtype code="AdyenInstallmentPlanType" dynamic="true">
+            <value code="REGULAR"/>
+            <value code="REVOLVING"/>
+            <value code="BONUS"/>
+        </enumtype>
+        <enumtype code="AdyenInstallmentCountry" dynamic="true">
+            <value code="BR"/>
+            <value code="MX"/>
+            <value code="JP"/>
         </enumtype>
         <!-- Status enumeration -->
         <enumtype code="AdyenPartialPaymentStatus" generate="true" dynamic="true"
@@ -346,33 +357,55 @@
                     <defaultvalue>Boolean.FALSE</defaultvalue>
                     <modifiers optional="false"/>
                 </attribute>
-                <attribute qualifier="adyenInstallmentsEnabled" type="java.lang.boolean">
-                    <description>Enable/disable installments completely</description>
+                <attribute qualifier="adyenInstallmentConfigs" type="AdyenInstallmentConfigList">
+                    <description>Installment configurations for different countries</description>
                     <persistence type="property"/>
-                    <defaultvalue>Boolean.TRUE</defaultvalue>
+                </attribute>
+            </attributes>
+        </itemtype>
+
+        <itemtype code="AdyenInstallmentConfig" generate="true" autocreate="true">
+            <deployment table="AdyenInstallmentCfg" typecode="22943"/>
+            <attributes>
+                <attribute qualifier="country" type="AdyenInstallmentCountry">
+                    <description>Country for which this installment configuration applies</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false" initial="true"/>
+                </attribute>
+                <attribute qualifier="enabled" type="java.lang.boolean">
+                    <description>Enable/disable installments for this country</description>
+                    <persistence type="property"/>
                     <modifiers optional="false"/>
+                    <defaultvalue>Boolean.FALSE</defaultvalue>
                 </attribute>
-                <attribute qualifier="adyenInstallmentOptions" type="java.lang.String">
-                    <description>Installment options (comma-separated values, e.g., 1,3,6,9,12)</description>
+                <attribute qualifier="installmentOptions" type="java.lang.String">
+                    <description>Installment options (comma-separated values)</description>
                     <persistence type="property"/>
-                    <defaultvalue>"1,3,6,9,12"</defaultvalue>
+                    <modifiers optional="false"/>
+                    <defaultvalue>""</defaultvalue>
                 </attribute>
-                <attribute qualifier="adyenInstallmentPlans" type="java.lang.String">
-                    <description>Installment plans (comma-separated values, e.g., regular,revolving)</description>
+                <attribute qualifier="installmentPlans" type="java.lang.String">
+                    <description>Installment plans (comma-separated values)</description>
                     <persistence type="property"/>
-                    <defaultvalue>"regular,revolving"</defaultvalue>
+                    <modifiers optional="false"/>
+                    <defaultvalue>"regular"</defaultvalue>
                 </attribute>
-                <attribute qualifier="adyenShowInstallmentAmounts" type="java.lang.String">
-                    <description>Show installment amounts for these values (comma-separated, e.g., 1,2,3)</description>
+                <attribute qualifier="showInstallmentAmounts" type="java.lang.String">
+                    <description>Show installment amounts for these values (comma-separated)</description>
                     <persistence type="property"/>
-                    <defaultvalue>"1,2,3"</defaultvalue>
+                    <defaultvalue>""</defaultvalue>
                 </attribute>
-                <attribute qualifier="adyenShowInstallmentPlans" type="java.lang.String">
-                    <description>Show installment amounts for these plans (comma-separated, e.g., regular)</description>
+                <attribute qualifier="showInstallmentPlans" type="java.lang.String">
+                    <description>Show installment amounts for these plans (comma-separated)</description>
                     <persistence type="property"/>
                     <defaultvalue>"regular"</defaultvalue>
                 </attribute>
             </attributes>
+            <indexes>
+                <index name="countryIdx">
+                    <key attribute="country"/>
+                </index>
+            </indexes>
         </itemtype>
 
         <itemtype code="ExpressPaymentConfig" generate="true" autocreate="true">
