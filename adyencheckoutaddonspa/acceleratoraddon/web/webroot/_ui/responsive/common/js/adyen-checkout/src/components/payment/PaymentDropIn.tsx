@@ -124,7 +124,8 @@ export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
         adyenConfig.showRememberTheseDetails,
         adyenConfig.merchantDisplayName,
         adyenConfig.shopperEmail,
-        adyenConfig.clickToPayLocale
+        adyenConfig.clickToPayLocale,
+        adyenConfig.installmentOptions
     ]);
 
     const initializeDropIn = useCallback(async () => {
