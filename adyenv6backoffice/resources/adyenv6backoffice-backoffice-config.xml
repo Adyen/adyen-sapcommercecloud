@@ -104,14 +104,8 @@
 					<editorArea:attribute qualifier="adyenPaypalMerchantId"/>
 					<editorArea:attribute qualifier="l2L3ESDEnabled"/>
 				</editorArea:section>
-				<editorArea:section name="hmc.adyen.installments.brazil">
-					<editorArea:attribute qualifier="adyenBrazilInstallmentConfig"/>
-				</editorArea:section>
-				<editorArea:section name="hmc.adyen.installments.mexico">
-					<editorArea:attribute qualifier="adyenMexicoInstallmentConfig"/>
-				</editorArea:section>
-				<editorArea:section name="hmc.adyen.installments.japan">
-					<editorArea:attribute qualifier="adyenJapanInstallmentConfig"/>
+				<editorArea:section name="hmc.adyen.installments">
+					<editorArea:attribute qualifier="adyenInstallmentConfigs"/>
 				</editorArea:section>
 				<editorArea:section name="hmc.adyen.dataCollection">
 					<editorArea:attribute qualifier="dataCollectionEnabled"/>
@@ -120,39 +114,14 @@
 		</editorArea:editorArea>
 	</context>
 
-	<context merge-by="type" type="AdyenBrazilInstallmentConfig" component="editor-area">
+	<context merge-by="type" type="AdyenInstallmentConfig" component="editor-area">
 		<editorArea:editorArea xmlns:editorArea="http://www.hybris.com/cockpitng/component/editorArea">
-			<editorArea:tab name="hmc.adyen.installments.brazil">
-				<editorArea:section name="hmc.adyen.installments.brazil.config">
+			<editorArea:tab name="hmc.adyen.installments.config">
+				<editorArea:section name="hmc.adyen.installments.config.general">
+					<editorArea:attribute qualifier="country"/>
 					<editorArea:attribute qualifier="enabled" editor="com.hybris.cockpitng.editor.defaultboolean"/>
-					<editorArea:attribute qualifier="installmentOptions" editor="com.hybris.cockpitng.editor.defaulttext"/>
-					<editorArea:attribute qualifier="installmentPlans" editor="com.hybris.cockpitng.editor.defaulttext"/>
-					<editorArea:attribute qualifier="showInstallmentAmounts" editor="com.hybris.cockpitng.editor.defaulttext"/>
-					<editorArea:attribute qualifier="showInstallmentPlans" editor="com.hybris.cockpitng.editor.defaulttext"/>
 				</editorArea:section>
-			</editorArea:tab>
-		</editorArea:editorArea>
-	</context>
-
-	<context merge-by="type" type="AdyenMexicoInstallmentConfig" component="editor-area">
-		<editorArea:editorArea xmlns:editorArea="http://www.hybris.com/cockpitng/component/editorArea">
-			<editorArea:tab name="hmc.adyen.installments.mexico">
-				<editorArea:section name="hmc.adyen.installments.mexico.config">
-					<editorArea:attribute qualifier="enabled" editor="com.hybris.cockpitng.editor.defaultboolean"/>
-					<editorArea:attribute qualifier="installmentOptions" editor="com.hybris.cockpitng.editor.defaulttext"/>
-					<editorArea:attribute qualifier="installmentPlans" editor="com.hybris.cockpitng.editor.defaulttext"/>
-					<editorArea:attribute qualifier="showInstallmentAmounts" editor="com.hybris.cockpitng.editor.defaulttext"/>
-					<editorArea:attribute qualifier="showInstallmentPlans" editor="com.hybris.cockpitng.editor.defaulttext"/>
-				</editorArea:section>
-			</editorArea:tab>
-		</editorArea:editorArea>
-	</context>
-
-	<context merge-by="type" type="AdyenJapanInstallmentConfig" component="editor-area">
-		<editorArea:editorArea xmlns:editorArea="http://www.hybris.com/cockpitng/component/editorArea">
-			<editorArea:tab name="hmc.adyen.installments.japan">
-				<editorArea:section name="hmc.adyen.installments.japan.config">
-					<editorArea:attribute qualifier="enabled" editor="com.hybris.cockpitng.editor.defaultboolean"/>
+				<editorArea:section name="hmc.adyen.installments.config.options">
 					<editorArea:attribute qualifier="installmentOptions" editor="com.hybris.cockpitng.editor.defaulttext"/>
 					<editorArea:attribute qualifier="installmentPlans" editor="com.hybris.cockpitng.editor.defaulttext"/>
 					<editorArea:attribute qualifier="showInstallmentAmounts" editor="com.hybris.cockpitng.editor.defaulttext"/>

@@ -21,7 +21,8 @@
 package com.adyen.v6.service;
 
 import com.adyen.v6.dto.InstallmentOptionsDTO;
-import com.adyen.v6.model.AdyenJapanInstallmentConfigModel;
+import com.adyen.v6.enums.AdyenInstallmentCountry;
+import com.adyen.v6.model.AdyenInstallmentConfigModel;
 import de.hybris.platform.core.model.order.CartModel;
 import de.hybris.platform.order.CartService;
 import de.hybris.platform.servicelayer.model.ModelService;
@@ -32,6 +33,7 @@ import org.apache.log4j.Logger;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -59,103 +61,63 @@ public class DefaultAdyenInstallmentsConfigurationService implements AdyenInstal
         String countryIsoCode = cartModel.getDeliveryAddress().getCountry().getIsocode();
         LOGGER.debug("Checking installment support for country: " + countryIsoCode);
         
-        // Check specific country configurations
-        switch (countryIsoCode) {
-            case "BR":
-                return getInstallmentOptionsForBrazil(baseStore);
-            case "MX":
-                return getInstallmentOptionsForMexico(baseStore);
-            case "JP":
-                return getInstallmentOptionsForJapan(baseStore);
-            default:
-                LOGGER.debug("Installments not supported for country: " + countryIsoCode);
-                return null;
-        }
-    }
-    
-    /**
-     * Get installment options for Brazil
-     */
-    private InstallmentOptionsDTO getInstallmentOptionsForBrazil(BaseStoreModel baseStore) {
-        Object brazilConfig = baseStore.getAdyenBrazilInstallmentConfig();
-        if (brazilConfig == null) {
-            LOGGER.debug("No Brazil installment configuration found");
+        // Convert country ISO code to enum
+        AdyenInstallmentCountry installmentCountry;
+        try {
+            installmentCountry = AdyenInstallmentCountry.valueOf(countryIsoCode);
+        } catch (IllegalArgumentException e) {
+            LOGGER.debug("Installments not supported for country: " + countryIsoCode);
             return null;
         }
         
-        try {
-            Boolean enabled = (Boolean) modelService.getAttributeValue(brazilConfig, "enabled");
-            if (!Boolean.TRUE.equals(enabled)) {
-                LOGGER.debug("Brazil installments are disabled");
-                return null;
-            }
-            
-            LOGGER.debug("Building installment options for Brazil");
-            return buildInstallmentOptionsFromConfig(brazilConfig, "BR");
-        } catch (Exception e) {
-            LOGGER.error("Error accessing Brazil installment config: " + e.getMessage(), e);
-            return null;
-        }
+        return getInstallmentOptionsForCountry(baseStore, installmentCountry);
     }
     
     /**
-     * Get installment options for Mexico
+     * Get installment options for a specific country
      */
-    private InstallmentOptionsDTO getInstallmentOptionsForMexico(BaseStoreModel baseStore) {
-        Object mexicoConfig = baseStore.getAdyenMexicoInstallmentConfig();
-        if (mexicoConfig == null) {
-            LOGGER.debug("No Mexico installment configuration found");
+    private InstallmentOptionsDTO getInstallmentOptionsForCountry(BaseStoreModel baseStore, AdyenInstallmentCountry country) {
+        List<AdyenInstallmentConfigModel> installmentConfigs = baseStore.getAdyenInstallmentConfigs();
+        if (installmentConfigs == null || installmentConfigs.isEmpty()) {
+            LOGGER.info("No installment configurations found for base store");
             return null;
         }
         
-        try {
-            Boolean enabled = (Boolean) modelService.getAttributeValue(mexicoConfig, "enabled");
-            if (!Boolean.TRUE.equals(enabled)) {
-                LOGGER.debug("Mexico installments are disabled");
-                return null;
-            }
-            
-            LOGGER.debug("Building installment options for Mexico");
-            return buildInstallmentOptionsFromConfig(mexicoConfig, "MX");
-        } catch (Exception e) {
-            LOGGER.error("Error accessing Mexico installment config: " + e.getMessage(), e);
-            return null;
-        }
-    }
-    
-    /**
-     * Get installment options for Japan
-     */
-    private InstallmentOptionsDTO getInstallmentOptionsForJapan(BaseStoreModel baseStore) {
-        AdyenJapanInstallmentConfigModel adyenJapanInstallmentConfig = baseStore.getAdyenJapanInstallmentConfig();
-        if (adyenJapanInstallmentConfig == null) {
-            LOGGER.debug("No Japan installment configuration found");
+        // Find configuration for the specific country
+        Optional<AdyenInstallmentConfigModel> configOptional = installmentConfigs.stream()
+                .filter(config -> country.equals(config.getCountry()))
+                .findFirst();
+        
+        if (!configOptional.isPresent()) {
+            LOGGER.info("No installment configuration found for country: " + country.getCode());
             return null;
         }
         
+        AdyenInstallmentConfigModel config = configOptional.get();
+        
         try {
-            if (!Boolean.TRUE.equals(adyenJapanInstallmentConfig.getEnabled())) {
-                LOGGER.debug("Japan installments are disabled");
+            if (!Boolean.TRUE.equals(config.getEnabled())) {
+                LOGGER.info("Installments are disabled for country: " + country.getCode());
                 return null;
             }
             
-            LOGGER.debug("Building installment options for Japan");
-            return buildInstallmentOptionsFromConfig(adyenJapanInstallmentConfig, "JP");
+            LOGGER.debug("Building installment options for country: " + country.getCode());
+            return buildInstallmentOptionsFromConfig(config, country.getCode());
         } catch (Exception e) {
-            LOGGER.error("Error accessing Japan installment config: " + e.getMessage(), e);
+            LOGGER.error("Error accessing installment config for country " + country.getCode() + ": " + e.getMessage(), e);
             return null;
         }
     }
     
     /**
-     * Build InstallmentOptionsDTO from country-specific configuration
+     * Build InstallmentOptionsDTO from installment configuration
      */
-    private InstallmentOptionsDTO buildInstallmentOptionsFromConfig(Object config, String countryIsoCode) {
+    private InstallmentOptionsDTO buildInstallmentOptionsFromConfig(AdyenInstallmentConfigModel config, String countryIsoCode) {
         try {
-            String installmentOptionsConfig = modelService.getAttributeValue(config, "installmentOptions");
-            String installmentPlansConfig = modelService.getAttributeValue(config, "installmentPlans");
-            String showInstallmentAmountsConfig = modelService.getAttributeValue(config, "showInstallmentAmounts");
-            String showInstallmentPlansConfig = modelService.getAttributeValue(config, "showInstallmentPlans");
+            String installmentOptionsConfig = config.getInstallmentOptions();
+            String installmentPlansConfig = config.getInstallmentPlans();
+            String showInstallmentAmountsConfig = config.getShowInstallmentAmounts();
+            String showInstallmentPlansConfig = config.getShowInstallmentPlans();
             
             List<Integer> installmentValues;
             if (StringUtils.isEmpty(installmentOptionsConfig)) {
