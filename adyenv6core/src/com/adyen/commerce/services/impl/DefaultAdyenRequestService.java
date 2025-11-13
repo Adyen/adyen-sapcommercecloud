@@ -96,6 +96,8 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
         handlePaymentMethodSpecificLogic(paymentRequest, cartData, originPaymentsRequest, 
             recurringContractMode, customerModel, guestUserTokenizationEnabled);
 
+        addPaymentMethodTokenizationToPaymentRequest(paymentRequest, cartData);
+
         return paymentRequest;
     }
 
@@ -396,7 +398,7 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
 
         // Use payment method handler
         paymentMethodHandlerFactory.getHandler(paymentMethod)
-            .ifPresent(handler -> handler.updatePaymentRequest(paymentRequest, cartData, 
+                .forEach(handler -> handler.updatePaymentRequest(paymentRequest, cartData,
                 recurringContractMode, customerModel, is3DS2Allowed, guestUserTokenizationEnabled));
     }
 
@@ -404,6 +406,18 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
         paymentRequest.setEnableOneClick(originPaymentsRequest.getEnableOneClick());
         paymentRequest.setEnableRecurring(originPaymentsRequest.getEnableRecurring());
         paymentRequest.setStorePaymentMethod(originPaymentsRequest.getStorePaymentMethod());
+    }
+
+    protected void addPaymentMethodTokenizationToPaymentRequest(PaymentRequest paymentRequest, CartData cartData) {
+        if (tokenizeForSubscriptionProducts(cartData)) {
+            paymentRequest.setStorePaymentMethod(true);
+            paymentRequest.setRecurringProcessingModel(PaymentRequest.RecurringProcessingModelEnum.SUBSCRIPTION);
+        }
+    }
+
+    protected boolean tokenizeForSubscriptionProducts(CartData cartData) {
+        return !cartData.getSubscriptionOrder() && cartData.getEntries().stream()
+                .anyMatch(entry -> Objects.nonNull(entry.getProduct().getSubscriptionTerm()));
     }
 
     protected AddressData getBillingAddress(CartData cartData) {

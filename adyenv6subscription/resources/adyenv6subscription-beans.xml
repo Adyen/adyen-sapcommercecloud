@@ -9,7 +9,7 @@
 <beans xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="beans.xsd">
 
     <bean class="de.hybris.platform.commercefacades.order.data.AbstractOrderData">
-        <property name="subscriptionOrder" type="java.lang.Boolean" />
+<!--        <property name="subscriptionOrder" type="java.lang.Boolean" />-->
     </bean>
 
 </beans>
