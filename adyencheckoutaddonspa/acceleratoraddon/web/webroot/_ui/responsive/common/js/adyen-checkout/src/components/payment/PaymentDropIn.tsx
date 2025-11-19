@@ -87,7 +87,7 @@ export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
             },
             onError: callbacksRef.current.onError,
             onSubmit: (state: any, element: UIElement, actions: SubmitActions) => callbacksRef.current.onPayment(state.data, element, actions),
-            onAdditionalDetails: (state: any, element: UIElement, actions: AdditionalDetailsActions) => callbacksRef.current.onAdditionalDetails(state, element, actions),
+            onAdditionalDetails: (state: any, element: UIElement, actions: AdditionalDetailsActions) => callbacksRef.current.onAdditionalDetails(state.data, element, actions),
             onBalanceCheck: async (resolve: any, reject: any, data: any) => await callbacksRef.current.onBalanceCheck(resolve, reject, {...data, amount: adyenConfig.amount}),
             onOrderRequest: async (resolve: any, reject: any, data: any) => await callbacksRef.current.onOrderRequest(resolve, reject, {...data, amount: adyenConfig.amount})
         };

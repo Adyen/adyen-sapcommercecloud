@@ -400,6 +400,12 @@
                     <persistence type="property"/>
                     <defaultvalue>"regular"</defaultvalue>
                 </attribute>
+                <attribute qualifier="supportedCurrencies" type="java.lang.String">
+                    <description>Supported currencies for installments (comma-separated ISO codes)</description>
+                    <persistence type="property"/>
+                    <modifiers optional="true"/>
+                    <defaultvalue>""</defaultvalue>
+                </attribute>
             </attributes>
             <indexes>
                 <index name="countryIdx">

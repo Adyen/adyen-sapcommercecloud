@@ -101,6 +101,12 @@ public class DefaultAdyenInstallmentsConfigurationService implements AdyenInstal
                 return null;
             }
             
+            // Check if currency is supported
+            if (!isCurrencySupported(config)) {
+                LOGGER.info("Currency not supported for installments in country: " + country.getCode());
+                return null;
+            }
+            
             LOGGER.debug("Building installment options for country: " + country.getCode());
             return buildInstallmentOptionsFromConfig(config, country.getCode());
         } catch (Exception e) {
@@ -179,6 +185,48 @@ public class DefaultAdyenInstallmentsConfigurationService implements AdyenInstal
         } catch (Exception e) {
             LOGGER.error("Error building installment options from config for country " + countryIsoCode + ": " + e.getMessage(), e);
             return null;
+        }
+    }
+    
+    /**
+     * Check if the current cart's currency is supported for installments
+     */
+    private boolean isCurrencySupported(AdyenInstallmentConfigModel config) {
+        try {
+            CartModel cartModel = cartService.getSessionCart();
+            if (cartModel == null || cartModel.getCurrency() == null) {
+                LOGGER.warn("Cart or currency is null, cannot validate currency support");
+                return false;
+            }
+            
+            String cartCurrencyIsoCode = cartModel.getCurrency().getIsocode();
+            String supportedCurrencies = config.getSupportedCurrencies();
+            
+            // If no supported currencies are configured, allow all currencies (backward compatibility)
+            if (StringUtils.isEmpty(supportedCurrencies)) {
+                LOGGER.debug("No supported currencies configured, allowing all currencies");
+                return true;
+            }
+            
+            // Parse supported currencies and check if cart currency is included
+            String[] currencies = StringUtils.split(supportedCurrencies, ',');
+            List<String> supportedCurrencyList = Arrays.stream(currencies)
+                    .map(String::trim)
+                    .map(String::toUpperCase)
+                    .collect(Collectors.toList());
+            
+            boolean isSupported = supportedCurrencyList.contains(cartCurrencyIsoCode.toUpperCase());
+            
+            if (isSupported) {
+                LOGGER.debug("Currency " + cartCurrencyIsoCode + " is supported for installments");
+            } else {
+                LOGGER.info("Currency " + cartCurrencyIsoCode + " is not supported for installments. Supported currencies: " + supportedCurrencyList);
+            }
+            
+            return isSupported;
+        } catch (Exception e) {
+            LOGGER.error("Error checking currency support: " + e.getMessage(), e);
+            return false;
         }
     }
 

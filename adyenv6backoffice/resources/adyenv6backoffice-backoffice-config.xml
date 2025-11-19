@@ -120,6 +120,7 @@
 				<editorArea:section name="hmc.adyen.installments.config.general">
 					<editorArea:attribute qualifier="country"/>
 					<editorArea:attribute qualifier="enabled" editor="com.hybris.cockpitng.editor.defaultboolean"/>
+					<editorArea:attribute qualifier="supportedCurrencies" editor="com.hybris.cockpitng.editor.defaulttext"/>
 				</editorArea:section>
 				<editorArea:section name="hmc.adyen.installments.config.options">
 					<editorArea:attribute qualifier="installmentOptions" editor="com.hybris.cockpitng.editor.defaulttext"/>
