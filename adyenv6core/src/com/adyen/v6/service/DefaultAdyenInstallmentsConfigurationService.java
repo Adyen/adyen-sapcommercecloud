@@ -23,6 +23,7 @@ package com.adyen.v6.service;
 import com.adyen.v6.dto.InstallmentOptionsDTO;
 import com.adyen.v6.enums.AdyenInstallmentCountry;
 import com.adyen.v6.model.AdyenInstallmentConfigModel;
+import de.hybris.platform.core.model.c2l.CurrencyModel;
 import de.hybris.platform.core.model.order.CartModel;
 import de.hybris.platform.order.CartService;
 import de.hybris.platform.servicelayer.model.ModelService;
@@ -199,28 +200,26 @@ public class DefaultAdyenInstallmentsConfigurationService implements AdyenInstal
                 return false;
             }
             
-            String cartCurrencyIsoCode = cartModel.getCurrency().getIsocode();
-            String supportedCurrencies = config.getSupportedCurrencies();
+            CurrencyModel cartCurrency = cartModel.getCurrency();
+            List<CurrencyModel> supportedCurrencies = config.getSupportedCurrencies();
             
             // If no supported currencies are configured, allow all currencies (backward compatibility)
-            if (StringUtils.isEmpty(supportedCurrencies)) {
+            if (supportedCurrencies == null || supportedCurrencies.isEmpty()) {
                 LOGGER.debug("No supported currencies configured, allowing all currencies");
                 return true;
             }
             
-            // Parse supported currencies and check if cart currency is included
-            String[] currencies = StringUtils.split(supportedCurrencies, ',');
-            List<String> supportedCurrencyList = Arrays.stream(currencies)
-                    .map(String::trim)
-                    .map(String::toUpperCase)
-                    .collect(Collectors.toList());
-            
-            boolean isSupported = supportedCurrencyList.contains(cartCurrencyIsoCode.toUpperCase());
+            // Check if cart currency is in the supported currencies list
+            boolean isSupported = supportedCurrencies.stream()
+                    .anyMatch(currency -> currency.getIsocode().equals(cartCurrency.getIsocode()));
             
             if (isSupported) {
-                LOGGER.debug("Currency " + cartCurrencyIsoCode + " is supported for installments");
+                LOGGER.debug("Currency " + cartCurrency.getIsocode() + " is supported for installments");
             } else {
-                LOGGER.info("Currency " + cartCurrencyIsoCode + " is not supported for installments. Supported currencies: " + supportedCurrencyList);
+                List<String> supportedCurrencyIsoCodes = supportedCurrencies.stream()
+                        .map(CurrencyModel::getIsocode)
+                        .collect(Collectors.toList());
+                LOGGER.info("Currency " + cartCurrency.getIsocode() + " is not supported for installments. Supported currencies: " + supportedCurrencyIsoCodes);
             }
             
             return isSupported;
