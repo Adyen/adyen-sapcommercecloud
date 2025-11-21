@@ -29,8 +29,10 @@ import de.hybris.platform.order.CartService;
 import de.hybris.platform.servicelayer.model.ModelService;
 import de.hybris.platform.store.BaseStoreModel;
 import de.hybris.platform.store.services.BaseStoreService;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
+import org.spockframework.util.CollectionUtil;
 
 import java.util.Arrays;
 import java.util.List;
@@ -203,7 +205,7 @@ public class DefaultAdyenInstallmentsConfigurationService implements AdyenInstal
             CurrencyModel cartCurrency = cartModel.getCurrency();
             List<CurrencyModel> supportedCurrencies = config.getSupportedCurrencies();
 
-            if (supportedCurrencies == null || supportedCurrencies.isEmpty()) {
+            if (CollectionUtils.isEmpty(supportedCurrencies)) {
                 LOGGER.warn("No supported currencies configured, allowing all currencies");
                 return false;
             }
