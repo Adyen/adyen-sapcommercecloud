@@ -21,6 +21,7 @@
         <collectiontype code="AdyenMerchantConfigList" elementtype="AdyenMerchantConfig" type="list"/>
         <collectiontype code="AdyenPartialPaymentOrderList" elementtype="AdyenPartialPaymentOrder" autocreate="true" generate="true" type="list"/>
         <collectiontype code="AdyenInstallmentConfigList" elementtype="AdyenInstallmentConfig" type="list"/>
+        <collectiontype code="CurrencyList" elementtype="Currency" autocreate="true" generate="true" type="list"/>
     </collectiontypes>
 
     <enumtypes>
@@ -399,6 +400,11 @@
                     <description>Show installment amounts for these plans (comma-separated)</description>
                     <persistence type="property"/>
                     <defaultvalue>"regular"</defaultvalue>
+                </attribute>
+                <attribute qualifier="supportedCurrencies" type="CurrencyList">
+                    <description>Supported currencies for installments</description>
+                    <persistence type="property"/>
+                    <modifiers optional="true"/>
                 </attribute>
             </attributes>
             <indexes>

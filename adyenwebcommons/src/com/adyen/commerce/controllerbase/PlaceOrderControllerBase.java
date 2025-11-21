@@ -320,16 +320,16 @@ public abstract class PlaceOrderControllerBase {
                                                               AdyenPartialPaymentOrderData partialPayment) {
         try {
             LOGGER.info("Processing remaining amount payment. Partial payment PSP: " + partialPayment.getPspReference() +
-                       ", Remaining amount: " + partialPayment.getRemainingAmount());
+                    ", Remaining amount: " + partialPayment.getRemainingAmount());
 
 
             OrderPaymentResult orderPaymentResult = getAdyenCheckoutApiFacade().placeOrderWithPayment(
-                request, cartData, placeOrderRequest.getPaymentRequest(), requestInfo, partialPayment);
+                    request, cartData, placeOrderRequest.getPaymentRequest(), requestInfo, partialPayment);
 
             PaymentResponse paymentResponse = orderPaymentResult.getPaymentResponse();
 
             LOGGER.info("Remaining amount payment response: " + paymentResponse.getResultCode() +
-                       " PSP Reference: " + paymentResponse.getPspReference());
+                    " PSP Reference: " + paymentResponse.getPspReference());
 
             // Handle the payment response
             if (PaymentResponse.ResultCodeEnum.AUTHORISED == paymentResponse.getResultCode()) {
@@ -351,16 +351,9 @@ public abstract class PlaceOrderControllerBase {
                 LOGGER.info("Order placed successfully with partial payments. Order code: " + orderCode);
                 return placeOrderResponse;
 
-            } else if (REDIRECTSHOPPER == paymentResponse.getResultCode() || CHALLENGESHOPPER == paymentResponse.getResultCode() ||
-                      IDENTIFYSHOPPER == paymentResponse.getResultCode() || PENDING == paymentResponse.getResultCode() ||
-                      PRESENTTOSHOPPER == paymentResponse.getResultCode()) {
-
-                LOGGER.debug("Remaining amount payment requires action: " + paymentResponse.getResultCode());
-                return executeAction(paymentResponse);
-
-            } else {
+            }  else {
                 LOGGER.error("Remaining amount payment failed: " + paymentResponse.getResultCode() +
-                           " Refusal reason: " + paymentResponse.getRefusalReason());
+                        " Refusal reason: " + paymentResponse.getRefusalReason());
 
                 // Mark partial payment as failed
                 getAdyenCheckoutApiFacade().updatePartialPaymentStatus(partialPayment, AdyenPartialPaymentStatus.FAILED);
@@ -368,6 +361,16 @@ public abstract class PlaceOrderControllerBase {
                 throw new AdyenControllerException(errorMessage);
             }
 
+        } catch (AdyenNonAuthorizedPaymentException e) {
+            LOGGER.info("Handling AdyenNonAuthorizedPaymentException. Checking PaymentResponse.");
+            PaymentResponse paymentsResponse = e.getPaymentsResponse();
+            if (REDIRECTSHOPPER == paymentsResponse.getResultCode() || CHALLENGESHOPPER == paymentsResponse.getResultCode() ||
+                    IDENTIFYSHOPPER == paymentsResponse.getResultCode() || PENDING == paymentsResponse.getResultCode() ||
+                    PRESENTTOSHOPPER == paymentsResponse.getResultCode()) {
+                LOGGER.debug("PaymentResponse is " + paymentsResponse.getResultCode() + ", executing action for pspReference: " + paymentsResponse.getPspReference());
+                return executeAction(paymentsResponse);
+            }
+            throw new AdyenControllerException(CHECKOUT_ERROR_AUTHORIZATION_FAILED);
         } catch (AdyenControllerException e) {
             throw e;
         } catch (Exception e) {

@@ -23,13 +23,16 @@ package com.adyen.v6.service;
 import com.adyen.v6.dto.InstallmentOptionsDTO;
 import com.adyen.v6.enums.AdyenInstallmentCountry;
 import com.adyen.v6.model.AdyenInstallmentConfigModel;
+import de.hybris.platform.core.model.c2l.CurrencyModel;
 import de.hybris.platform.core.model.order.CartModel;
 import de.hybris.platform.order.CartService;
 import de.hybris.platform.servicelayer.model.ModelService;
 import de.hybris.platform.store.BaseStoreModel;
 import de.hybris.platform.store.services.BaseStoreService;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
+import org.spockframework.util.CollectionUtil;
 
 import java.util.Arrays;
 import java.util.List;
@@ -98,6 +101,12 @@ public class DefaultAdyenInstallmentsConfigurationService implements AdyenInstal
         try {
             if (!Boolean.TRUE.equals(config.getEnabled())) {
                 LOGGER.info("Installments are disabled for country: " + country.getCode());
+                return null;
+            }
+            
+            // Check if currency is supported
+            if (!isCurrencySupported(config)) {
+                LOGGER.info("Currency not supported for installments in country: " + country.getCode());
                 return null;
             }
             
@@ -179,6 +188,40 @@ public class DefaultAdyenInstallmentsConfigurationService implements AdyenInstal
         } catch (Exception e) {
             LOGGER.error("Error building installment options from config for country " + countryIsoCode + ": " + e.getMessage(), e);
             return null;
+        }
+    }
+    
+    /**
+     * Check if the current cart's currency is supported for installments
+     */
+    private boolean isCurrencySupported(AdyenInstallmentConfigModel config) {
+        try {
+            CartModel cartModel = cartService.getSessionCart();
+            if (cartModel == null || cartModel.getCurrency() == null) {
+                LOGGER.warn("Cart or currency is null, cannot validate currency support");
+                return false;
+            }
+            
+            CurrencyModel cartCurrency = cartModel.getCurrency();
+            List<CurrencyModel> supportedCurrencies = config.getSupportedCurrencies();
+
+            if (CollectionUtils.isEmpty(supportedCurrencies)) {
+                LOGGER.warn("No supported currencies configured, allowing all currencies");
+                return false;
+            }
+            
+            // Check if cart currency is in the supported currencies list
+            boolean isSupported = supportedCurrencies.stream()
+                    .anyMatch(currency -> currency.getIsocode().equals(cartCurrency.getIsocode()));
+            
+            if (!isSupported) {
+                LOGGER.info("Currency " + cartCurrency.getIsocode() + " is not supported for installments." );
+            }
+            
+            return isSupported;
+        } catch (Exception e) {
+            LOGGER.error("Error checking currency support: " + e.getMessage(), e);
+            return false;
         }
     }
 
