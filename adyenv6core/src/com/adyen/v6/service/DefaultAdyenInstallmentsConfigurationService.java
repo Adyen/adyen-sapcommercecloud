@@ -202,24 +202,18 @@ public class DefaultAdyenInstallmentsConfigurationService implements AdyenInstal
             
             CurrencyModel cartCurrency = cartModel.getCurrency();
             List<CurrencyModel> supportedCurrencies = config.getSupportedCurrencies();
-            
-            // If no supported currencies are configured, allow all currencies (backward compatibility)
+
             if (supportedCurrencies == null || supportedCurrencies.isEmpty()) {
-                LOGGER.debug("No supported currencies configured, allowing all currencies");
-                return true;
+                LOGGER.warn("No supported currencies configured, allowing all currencies");
+                return false;
             }
             
             // Check if cart currency is in the supported currencies list
             boolean isSupported = supportedCurrencies.stream()
                     .anyMatch(currency -> currency.getIsocode().equals(cartCurrency.getIsocode()));
             
-            if (isSupported) {
-                LOGGER.debug("Currency " + cartCurrency.getIsocode() + " is supported for installments");
-            } else {
-                List<String> supportedCurrencyIsoCodes = supportedCurrencies.stream()
-                        .map(CurrencyModel::getIsocode)
-                        .collect(Collectors.toList());
-                LOGGER.info("Currency " + cartCurrency.getIsocode() + " is not supported for installments. Supported currencies: " + supportedCurrencyIsoCodes);
+            if (!isSupported) {
+                LOGGER.info("Currency " + cartCurrency.getIsocode() + " is not supported for installments." );
             }
             
             return isSupported;
