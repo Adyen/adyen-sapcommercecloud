@@ -268,6 +268,7 @@ var AdyenExpressCheckoutHybris = (function () {
             const googlePayConfig = {
                 configuration: {
                     merchantName: googlePayMerchantId,
+                    merchantId: googlePayGatewayMerchantId,
                     gatewayMerchantId: googlePayGatewayMerchantId
                 },
 

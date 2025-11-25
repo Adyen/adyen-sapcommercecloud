@@ -291,6 +291,7 @@ class PaymentComponentFactory {
             },
             configuration: {
                 gatewayMerchantId: merchantAccount,
+                merchantId: merchantAccount,
                 merchantName: merchantAccount
             },
             buttonColor: "white",
