@@ -4,7 +4,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Optional;
 
 /**
  * Factory for creating appropriate payment method handlers
@@ -19,20 +19,16 @@ public class PaymentMethodHandlerFactory {
             new CreditCardPaymentHandler(),
             new OneClickPaymentHandler(),
             new SchemePaymentHandler(),
-            new AlternativePaymentHandler(),
-            new CreditCardSubscriptionHandler(),
-            new IdealSubscriptionHandler(),
-            new KlarnaSubscriptionHandler(),
-            new PayPalSubscriptionHandler()
+            new AlternativePaymentHandler()
         );
     }
 
     /**
      * Gets the appropriate handler for the given payment method
      */
-    public List<PaymentMethodHandler> getHandler(String paymentMethod) {
+    public Optional<PaymentMethodHandler> getHandler(String paymentMethod) {
         return handlers.stream()
             .filter(handler -> handler.canHandle(paymentMethod))
-            .collect(Collectors.toUnmodifiableList());
+            .findFirst();
     }
 }

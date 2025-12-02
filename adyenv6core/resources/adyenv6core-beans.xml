@@ -62,7 +62,6 @@
         <property name="adyenMultibancoDeadline" type="java.lang.String" />
         <property name="adyenMultibancoReference" type="java.lang.String" />
         <property name="adyenPosReceipt" type="java.lang.String" />
-        <property name="subscriptionOrder" type="java.lang.Boolean" />
     </bean>
 
     <bean class="de.hybris.platform.commercefacades.order.data.OrderEntryData">
@@ -133,18 +132,6 @@
     <bean class="com.adyen.commerce.data.DataCollectionConfiguration">
         <property name="checkoutShopperHost" type="String"/>
         <property name="dataCollectionEnabled" type="boolean"/>
-    </bean>
-
-    <bean class="com.adyen.commerce.data.TokenWebhookRequestData">
-        <property name="createdAt" type="String"/>
-        <property name="eventId" type="String"/>
-        <property name="environment" type="String"/>
-        <property name="eventType" type="String"/>
-        <property name="merchantAccount" type="String"/>
-        <property name="operation" type="String"/>
-        <property name="shopperReference" type="String"/>
-        <property name="storedPaymentMethodId" type="String"/>
-        <property name="paymentType" type="String"/>
     </bean>
 
     <bean class="com.adyen.commerce.data.AdyenPartialPaymentOrderData">

@@ -9,10 +9,6 @@
 <items 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
 			xsi:noNamespaceSchemaLocation="items.xsd">
 
-	<collectiontypes>
-		<collectiontype code="SubscriptionAllowedPaymentMethods" elementtype="java.lang.String" type="set"/>
-		<collectiontype code="BundleTemplates" elementtype="BundleTemplate" type="list"/>
-	</collectiontypes>
 
 	<itemtypes>
 		<itemtype code="AbstractOrderEntry" autocreate="false" generate="false">
@@ -35,15 +31,6 @@
 			</attributes>
 		</itemtype>
 
-		<itemtype code="BaseStore" generate="false" autocreate="false">
-			<attributes>
-				<attribute qualifier="subscriptionAllowedPaymentMethods" type="SubscriptionAllowedPaymentMethods" >
-					<description>Subscription Allowed Payment Methods</description>
-					<persistence type="property" />
-					<modifiers read="true" write="true" search="true" optional="true" />
-				</attribute>
-			</attributes>
-		</itemtype>
 
 		<itemtype code="Subscription" autocreate="false" generate="false">
 			<attributes>
@@ -57,6 +44,14 @@
 					<modifiers read="true" write="true" search="true" optional="true" unique="false"/>
 					<persistence type="property"/>
 				</attribute>
+                <attribute qualifier="billingCycleType" type="BillingCycleType">
+                    <description>Billing cycle type</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute type="java.lang.Integer" qualifier="billingCycleDay">
+                    <description>Billing Cycle Day</description>
+                    <persistence type="property" />
+                </attribute>
 			</attributes>
 		</itemtype>
 

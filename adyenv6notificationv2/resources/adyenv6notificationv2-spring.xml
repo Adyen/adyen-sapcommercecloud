@@ -12,13 +12,4 @@
 		<property name="eventService" ref="eventService"/>
 	</bean>
 
-    <bean id="tokenizationWebhookRequestConverter" class="com.adyen.v6.converter.TokenizationWebhookRequestConverter">
-    </bean>
-
-    <alias name="defaultAdyenTokenizationWebhookService" alias="adyenTokenizationWebhookService"/>
-    <bean id="defaultAdyenTokenizationWebhookService" class="com.adyen.v6.service.impl.DefaultAdyenTokenizationWebhookService">
-        <property name="eventService" ref="eventService"/>
-        <property name="tokenWebhookRequestConverter" ref="tokenizationWebhookRequestConverter"/>
-    </bean>
-
 </beans>
