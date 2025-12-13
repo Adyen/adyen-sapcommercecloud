@@ -11,7 +11,7 @@ import de.hybris.platform.order.exceptions.CalculationException;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.log4j.Logger;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import static com.adyen.commerce.constants.AdyenwebcommonsConstants.CHECKOUT_ERROR_AUTHORIZATION_FAILED;
 import static com.adyen.commerce.util.ErrorMessageUtil.getErrorMessageByRefusalReason;

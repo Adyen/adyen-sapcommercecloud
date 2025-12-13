@@ -28,7 +28,7 @@ import de.hybris.platform.core.model.order.payment.PaymentInfoModel;
 import de.hybris.platform.fraud.model.FraudReportModel;
 import de.hybris.platform.fraud.model.FraudSymptomScoringModel;
 import de.hybris.platform.servicelayer.model.ModelService;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 import org.springframework.transaction.support.TransactionOperations;
 

@@ -66,18 +66,19 @@ import de.hybris.platform.servicelayer.model.ModelService;
 import de.hybris.platform.servicelayer.session.SessionService;
 import de.hybris.platform.store.BaseStoreModel;
 import de.hybris.platform.store.services.BaseStoreService;
-import org.apache.commons.configuration.Configuration;
+
+import org.apache.commons.configuration2.Configuration;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
-import org.mockito.runners.MockitoJUnitRunner;
+import org.mockito.junit.MockitoJUnitRunner;
 import org.springframework.ui.ExtendedModelMap;
 import org.springframework.ui.Model;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.Map;
@@ -88,8 +89,7 @@ import static com.adyen.constants.ApiConstants.ThreeDS2Property.FINGERPRINT_RESU
 import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_EPS;
 import static com.adyen.v6.facades.impl.DefaultAdyenCheckoutFacade.*;
 import static org.junit.Assert.*;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.eq;
+
 import static org.mockito.Mockito.*;
 
 @UnitTest

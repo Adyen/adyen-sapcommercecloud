@@ -11,8 +11,8 @@
 package com.adyen.v6.controllers;
 
 import java.io.IOException;
-import javax.annotation.Resource;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
 
 import com.adyen.model.notification.NotificationRequest;
 import org.apache.commons.io.IOUtils;

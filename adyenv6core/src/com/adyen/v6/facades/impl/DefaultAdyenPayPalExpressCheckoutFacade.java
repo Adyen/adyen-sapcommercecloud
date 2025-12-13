@@ -27,11 +27,12 @@ import de.hybris.platform.order.InvalidCartException;
 import de.hybris.platform.order.exceptions.CalculationException;
 import de.hybris.platform.site.BaseSiteService;
 import de.hybris.platform.store.BaseStoreModel;
+import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 import org.springframework.util.Assert;
 
-import javax.servlet.http.HttpServletRequest;
+
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -166,7 +167,7 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
 
             if (isGuestUser) {
                 sessionService.setAttribute(ANONYMOUS_CHECKOUT_GUID,
-                        org.apache.commons.lang.StringUtils.substringBefore(expressCartForGuid.getUser().getUid(), "|"));
+                        StringUtils.substringBefore(expressCartForGuid.getUser().getUid(), "|"));
                 sessionService.setAttribute(ANONYMOUS_CHECKOUT, Boolean.TRUE);
             }
 
@@ -204,7 +205,7 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
 
             if (isGuestUser) {
                 sessionService.setAttribute(ANONYMOUS_CHECKOUT_GUID,
-                        org.apache.commons.lang.StringUtils.substringBefore(sessionCart.getUser().getUid(), "|"));
+                        StringUtils.substringBefore(sessionCart.getUser().getUid(), "|"));
                 sessionService.setAttribute(ANONYMOUS_CHECKOUT, Boolean.TRUE);
             }
             return;

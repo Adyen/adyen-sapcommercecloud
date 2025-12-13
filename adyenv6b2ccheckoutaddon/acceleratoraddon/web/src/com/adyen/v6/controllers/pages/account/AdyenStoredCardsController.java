@@ -41,8 +41,8 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Resource;
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Resource;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;

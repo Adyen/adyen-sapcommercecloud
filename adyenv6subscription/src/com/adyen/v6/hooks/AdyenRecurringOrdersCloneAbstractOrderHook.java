@@ -8,7 +8,7 @@ import de.hybris.platform.core.model.user.AddressModel;
 import de.hybris.platform.order.strategies.ordercloning.CloneAbstractOrderHook;
 import de.hybris.platform.servicelayer.internal.model.impl.ItemModelCloneCreator;
 import de.hybris.platform.servicelayer.model.ModelService;
-import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections4.CollectionUtils
 
 import java.util.List;
 import java.util.Optional;

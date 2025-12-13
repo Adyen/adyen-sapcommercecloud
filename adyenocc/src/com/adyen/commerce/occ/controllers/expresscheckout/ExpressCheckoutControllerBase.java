@@ -13,10 +13,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import de.hybris.platform.commercefacades.order.CartFacade;
 import de.hybris.platform.commercefacades.user.data.AddressData;
 import de.hybris.platform.commerceservices.strategies.CheckoutCustomerStrategy;
+import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.log4j.Logger;
 
-import javax.servlet.http.HttpServletRequest;
 
 import static com.adyen.commerce.constants.AdyenwebcommonsConstants.CHECKOUT_ERROR_AUTHORIZATION_FAILED;
 import static com.adyen.commerce.util.ErrorMessageUtil.getErrorMessageByRefusalReason;

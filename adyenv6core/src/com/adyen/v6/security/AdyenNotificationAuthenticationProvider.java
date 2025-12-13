@@ -27,13 +27,13 @@ import de.hybris.platform.basecommerce.model.site.BaseSiteModel;
 import de.hybris.platform.site.BaseSiteService;
 import de.hybris.platform.store.BaseStoreModel;
 import de.hybris.platform.store.services.BaseStoreService;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 
-import javax.annotation.Resource;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
 import java.nio.charset.Charset;
 import java.security.SignatureException;
 import java.util.Base64;
@@ -93,8 +93,8 @@ public class AdyenNotificationAuthenticationProvider {
         String notificationUsername = baseStore.getAdyenNotificationUsername();
         String notificationPassword = baseStore.getAdyenNotificationPassword();
 
-        Assert.notNull(notificationUsername);
-        Assert.notNull(notificationPassword);
+        Assert.notNull(notificationUsername, "notificationUsername can't be null");
+        Assert.notNull(notificationPassword, "notificationPassword can't be null");
 
         if (notificationUsername.isEmpty() || notificationPassword.isEmpty()) {
             return false;

@@ -8,8 +8,9 @@ import de.hybris.platform.commercefacades.order.data.DeliveryModeData;
 import de.hybris.platform.commercefacades.user.data.AddressData;
 import de.hybris.platform.deliveryzone.model.ZoneDeliveryModeValueModel;
 import de.hybris.platform.order.exceptions.CalculationException;
+import jakarta.servlet.http.HttpServletRequest;
 
-import javax.servlet.http.HttpServletRequest;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -38,4 +39,6 @@ public interface AdyenExpressCheckoutFacade {
     List<DeliveryModeData> getDeliveryModes(final String cartId);
 
     CartData setDeliveryModeForCart(final String deliveryModeCode, final String cartId) throws CalculationException;
+
+    CartData getSessionCart();
 }

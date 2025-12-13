@@ -10,8 +10,8 @@ import com.adyen.v6.forms.AddressForm;
 import com.adyen.v6.model.RequestInfo;
 import com.adyen.v6.enums.AdyenPartialPaymentStatus;
 import de.hybris.platform.commercefacades.order.data.CartData;
+import jakarta.servlet.http.HttpServletRequest;
 
-import javax.servlet.http.HttpServletRequest;
 import java.math.BigDecimal;
 
 public interface AdyenCheckoutApiFacade extends AdyenCheckoutFacade {

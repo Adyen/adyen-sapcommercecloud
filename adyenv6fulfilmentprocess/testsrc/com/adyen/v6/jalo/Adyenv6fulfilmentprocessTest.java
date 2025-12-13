@@ -11,8 +11,6 @@
  */
 package com.adyen.v6.jalo;
 
-import static org.fest.assertions.Assertions.assertThat;
-import static org.junit.Assert.assertTrue;
 
 import de.hybris.platform.testframework.HybrisJUnit4TransactionalTest;
 
@@ -21,6 +19,8 @@ import org.junit.Before;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 
 /**

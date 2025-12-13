@@ -287,13 +287,13 @@
         <property name="commonI18NService" ref="commonI18NService"/>
     </bean>
 
-    <alias name="defaultAdyenDataCollectionFacade" alias="adyenDataCollectionFacade" />
-    <bean id="defaultAdyenDataCollectionFacade" class="com.adyen.v6.facades.impl.DefaultAdyenDataCollectionFacade">
-        <property name="adyenCheckoutFacade" ref="adyenCheckoutFacade"/>
-        <property name="baseStoreService" ref="baseStoreService"/>
-    </bean>
-
-    <bean name="adyenAbstractOrderPopulator" class="com.adyen.v6.populator.AbstractOrderPopulator">
+<!--    <alias name="defaultAdyenDataCollectionFacade" alias="adyenDataCollectionFacade" />-->
+<!--    <bean id="defaultAdyenDataCollectionFacade" class="com.adyen.v6.facades.impl.DefaultAdyenDataCollectionFacade">-->
+<!--        <property name="adyenCheckoutFacade" ref="adyenCheckoutFacade"/>-->
+<!--        <property name="baseStoreService" ref="baseStoreService"/>-->
+<!--    </bean>-->
+<!-- START -->
+    <bean id="adyenAbstractOrderPopulator" class="com.adyen.v6.populator.AbstractOrderPopulator">
         <property name="addressConverter" ref="addressConverter"/>
     </bean>
 
@@ -333,14 +333,14 @@
         <property name="add" ref="adyenOrderEntryPopulator"/>
     </bean>
 
-    <bean parent="modifyPopulatorList">
-        <property name="list" ref="ticketParameterConverter"/>
-        <property name="add" ref="adyenCsTicketParameterPopulator"/>
-    </bean>
+<!--    <bean parent="modifyPopulatorList">-->
+<!--        <property name="list" ref="ticketParameterConverter"/>-->
+<!--        <property name="add" ref="adyenCsTicketParameterPopulator"/>-->
+<!--    </bean>-->
 
-    <bean name="adyenCartPopulator" class="com.adyen.v6.populator.CartPopulator" />
+    <bean id="adyenCartPopulator" class="com.adyen.v6.populator.CartPopulator" />
 
-    <bean name="adyenProductPopulator" class="com.adyen.v6.populator.ProductPopulator" />
+    <bean id="adyenProductPopulator" class="com.adyen.v6.populator.ProductPopulator" />
     <!-- To obtain the oder number before the order is created -->
     <alias alias="createOrderFromCartStrategy" name="adyenCreateOrderFromCartStrategy"/>
 
@@ -353,7 +353,7 @@
           class="com.adyen.v6.populator.AdyenOrderCancelPopulator"/>
 
     <bean id="adyenCsTicketParameterPopulator" class="com.adyen.v6.populator.AdyenCsTicketParameterPopulator"/>
-
+<!--- END -->
     <alias name="defaultAdyenPartialOrderCancelDenialStrategy"
            alias="adyenPartialOrderCancelDenialStrategy"/>
     <bean id="defaultAdyenPartialOrderCancelDenialStrategy"
@@ -451,8 +451,8 @@
     </bean>
 
     <bean id="adyenExpressCheckoutFacade" class="com.adyen.v6.facades.impl.DefaultAdyenExpressCheckoutFacade">
-        <property name="cartFactory" ref="cartFactory"/>
-        <property name="cartService" ref="cartService"/>
+<!--        <property name="cartFactory" ref="cartFactory"/>-->
+<!--        <property name="cartService" ref="cartService"/>-->
         <property name="productService" ref="productService"/>
         <property name="addressReverseConverter" ref="addressReverseConverter"/>
         <property name="modelService" ref="modelService"/>
@@ -465,7 +465,7 @@
         <property name="deliveryModeService" ref="deliveryModeService"/>
         <property name="adyenCheckoutFacade" ref="adyenCheckoutFacade"/>
         <property name="adyenCheckoutApiFacade" ref="adyenCheckoutApiFacade"/>
-        <property name="cartConverter" ref="cartConverter"/>
+<!--        <property name="cartConverter" ref="cartConverter"/>-->
         <property name="sessionService" ref="sessionService"/>
         <property name="userService" ref="userService"/>
         <property name="cartRepository" ref="adyenCartRepository" />
@@ -494,8 +494,8 @@
 
     <bean id="adyenPayPalExpressCheckoutFacade" class="com.adyen.v6.facades.impl.DefaultAdyenPayPalExpressCheckoutFacade">
         <property name="baseSiteService" ref="baseSiteService"/>
-        <property name="cartFactory" ref="cartFactory"/>
-        <property name="cartService" ref="cartService"/>
+<!--        <property name="cartFactory" ref="cartFactory"/>-->
+<!--        <property name="cartService" ref="cartService"/>-->
         <property name="productService" ref="productService"/>
         <property name="addressReverseConverter" ref="addressReverseConverter"/>
         <property name="modelService" ref="modelService"/>
@@ -508,7 +508,7 @@
         <property name="deliveryModeService" ref="deliveryModeService"/>
         <property name="adyenCheckoutFacade" ref="adyenCheckoutFacade"/>
         <property name="adyenCheckoutApiFacade" ref="adyenCheckoutApiFacade"/>
-        <property name="cartConverter" ref="cartConverter"/>
+<!--        <property name="cartConverter" ref="cartConverter"/>-->
         <property name="sessionService" ref="sessionService"/>
         <property name="userService" ref="userService"/>
         <property name="cartRepository" ref="adyenCartRepository" />

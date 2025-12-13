@@ -2,19 +2,17 @@ package com.adyen.v6.controllers.checkout;
 
 import com.adyen.v6.controllers.checkout.dto.CartDataDTO;
 import com.adyen.v6.facades.AdyenExpressCheckoutFacade;
-import de.hybris.platform.commercefacades.order.CartFacade;
 import de.hybris.platform.commercefacades.order.data.CartData;
 import de.hybris.platform.commercefacades.order.data.DeliveryModeData;
 import de.hybris.platform.commercefacades.user.data.AddressData;
-import de.hybris.platform.order.InvalidCartException;
 import de.hybris.platform.order.exceptions.CalculationException;
-import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.annotation.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 
 
@@ -22,15 +20,13 @@ import java.util.List;
 @RequestMapping("/express-checkout/configure/")
 public class AdyenExpressCheckoutController {
 
-    @Autowired
+    @Resource
     private AdyenExpressCheckoutFacade adyenExpressCheckoutFacade;
 
-    @Autowired
-    private CartFacade cartFacade;
 
     @GetMapping("cart")
     public ResponseEntity<CartDataDTO> getCartForExpressCheckout(final HttpServletRequest request, final HttpServletResponse response){
-        CartData cartForExpressCheckout = cartFacade.getSessionCart();
+        CartData cartForExpressCheckout = adyenExpressCheckoutFacade.getSessionCart();
         return ResponseEntity.ok(populateCartDataDto(cartForExpressCheckout));
     }
 

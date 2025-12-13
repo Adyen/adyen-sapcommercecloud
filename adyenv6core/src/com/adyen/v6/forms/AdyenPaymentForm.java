@@ -22,7 +22,7 @@ package com.adyen.v6.forms;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 import com.adyen.model.checkout.PaymentRequest;
 import org.apache.commons.lang3.StringUtils;

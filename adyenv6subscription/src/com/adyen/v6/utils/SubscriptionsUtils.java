@@ -2,7 +2,7 @@ package com.adyen.v6.utils;
 
 import com.adyen.model.checkout.PaymentRequest;
 import de.hybris.platform.commercefacades.order.data.CartData;
-import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections4.CollectionUtils
 
 public class SubscriptionsUtils {
     public static boolean containsSubscription(CartData cartData){

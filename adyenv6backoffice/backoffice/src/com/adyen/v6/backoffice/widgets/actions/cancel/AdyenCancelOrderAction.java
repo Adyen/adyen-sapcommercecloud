@@ -3,7 +3,8 @@ package com.adyen.v6.backoffice.widgets.actions.cancel;
 import com.hybris.cockpitng.actions.ActionContext;
 import de.hybris.platform.core.model.order.OrderModel;
 import de.hybris.platform.omsbackoffice.actions.order.cancel.CancelOrderAction;
-import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections4.CollectionUtils;
+
 
 /**
  * Adyen extension of the customersupportbackoffice CancelOrderAction

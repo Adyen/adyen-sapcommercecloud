@@ -65,9 +65,10 @@ import org.junit.runner.RunWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
-import org.mockito.runners.MockitoJUnitRunner;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
+import org.mockito.junit.MockitoJUnitRunner;
+
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.security.SignatureException;

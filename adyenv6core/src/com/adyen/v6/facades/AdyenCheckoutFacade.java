@@ -35,10 +35,11 @@ import de.hybris.platform.core.model.order.CartModel;
 import de.hybris.platform.core.model.order.payment.PaymentInfoModel;
 import de.hybris.platform.order.InvalidCartException;
 import de.hybris.platform.order.exceptions.CalculationException;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.ui.Model;
 import org.springframework.validation.Errors;
 
-import javax.servlet.http.HttpServletRequest;
+
 import java.util.Set;
 
 /**

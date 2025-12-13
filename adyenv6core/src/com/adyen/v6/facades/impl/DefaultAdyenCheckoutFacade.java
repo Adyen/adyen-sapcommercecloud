@@ -89,18 +89,17 @@ import de.hybris.platform.servicelayer.search.FlexibleSearchService;
 import de.hybris.platform.servicelayer.session.SessionService;
 import de.hybris.platform.store.BaseStoreModel;
 import de.hybris.platform.store.services.BaseStoreService;
-import org.apache.commons.configuration.Configuration;
+import org.apache.commons.configuration2.Configuration;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.log4j.Logger;
-import org.springframework.beans.factory.annotation.Required;
 import org.springframework.transaction.support.TransactionOperations;
 import org.springframework.ui.Model;
 import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
 import org.springframework.validation.Errors;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.*;
@@ -1510,7 +1509,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         addressData.setTaxNumber(addressForm.getTaxNumber());
         addressData.setRegistrationNumber(addressForm.getRegistrationNumber());
 
-        if (addressForm.getRegionIso() != null && !org.apache.commons.lang.StringUtils.isEmpty(addressForm.getRegionIso())) {
+        if (addressForm.getRegionIso() != null && !StringUtils.isEmpty(addressForm.getRegionIso())) {
             final RegionData regionData = getI18NFacade().getRegion(addressForm.getCountryIso(), addressForm.getRegionIso());
             addressData.setRegion(regionData);
         }
@@ -1847,7 +1846,6 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         return countryConverter;
     }
 
-    @Required
     public void setCountryConverter(final Converter<CountryModel, CountryData> countryConverter) {
         this.countryConverter = countryConverter;
     }

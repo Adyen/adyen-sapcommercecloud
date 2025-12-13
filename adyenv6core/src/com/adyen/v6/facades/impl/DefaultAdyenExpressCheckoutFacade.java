@@ -52,13 +52,13 @@ import de.hybris.platform.servicelayer.session.SessionService;
 import de.hybris.platform.servicelayer.user.UserService;
 import de.hybris.platform.site.BaseSiteService;
 import de.hybris.platform.util.PriceValue;
-import org.apache.commons.collections.CollectionUtils;
+import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.validator.routines.EmailValidator;
 import org.apache.log4j.Logger;
 import org.springframework.util.Assert;
+import org.springframework.util.CollectionUtils;
 
-import javax.servlet.http.HttpServletRequest;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -189,7 +189,7 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
 
             if (isGuestUser) {
                 sessionService.setAttribute(ANONYMOUS_CHECKOUT_GUID,
-                        org.apache.commons.lang.StringUtils.substringBefore(cart.getUser().getUid(), "|"));
+                       StringUtils.substringBefore(cart.getUser().getUid(), "|"));
                 sessionService.setAttribute(ANONYMOUS_CHECKOUT, Boolean.TRUE);
             }
 
@@ -267,7 +267,7 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
 
             if (isGuestUser) {
                 sessionService.setAttribute(ANONYMOUS_CHECKOUT_GUID,
-                        org.apache.commons.lang.StringUtils.substringBefore(cart.getUser().getUid(), "|"));
+                        StringUtils.substringBefore(cart.getUser().getUid(), "|"));
                 sessionService.setAttribute(ANONYMOUS_CHECKOUT, Boolean.TRUE);
 
             }
@@ -585,6 +585,10 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
             return cartConverter.convert(cartModel);
         }
         throw new CalculationException("Failed to set delivery mode");
+    }
+
+    public CartData getSessionCart(){
+        return getCartFacade().getSessionCart();
     }
 
 

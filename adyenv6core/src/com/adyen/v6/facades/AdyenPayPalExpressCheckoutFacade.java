@@ -10,8 +10,9 @@ import de.hybris.platform.commercefacades.user.data.AddressData;
 import de.hybris.platform.commerceservices.customer.DuplicateUidException;
 import de.hybris.platform.order.InvalidCartException;
 import de.hybris.platform.order.exceptions.CalculationException;
+import jakarta.servlet.http.HttpServletRequest;
 
-import javax.servlet.http.HttpServletRequest;
+
 import java.io.IOException;
 
 public interface AdyenPayPalExpressCheckoutFacade {
