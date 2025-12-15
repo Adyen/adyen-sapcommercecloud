@@ -50,7 +50,7 @@ public class AdyenCancelOrderActionTest {
 
     @InjectMocks
     private AdyenCancelOrderAction testObj = new AdyenCancelOrderAction() {
-        @Override
+        //@Override
         protected List<OrderStatus> getNotCancellableOrderStatus() {
             return notCancellableOrderStatus;
         }

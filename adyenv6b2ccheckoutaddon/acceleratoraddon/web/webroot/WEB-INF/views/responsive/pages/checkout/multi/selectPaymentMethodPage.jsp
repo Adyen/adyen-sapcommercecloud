@@ -21,6 +21,9 @@
                 showDefaultCss="${true}"
         />
         <script type="text/javascript">
+            // Initialize adyenCheckout globally to ensure it's always available
+            const adyenCheckout = new AdyenCheckoutHelper();
+             console.log("AdyenCheckoutHelper initialized:", adyenCheckout);
             <c:if test="${not empty allowedCards}">
             //Set the allowed cards
             const allowedCards = [];
@@ -46,8 +49,6 @@
                 merchantDisplayName: "${merchantDisplayName}",
                 shopperEmail: "${shopperEmail}",
             };
-
-            const adyenCheckout = new AdyenCheckoutHelper();
 
             <c:if test="${sepadirectdebit}">
             paymentMethodConfigs['createSepaDirectDebit'] = null;
@@ -122,27 +123,35 @@
 
             //Handle form submission
             $(".submit_silentOrderPostForm").click(function () {
-                if (!adyenCheckout.validateForm()) {
+                if (adyenCheckout && !adyenCheckout.validateForm()) {
                     return false;
                 }
-                adyenCheckout.setCustomPaymentMethodValues();
-                adyenCheckout.addRiskData();
+                if (adyenCheckout) {
+                    adyenCheckout.setCustomPaymentMethodValues();
+                    adyenCheckout.addRiskData();
+                }
 
                 $("#adyen-encrypted-form").submit();
             });
 
             <c:if test="${not empty selectedPaymentMethod}">
-            adyenCheckout.togglePaymentMethod("${selectedPaymentMethod}");
+            if (adyenCheckout) {
+                adyenCheckout.togglePaymentMethod("${selectedPaymentMethod}");
+            }
             $('input[type=radio][name=paymentMethod][value="${selectedPaymentMethod}"]').prop("checked", true);
             </c:if>
 
             // Toggle payment method specific areas (credit card form and issuers list)
             $('input[type=radio][name=paymentMethod]').change(function () {
-                adyenCheckout.togglePaymentMethod(this.value);
+                if (adyenCheckout) {
+                    adyenCheckout.togglePaymentMethod(this.value);
+                }
             });
 
-            adyenCheckout.createDobDatePicker("p_method_adyen_hpp_dob");
-            adyenCheckout.createDfValue();
+            if (adyenCheckout) {
+                adyenCheckout.createDobDatePicker("p_method_adyen_hpp_dob");
+                adyenCheckout.createDfValue();
+            }
         </script>
     </jsp:attribute>
 

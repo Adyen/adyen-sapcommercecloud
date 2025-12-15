@@ -26,8 +26,6 @@
 		<y:actions xmlns:y="http://www.hybris.com/cockpit/config/hybris">
 			<y:group qualifier="common" merge-mode="merge">
 				<y:label>actiongroup.common</y:label>
-				<y:action action-id="de.hybris.ordermanagementbackoffice.actions.order.cancelorderaction"
-						  property="currentObject" merge-mode="remove"/>
 				<y:action action-id="com.adyen.v6.backoffice.widgets.actions.adyencancelorderaction"
 						  property="currentObject" merge-mode="append" position="1"/>
 			</y:group>
