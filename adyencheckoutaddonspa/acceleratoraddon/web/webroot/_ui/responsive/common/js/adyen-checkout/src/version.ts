@@ -1,1 +1,1 @@
-export const storefrontVersion = '13.3.0';
+export const storefrontVersion = '13.4.0';
