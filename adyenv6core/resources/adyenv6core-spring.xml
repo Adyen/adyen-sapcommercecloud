@@ -138,6 +138,8 @@
     <bean id="defaultAdyenPaymentServiceFactory" class="com.adyen.v6.factory.AdyenPaymentServiceFactory">
         <constructor-arg name="adyenMerchantAccountStrategy" ref="adyenMerchantStrategy"/>
         <constructor-arg name="defaultAdyenRequestService" ref="adyenRequestService"/>
+        <constructor-arg name="adyenCustomerInteractionRetryTemplate" ref="adyenCustomerInteractionRetryTemplate"/>
+        <constructor-arg name="adyenBackgroundProcessRetryTemplate" ref="adyenBackgroundProcessRetryTemplate"/>
     </bean>
 
 
@@ -238,6 +240,7 @@
         <property name="productFacade" ref="productFacade"/>
         <property name="commerceCartService" ref="commerceCartService"/>
         <property name="adyenShopperIpResolverService" ref="adyenShopperIpResolverService"/>
+        <property name="adyenInstallmentsConfigurationService" ref="adyenInstallmentsConfigurationService"/>
     </bean>
 
     <alias name="defaultAdyenCheckoutApiFacade" alias="adyenCheckoutApiFacade" />
@@ -549,6 +552,13 @@
         <property name="configurationService" ref="configurationService"/>
     </bean>
 
+    <alias name="defaultAdyenInstallmentsConfigurationService" alias="adyenInstallmentsConfigurationService"/>
+    <bean id="defaultAdyenInstallmentsConfigurationService" class="com.adyen.v6.service.DefaultAdyenInstallmentsConfigurationService">
+        <property name="baseStoreService" ref="baseStoreService"/>
+        <property name="cartService" ref="cartService"/>
+        <property name="modelService" ref="modelService"/>
+    </bean>
+
     <!-- To support getCheckoutCart for non credit cards (CreditCardPaymentInfoModel) -->
     <alias name="adyenCheckoutFlowFacade" alias="checkoutFlowFacade"/>
     <bean id="adyenCheckoutFlowFacade" class="com.adyen.v6.acceleratorfacades.flow.impl.AdyenCheckoutFlowFacade" parent="defaultCheckoutFlowFacade" />
@@ -598,5 +608,47 @@
     <bean id="applicationInfoService" class="com.adyen.commerce.services.impl.ApplicationInfoService">
         <property name="configurationService" ref="configurationService"/>
     </bean>
+
+
+    <bean id="adyenCustomerInteractionRetryTemplate" class="org.springframework.retry.support.RetryTemplate">
+        <property name="retryPolicy">
+            <bean class="org.springframework.retry.policy.SimpleRetryPolicy">
+                <constructor-arg name="retryableExceptions">
+                    <map>
+                        <entry key="com.adyen.service.exception.ApiException" value="true"/>
+                        <entry key="java.io.IOException" value="true"/>
+                    </map>
+                </constructor-arg>
+                <constructor-arg name="maxAttempts" value="5"/>
+            </bean>
+        </property>
+        <property name="backOffPolicy">
+            <bean class="org.springframework.retry.backoff.ExponentialBackOffPolicy">
+                <property name="initialInterval" value="2000"/>
+                <property name="multiplier" value="2.0"/>
+                <property name="maxInterval" value="70000"/> </bean>
+        </property>
+    </bean>
+
+    <bean id="adyenBackgroundProcessRetryTemplate" class="org.springframework.retry.support.RetryTemplate">
+        <property name="retryPolicy">
+            <bean class="org.springframework.retry.policy.SimpleRetryPolicy">
+                <constructor-arg name="retryableExceptions">
+                    <map>
+                        <entry key="com.adyen.service.exception.ApiException" value="true"/>
+                        <entry key="java.io.IOException" value="true"/>
+                    </map>
+                </constructor-arg>
+                <constructor-arg name="maxAttempts" value="5"/>
+            </bean>
+        </property>
+        <property name="backOffPolicy">
+            <bean class="org.springframework.retry.backoff.ExponentialBackOffPolicy">
+                <property name="initialInterval" value="20000"/>
+                <property name="multiplier" value="2.0"/>
+                <property name="maxInterval" value="700000"/> </bean>
+        </property>
+    </bean>
+
 
 </beans>

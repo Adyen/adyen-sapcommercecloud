@@ -8,5 +8,5 @@ import java.io.IOException;
 
 public interface AdyenUtilityApiService {
 
-    PaypalUpdateOrderResponse paypalUpdateOrder(PaypalUpdateOrderRequest paypalUpdateOrderRequest) throws IOException, ApiException;
+    PaypalUpdateOrderResponse paypalUpdateOrder(PaypalUpdateOrderRequest paypalUpdateOrderRequest) throws Exception;
 }
