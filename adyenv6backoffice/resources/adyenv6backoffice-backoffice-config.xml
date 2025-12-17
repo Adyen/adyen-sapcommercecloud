@@ -82,14 +82,7 @@
 					<editorArea:attribute qualifier="adyenNotificationHMACKey"/>
 				</editorArea:section>
 				<editorArea:section name="hmc.adyen.expressPayments">
-					<editorArea:attribute qualifier="expressPaymentConfig.googlePayExpressEnabledOnCart" editor="com.hybris.cockpitng.editor.defaultboolean"/>
-					<editorArea:attribute qualifier="expressPaymentConfig.applePayExpressEnabledOnCart" editor="com.hybris.cockpitng.editor.defaultboolean"/>
-					<editorArea:attribute qualifier="expressPaymentConfig.paypalExpressEnabledOnCart" editor="com.hybris.cockpitng.editor.defaultboolean"/>
-					<editorArea:attribute qualifier="expressPaymentConfig.amazonPayExpressEnabledOnCart" editor="com.hybris.cockpitng.editor.defaultboolean"/>
-					<editorArea:attribute qualifier="expressPaymentConfig.googlePayExpressEnabledOnProduct" editor="com.hybris.cockpitng.editor.defaultboolean"/>
-					<editorArea:attribute qualifier="expressPaymentConfig.applePayExpressEnabledOnProduct" editor="com.hybris.cockpitng.editor.defaultboolean"/>
-					<editorArea:attribute qualifier="expressPaymentConfig.paypalExpressEnabledOnProduct" editor="com.hybris.cockpitng.editor.defaultboolean"/>
-					<editorArea:attribute qualifier="expressPaymentConfig.amazonPayExpressEnabledOnProduct" editor="com.hybris.cockpitng.editor.defaultboolean"/>
+					<editorArea:attribute qualifier="expressPaymentConfig" />
 				</editorArea:section>
 				<editorArea:section name="hmc.adyen.clicktopay">
 					<editorArea:attribute qualifier="clickToPayLocale" />
