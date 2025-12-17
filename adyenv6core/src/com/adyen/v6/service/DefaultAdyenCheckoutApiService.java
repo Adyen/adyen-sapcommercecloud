@@ -22,6 +22,7 @@ package com.adyen.v6.service;
 
 import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.commerce.services.AdyenRequestService;
+import com.adyen.model.RequestOptions;
 import com.adyen.model.checkout.*;
 import com.adyen.model.recurring.*;
 import com.adyen.service.RecurringApi;
@@ -35,23 +36,21 @@ import de.hybris.platform.store.BaseStoreModel;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
+import org.springframework.retry.support.RetryTemplate;
 
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService implements AdyenCheckoutApiService {
 
     private static final Logger LOG = Logger.getLogger(DefaultAdyenCheckoutApiService.class);
 
-    public DefaultAdyenCheckoutApiService(BaseStoreModel baseStore, String merchantAccount, AdyenRequestService adyenRequestService) {
-        super(baseStore, merchantAccount, adyenRequestService);
+    public DefaultAdyenCheckoutApiService(BaseStoreModel baseStore, String merchantAccount, AdyenRequestService adyenRequestService, RetryTemplate adyenCustomerInteractionRetryTemplate, RetryTemplate adyenBackgroundProcessRetryTemplate) {
+        super(baseStore, merchantAccount, adyenRequestService, adyenCustomerInteractionRetryTemplate, adyenBackgroundProcessRetryTemplate);
     }
 
     @Override
@@ -73,11 +72,16 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
 
         adyenRequestService.applyAdditionalData(cartData, paymentsRequest);
 
-        LOG.debug(paymentsRequest);
-        PaymentResponse paymentsResponse = checkoutApi.payments(paymentsRequest);
-        LOG.debug(paymentsResponse);
+        RequestOptions requestOptions = new RequestOptions();
+        requestOptions.setIdempotencyKey(UUID.randomUUID().toString());
 
-        return paymentsResponse;
+        return adyenCustomerInteractionRetryTemplate.execute(context -> {
+            LOG.debug(paymentsRequest);
+            PaymentResponse paymentsResponse = checkoutApi.payments(paymentsRequest, requestOptions);
+            LOG.debug(paymentsResponse);
+
+            return paymentsResponse;
+        });
     }
 
     /**
@@ -107,23 +111,33 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
 
         adyenRequestService.applyAdditionalData(cartData, paymentsRequest);
 
-        LOG.debug(paymentsRequest);
-        PaymentResponse paymentsResponse = checkoutApi.payments(paymentsRequest);
-        LOG.debug(paymentsResponse);
+        RequestOptions requestOptions = new RequestOptions();
+        requestOptions.setIdempotencyKey(UUID.randomUUID().toString());
 
-        return paymentsResponse;
+        return adyenCustomerInteractionRetryTemplate.execute(context -> {
+            LOG.debug(paymentsRequest);
+            PaymentResponse paymentsResponse = checkoutApi.payments(paymentsRequest, requestOptions);
+            LOG.debug(paymentsResponse);
+
+            return paymentsResponse;
+        });
     }
 
-    public PaymentResponse sendPaymentRequest(final PaymentRequest paymentRequest, final RequestInfo requestInfo) throws IOException, ApiException {
+    public PaymentResponse sendPaymentRequest(final PaymentRequest paymentRequest, final RequestInfo requestInfo) throws Exception {
         PaymentsApi checkoutApi = new PaymentsApi(client);
 
         adyenRequestService.decoratePayPalSubmitPaymentRequest(merchantAccount, paymentRequest, requestInfo);
 
-        LOG.debug(paymentRequest);
-        PaymentResponse paymentsResponse = checkoutApi.payments(paymentRequest);
-        LOG.debug(paymentsResponse);
+        RequestOptions requestOptions = new RequestOptions();
+        requestOptions.setIdempotencyKey(UUID.randomUUID().toString());
 
-        return paymentsResponse;
+        return adyenCustomerInteractionRetryTemplate.execute(context -> {
+            LOG.debug(paymentRequest);
+            PaymentResponse paymentsResponse = checkoutApi.payments(paymentRequest, requestOptions);
+            LOG.debug(paymentsResponse);
+
+            return paymentsResponse;
+        });
     }
 
     @Override
@@ -132,11 +146,16 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
 
         PaymentsApi checkout = new PaymentsApi(client);
 
-        LOG.debug(paymentsDetailsRequest);
-        PaymentDetailsResponse paymentsDetailsResponse = checkout.paymentsDetails(paymentsDetailsRequest);
-        LOG.debug(paymentsDetailsResponse);
+        RequestOptions requestOptions = new RequestOptions();
+        requestOptions.setIdempotencyKey(UUID.randomUUID().toString());
 
-        return paymentsDetailsResponse;
+        return adyenCustomerInteractionRetryTemplate.execute(context -> {
+            LOG.debug(paymentsDetailsRequest);
+            PaymentDetailsResponse paymentsDetailsResponse = checkout.paymentsDetails(paymentsDetailsRequest, requestOptions);
+            LOG.debug(paymentsDetailsResponse);
+
+            return paymentsDetailsResponse;
+        });
     }
 
 
@@ -257,18 +276,23 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
     }
 
     @Override
-    public boolean disableStoredCard(final String customerId, final String recurringReference) throws IOException, ApiException {
+    public boolean disableStoredCard(final String customerId, final String recurringReference) throws Exception {
         LOG.debug("Disable stored card");
 
         RecurringApi recurring = new RecurringApi(client);
 
         DisableRequest request = adyenRequestService.createDisableRequest(merchantAccount, customerId, recurringReference);
 
-        LOG.debug(request);
-        DisableResult result = recurring.disable(request);
-        LOG.debug(result);
+        RequestOptions requestOptions = new RequestOptions();
+        requestOptions.setIdempotencyKey(UUID.randomUUID().toString());
 
-        return ("[detail-successfully-disabled]".equals(result.getResponse()) || "[all-details-successfully-disabled]".equals(result.getResponse()));
+        return adyenCustomerInteractionRetryTemplate.execute(context -> {
+            LOG.debug(request);
+            DisableResult result = recurring.disable(request, requestOptions);
+            LOG.debug(result);
+
+            return ("[detail-successfully-disabled]".equals(result.getResponse()) || "[all-details-successfully-disabled]".equals(result.getResponse()));
+        });
     }
 
     @Override

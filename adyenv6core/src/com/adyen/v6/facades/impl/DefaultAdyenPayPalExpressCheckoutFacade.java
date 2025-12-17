@@ -50,7 +50,7 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
 
 
     @Override
-    public PayPalExpressSubmitResponse onPayPalPDPSubmitOCC(HttpServletRequest request, PaymentRequest paymentRequest) throws IOException, ApiException {
+    public PayPalExpressSubmitResponse onPayPalPDPSubmitOCC(HttpServletRequest request, PaymentRequest paymentRequest) throws Exception {
 
         UserModel currentUser = userService.getCurrentUser();
         CartModel expressCart = commerceCartService.getCartForCodeAndUser(paymentRequest.getReference(), currentUser);
@@ -75,7 +75,7 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
     }
 
     @Override
-    public PayPalExpressSubmitResponse onPayPalPDPSubmit(HttpServletRequest request, PaymentRequest paymentRequest, String productCode) throws IOException, ApiException {
+    public PayPalExpressSubmitResponse onPayPalPDPSubmit(HttpServletRequest request, PaymentRequest paymentRequest, String productCode) throws Exception {
         Assert.isTrue(StringUtils.isNotEmpty(productCode), "Product code must not be empty");
 
         ProductModel productModel = productService.getProductForCode(productCode);
@@ -115,7 +115,7 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
     }
 
     @Override
-    public PaymentResponse onPayPalCartSubmit(HttpServletRequest request, PaymentRequest paymentRequest) throws IOException, ApiException {
+    public PaymentResponse onPayPalCartSubmit(HttpServletRequest request, PaymentRequest paymentRequest) throws Exception {
         CartModel sessionCart = cartService.getSessionCart();
         Assert.notNull(sessionCart, "Session cart must not be null");
 
@@ -212,7 +212,7 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
         throw new InvalidCartException("No cart for checkout or empty cart");
     }
 
-    public PaypalUpdateOrderResponse updateShippingAddress(final AddressData addressData, final String pspReference, final String paymentData, final String cartGuid) throws IOException, ApiException, DuplicateUidException, CalculationException {
+    public PaypalUpdateOrderResponse updateShippingAddress(final AddressData addressData, final String pspReference, final String paymentData, final String cartGuid) throws Exception {
         CartModel cart = getCartForPayPalCheckout(cartGuid);
 
         Assert.notNull(cart, "No cart found for guid: " + cartGuid);
@@ -222,7 +222,7 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
         return patchPaypalOrder(cart, null, paymentData, pspReference);
     }
 
-    public PaypalUpdateOrderResponse updateShippingMethod(final String shippingMethodCode, final String pspReference, final String paymentData, final String cartGuid) throws IOException, ApiException, CalculationException {
+    public PaypalUpdateOrderResponse updateShippingMethod(final String shippingMethodCode, final String pspReference, final String paymentData, final String cartGuid) throws Exception {
         CartModel cart = getCartForPayPalCheckout(cartGuid);
 
         Assert.notNull(cart, "No cart found for guid: " + cartGuid);
@@ -230,7 +230,7 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
         return patchPaypalOrder(cart, shippingMethodCode, paymentData, pspReference);
     }
 
-    public PaypalUpdateOrderResponse getPaypalUpdateOrderResponse(PaypalUpdateOrderRequest paypalUpdateOrderOriginRequest) throws IOException, ApiException {
+    public PaypalUpdateOrderResponse getPaypalUpdateOrderResponse(PaypalUpdateOrderRequest paypalUpdateOrderOriginRequest) throws Exception {
         BaseStoreModel currentBaseStore = getBaseStoreService().getCurrentBaseStore();
         final CartModel sessionCart = cartService.getSessionCart();
         if (sessionCart == null) {
@@ -275,7 +275,7 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
         }
     }
 
-    protected PaypalUpdateOrderResponse patchPaypalOrder(final CartModel cart, String shippingMethodCode, String paymentData, String pspReference) throws IOException, ApiException, CalculationException {
+    protected PaypalUpdateOrderResponse patchPaypalOrder(final CartModel cart, String shippingMethodCode, String paymentData, String pspReference) throws Exception {
         BaseStoreModel currentBaseStore = getBaseStoreService().getCurrentBaseStore();
         AdyenUtilityApiService adyenUtilityApiService = adyenPaymentServiceFactory.createAdyenUtilityApiService(currentBaseStore);
 
