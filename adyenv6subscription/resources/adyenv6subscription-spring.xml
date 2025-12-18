@@ -98,6 +98,8 @@
     <bean id="adyenSubscriptionPaymentServiceFactory" class="com.adyen.commerce.factory.AdyenSubscriptionPaymentServiceFactory">
         <constructor-arg name="adyenMerchantAccountStrategy" ref="adyenMerchantStrategy"/>
         <constructor-arg name="applicationInfoService" ref="applicationInfoService"/>
+        <constructor-arg name="adyenCustomerInteractionRetryTemplate" ref="adyenCustomerInteractionRetryTemplate"/>
+        <constructor-arg name="adyenBackgroundProcessRetryTemplate" ref="adyenBackgroundProcessRetryTemplate"/>
     </bean>
 
     <bean id="tokenizationWebhookEventListener" class="com.adyen.commerce.listener.TokenizationWebhookEventListener" parent="abstractEventListener">
