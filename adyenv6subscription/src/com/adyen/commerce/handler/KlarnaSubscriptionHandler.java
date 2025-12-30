@@ -31,10 +31,6 @@ public class KlarnaSubscriptionHandler implements SubscriptionPaymentMethodHandl
             CheckoutPaymentMethod checkoutPaymentMethod = new CheckoutPaymentMethod();
             checkoutPaymentMethod.setActualInstance(klarnaDetails);
             paymentRequest.setPaymentMethod(checkoutPaymentMethod);
-
-            paymentRequest.setRecurringProcessingModel(PaymentRequest.RecurringProcessingModelEnum.SUBSCRIPTION);
-
-            paymentRequest.setShopperInteraction(PaymentRequest.ShopperInteractionEnum.CONTAUTH);
         }
     }
 }
