@@ -20,6 +20,7 @@
  */
 package com.adyen.v6.factory;
 
+import com.adyen.commerce.services.DefaultPaymentMethodNameOverrideService;
 import com.adyen.commerce.services.impl.DefaultAdyenRequestService;
 import com.adyen.v6.service.*;
 import com.adyen.v6.strategy.AdyenMerchantAccountStrategy;
@@ -30,16 +31,18 @@ public class AdyenPaymentServiceFactory {
 
     protected final AdyenMerchantAccountStrategy adyenMerchantAccountStrategy;
     private final DefaultAdyenRequestService defaultAdyenRequestService;
+    private final DefaultPaymentMethodNameOverrideService paymentMethodNameOverrideService;
 
 
-    public AdyenPaymentServiceFactory(final AdyenMerchantAccountStrategy adyenMerchantAccountStrategy, DefaultAdyenRequestService defaultAdyenRequestService) {
+    public AdyenPaymentServiceFactory(final AdyenMerchantAccountStrategy adyenMerchantAccountStrategy, DefaultAdyenRequestService defaultAdyenRequestService, DefaultPaymentMethodNameOverrideService paymentMethodNameOverrideService) {
         this.adyenMerchantAccountStrategy = adyenMerchantAccountStrategy;
         this.defaultAdyenRequestService = defaultAdyenRequestService;
+        this.paymentMethodNameOverrideService = paymentMethodNameOverrideService;
     }
     
     public AdyenCheckoutApiService createAdyenCheckoutApiService(final BaseStoreModel baseStoreModel) {
         String webMerchantAccount = adyenMerchantAccountStrategy.getWebMerchantAccount(baseStoreModel);
-        DefaultAdyenCheckoutApiService defaultAdyenCheckoutApiService = new DefaultAdyenCheckoutApiService(baseStoreModel, webMerchantAccount, defaultAdyenRequestService);
+        DefaultAdyenCheckoutApiService defaultAdyenCheckoutApiService = new DefaultAdyenCheckoutApiService(baseStoreModel, webMerchantAccount, defaultAdyenRequestService, paymentMethodNameOverrideService);
         return defaultAdyenCheckoutApiService;
     }
 

@@ -138,6 +138,7 @@
     <bean id="defaultAdyenPaymentServiceFactory" class="com.adyen.v6.factory.AdyenPaymentServiceFactory">
         <constructor-arg name="adyenMerchantAccountStrategy" ref="adyenMerchantStrategy"/>
         <constructor-arg name="defaultAdyenRequestService" ref="adyenRequestService"/>
+        <constructor-arg name="paymentMethodNameOverrideService" ref="paymentMethodNameOverrideService"/>
     </bean>
 
 
@@ -601,5 +602,11 @@
         <property name="modelService"  ref="defaultModelService"/>
         <property name="flexibleSearchService" ref="defaultFlexibleSearchService" />
         <property name="adyenPartialPaymentOrderRepository" ref="adyenPartialPaymentOrderRepository" />
+    </bean>
+
+    <alias name="defaultPaymentMethodNameOverrideService" alias="paymentMethodNameOverrideService"/>
+    <bean name="defaultPaymentMethodNameOverrideService" class="com.adyen.commerce.services.impl.DefaultPaymentMethodNameOverrideServiceImpl">
+        <property name="baseStoreService" ref="baseStoreService"/>
+        <property name="commonI18NService" ref="commonI18NService"/>
     </bean>
 </beans>
