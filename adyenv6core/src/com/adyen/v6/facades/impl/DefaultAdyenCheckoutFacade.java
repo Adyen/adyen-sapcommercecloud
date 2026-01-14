@@ -21,6 +21,7 @@
 package com.adyen.v6.facades.impl;
 
 
+import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.commerce.data.PaymentMethodsCartData;
 import com.adyen.model.checkout.*;
 import com.adyen.model.recurring.Recurring;
@@ -43,11 +44,7 @@ import com.adyen.v6.forms.validation.AdyenPaymentFormValidator;
 import com.adyen.v6.model.ExpressPaymentConfigModel;
 import com.adyen.v6.model.RequestInfo;
 import com.adyen.v6.repository.OrderRepository;
-import com.adyen.v6.service.AdyenBusinessProcessService;
-import com.adyen.v6.service.AdyenCheckoutApiService;
-import com.adyen.v6.service.AdyenOrderService;
-import com.adyen.v6.service.AdyenTransactionService;
-import com.adyen.v6.service.ThreeDSAuthorizationService;
+import com.adyen.v6.service.*;
 import com.adyen.v6.strategy.AdyenMerchantAccountStrategy;
 import com.adyen.v6.util.AmountUtil;
 import com.google.gson.Gson;
@@ -165,6 +162,8 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     private ProductFacade productFacade;
     private CommerceCartService commerceCartService;
     private ThreeDSAuthorizationService threeDSAuthorizationService;
+    private AdyenShopperIpResolverService adyenShopperIpResolverService;
+    private AdyenInstallmentsConfigurationService adyenInstallmentsConfigurationService;
 
     public static final Logger LOGGER = Logger.getLogger(DefaultAdyenCheckoutFacade.class);
 
@@ -369,7 +368,9 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         updateCartWithSessionData(cartData);
         String adyenPaymentMethod = cartData.getAdyenPaymentMethod();
 
-        RequestInfo requestInfo = new RequestInfo(request);
+        String shopperIp = adyenShopperIpResolverService.resolveShopperIp(request);
+
+        RequestInfo requestInfo = new RequestInfo(request, shopperIp);
         requestInfo.setStorefrontType(StorefrontType.ACCELERATOR);
         requestInfo.setShopperLocale(getShopperLocale());
 
@@ -417,7 +418,9 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     public PaymentResponse componentPayment(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest) throws Exception {
         updateCartWithSessionData(cartData);
 
-        RequestInfo requestInfo = new RequestInfo(request);
+        String shopperIp = adyenShopperIpResolverService.resolveShopperIp(request);
+
+        RequestInfo requestInfo = new RequestInfo(request, shopperIp);
         requestInfo.setStorefrontType(StorefrontType.ACCELERATOR);
         requestInfo.setShopperLocale(getShopperLocale());
 
@@ -633,6 +636,9 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         PaymentMethodsResponse response = new PaymentMethodsResponse();
         CartModel cartModel = cartService.getSessionCart();
 
+        String shopperConversionId = UUID.randomUUID().toString();
+        cartModel.setAdyenShopperConversionId(shopperConversionId);
+
         Assert.notNull(cartModel.getDeliveryAddress(), "Delivery address is required");
 
         //to remove unwanted payment methods insert them here
@@ -642,7 +648,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         List<String> allowedPaymentMethods = getAllowedPaymentMethodsFromConfiguration();
 
         try {
-            response = getPaymentMethods(adyenPaymentService, cartData, customerModel, excludedPaymentMethods, allowedPaymentMethods);
+            response = getPaymentMethods(adyenPaymentService, cartData, customerModel, excludedPaymentMethods, allowedPaymentMethods, shopperConversionId);
         } catch (ApiException | IOException e) {
             LOGGER.error(ExceptionUtils.getStackTrace(e));
         }
@@ -716,7 +722,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
                 .setMerchantDisplayName(baseStore.getName())
                 .setShopperEmail(customerModel.getContactEmail())
                 .setClickToPayLocale(baseStore.getClickToPayLocale())
-                .setInstallmentOptions(getInstallmentOptions());
+                .setInstallmentOptions(adyenInstallmentsConfigurationService.getInstallmentOptionsForCountry());
 
         ExpressPaymentConfigModel expressPaymentConfigModel = baseStore.getExpressPaymentConfig();
         if (expressPaymentConfigModel != null) {
@@ -773,10 +779,13 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         PaymentMethodsResponse response = new PaymentMethodsResponse();
         CartModel cartModel = cartService.getSessionCart();
 
+        String shopperConversionId = UUID.randomUUID().toString();
+        cartModel.setAdyenShopperConversionId(shopperConversionId);
+
         Assert.notNull(cartModel.getDeliveryAddress(), "Delivery address is required");
 
         try {
-            response = getPaymentMethods(adyenCheckoutApiService, cartData, customerModel);
+            response = getPaymentMethods(adyenCheckoutApiService, cartData, customerModel, shopperConversionId);
         } catch (ApiException | IOException e) {
             LOGGER.error(ExceptionUtils.getStackTrace(e));
         }
@@ -921,15 +930,16 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         return Collections.emptyList();
     }
 
-    protected PaymentMethodsResponse getPaymentMethods(AdyenCheckoutApiService adyenPaymentService, CartData cartData, CustomerModel customerModel) throws IOException, ApiException {
+    protected PaymentMethodsResponse getPaymentMethods(AdyenCheckoutApiService adyenPaymentService, CartData cartData, CustomerModel customerModel, String shopperConversionId) throws IOException, ApiException {
         return adyenPaymentService.getPaymentMethodsResponse(cartData.getTotalPriceWithTax().getValue(),
                 cartData.getTotalPriceWithTax().getCurrencyIso(),
                 cartData.getDeliveryAddress().getCountry().getIsocode(),
                 getShopperLocale(),
-                customerModel.getCustomerID());
+                customerModel.getCustomerID(),
+                shopperConversionId);
     }
 
-    protected PaymentMethodsResponse getPaymentMethods(AdyenCheckoutApiService adyenPaymentService, CartData cartData, CustomerModel customerModel, List<String> excludedPaymentMethods, List<String> allowedPaymentMethods) throws IOException, ApiException {
+    protected PaymentMethodsResponse getPaymentMethods(AdyenCheckoutApiService adyenPaymentService, CartData cartData, CustomerModel customerModel, List<String> excludedPaymentMethods, List<String> allowedPaymentMethods, String shopperConversionId) throws IOException, ApiException {
         if (adyenPaymentService == null || cartData == null || customerModel == null) {
             throw new IllegalArgumentException("Required parameters cannot be null");
         }
@@ -939,7 +949,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         String countryIso = cartData.getDeliveryAddress() != null && cartData.getDeliveryAddress().getCountry() != null ? cartData.getDeliveryAddress().getCountry().getIsocode() : StringUtils.EMPTY;
         String customerID = customerModel.getCustomerID() != null ? customerModel.getCustomerID() : StringUtils.EMPTY;
 
-        return adyenPaymentService.getPaymentMethodsResponse(totalPrice, currencyIso, countryIso, getShopperLocale(), customerID, excludedPaymentMethods, allowedPaymentMethods);
+        return adyenPaymentService.getPaymentMethodsResponse(totalPrice, currencyIso, countryIso, getShopperLocale(), customerID, excludedPaymentMethods, allowedPaymentMethods, shopperConversionId);
     }
 
 
@@ -1053,6 +1063,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
                     currency,
                     null,
                     getShopperLocale(),
+                    null,
                     null);
 
             Map<String, String> applePayConfig = getApplePayConfigFromPaymentMethods(paymentMethodsResponse.getPaymentMethods());
@@ -1624,76 +1635,6 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         return holderNameRequired;
     }
 
-    protected InstallmentOptionsDTO getInstallmentOptions() {
-
-        BaseStoreModel baseStore = baseStoreService.getCurrentBaseStore();
-        
-        // Check if installments are enabled
-        if (baseStore.getAdyenInstallmentsEnabled() == null || !baseStore.getAdyenInstallmentsEnabled()) {
-            return null;
-        }
-        
-        String installmentOptionsConfig = baseStore.getAdyenInstallmentOptions();
-        String installmentPlansConfig = baseStore.getAdyenInstallmentPlans();
-        String showInstallmentAmountsConfig = baseStore.getAdyenShowInstallmentAmounts();
-        String showInstallmentPlansConfig = baseStore.getAdyenShowInstallmentPlans();
-        
-        List<Integer> installmentValues;
-        if (StringUtils.isEmpty(installmentOptionsConfig)) {
-            installmentValues = Arrays.asList(1, 3, 6, 9, 12);
-        } else {
-            String[] values = StringUtils.split(installmentOptionsConfig, ',');
-            installmentValues = Arrays.stream(values)
-                    .map(String::trim)
-                    .map(Integer::parseInt)
-                    .collect(Collectors.toList());
-        }
-        
-        List<String> installmentPlans;
-        if (StringUtils.isEmpty(installmentPlansConfig)) {
-            installmentPlans = Arrays.asList("regular", "revolving");
-        } else {
-            String[] plans = StringUtils.split(installmentPlansConfig, ',');
-            installmentPlans = Arrays.stream(plans)
-                    .map(String::trim)
-                    .collect(Collectors.toList());
-        }
-        
-        List<Integer> showAmountValues;
-        if (StringUtils.isEmpty(showInstallmentAmountsConfig)) {
-            showAmountValues = Arrays.asList(1, 2, 3);
-        } else {
-            String[] values = StringUtils.split(showInstallmentAmountsConfig, ',');
-            showAmountValues = Arrays.stream(values)
-                    .map(String::trim)
-                    .map(Integer::parseInt)
-                    .collect(Collectors.toList());
-        }
-        
-        List<String> showAmountPlans;
-        if (StringUtils.isEmpty(showInstallmentPlansConfig)) {
-            showAmountPlans = Arrays.asList("regular");
-        } else {
-            String[] plans = StringUtils.split(showInstallmentPlansConfig, ',');
-            showAmountPlans = Arrays.stream(plans)
-                    .map(String::trim)
-                    .collect(Collectors.toList());
-        }
-        
-        InstallmentOptionsDTO installmentOptionsDTO = new InstallmentOptionsDTO();
-        
-        InstallmentOptionsDTO.CardInstallmentOptions cardOptions = new InstallmentOptionsDTO.CardInstallmentOptions();
-        cardOptions.setValues(installmentValues);
-        cardOptions.setPlans(installmentPlans);
-        installmentOptionsDTO.setCard(cardOptions);
-        
-        InstallmentOptionsDTO.ShowInstallmentAmounts showAmounts = new InstallmentOptionsDTO.ShowInstallmentAmounts();
-        showAmounts.setValues(showAmountValues);
-        showAmounts.setPlans(showAmountPlans);
-        installmentOptionsDTO.setShowInstallmentAmounts(showAmounts);
-        
-        return installmentOptionsDTO;
-    }
 
     public Set<String> getStoredCards() {
         CartModel cartModel = cartService.getSessionCart();
@@ -1945,5 +1886,17 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
 
     public void setThreeDSAuthorizationService(ThreeDSAuthorizationService threeDSAuthorizationService) {
         this.threeDSAuthorizationService = threeDSAuthorizationService;
+    }
+
+    public void setAdyenShopperIpResolverService(AdyenShopperIpResolverService adyenShopperIpResolverService) {
+        this.adyenShopperIpResolverService = adyenShopperIpResolverService;
+    }
+
+    public AdyenInstallmentsConfigurationService getAdyenInstallmentsConfigurationService() {
+        return adyenInstallmentsConfigurationService;
+    }
+
+    public void setAdyenInstallmentsConfigurationService(AdyenInstallmentsConfigurationService adyenInstallmentsConfigurationService) {
+        this.adyenInstallmentsConfigurationService = adyenInstallmentsConfigurationService;
     }
 }

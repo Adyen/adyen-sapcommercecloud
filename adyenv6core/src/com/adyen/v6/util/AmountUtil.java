@@ -30,4 +30,17 @@ public class AmountUtil {
                 .setScale(2, RoundingMode.HALF_EVEN).add(totalPriceWithoutTaxBD);
     }
 
+    /**
+     * Convert amount from minor currency units (cents) to major currency units
+     * @param minorUnits the amount in minor units (e.g., cents)
+     * @return the amount in major currency units with proper scale, or null if input is null
+     */
+    public static BigDecimal convertFromMinorUnits(Long minorUnits, String currency) {
+        if (minorUnits == null) {
+            return null;
+        }
+        int scale = Util.getDecimalPlaces(currency);
+        return BigDecimal.valueOf(minorUnits).divide(BigDecimal.TEN.pow(scale), scale, RoundingMode.HALF_UP);
+    }
+
 }

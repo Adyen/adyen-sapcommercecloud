@@ -1,5 +1,6 @@
 package com.adyen.commerce.facades.impl;
 
+import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.commerce.dto.OrderPaymentResult;
 import com.adyen.commerce.facades.AdyenCheckoutApiFacade;
 import com.adyen.model.checkout.AfterpayDetails;
@@ -11,11 +12,15 @@ import com.adyen.model.checkout.PaymentDetailsRequest;
 import com.adyen.model.checkout.PaymentDetailsResponse;
 import com.adyen.model.checkout.PaymentRequest;
 import com.adyen.model.checkout.PaymentResponse;
-import com.adyen.v6.constants.StorefrontType;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
 import com.adyen.v6.facades.impl.DefaultAdyenCheckoutFacade;
 import com.adyen.v6.forms.AddressForm;
 import com.adyen.v6.model.RequestInfo;
+import com.adyen.v6.model.AdyenPartialPaymentOrderModel;
+import com.adyen.v6.enums.AdyenPartialPaymentStatus;
+import com.adyen.v6.repository.AdyenPartialPaymentOrderRepository;
+import com.adyen.v6.service.AdyenCheckoutApiService;
+import com.adyen.v6.service.AdyenPartialPaymentService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import de.hybris.platform.commercefacades.order.data.CartData;
 import de.hybris.platform.commercefacades.order.data.OrderData;
@@ -24,13 +29,18 @@ import de.hybris.platform.core.model.order.CartModel;
 import de.hybris.platform.core.model.order.OrderModel;
 import de.hybris.platform.core.model.order.payment.PaymentInfoModel;
 import de.hybris.platform.core.model.user.AddressModel;
+import de.hybris.platform.core.model.user.CustomerModel;
 import org.apache.commons.lang3.StringUtils;
 
 import javax.servlet.http.HttpServletRequest;
+import java.math.BigDecimal;
 
 public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade implements AdyenCheckoutApiFacade {
 
     public static final String EXCEPTION_DURING_PROCESSING_BROWSER_INFO = "Exception during processing BrowserInfo: ";
+
+    private AdyenPartialPaymentService adyenPartialPaymentService;
+    private AdyenPartialPaymentOrderRepository adyenPartialPaymentOrderRepository;
 
     public void preHandlePlaceOrder(PaymentRequest paymentRequest, String adyenPaymentMethod,
                                     AddressForm billingAddress, Boolean useAdyenDeliveryAddress) {
@@ -97,10 +107,15 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
     }
 
     @Override
-    public OrderPaymentResult placeOrderWithPayment(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest, RequestInfo requestInfo) throws Exception{
+    public OrderPaymentResult placeOrderWithPayment(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest, RequestInfo requestInfo) throws Exception {
+        return placeOrderWithPayment(request, cartData, paymentRequest, requestInfo, null);
+    }
+
+    @Override
+    public OrderPaymentResult placeOrderWithPayment(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest, RequestInfo requestInfo, AdyenPartialPaymentOrderData partialPaymentOrderData) throws Exception{
         requestInfo.setShopperLocale(getShopperLocale());
 
-        PaymentResponse paymentResponse = getAdyenPaymentService().processPaymentRequest(cartData, paymentRequest, requestInfo, getCheckoutCustomerStrategy().getCurrentUserForCheckout());
+        PaymentResponse paymentResponse = getAdyenPaymentService().processPaymentRequest(cartData, paymentRequest, requestInfo, getCheckoutCustomerStrategy().getCurrentUserForCheckout(), partialPaymentOrderData);
         if (PaymentResponse.ResultCodeEnum.PENDING == paymentResponse.getResultCode()
                 || PaymentResponse.ResultCodeEnum.REDIRECTSHOPPER == paymentResponse.getResultCode()
                 || PaymentResponse.ResultCodeEnum.CHALLENGESHOPPER == paymentResponse.getResultCode()
@@ -205,4 +220,82 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
         return paymentInfo;
     }
 
+    @Override
+    public void updatePartialPaymentAfterAuthorization(String pspReference, String newPspReference, AdyenPartialPaymentStatus status, BigDecimal remainingAmount) {
+        AdyenPartialPaymentOrderModel partialPayment = adyenPartialPaymentOrderRepository.findPartialPaymentOrderByPspReference(pspReference);
+        if (partialPayment != null) {
+            partialPayment.setStatus(status);
+            partialPayment.setProcessedAt(new java.util.Date());
+            partialPayment.setRemainingAmount(remainingAmount);
+            getModelService().save(partialPayment);
+        }
+    }
+
+    @Override
+    public void updatePartialPaymentStatus(AdyenPartialPaymentOrderData partialPaymentData, AdyenPartialPaymentStatus status) {
+        AdyenPartialPaymentOrderModel partialPayment = adyenPartialPaymentOrderRepository.findPartialPaymentOrderByPspReference(partialPaymentData.getPspReference());
+        if (partialPayment != null) {
+            partialPayment.setStatus(status);
+            partialPayment.setProcessedAt(new java.util.Date());
+            getModelService().save(partialPayment);
+        }
+    }
+
+    /**
+     * Process partial payment authorization for gift cards
+     * Makes authorization call to Adyen with the gift card amount instead of full cart amount
+     */
+    public PaymentResponse processPartialPaymentAuthorization(CartData cartData,
+                                                              PaymentRequest paymentRequest,
+                                                              RequestInfo requestInfo, CustomerModel customer,
+                                                              AdyenPartialPaymentOrderData partialPaymentData) throws Exception {
+        // Get Adyen checkout API service
+        AdyenCheckoutApiService adyenService = getAdyenPaymentService();
+
+        // Make authorization call to Adyen with the gift card amount instead of full cart amount
+        PaymentResponse paymentResponse = adyenService.processPartialPaymentRequest(
+                cartData,
+                paymentRequest,
+                requestInfo,
+                customer,
+                partialPaymentData.getGiftCardChargedAmount(),
+                partialPaymentData.getCurrency().getIsocode()
+        );
+
+        LOGGER.info("Gift card authorization response: " + paymentResponse.getResultCode() +
+                " PSP Reference: " + paymentResponse.getPspReference());
+
+        // Handle the payment response
+        if (PaymentResponse.ResultCodeEnum.AUTHORISED == paymentResponse.getResultCode()) {
+            // Calculate remaining amount (total cart amount - gift card charged amount)
+            java.math.BigDecimal totalAmount = cartData.getTotalPrice().getValue();
+            java.math.BigDecimal giftCardAmount = partialPaymentData.getGiftCardChargedAmount();
+            java.math.BigDecimal remainingAmount = totalAmount.subtract(giftCardAmount);
+
+            // Update the partial payment through facade
+            updatePartialPaymentAfterAuthorization(
+                    partialPaymentData.getPspReference(),
+                    paymentResponse.getPspReference(),
+                    AdyenPartialPaymentStatus.AUTHORIZED,
+                    remainingAmount
+            );
+        }
+        return paymentResponse;
+    }
+
+    public AdyenPartialPaymentService getAdyenPartialPaymentService() {
+        return adyenPartialPaymentService;
+    }
+
+    public void setAdyenPartialPaymentService(AdyenPartialPaymentService adyenPartialPaymentService) {
+        this.adyenPartialPaymentService = adyenPartialPaymentService;
+    }
+
+    public AdyenPartialPaymentOrderRepository getAdyenPartialPaymentOrderRepository() {
+        return adyenPartialPaymentOrderRepository;
+    }
+
+    public void setAdyenPartialPaymentOrderRepository(AdyenPartialPaymentOrderRepository adyenPartialPaymentOrderRepository) {
+        this.adyenPartialPaymentOrderRepository = adyenPartialPaymentOrderRepository;
+    }
 }

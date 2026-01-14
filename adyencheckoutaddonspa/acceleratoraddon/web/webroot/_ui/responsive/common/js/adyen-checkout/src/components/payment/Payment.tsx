@@ -1,342 +1,170 @@
-import React, {RefObject} from "react";
-import {PaymentHeader} from "../headers/PaymentHeader";
-import {connect} from "react-redux";
-import {ShippingAddressHeading} from "../common/ShippingAddressHeading";
-import {AddressModel} from "../../reducers/types";
-import {AppState} from "../../reducers/rootReducer";
-import {StoreDispatch} from "../../store/store";
-import {AddressData} from "../../types/addressData";
-import {InputCheckbox} from "../controls/InputCheckbox";
-import {AddressService} from "../../service/addressService";
-import {AdyenConfigService} from "../../service/adyenConfigService";
-import {AdyenCheckout, AdyenCheckoutError, Dropin, ICore} from '@adyen/adyen-web/auto'
-import '@adyen/adyen-web/styles/adyen.css';
-import {AdyenConfigData} from "../../types/adyenConfigData";
-import {isEmpty, isNotEmpty} from "../../util/stringUtil";
-import {PlaceOrderRequest} from "../../types/paymentForm";
-import {PaymentService, PlaceOrderResponse} from "../../service/paymentService";
-import {translationsStore} from "../../store/translationsStore";
-import AddressSection from "../common/AddressSection";
-import {routes} from "../../router/routes";
-import {Navigate} from "react-router-dom";
-import {PaymentError} from "./PaymentError";
-import {ScrollHere} from "../common/ScrollTo";
-import {
-    AdditionalDetailsActions,
-    CardConfiguration,
-    CoreConfiguration,
-    SubmitActions,
-    UIElement
-} from "@adyen/adyen-web";
-import {adyenConfigInitialState} from "../../reducers/adyenConfigReducer";
-
-interface State {
-    useDifferentBillingAddress: boolean
-    redirectToNextStep: boolean
-    executeAction: boolean
-    saveInAddressBook: boolean
-    errorCode: string
-    errorFieldCodes: string[]
-    orderNumber: string
-}
+import React, { useEffect, useState } from "react";
+import { PaymentHeader } from "../headers/PaymentHeader";
+import { connect } from "react-redux";
+import { ShippingAddressHeading } from "../common/ShippingAddressHeading";
+import { AddressModel } from "../../reducers/types";
+import { AppState } from "../../reducers/rootReducer";
+import { StoreDispatch } from "../../store/store";
+import { AddressData } from "../../types/addressData";
+import { AddressService } from "../../service/addressService";
+import { AdyenConfigService } from "../../service/adyenConfigService";
+import { Dropin } from '@adyen/adyen-web/auto';
+import { AdyenConfigData } from "../../types/adyenConfigData";
+import { isNotEmpty } from "../../util/stringUtil";
+import { routes } from "../../router/routes";
+import { Navigate } from "react-router-dom";
+import { PaymentError } from "./PaymentError";
+import { ScrollHere } from "../common/ScrollTo";
+import { adyenConfigInitialState } from "../../reducers/adyenConfigReducer";
+import { PaymentDropIn } from "./PaymentDropIn";
+import { BillingAddressForm } from "./BillingAddressForm";
+import { useAdyenPayment } from "../../hooks/useAdyenPayment";
 
 interface ComponentProps {
-    errorCode?: string
+    errorCode?: string;
 }
 
 interface StoreProps {
-    billingAddress: AddressModel,
-    shippingAddressFromCart: AddressData,
-    adyenConfig: AdyenConfigData,
+    billingAddress: AddressModel;
+    shippingAddressFromCart: AddressData;
+    adyenConfig: AdyenConfigData;
 }
 
 interface DispatchProps {
-    setFirstName: (firstName: string) => void
-    setLastName: (lastName: string) => void
-    setCountryCode: (countryCode: string) => void
-    setRegionCode: (countryCode: string) => void
-    setTitleCode: (titleCode: string) => void
-    setLine1: (line1: string) => void
-    setLine2: (line2: string) => void
-    setCity: (city: string) => void
-    setPostCode: (postCode: string) => void
-    setPhoneNumber: (phoneNumber: string) => void
-    setCompanyName: (companyName: string) => void
-    setTaxNumber: (taxNumber: string) => void
-    setRegistrationNumber: (registrationNumber: string) => void
-    setSelectedAddress: (address: AddressModel) => void
-    removeAdyenConfigFromStore: () => void
+    setFirstName: (firstName: string) => void;
+    setLastName: (lastName: string) => void;
+    setCountryCode: (countryCode: string) => void;
+    setRegionCode: (countryCode: string) => void;
+    setTitleCode: (titleCode: string) => void;
+    setLine1: (line1: string) => void;
+    setLine2: (line2: string) => void;
+    setCity: (city: string) => void;
+    setPostCode: (postCode: string) => void;
+    setPhoneNumber: (phoneNumber: string) => void;
+    setCompanyName: (companyName: string) => void;
+    setTaxNumber: (taxNumber: string) => void;
+    setRegistrationNumber: (registrationNumber: string) => void;
+    setSelectedAddress: (address: AddressModel) => void;
+    removeAdyenConfigFromStore: () => void;
 }
 
-type Props = StoreProps & DispatchProps & ComponentProps
+type Props = StoreProps & DispatchProps & ComponentProps;
 
-class Payment extends React.Component<Props, State> {
+const Payment: React.FC<Props> = (props) => {
+    const [useDifferentBillingAddress, setUseDifferentBillingAddress] = useState(false);
+    const [saveInAddressBook, setSaveInAddressBook] = useState(false);
 
-    paymentRef: RefObject<HTMLDivElement>
-    threeDSRef: RefObject<HTMLDivElement>
-    dropIn: Dropin
+    const { errorCode, removeAdyenConfigFromStore, billingAddress, adyenConfig, shippingAddressFromCart } = props;
 
-    constructor(props: Props) {
-        super(props);
-        this.state = {
-            useDifferentBillingAddress: false,
-            redirectToNextStep: false,
-            executeAction: false,
-            saveInAddressBook: false,
-            errorCode: this.props.errorCode ? this.props.errorCode : "",
-            errorFieldCodes: [],
-            orderNumber: ""
-        }
-        this.paymentRef = React.createRef();
-        this.threeDSRef = React.createRef();
-    }
+    const {
+        paymentState,
+        handlePayment,
+        handleAdditionalDetails,
+        handleBalanceCheck,
+        handleOrderRequest,
+        handleError,
+        setDropIn,
+        setErrorCode
+    } = useAdyenPayment(useDifferentBillingAddress, saveInAddressBook, billingAddress);
 
-    async componentDidUpdate(prevProps: Readonly<Props>, prevState: Readonly<State>, snapshot?: any) {
-        if (isEmpty(prevProps.adyenConfig.adyenClientKey) && isNotEmpty(this.props.adyenConfig.adyenClientKey)) {
-            await this.initializeWebComponentsCheckout()
-        }
-    }
-
-    async componentDidMount() {
+    useEffect(() => {
         AddressService.fetchAddressConfig();
         AdyenConfigService.fetchPaymentMethodsConfig();
-        if (isNotEmpty(this.props.adyenConfig.adyenClientKey)) {
-            await this.initializeWebComponentsCheckout()
+    }, []);
+
+    useEffect(() => {
+        if (errorCode) {
+            setErrorCode(errorCode);
         }
-    }
+    }, [errorCode, setErrorCode]);
 
-    componentWillUnmount() {
-        this.props.removeAdyenConfigFromStore();
-    }
-
-    private async initializeWebComponentsCheckout() {
-        let adyenCheckout = await AdyenCheckout(this.getAdyenCheckoutConfig());
-
-        this.initiateDropIn(adyenCheckout)
-    }
-
-    private getAdyenCheckoutConfig(): CoreConfiguration {
-        return {
-            paymentMethodsResponse: {
-                paymentMethods: this.props.adyenConfig.paymentMethods,
-                storedPaymentMethods: this.props.adyenConfig.storedPaymentMethodList
-            },
-            locale: this.props.adyenConfig.shopperLocale,
-            environment: this.castToEnvironment(this.props.adyenConfig.environmentMode),
-            clientKey: this.props.adyenConfig.adyenClientKey,
-            countryCode: this.props.adyenConfig.countryCode,
-            amount: this.props.adyenConfig.amount,
-            analytics: {
-                enabled: false
-            },
-            // @ts-ignore
-            risk: {
-                enabled: true
-            },
-            onError: (error: AdyenCheckoutError, element?: UIElement) => {
-                this.handleError()
-            },
-            onSubmit: (state: any, element: UIElement, actions: SubmitActions) => this.handlePayment(state.data, actions),
-            onAdditionalDetails: (state: any, element: UIElement,actions: AdditionalDetailsActions) => this.handleAdditionalDetails(state.data, actions)
-        }
-    }
-
-    private getAdyenCardConfig(): CardConfiguration {
-        const config: CardConfiguration = {
-            type: 'card',
-            hasHolderName: true,
-            holderNameRequired: this.props.adyenConfig.cardHolderNameRequired,
-            enableStoreDetails: this.props.adyenConfig.showRememberTheseDetails,
-            clickToPayConfiguration: {
-                merchantDisplayName: this.props.adyenConfig.merchantDisplayName,
-                shopperEmail:  this.props.adyenConfig.shopperEmail,
-                locale: this.props.adyenConfig.clickToPayLocale,
-            }
+    useEffect(() => {
+        return () => {
+            removeAdyenConfigFromStore();
         };
+    }, [removeAdyenConfigFromStore]);
 
-        // Add installments configuration if available
-        if (this.props.adyenConfig.installmentOptions) {
-            config.installmentOptions = this.props.adyenConfig.installmentOptions;
-        }
+    const handleDropInReady = (dropIn: Dropin) => {
+        setDropIn(dropIn);
+    };
 
-        return config;
-    }
+    const handleOrderRequestWithShopperRef = async (resolve: any, reject: any, data: any) => {
+        // Add shopperReference from adyenConfig
+        const dataWithShopperRef = {
+            ...data,
+            shopperReference: adyenConfig.shopperEmail
+        };
+        await handleOrderRequest(resolve, reject, dataWithShopperRef);
+    };
 
-    private castToEnvironment(env: string): CoreConfiguration['environment'] {
-        const validEnvironments: CoreConfiguration['environment'][] = ['test', 'live', 'live-us', 'live-au', 'live-apse', 'live-in'];
-        if (validEnvironments.includes(env as CoreConfiguration['environment'])) {
-            return env as CoreConfiguration['environment'];
-        }
-        throw new Error(`Invalid environment: ${env}`);
-    }
-
-    private initiateDropIn(adyenCheckout: ICore) {
-
-        this.dropIn = new Dropin(adyenCheckout, {
-             paymentMethodsConfiguration: {
-                 card: this.getAdyenCardConfig(),
-                 boletobancario: {
-                     // @ts-ignore
-                     personalDetailsRequired: true,
-                     billingAddressRequired: false,
-                     showEmailAddress: false,
-                     data: {
-                         firstName: this.props.shippingAddressFromCart.firstName,
-                         lastName: this.props.shippingAddressFromCart.lastName,
-                     }
-                 }
-            },
-        }).mount(this.paymentRef.current);
-
-    }
-
-    private async handleError(){
-        await PaymentService.sendPaymentCancel();
-        this.resetDropInComponent();
-    }
-
-    private async handlePayment(data: any, actions: SubmitActions) {
-        let adyenPaymentForm = PaymentService.preparePlaceOrderRequest(data,
-            this.state.useDifferentBillingAddress, this.isSaveInAddressBook(), this.props.billingAddress);
-
-        await this.executePaymentRequest(adyenPaymentForm, actions)
-    }
-
-    private async handleAdditionalDetails(data: any,actions: AdditionalDetailsActions) {
-        await this.executeAdditionalDetails(data,actions)
-    }
-
-    private isSaveInAddressBook(): boolean {
-        return this.state.saveInAddressBook && this.state.useDifferentBillingAddress
-    }
-
-    private async handleResponse(response: Promise<void | PlaceOrderResponse>, actions: SubmitActions) {
-        this.setState({errorFieldCodes: []})
-
-        let responseData = await response;
-        if (!!responseData) {
-            if (responseData.success) {
-                if (responseData.executeAction) {
-                    this.dropIn.handleAction(responseData.paymentsAction)
-                } else {
-                    actions.resolve({
-                        resultCode: responseData.paymentsResponse.resultCode
-                    });
-                    this.setState({orderNumber: responseData.orderNumber})
-                    this.setState({redirectToNextStep: true})
-                }
-            } else {
-                this.setState({errorFieldCodes: responseData.errorFieldCodes})
-                this.resetDropInComponent()
-            }
-            this.setState({errorCode: responseData.error})
-        }
-    }
-
-    private async executePaymentRequest(adyenPaymentForm: PlaceOrderRequest, actions: SubmitActions) {
-        await this.handleResponse(PaymentService.placeOrder(adyenPaymentForm), actions);
-    }
-
-    private async executeAdditionalDetails(details: any, actions: AdditionalDetailsActions) {
-        await this.handleResponse(PaymentService.sendAdditionalDetails(details), actions);
-    }
-
-    private resetDropInComponent() {
-        this.dropIn.unmount();
-        this.dropIn.mount(this.paymentRef.current)
-    }
-
-    private renderScrollOnErrorCodes(): React.JSX.Element {
-        if (this.state.errorFieldCodes && this.state.errorFieldCodes.length > 0) {
-            return <ScrollHere/>
-        }
-        return <></>
-    }
-
-    private renderBillingAddressForm(): React.JSX.Element {
-        if (this.state.useDifferentBillingAddress) {
+    const renderErrorMessage = (): React.JSX.Element => {
+        if (isNotEmpty(paymentState.errorCode)) {
             return (
                 <>
-                    <hr/>
-                    {this.renderScrollOnErrorCodes()}
-                    <div className={"headline"}>Billing Address</div>
-                    <AddressSection address={this.props.billingAddress}
-                                    saveInAddressBook={this.state.saveInAddressBook}
-                                    errorFieldCodes={this.state.errorFieldCodes}
-                                    errorFieldCodePrefix={"billingAddress."}
-                                    onCountryCodeChange={(countryCode) => this.props.setCountryCode(countryCode)}
-                                    onRegionCodeChange={(regionCode) => this.props.setRegionCode(regionCode)}
-                                    onTitleCodeChange={(titleCode) => this.props.setTitleCode(titleCode)}
-                                    onFirstNameChange={(firstName) => this.props.setFirstName(firstName)}
-                                    onLastNameChange={(lastName) => this.props.setLastName(lastName)}
-                                    onLine1Change={(line1) => this.props.setLine1(line1)}
-                                    onLine2Change={(line2) => this.props.setLine2(line2)}
-                                    onCityChange={(city) => this.props.setCity(city)}
-                                    onPostCodeChange={(postCode) => this.props.setPostCode(postCode)}
-                                    onPhoneNumberChange={(phoneNumber) => this.props.setPhoneNumber(phoneNumber)}
-                                    onChangeSaveInAddressBook={(saveInAddressBook) => this.onChangeSaveInAddressBook(saveInAddressBook)}
-                                    onSelectAddress={(address) => this.props.setSelectedAddress(address)}
-                                    onCompanyNameChange={(companyName) => this.props.setCompanyName(companyName)}
-                                    onRegistrationNumberChange={(registrationNumber)=> this.props.setRegistrationNumber(registrationNumber)}
-                                    onTaxNumberChange={(taxNumber)=> this.props.setTaxNumber(taxNumber)}
-                                    isBillingAddress={true}
-                    />
-                    <hr/>
+                    <ScrollHere />
+                    <PaymentError errorCode={paymentState.errorCode} />
                 </>
-            )
+            );
         }
-        return <></>
+        return <></>;
+    };
+
+    const getThankYouPageURL = (): string => {
+        return routes.thankYouPage + "/" + paymentState.orderNumber;
+    };
+
+    if (paymentState.redirectToNextStep && isNotEmpty(paymentState.orderNumber)) {
+        return <Navigate to={getThankYouPageURL()} />;
     }
 
-    private onChangeSaveInAddressBook(value: boolean) {
-        this.setState({saveInAddressBook: value})
-    }
+    return (
+        <>
+            <PaymentHeader isActive={true} />
+            <div className="step-body">
+                <div className="checkout-paymentmethod">
+                    <ShippingAddressHeading address={shippingAddressFromCart} />
 
-    private onChangeUseDifferentBillingAddress(value: boolean): void {
-        this.setState({useDifferentBillingAddress: value})
-    }
+                    <BillingAddressForm
+                        useDifferentBillingAddress={useDifferentBillingAddress}
+                        saveInAddressBook={saveInAddressBook}
+                        billingAddress={billingAddress}
+                        errorFieldCodes={paymentState.errorFieldCodes}
+                        onUseDifferentBillingAddressChange={setUseDifferentBillingAddress}
+                        onSaveInAddressBookChange={setSaveInAddressBook}
+                        onCountryCodeChange={props.setCountryCode}
+                        onRegionCodeChange={props.setRegionCode}
+                        onTitleCodeChange={props.setTitleCode}
+                        onFirstNameChange={props.setFirstName}
+                        onLastNameChange={props.setLastName}
+                        onLine1Change={props.setLine1}
+                        onLine2Change={props.setLine2}
+                        onCityChange={props.setCity}
+                        onPostCodeChange={props.setPostCode}
+                        onPhoneNumberChange={props.setPhoneNumber}
+                        onCompanyNameChange={props.setCompanyName}
+                        onRegistrationNumberChange={props.setRegistrationNumber}
+                        onTaxNumberChange={props.setTaxNumber}
+                        onSelectAddress={props.setSelectedAddress}
+                    />
 
-    private renderErrorMessage(): React.JSX.Element {
-        if (isNotEmpty(this.state.errorCode)) {
-            return <>
-                <ScrollHere/>
-                <PaymentError errorCode={this.state.errorCode}/>
-            </>
-        }
-        return <></>
-    }
+                    {renderErrorMessage()}
 
-    private getThankYouPageURL(): string {
-        return routes.thankYouPage + "/" + this.state.orderNumber
-    }
-
-    render() {
-        if (this.state.redirectToNextStep && isNotEmpty(this.state.orderNumber)) {
-            return <Navigate to={this.getThankYouPageURL()}/>
-        }
-
-        return (
-            <>
-                <PaymentHeader isActive={true}/>
-                <div className={"step-body"}>
-
-                    <div className={"checkout-paymentmethod"}>
-                        <ShippingAddressHeading address={this.props.shippingAddressFromCart}/>
-                        <InputCheckbox
-                            fieldName={translationsStore.get("checkout.multi.payment.useDifferentBillingAddress")}
-                            onChange={(checkboxState) => this.onChangeUseDifferentBillingAddress(checkboxState)}
-                            checked={this.state.useDifferentBillingAddress}/>
-                        {this.renderBillingAddressForm()}
-
-                        {this.renderErrorMessage()}
-                        <div className={"dropin-payment"} ref={this.paymentRef}/>
-                    </div>
+                    <PaymentDropIn
+                        adyenConfig={adyenConfig}
+                        shippingAddress={shippingAddressFromCart}
+                        partialPaymentId={paymentState.partialPaymentId}
+                        onPayment={handlePayment}
+                        onAdditionalDetails={handleAdditionalDetails}
+                        onBalanceCheck={handleBalanceCheck}
+                        onOrderRequest={handleOrderRequestWithShopperRef}
+                        onError={handleError}
+                        onDropInReady={handleDropInReady}
+                    />
                 </div>
-                <div ref={this.threeDSRef}/>
-            </>
-        )
-    }
-}
+            </div>
+        </>
+    );
+};
 
 function mapDispatchToProps(dispatch: StoreDispatch): DispatchProps {
     return {
