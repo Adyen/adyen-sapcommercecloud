@@ -87,6 +87,7 @@ public class AdyenComponentController extends AbstractCheckoutController {
     @Resource(name = "baseSiteService")
     private BaseSiteService baseSiteService;
 
+    @Resource(name = "adyenUrlHelper")
     private AdyenUrlHelper adyenUrlHelper;
 
     private final List<String> PAYMENT_METHODS_WITH_VALIDATED_TERMS = Arrays.asList(PAYMENT_METHOD_AMAZONPAY,
@@ -185,14 +186,11 @@ public class AdyenComponentController extends AbstractCheckoutController {
 
     /**
      * Gets the return URL for the specified payment method
-     * 
+     *
      * @param paymentMethod the payment method
      * @return the return URL
      */
     private String getReturnUrl(String paymentMethod) {
-        if (adyenUrlHelper == null) {
-            adyenUrlHelper = new AdyenUrlHelper(siteBaseUrlResolutionService, baseSiteService);
-        }
         return adyenUrlHelper.getReturnUrl(paymentMethod);
     }
 

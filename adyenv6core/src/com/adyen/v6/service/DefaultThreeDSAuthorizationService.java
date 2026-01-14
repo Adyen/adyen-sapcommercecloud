@@ -117,7 +117,7 @@ public class DefaultThreeDSAuthorizationService implements ThreeDSAuthorizationS
             orderModel.setStatus(OrderStatus.PAYMENT_PENDING);
         } else {
             // Payment was not authorized, cancel pending order
-            LOGGER.warn("Payment was not authorized, cancel pending order");
+            LOGGER.warn("Payment was not authorized, cancel pending order: " + paymentDetailsResponse.getPspReference());
 
             orderModel.setStatus(OrderStatus.CANCELLED);
             orderModel.setStatusInfo(paymentDetailsResponse.getPspReference() + " - " + 
@@ -149,7 +149,7 @@ public class DefaultThreeDSAuthorizationService implements ThreeDSAuthorizationS
 
     @Override
     public OrderModel retrievePendingOrderAndClear3DSSession(String orderCode) throws Exception {
-        if (orderCode == null || orderCode.isEmpty()) {
+        if (StringUtils.isEmpty(orderCode)) {
             throw new InvalidCartException("Could not retrieve pending order: missing orderCode!");
         }
 

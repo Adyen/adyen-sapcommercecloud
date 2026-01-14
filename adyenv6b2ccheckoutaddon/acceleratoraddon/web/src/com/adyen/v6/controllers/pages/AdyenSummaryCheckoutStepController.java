@@ -103,7 +103,10 @@ public class AdyenSummaryCheckoutStepController extends AbstractCheckoutStepCont
     @Autowired
     private HttpServletRequest httpServletRequest;
 
+    @Resource(name = "adyenUrlHelper")
     private AdyenUrlHelper adyenUrlHelper;
+
+    @Resource(name = "adyen3DSHelper")
     private Adyen3DSHelper adyen3DSHelper;
 
     @GetMapping(value = "/view")
@@ -200,7 +203,7 @@ public class AdyenSummaryCheckoutStepController extends AbstractCheckoutStepCont
     /**
      * Handles standard payment processing
      */
-    private String handleStandardPayment(HttpServletRequest request, CartData cartData, Model model, RedirectAttributes redirectModel) 
+    protected String handleStandardPayment(HttpServletRequest request, CartData cartData, Model model, RedirectAttributes redirectModel) 
             throws JsonProcessingException, CommerceCartModificationException, CMSItemNotFoundException {
         String adyenPaymentMethod = cartData.getAdyenPaymentMethod();
         
@@ -696,22 +699,16 @@ public class AdyenSummaryCheckoutStepController extends AbstractCheckoutStepCont
     }
 
     /**
-     * Lazy initialization of AdyenUrlService
+     * Gets the AdyenUrlHelper service
      */
     protected AdyenUrlHelper getAdyenUrlService() {
-        if (adyenUrlHelper == null) {
-            adyenUrlHelper = new AdyenUrlHelper(siteBaseUrlResolutionService, baseSiteService);
-        }
         return adyenUrlHelper;
     }
 
     /**
-     * Lazy initialization of Adyen3DSService
+     * Gets the Adyen3DSHelper service
      */
     protected Adyen3DSHelper getAdyen3DSService() {
-        if (adyen3DSHelper == null) {
-            adyen3DSHelper = new Adyen3DSHelper(adyenCheckoutFacade);
-        }
         return adyen3DSHelper;
     }
 }

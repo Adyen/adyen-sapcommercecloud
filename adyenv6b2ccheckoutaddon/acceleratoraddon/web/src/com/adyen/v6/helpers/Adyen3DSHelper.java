@@ -32,6 +32,8 @@ import de.hybris.platform.commercefacades.order.data.CartData;
 import de.hybris.platform.commercefacades.user.data.AddressData;
 import de.hybris.platform.commercefacades.user.data.CountryData;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 import org.springframework.ui.Model;
 
 import javax.servlet.http.HttpServletRequest;
@@ -48,10 +50,12 @@ import static com.adyen.v6.constants.Adyenv6coreConstants.SHOPPER_LOCALE;
 /**
  * Service for handling 3DS authentication flows
  */
+@Service("adyen3DSHelper")
 public class Adyen3DSHelper {
 
     private final AdyenCheckoutFacade adyenCheckoutFacade;
 
+    @Autowired
     public Adyen3DSHelper(AdyenCheckoutFacade adyenCheckoutFacade) {
         this.adyenCheckoutFacade = adyenCheckoutFacade;
     }

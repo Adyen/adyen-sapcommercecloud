@@ -24,7 +24,8 @@
 
     <context:annotation-config/>
 
-	<context:component-scan base-package="com.adyen.v6.controllers"/>
+ <context:component-scan base-package="com.adyen.v6.controllers"/>
+ <context:component-scan base-package="com.adyen.v6.helpers"/>
 
 	<import resource="acceleratorCheckoutFlowGroup.xml"/>
 
