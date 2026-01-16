@@ -8,6 +8,7 @@ import de.hybris.platform.commercefacades.user.UserFacade;
 import de.hybris.platform.commercefacades.user.data.AddressData;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,9 +28,10 @@ public class AdyenDeliveryAddressContoller {
     @Resource(name = "userFacade")
     private UserFacade userFacade;
 
-    @PostMapping(value = "/delivery-address")
+    @PostMapping(value = "/delivery-address", consumes = MediaType.APPLICATION_JSON_VALUE)
     @RequireHardLogIn
-    public ResponseEntity<Void> doSelectDeliveryAddress(@RequestBody final String selectedAddressCode) {
+    public ResponseEntity<Void> doSelectDeliveryAddress(@RequestBody final AddressSelectionRequest request) {
+        final String selectedAddressCode = request.getAddressId();
         if (StringUtils.isNotBlank(selectedAddressCode)) {
             final AddressData selectedAddressData = getCheckoutFacade().getDeliveryAddressForCode(selectedAddressCode);
             final boolean hasSelectedAddressData = selectedAddressData != null;
@@ -81,5 +83,17 @@ public class AdyenDeliveryAddressContoller {
 
     public void setCheckoutFacade(CheckoutFacade checkoutFacade) {
         this.checkoutFacade = checkoutFacade;
+    }
+
+    public static class AddressSelectionRequest {
+        private String addressId;
+
+        public String getAddressId() {
+            return addressId;
+        }
+
+        public void setAddressId(String addressId) {
+            this.addressId = addressId;
+        }
     }
 }

@@ -30,10 +30,10 @@ import static com.adyen.commerce.util.FieldValidationUtil.getFieldCodesFromValid
 @RequestMapping(value = "/api/account")
 public class AdyenAddressController {
 
-    @Autowired
+    @Resource(name = "userFacade")
     private UserFacade userFacade;
 
-    @Autowired
+    @Resource(name = "addressVerificationFacade")
     private AddressVerificationFacade addressVerificationFacade;
 
     @Resource(name = "addressValidator")
@@ -42,7 +42,7 @@ public class AdyenAddressController {
     @Resource(name = "addressDataUtil")
     private AddressDataUtil addressDataUtil;
 
-    @Autowired
+    @Resource(name = "checkoutFacade")
     private CheckoutFacade checkoutFacade;
 
     @Resource(name = "checkoutCustomerStrategy")

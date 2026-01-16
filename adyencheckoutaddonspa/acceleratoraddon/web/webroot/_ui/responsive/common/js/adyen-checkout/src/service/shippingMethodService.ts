@@ -32,9 +32,9 @@ export class ShippingMethodService {
 
 
     static selectShippingMethod(shippingMethodId: string) {
-        return adyenAxios.post(urlContextPath + '/api/checkout/select-delivery-method', shippingMethodId, {
+        return adyenAxios.post(urlContextPath + '/api/checkout/select-delivery-method', { deliveryMethodCode: shippingMethodId }, {
             headers: {
-                'Content-Type': 'text/plain',
+                'Content-Type': 'application/json',
                 'CSRFToken': CSRFToken
             }
         })

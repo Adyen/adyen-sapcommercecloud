@@ -23,17 +23,23 @@ package com.adyen.v6.populator;
 import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.v6.model.AdyenPartialPaymentOrderModel;
 import de.hybris.platform.commercefacades.order.data.CartData;
+import de.hybris.platform.commercefacades.order.data.CCPaymentInfoData;
+import de.hybris.platform.commercefacades.payment.data.GenericPaymentInfoData;
 import de.hybris.platform.commercefacades.storesession.data.CurrencyData;
 import de.hybris.platform.converters.Populator;
 import de.hybris.platform.core.model.order.CartModel;
 import de.hybris.platform.core.model.order.payment.CreditCardPaymentInfoModel;
 import de.hybris.platform.core.model.order.payment.PaymentInfoModel;
 import de.hybris.platform.servicelayer.dto.converter.ConversionException;
+import de.hybris.platform.servicelayer.dto.converter.Converter;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class CartPopulator implements Populator<CartModel, CartData> {
+    
+    private Converter<CreditCardPaymentInfoModel, CCPaymentInfoData> creditCardPaymentInfoConverter;
+    
     /**
      * {@inheritDoc}
      */
@@ -125,5 +131,13 @@ public class CartPopulator implements Populator<CartModel, CartData> {
         target.setBalanceCheckedAt(source.getBalanceCheckedAt());
         
         return target;
+    }
+    
+    public Converter<CreditCardPaymentInfoModel, CCPaymentInfoData> getCreditCardPaymentInfoConverter() {
+        return creditCardPaymentInfoConverter;
+    }
+    
+    public void setCreditCardPaymentInfoConverter(Converter<CreditCardPaymentInfoModel, CCPaymentInfoData> creditCardPaymentInfoConverter) {
+        this.creditCardPaymentInfoConverter = creditCardPaymentInfoConverter;
     }
 }

@@ -7,6 +7,7 @@ import com.adyen.model.checkout.AfterpayDetails;
 import com.adyen.model.checkout.ApplePayDetails;
 import com.adyen.model.checkout.BrowserInfo;
 import com.adyen.model.checkout.CardDetails;
+import com.adyen.model.checkout.PayPalDetails;
 import com.adyen.model.checkout.PaymentDetails;
 import com.adyen.model.checkout.PaymentDetailsRequest;
 import com.adyen.model.checkout.PaymentDetailsResponse;
@@ -79,6 +80,10 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
         } else if(paymentRequest.getPaymentMethod().getActualInstance() instanceof ApplePayDetails applePayDetails){
             paymentInfo.setAdyenApplePayMerchantName(cartModel.getAdyenApplePayMerchantName());
             paymentInfo.setAdyenApplePayMerchantIdentifier(cartModel.getAdyenApplePayMerchantIdentifier());
+        } else if(paymentRequest.getPaymentMethod().getActualInstance() instanceof PayPalDetails payPalDetails){
+            // PayPal specific handling - set any PayPal-specific properties if needed
+            // For now, the basic payment info creation is sufficient for PayPal
+            LOGGER.debug("Processing PayPal payment method with subtype: " + payPalDetails.getSubtype());
         }
 
 
