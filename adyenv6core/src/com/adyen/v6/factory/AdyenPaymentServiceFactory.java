@@ -24,6 +24,7 @@ import com.adyen.commerce.services.impl.DefaultAdyenRequestService;
 import com.adyen.v6.service.*;
 import com.adyen.v6.strategy.AdyenMerchantAccountStrategy;
 import de.hybris.platform.store.BaseStoreModel;
+import org.springframework.context.annotation.Lazy;
 
 
 public class AdyenPaymentServiceFactory {
@@ -32,7 +33,7 @@ public class AdyenPaymentServiceFactory {
     private final DefaultAdyenRequestService defaultAdyenRequestService;
 
 
-    public AdyenPaymentServiceFactory(final AdyenMerchantAccountStrategy adyenMerchantAccountStrategy, DefaultAdyenRequestService defaultAdyenRequestService) {
+    public AdyenPaymentServiceFactory(final AdyenMerchantAccountStrategy adyenMerchantAccountStrategy, @Lazy DefaultAdyenRequestService defaultAdyenRequestService) {
         this.adyenMerchantAccountStrategy = adyenMerchantAccountStrategy;
         this.defaultAdyenRequestService = defaultAdyenRequestService;
     }
