@@ -98,7 +98,7 @@
 
 	<security:global-method-security pre-post-annotations="enabled" proxy-target-class="true" secured-annotations="enabled" />
 	
-	<mvc:resources mapping="**/swagger-ui.html" location="classpath:/META-INF/resources/"/>
+	<mvc:resources mapping="/swagger-ui.html" location="classpath:/META-INF/resources/"/>
 	<mvc:resources mapping="/webjars/**" location="classpath:/META-INF/resources/webjars/"/>
 
 </beans>

@@ -18,7 +18,7 @@ import jakarta.servlet.http.HttpServletRequest;
 @RequestMapping(value = "/view/" + AdyenDataCollectionComponentModel._TYPECODE + "Controller")
 public class AdyenDataCollectionComponentController extends AbstractCMSAddOnComponentController<AdyenDataCollectionComponentModel> {
 
-    //@Resource
+    @Resource
     private AdyenDataCollectionFacade adyenDataCollectionFacade;
 
     @Override

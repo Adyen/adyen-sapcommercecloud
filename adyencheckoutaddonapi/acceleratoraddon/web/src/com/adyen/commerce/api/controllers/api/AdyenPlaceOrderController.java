@@ -25,6 +25,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 
+import de.hybris.platform.acceleratorstorefrontcommons.annotations.RequireHardLogIn;
+
 import jakarta.servlet.http.HttpServletRequest;
 
 import static com.adyen.commerce.constants.AdyenwebcommonsConstants.ADYEN_CHECKOUT_API_PREFIX;
@@ -62,7 +64,7 @@ public class AdyenPlaceOrderController extends PlaceOrderControllerBase {
     @Resource(name = "adyenPartialPaymentService")
     private AdyenPartialPaymentService adyenPartialPaymentService;
 
-    //@RequireHardLogIn
+    @RequireHardLogIn
     @PostMapping("/place-order")
     public ResponseEntity<PlaceOrderResponse> onPlaceOrder(@RequestBody PlaceOrderRequest placeOrderRequest, HttpServletRequest request) throws Exception {
         PlaceOrderResponse placeOrderResponse = super.placeOrder(placeOrderRequest, request);
@@ -70,7 +72,7 @@ public class AdyenPlaceOrderController extends PlaceOrderControllerBase {
         return ResponseEntity.ok(placeOrderResponse);
     }
 
-    //@RequireHardLogIn
+    @RequireHardLogIn
     @PostMapping("/additional-details")
     public ResponseEntity<PlaceOrderResponse> onAdditionalDetails(@RequestBody PaymentDetailsRequest detailsRequest, HttpServletRequest request) throws Exception {
         PlaceOrderResponse placeOrderResponse = super.handleAdditionalDetails(detailsRequest);
@@ -78,7 +80,7 @@ public class AdyenPlaceOrderController extends PlaceOrderControllerBase {
         return ResponseEntity.ok(placeOrderResponse);
     }
 
-    //@RequireHardLogIn
+    @RequireHardLogIn
     @PostMapping("/payment-canceled")
     public ResponseEntity<Void> onCancel() throws InvalidCartException, CalculationException {
         super.handleCancel();

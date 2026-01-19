@@ -18,7 +18,7 @@ import jakarta.servlet.http.HttpServletRequest;
 @RequestMapping(value = "/view/" + AdyenAccExpressCheckoutProductPageComponentModel._TYPECODE + "Controller")
 public class AdyenAccProductExpressCheckoutComponentController extends AbstractCMSAddOnComponentController<AdyenAccExpressCheckoutProductPageComponentModel> {
 
-    //@Resource
+    @Resource
     private AdyenCheckoutFacade adyenCheckoutFacade;
 
 
