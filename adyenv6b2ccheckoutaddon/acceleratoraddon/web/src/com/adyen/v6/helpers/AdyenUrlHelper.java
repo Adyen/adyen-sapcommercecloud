@@ -25,8 +25,6 @@ import com.adyen.v6.util.AdyenUtil;
 import de.hybris.platform.acceleratorservices.urlresolver.SiteBaseUrlResolutionService;
 import de.hybris.platform.basecommerce.model.site.BaseSiteModel;
 import de.hybris.platform.site.BaseSiteService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
 
 import static com.adyen.v6.constants.AdyenControllerConstants.AUTHORISE_3D_SECURE_PAYMENT_URL;
 import static com.adyen.v6.constants.AdyenControllerConstants.CHECKOUT_RESULT_URL;
@@ -37,13 +35,11 @@ import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_CC;
 /**
  * Service for handling Adyen URL generation and payment method validation
  */
-@Service("adyenUrlHelper")
 public class AdyenUrlHelper {
 
     private final SiteBaseUrlResolutionService siteBaseUrlResolutionService;
     private final BaseSiteService baseSiteService;
 
-    @Autowired
     public AdyenUrlHelper(SiteBaseUrlResolutionService siteBaseUrlResolutionService,
                           BaseSiteService baseSiteService) {
         this.siteBaseUrlResolutionService = siteBaseUrlResolutionService;
