@@ -2,7 +2,6 @@ package com.adyen.commerce.services.impl;
 
 import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.commerce.services.AdyenRequestService;
-import com.adyen.commerce.services.impl.AddressConverter;
 import com.adyen.model.checkout.*;
 import com.adyen.model.recurring.DisableRequest;
 import com.adyen.model.recurring.RecurringDetailsRequest;
@@ -416,7 +415,8 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
     }
 
     protected boolean tokenizeForSubscriptionProducts(CartData cartData) {
-        return !cartData.getSubscriptionOrder() && cartData.getEntries().stream()
+        return Objects.nonNull(cartData.getSubscriptionOrder()) && !cartData.getSubscriptionOrder()
+                && cartData.getEntries().stream()
                 .anyMatch(entry -> Objects.nonNull(entry.getProduct().getSubscriptionTerm()));
     }
 
