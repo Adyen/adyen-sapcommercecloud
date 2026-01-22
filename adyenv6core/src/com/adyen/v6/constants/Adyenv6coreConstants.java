@@ -37,7 +37,7 @@ public final class Adyenv6coreConstants extends GeneratedAdyenv6coreConstants {
 
 	public static final String INTEGRATOR = "SYSKOPLAN CX";
 
-	public static final String PAYMENT_METHOD_CC = "adyen_cc";
+	public static final String PAYMENT_METHOD_CC = "card";
 	public static final String PAYMENT_METHOD_EPS = "eps";
 	public static final String PAYMENT_METHOD_IDEAL = "ideal";
 	public static final String PAYMENT_METHOD_ONECLICK = "adyen_oneclick_";
