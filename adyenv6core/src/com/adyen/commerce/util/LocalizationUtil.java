@@ -5,6 +5,10 @@ import org.springframework.util.Assert;
 
 public class LocalizationUtil {
 
+    private LocalizationUtil() {
+        // Private constructor to prevent instantiation
+    }
+
     public static String getLocalizedStringOrDefault(final String key, final String defaultValue) {
         Assert.notNull(key, "key must not be null");
         Assert.notNull(defaultValue, "defaultValue must not be null");
