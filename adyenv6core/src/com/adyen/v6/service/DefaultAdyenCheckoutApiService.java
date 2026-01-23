@@ -22,7 +22,7 @@ package com.adyen.v6.service;
 
 import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.commerce.services.AdyenRequestService;
-import com.adyen.commerce.services.DefaultPaymentMethodNameOverrideService;
+import com.adyen.commerce.services.PaymentMethodNameOverrideService;
 import com.adyen.model.checkout.*;
 import com.adyen.model.recurring.*;
 import com.adyen.service.RecurringApi;
@@ -51,9 +51,9 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
 
     private static final Logger LOG = Logger.getLogger(DefaultAdyenCheckoutApiService.class);
 
-    private final DefaultPaymentMethodNameOverrideService paymentMethodNameOverrideService;
+    private final PaymentMethodNameOverrideService paymentMethodNameOverrideService;
 
-    public DefaultAdyenCheckoutApiService(BaseStoreModel baseStore, String merchantAccount, AdyenRequestService adyenRequestService, DefaultPaymentMethodNameOverrideService paymentMethodNameOverrideService) {
+    public DefaultAdyenCheckoutApiService(BaseStoreModel baseStore, String merchantAccount, AdyenRequestService adyenRequestService, PaymentMethodNameOverrideService paymentMethodNameOverrideService) {
         super(baseStore, merchantAccount, adyenRequestService);
         this.paymentMethodNameOverrideService = paymentMethodNameOverrideService;
     }

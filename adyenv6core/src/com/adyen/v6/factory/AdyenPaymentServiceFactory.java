@@ -20,7 +20,7 @@
  */
 package com.adyen.v6.factory;
 
-import com.adyen.commerce.services.DefaultPaymentMethodNameOverrideService;
+import com.adyen.commerce.services.PaymentMethodNameOverrideService;
 import com.adyen.commerce.services.impl.DefaultAdyenRequestService;
 import com.adyen.v6.service.*;
 import com.adyen.v6.strategy.AdyenMerchantAccountStrategy;
@@ -31,10 +31,10 @@ public class AdyenPaymentServiceFactory {
 
     protected final AdyenMerchantAccountStrategy adyenMerchantAccountStrategy;
     private final DefaultAdyenRequestService defaultAdyenRequestService;
-    private final DefaultPaymentMethodNameOverrideService paymentMethodNameOverrideService;
+    private final PaymentMethodNameOverrideService paymentMethodNameOverrideService;
 
 
-    public AdyenPaymentServiceFactory(final AdyenMerchantAccountStrategy adyenMerchantAccountStrategy, DefaultAdyenRequestService defaultAdyenRequestService, DefaultPaymentMethodNameOverrideService paymentMethodNameOverrideService) {
+    public AdyenPaymentServiceFactory(final AdyenMerchantAccountStrategy adyenMerchantAccountStrategy, DefaultAdyenRequestService defaultAdyenRequestService, PaymentMethodNameOverrideService paymentMethodNameOverrideService) {
         this.adyenMerchantAccountStrategy = adyenMerchantAccountStrategy;
         this.defaultAdyenRequestService = defaultAdyenRequestService;
         this.paymentMethodNameOverrideService = paymentMethodNameOverrideService;

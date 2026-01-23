@@ -1,6 +1,6 @@
 package com.adyen.commerce.services.impl;
 
-import com.adyen.commerce.services.DefaultPaymentMethodNameOverrideService;
+import com.adyen.commerce.services.PaymentMethodNameOverrideService;
 import com.adyen.model.checkout.PaymentMethod;
 import com.adyen.model.checkout.PaymentMethodsResponse;
 import de.hybris.platform.core.model.c2l.LanguageModel;
@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-public class DefaultPaymentMethodNameOverrideServiceImpl implements DefaultPaymentMethodNameOverrideService {
+public class DefaultPaymentMethodNameOverrideServiceImpl implements PaymentMethodNameOverrideService {
     private BaseStoreService baseStoreService;
     private CommonI18NService commonI18NService;
 
