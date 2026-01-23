@@ -92,7 +92,7 @@ public class AdyenStoredCardsController extends AbstractSearchPageController {
     // Disables a recurring contract
     @RequestMapping(value = "/remove", method = RequestMethod.POST)
     @RequireHardLogIn
-    public String removeStoredCard(@RequestParam(value = "paymentInfoId") final String paymentInfoId, final RedirectAttributes redirectAttributes) throws Exception {
+    public String removeStoredCard(@RequestParam(value = "paymentInfoId") final String paymentInfoId, final RedirectAttributes redirectAttributes) throws CMSItemNotFoundException {
         //First retrieve the list of stored cards for the given customer
         List<RecurringDetail> storedCards = getStoredCards();
         CustomerModel customer = getCurrentCustomer();

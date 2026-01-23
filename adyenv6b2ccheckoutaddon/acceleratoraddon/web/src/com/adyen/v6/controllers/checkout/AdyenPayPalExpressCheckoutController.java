@@ -89,7 +89,7 @@ public class AdyenPayPalExpressCheckoutController extends AdyenExpressCheckoutCo
     }
 
     @PostMapping("shipping-address")
-    public ResponseEntity<PaypalUpdateOrderResponse> paypalSetShippingAddress(@RequestBody PayPalExpressShippingAddressRequest payPalExpressShippingAddressRequest) throws Exception {
+    public ResponseEntity<PaypalUpdateOrderResponse> paypalSetShippingAddress(@RequestBody PayPalExpressShippingAddressRequest payPalExpressShippingAddressRequest) throws IOException, ApiException, DuplicateUidException, CalculationException {
         PaypalUpdateOrderResponse paypalUpdateOrderResponse = adyenPayPalExpressCheckoutFacade.updateShippingAddress(
                 payPalExpressShippingAddressRequest.getAddressData(),
                 payPalExpressShippingAddressRequest.getPspReference(),
@@ -100,7 +100,7 @@ public class AdyenPayPalExpressCheckoutController extends AdyenExpressCheckoutCo
     }
 
     @PostMapping("shipping-method")
-    public ResponseEntity<PaypalUpdateOrderResponse> paypalSetShippingMode(@RequestBody PayPalExpressShippingMethodRequest payPalExpressShippingMethodRequest) throws Exception {
+    public ResponseEntity<PaypalUpdateOrderResponse> paypalSetShippingMode(@RequestBody PayPalExpressShippingMethodRequest payPalExpressShippingMethodRequest) throws CalculationException, IOException, ApiException {
         PaypalUpdateOrderResponse paypalUpdateOrderResponse = adyenPayPalExpressCheckoutFacade.updateShippingMethod(payPalExpressShippingMethodRequest.getShippingMethodCode(),
                 payPalExpressShippingMethodRequest.getPspReference(), payPalExpressShippingMethodRequest.getPaymentData(),
                 payPalExpressShippingMethodRequest.getCartGuid());
