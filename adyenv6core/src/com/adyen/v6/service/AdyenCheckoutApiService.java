@@ -52,7 +52,7 @@ public interface AdyenCheckoutApiService {
         throw new UnsupportedOperationException("Partial payment processing not supported by this implementation");
     }
 
-    PaymentResponse sendPaymentRequest(final PaymentRequest paymentRequest, final RequestInfo requestInfo) throws Exception;
+    PaymentResponse sendPaymentRequest(final PaymentRequest paymentRequest, final RequestInfo requestInfo) throws IOException, ApiException;
 
     PaymentDetailsResponse authorise3DSPayment(PaymentDetailsRequest paymentsDetailsRequest) throws Exception;
 
@@ -82,7 +82,7 @@ public interface AdyenCheckoutApiService {
     /**
      * Disables a recurring contract via Adyen API
      */
-    boolean disableStoredCard(String customerId, String recurringReference) throws Exception;
+    boolean disableStoredCard(String customerId, String recurringReference) throws IOException, ApiException;
 
     /**
      * Retrieves payment response from /payments/details for redirect methods like klarna

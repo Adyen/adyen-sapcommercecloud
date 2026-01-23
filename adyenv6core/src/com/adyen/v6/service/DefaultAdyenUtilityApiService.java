@@ -20,18 +20,27 @@ public class DefaultAdyenUtilityApiService extends AbstractAdyenApiService imple
         super(baseStore, merchantAccount, adyenRequestService, adyenCustomerInteractionRetryTemplate, adyenBackgroundProcessRetryTemplate);
     }
 
-    public PaypalUpdateOrderResponse paypalUpdateOrder(PaypalUpdateOrderRequest paypalUpdateOrderRequest) throws Exception {
+    public PaypalUpdateOrderResponse paypalUpdateOrder(PaypalUpdateOrderRequest paypalUpdateOrderRequest) throws IOException, ApiException {
         UtilityApi utilityApi = new UtilityApi(client);
 
         RequestOptions requestOptions = new RequestOptions();
         requestOptions.setIdempotencyKey(UUID.randomUUID().toString());
 
-        return adyenCustomerInteractionRetryTemplate.execute(context -> {
-            LOG.debug(paypalUpdateOrderRequest);
-            PaypalUpdateOrderResponse paypalUpdateOrderResponse = utilityApi.updatesOrderForPaypalExpressCheckout(paypalUpdateOrderRequest, requestOptions);
-            LOG.debug(paypalUpdateOrderResponse);
-            return paypalUpdateOrderResponse;
-        });
-
+        try {
+            return adyenCustomerInteractionRetryTemplate.execute(context -> {
+                LOG.debug(paypalUpdateOrderRequest);
+                PaypalUpdateOrderResponse paypalUpdateOrderResponse = utilityApi.updatesOrderForPaypalExpressCheckout(paypalUpdateOrderRequest, requestOptions);
+                LOG.debug(paypalUpdateOrderResponse);
+                return paypalUpdateOrderResponse;
+            });
+        } catch (Exception e) {
+            if (e instanceof ApiException) {
+                throw (ApiException) e;
+            } else if (e instanceof IOException) {
+                throw (IOException) e;
+            } else {
+                throw new RuntimeException(e);
+            }
+        }
     }
 }
