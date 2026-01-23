@@ -47,7 +47,7 @@ public class DefaultSubscriptionAdyenCheckoutApiService extends AbstractAdyenApi
     }
 
 
-    public PaymentResponse processPaymentRequest(final AbstractOrderModel subscriptionOrder) throws Exception {
+    public PaymentResponse processPaymentRequest(final AbstractOrderModel subscriptionOrder) throws IOException, ApiException {
         LOG.debug("Subscription payment");
 
         PaymentsApi checkoutApi = new PaymentsApi(client);
@@ -60,16 +60,26 @@ public class DefaultSubscriptionAdyenCheckoutApiService extends AbstractAdyenApi
         RequestOptions requestOptions = new RequestOptions();
         requestOptions.setIdempotencyKey(UUID.randomUUID().toString());
 
-        return adyenBackgroundProcessRetryTemplate.execute(context -> {
-            LOG.debug(paymentRequest);
-            PaymentResponse paymentsResponse = checkoutApi.payments(paymentRequest, requestOptions);
-            LOG.debug(paymentsResponse);
+        try {
+            return adyenBackgroundProcessRetryTemplate.execute(context -> {
+                LOG.debug(paymentRequest);
+                PaymentResponse paymentsResponse = checkoutApi.payments(paymentRequest, requestOptions);
+                LOG.debug(paymentsResponse);
 
-            return paymentsResponse;
-        });
+                return paymentsResponse;
+            });
+        } catch (Exception e) {
+            if (e instanceof ApiException) {
+                throw (ApiException) e;
+            } else if (e instanceof IOException) {
+                throw (IOException) e;
+            } else {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
-    public PaymentResponse processPaymentRequest(final AbstractOrderModel subscriptionOrder, final AbstractOrderModel onFirstBillOrder) throws Exception {
+    public PaymentResponse processPaymentRequest(final AbstractOrderModel subscriptionOrder, final AbstractOrderModel onFirstBillOrder) throws IOException, ApiException {
         LOG.debug("Subscription + onFirstBill payment");
 
         PaymentsApi checkoutApi = new PaymentsApi(client);
@@ -82,13 +92,23 @@ public class DefaultSubscriptionAdyenCheckoutApiService extends AbstractAdyenApi
         RequestOptions requestOptions = new RequestOptions();
         requestOptions.setIdempotencyKey(UUID.randomUUID().toString());
 
-        return adyenBackgroundProcessRetryTemplate.execute(context -> {
-            LOG.debug(paymentRequest);
-            PaymentResponse paymentsResponse = checkoutApi.payments(paymentRequest, requestOptions);
-            LOG.debug(paymentsResponse);
+        try {
+            return adyenBackgroundProcessRetryTemplate.execute(context -> {
+                LOG.debug(paymentRequest);
+                PaymentResponse paymentsResponse = checkoutApi.payments(paymentRequest, requestOptions);
+                LOG.debug(paymentsResponse);
 
-            return paymentsResponse;
-        });
+                return paymentsResponse;
+            });
+        } catch (Exception e) {
+            if (e instanceof ApiException) {
+                throw (ApiException) e;
+            } else if (e instanceof IOException) {
+                throw (IOException) e;
+            } else {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
 
