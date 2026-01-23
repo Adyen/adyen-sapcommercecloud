@@ -2,6 +2,7 @@ package com.adyen.commerce.listener;
 
 import com.adyen.commerce.data.TokenWebhookRequestData;
 import com.adyen.commerce.event.TokenizationEvent;
+import com.adyen.v6.constants.Adyenv6coreConstants;
 import com.adyen.v6.repository.PaymentTransactionRepository;
 import de.hybris.platform.core.model.order.AbstractOrderModel;
 import de.hybris.platform.core.model.order.payment.PaymentInfoModel;
@@ -9,7 +10,6 @@ import de.hybris.platform.core.model.user.CustomerModel;
 import de.hybris.platform.payment.model.PaymentTransactionModel;
 import de.hybris.platform.servicelayer.event.impl.AbstractEventListener;
 import de.hybris.platform.servicelayer.model.ModelService;
-import org.apache.commons.lang.NotImplementedException;
 import org.apache.log4j.Logger;
 
 import java.util.Objects;
