@@ -21,7 +21,6 @@
 package com.adyen.v6.facades.impl;
 
 
-import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.commerce.data.PaymentMethodsCartData;
 import com.adyen.model.checkout.*;
 import com.adyen.model.recurring.Recurring;
@@ -31,7 +30,6 @@ import com.adyen.v6.constants.StorefrontType;
 import com.adyen.v6.controllers.dtos.PaymentResultDTO;
 import com.adyen.v6.dto.*;
 import com.adyen.v6.enums.AdyenCardTypeEnum;
-import com.adyen.v6.enums.AdyenPartialPaymentStatus;
 import com.adyen.v6.enums.AdyenRegions;
 import com.adyen.v6.enums.RecurringContractMode;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
@@ -48,7 +46,6 @@ import com.adyen.v6.repository.OrderRepository;
 import com.adyen.v6.service.*;
 import com.adyen.v6.strategy.AdyenMerchantAccountStrategy;
 import com.adyen.v6.util.AmountUtil;
-import com.adyen.v6.util.RemainingAmountCalculator;
 import com.google.gson.Gson;
 import de.hybris.platform.commercefacades.i18n.I18NFacade;
 import de.hybris.platform.commercefacades.order.CheckoutFacade;
@@ -235,12 +232,12 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     @Override
     public String getEnvironmentMode() {
         if (Boolean.TRUE.equals(baseStoreService.getCurrentBaseStore().getAdyenTestMode())) {
-            return "test";
+            return TEST_ENV;
         }
         if (AdyenRegions.IN.equals(baseStoreService.getCurrentBaseStore().getAdyenRegion())) {
             return "live-in";
         }
-        return "live";
+        return LIVE_ENV;
     }
 
     @Override

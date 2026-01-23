@@ -51,7 +51,7 @@ public class TokenizationWebhookEventListener extends AbstractEventListener<Toke
             paymentInfo.setAdyenSelectedReference(data.getStoredPaymentMethodId());
             modelService.save(paymentInfo);
         } else {
-            throw new NotImplementedException("TokenizationWebhookEventListener not implemented for type " + data.getEventType());
+            LOG.warn("Received Tokenization event of type [" + data.getEventType() + "] which is not currently handled.");
         }
 
     }
@@ -62,8 +62,8 @@ public class TokenizationWebhookEventListener extends AbstractEventListener<Toke
 
         validationResult &= order.getStore().getAdyenMerchantAccount().equals(tokenWebhookRequestData.getMerchantAccount());
 
-        validationResult &= (order.getStore().getAdyenTestMode() && "test".equals(tokenWebhookRequestData.getEnvironment())) ||
-                (!order.getStore().getAdyenTestMode() && "live".equals(tokenWebhookRequestData.getEnvironment()));
+        validationResult &= (order.getStore().getAdyenTestMode() && Adyenv6coreConstants.TEST_ENV.equals(tokenWebhookRequestData.getEnvironment())) ||
+                (!order.getStore().getAdyenTestMode() && Adyenv6coreConstants.LIVE_ENV.equals(tokenWebhookRequestData.getEnvironment()));
 
         if (!validationResult) {
             throw new IllegalArgumentException("Token webhook request is not valid. EventId (pspReference): " + tokenWebhookRequestData.getEventId() +
