@@ -125,7 +125,7 @@ public class Adyen3DSHelper {
      * @param cartData the cart data
      * @return the country ISO code or empty string if not found
      */
-    private String getCountryCode(CartData cartData) {
+    protected String getCountryCode(CartData cartData) {
         return Optional.ofNullable(cartData.getPaymentInfo())
                 .map(CCPaymentInfoData::getBillingAddress)
                 .or(() -> Optional.ofNullable(cartData.getDeliveryAddress()))

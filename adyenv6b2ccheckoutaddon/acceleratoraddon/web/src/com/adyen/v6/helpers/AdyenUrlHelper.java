@@ -86,7 +86,7 @@ public class AdyenUrlHelper {
      * @param paymentMethod the Adyen payment method
      * @return the URL path
      */
-    private String determineUrlPath(String paymentMethod) {
+    protected String determineUrlPath(String paymentMethod) {
         if (is3DSPaymentMethod(paymentMethod) || isGooglePay(paymentMethod)) {
             return SUMMARY_CHECKOUT_PREFIX + AUTHORISE_3D_SECURE_PAYMENT_URL;
         }
