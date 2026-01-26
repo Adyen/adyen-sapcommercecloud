@@ -13,6 +13,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 
+import de.hybris.platform.order.InvalidCartException;
+import de.hybris.platform.order.exceptions.CalculationException;
+
 import javax.servlet.http.HttpServletRequest;
 
 @Tag(name = "Adyen")
@@ -77,4 +80,22 @@ public interface AdyenPlaceOrderApi {
     )
     @ApiBaseSiteIdAndUserIdParam
     ResponseEntity<String> onAdditionalDetails(@org.springframework.web.bind.annotation.RequestBody PaymentDetailsRequest detailsRequest) throws JsonProcessingException;
+
+    @Operation(
+            operationId = "cancelPayment",
+            summary = "Handle payment cancellation",
+            description = "Handles the scenario where a user cancels the payment process.",
+            responses = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "Payment cancellation handled successfully."
+                    ),
+                    @ApiResponse(responseCode = "400", description = "Bad Request"),
+                    @ApiResponse(responseCode = "401", description = "Unauthorized. Authentication required."),
+                    @ApiResponse(responseCode = "403", description = "Forbidden. Insufficient permissions."),
+                    @ApiResponse(responseCode = "500", description = "Internal Server Error")
+            }
+    )
+    @ApiBaseSiteIdAndUserIdParam
+    ResponseEntity<Void> onCancel() throws InvalidCartException, CalculationException;
 }

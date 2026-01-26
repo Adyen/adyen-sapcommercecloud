@@ -17,6 +17,8 @@ import de.hybris.platform.acceleratorservices.urlresolver.SiteBaseUrlResolutionS
 import de.hybris.platform.commercefacades.order.CartFacade;
 import de.hybris.platform.commerceservices.request.mapping.annotation.ApiVersion;
 import de.hybris.platform.commerceservices.strategies.CheckoutCustomerStrategy;
+import de.hybris.platform.order.InvalidCartException;
+import de.hybris.platform.order.exceptions.CalculationException;
 import de.hybris.platform.site.BaseSiteService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -83,6 +85,13 @@ public class PlaceOrderController extends PlaceOrderControllerBase implements Ad
         return ResponseEntity.ok(response);
     }
 
+    @Override
+    @Secured({"ROLE_CUSTOMERGROUP", "ROLE_TRUSTED_CLIENT", "ROLE_CUSTOMERMANAGERGROUP"})
+    @PostMapping(value = AdyenoccConstants.ADYEN_USER_CART_PREFIX + "/payment/cancel")
+    public ResponseEntity<Void> onCancel() throws InvalidCartException, CalculationException {
+        super.handleCancel();
+        return ResponseEntity.ok().build();
+    }
 
     @Override
     public String getPaymentRedirectReturnUrl() {
