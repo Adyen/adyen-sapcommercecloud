@@ -23,7 +23,6 @@ package com.adyen.v6.service;
 import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.httpclient.HTTPClientException;
 import com.adyen.model.checkout.*;
-import com.adyen.model.recurring.RecurringDetail;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.model.RequestInfo;
 import de.hybris.platform.commercefacades.order.data.CartData;
@@ -72,17 +71,17 @@ public interface AdyenCheckoutApiService {
     List<PaymentMethod> getPaymentMethods(BigDecimal amount, String currency, String countryCode, String shopperLocale) throws HTTPClientException, SignatureException, IOException;
 
     /**
-     * Retrieve stored cards from recurring contracts via Adyen API
-     *
-     * @deprecated use getPaymentMethodsResponse instead {@link #getPaymentMethodsResponse(BigDecimal amount, String currency, String countryCode, String shopperLocale, String shopperReference, String shopperConversionId)} ()
-     */
+	  * Retrieve stored cards from recurring contracts via Adyen API
+	  *
+	  * @deprecated use getPaymentMethodsResponse instead {@link #getPaymentMethodsResponse(BigDecimal amount, String currency, String countryCode, String shopperLocale, String shopperReference, String shopperConversionId)} ()
+	  */
     @Deprecated
-    List<RecurringDetail> getStoredCards(String customerId) throws IOException, ApiException;
+	 List<StoredPaymentMethodResource> getStoredCards(String customerId) throws IOException, ApiException;
 
     /**
      * Disables a recurring contract via Adyen API
      */
-    boolean disableStoredCard(String customerId, String recurringReference) throws IOException, ApiException;
+     void disableStoredCard(String customerId, String recurringReference) throws IOException, ApiException;
 
     /**
      * Retrieves payment response from /payments/details for redirect methods like klarna

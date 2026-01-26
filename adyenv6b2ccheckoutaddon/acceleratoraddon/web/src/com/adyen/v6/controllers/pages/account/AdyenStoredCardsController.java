@@ -20,6 +20,7 @@
  */
 package com.adyen.v6.controllers.pages.account;
 
+import com.adyen.model.checkout.StoredPaymentMethodResource;
 import com.adyen.model.recurring.RecurringDetail;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
@@ -78,7 +79,7 @@ public class AdyenStoredCardsController extends AbstractSearchPageController {
     @RequestMapping(method = RequestMethod.GET)
     @RequireHardLogIn
     public String listStoredCards(@Nonnull final Model model) throws CMSItemNotFoundException {
-        List<RecurringDetail> storedCards = getStoredCards();
+        List<StoredPaymentMethodResource> storedCards = getStoredCards();
 
         storeCmsPageInModel(model, getContentPageForLabelOrId(STORED_CARDS_CMS_PAGE));
         setUpMetaDataForContentPage(model, getContentPageForLabelOrId(STORED_CARDS_CMS_PAGE));
@@ -94,11 +95,11 @@ public class AdyenStoredCardsController extends AbstractSearchPageController {
     @RequireHardLogIn
     public String removeStoredCard(@RequestParam(value = "paymentInfoId") final String paymentInfoId, final RedirectAttributes redirectAttributes) throws CMSItemNotFoundException {
         //First retrieve the list of stored cards for the given customer
-        List<RecurringDetail> storedCards = getStoredCards();
+        List<StoredPaymentMethodResource> storedCards = getStoredCards();
         CustomerModel customer = getCurrentCustomer();
 
         if (paymentInfoId != null && ! paymentInfoId.isEmpty() && customer != null) {
-            boolean contains = storedCards.stream().anyMatch(storedCard -> paymentInfoId.equals(storedCard.getRecurringDetailReference()));
+            boolean contains = storedCards.stream().anyMatch(storedCard -> paymentInfoId.equals(storedCard));
 
             if (contains) {
                 try {
@@ -119,8 +120,8 @@ public class AdyenStoredCardsController extends AbstractSearchPageController {
         return REDIRECT_MY_ACCOUNT_STOREDCARDS;
     }
 
-    private List<RecurringDetail> getStoredCards() {
-        List<RecurringDetail> storedCards = new ArrayList<>();
+    private List<StoredPaymentMethodResource> getStoredCards() {
+        List<StoredPaymentMethodResource> storedCards = new ArrayList<>();
         CustomerModel customer = getCurrentCustomer();
 
         if (customer != null) {

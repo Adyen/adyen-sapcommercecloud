@@ -24,7 +24,7 @@ import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.commerce.services.AdyenRequestService;
 import com.adyen.model.checkout.*;
 import com.adyen.model.recurring.*;
-import com.adyen.service.RecurringApi;
+import com.adyen.service.checkout.RecurringApi;
 import com.adyen.service.checkout.PaymentsApi;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.model.RequestInfo;
@@ -44,7 +44,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
-import java.util.stream.Collectors;
+
 
 public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService implements AdyenCheckoutApiService {
 
@@ -228,7 +228,7 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
 
     @Override
     @Deprecated
-    public List<RecurringDetail> getStoredCards(final String customerId) throws IOException, ApiException {
+    public List<StoredPaymentMethodResource> getStoredCards(final String customerId) throws IOException, ApiException {
         LOG.debug("Get stored cards");
 
         if (customerId == null) {
@@ -238,26 +238,19 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
 
         RecurringApi recurring = new RecurringApi(client);
 
-        RecurringDetailsRequest request = adyenRequestService.createListRecurringDetailsRequest(merchantAccount, customerId);
-
-        LOG.debug(request);
-        RecurringDetailsResult result = recurring.listRecurringDetails(request);
+        ListStoredPaymentMethodsResponse result = recurring.getTokensForStoredPaymentDetails(customerId, merchantAccount, null);
         LOG.debug(result);
 
-        if (result.getDetails() == null || result.getDetails().isEmpty()) {
+        if (result.getStoredPaymentMethods() == null || result.getStoredPaymentMethods().isEmpty()) {
             return new ArrayList<>();
         }
 
         //Return only cards
-        return result.getDetails()
-                .stream()
-                .map(RecurringDetailWrapper::getRecurringDetail)
-                .filter(detail -> (detail.getCard() != null && detail.getRecurringDetailReference() != null))
-                .collect(Collectors.toList());
+        return result.getStoredPaymentMethods();
     }
 
     @Override
-    public boolean disableStoredCard(final String customerId, final String recurringReference) throws IOException, ApiException {
+    public void disableStoredCard(final String customerId, final String recurringReference) {
         LOG.debug("Disable stored card");
 
         RecurringApi recurring = new RecurringApi(client);
@@ -265,10 +258,14 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
         DisableRequest request = adyenRequestService.createDisableRequest(merchantAccount, customerId, recurringReference);
 
         LOG.debug(request);
-        DisableResult result = recurring.disable(request);
-        LOG.debug(result);
-
-        return ("[detail-successfully-disabled]".equals(result.getResponse()) || "[all-details-successfully-disabled]".equals(result.getResponse()));
+        try
+        {
+            recurring.deleteTokenForStoredPaymentDetails(recurringReference, merchantAccount, customerId);
+        }
+        catch (ApiException | IOException e){
+            LOG.error("Couldn't remove token for stored payment details " + e.getMessage());
+        }
+        LOG.debug("Removed token for stored payment details");
     }
 
     @Override
