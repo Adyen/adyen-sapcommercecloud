@@ -183,6 +183,19 @@
         <property name="businessProcessService" ref="businessProcessService" />
     </bean>
 
+    <alias name="defaultThreeDSAuthorizationService" alias="threeDSAuthorizationService"/>
+    <bean id="defaultThreeDSAuthorizationService" class="com.adyen.v6.service.DefaultThreeDSAuthorizationService">
+        <property name="sessionService" ref="sessionService"/>
+        <property name="orderRepository" ref="adyenOrderRepository"/>
+        <property name="adyenPaymentServiceFactory" ref="adyenPaymentServiceFactory"/>
+        <property name="baseStoreService" ref="baseStoreService"/>
+        <property name="modelService" ref="modelService"/>
+        <property name="adyenTransactionService" ref="adyenTransactionService"/>
+        <property name="adyenOrderService" ref="adyenOrderService"/>
+        <property name="adyenBusinessProcessService" ref="adyenBusinessProcessService"/>
+        <property name="orderConverter" ref="orderConverter"/>
+    </bean>
+
     <!-- Process notification cronjob -->
     <bean id="adyenProcessNotificationCronJob" class="com.adyen.v6.cronjob.AdyenProcessNotificationCronJob" autowire="byName">
         <property name="modelService" ref="modelService"/>
@@ -237,7 +250,9 @@
         <property name="adyenOrderFacade" ref="adyenOrderFacade"/>
         <property name="productFacade" ref="productFacade"/>
         <property name="commerceCartService" ref="commerceCartService"/>
+        <property name="threeDSAuthorizationService" ref="threeDSAuthorizationService"/>
         <property name="adyenShopperIpResolverService" ref="adyenShopperIpResolverService"/>
+        <property name="adyenInstallmentsConfigurationService" ref="adyenInstallmentsConfigurationService"/>
     </bean>
 
     <alias name="defaultAdyenCheckoutApiFacade" alias="adyenCheckoutApiFacade" />
@@ -547,6 +562,13 @@
     <alias name="defaultAdyenShopperIpResolverService" alias="adyenShopperIpResolverService"/>
     <bean id="defaultAdyenShopperIpResolverService" class="com.adyen.v6.service.DefaultAdyenShopperIpResolverService">
         <property name="configurationService" ref="configurationService"/>
+    </bean>
+
+    <alias name="defaultAdyenInstallmentsConfigurationService" alias="adyenInstallmentsConfigurationService"/>
+    <bean id="defaultAdyenInstallmentsConfigurationService" class="com.adyen.v6.service.DefaultAdyenInstallmentsConfigurationService">
+        <property name="baseStoreService" ref="baseStoreService"/>
+        <property name="cartService" ref="cartService"/>
+        <property name="modelService" ref="modelService"/>
     </bean>
 
     <!-- To support getCheckoutCart for non credit cards (CreditCardPaymentInfoModel) -->
