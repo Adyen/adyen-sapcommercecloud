@@ -30,6 +30,8 @@ import java.util.List;
 public final class Adyenv6coreConstants extends GeneratedAdyenv6coreConstants {
 	public static final String EXTENSIONNAME = "adyenv6core";
 
+    public static final String PLATFORM_NAME = "SAP Commerce";
+
 	public static final String PLUGIN_NAME = "adyen-hybris";
 	public static final String PLUGIN_VERSION = "13.4.0";
 	public static final String PAYMENT_PROVIDER = "Adyen";
