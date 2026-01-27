@@ -23,7 +23,6 @@ package com.adyen.v6.service;
 import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.commerce.services.AdyenRequestService;
 import com.adyen.model.checkout.*;
-import com.adyen.model.recurring.*;
 import com.adyen.service.checkout.RecurringApi;
 import com.adyen.service.checkout.PaymentsApi;
 import com.adyen.service.exception.ApiException;

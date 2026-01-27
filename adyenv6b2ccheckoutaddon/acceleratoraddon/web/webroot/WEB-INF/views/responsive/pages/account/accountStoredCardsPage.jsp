@@ -27,7 +27,7 @@
                                 <li><img src="https://live.adyen.com/hpp/img/pm/${storedCard.brand}.png"/></li>
                                 <li>****${fn:escapeXml(storedCard.lastFour)}</li>
                                 <li>
-                                    <c:if test="${storedCard.expiryMonth lt 10}">0</c:if>
+                                    <c:if test="${storedCard.expiryMonth lt 1}">0</c:if>
                                         ${fn:escapeXml(storedCard.expiryMonth)}&nbsp;/&nbsp;${fn:escapeXml(storedCard.expiryYear)}
                                 </li>
                             </ul>
