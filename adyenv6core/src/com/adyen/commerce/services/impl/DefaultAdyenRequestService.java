@@ -42,8 +42,8 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
     protected final ConfigurationService configurationService;
     protected final PaymentMethodHandlerFactory paymentMethodHandlerFactory;
 
-    public DefaultAdyenRequestService(BaseStoreService baseStoreService, 
-                                    CartService cartService, 
+    public DefaultAdyenRequestService(BaseStoreService baseStoreService,
+                                    CartService cartService,
                                     ConfigurationService configurationService,
                                     PaymentMethodHandlerFactory paymentMethodHandlerFactory) {
         this.baseStoreService = baseStoreService;
@@ -131,22 +131,6 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
         return paymentRequest;
     }
 
-    @Override
-    public RecurringDetailsRequest createListRecurringDetailsRequest(final String merchantAccount, final String customerId) {
-        validateRecurringRequestInputs(merchantAccount, customerId);
-        return new RecurringDetailsRequest()
-            .merchantAccount(merchantAccount)
-            .shopperReference(customerId);
-    }
-
-    @Override
-    public DisableRequest createDisableRequest(final String merchantAccount, final String customerId, final String recurringReference) {
-        validateDisableRequestInputs(merchantAccount, customerId, recurringReference);
-        return new DisableRequest()
-            .merchantAccount(merchantAccount)
-            .shopperReference(customerId)
-            .recurringDetailReference(recurringReference);
-    }
 
     @Override
     public void decoratePayPalSubmitPaymentRequest(final String merchantAccount, final PaymentRequest paymentRequest,

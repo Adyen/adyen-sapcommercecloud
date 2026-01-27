@@ -2,8 +2,6 @@ package com.adyen.commerce.services;
 
 import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.model.checkout.PaymentRequest;
-import com.adyen.model.recurring.DisableRequest;
-import com.adyen.model.recurring.RecurringDetailsRequest;
 import com.adyen.v6.enums.RecurringContractMode;
 import com.adyen.v6.model.RequestInfo;
 import de.hybris.platform.commercefacades.order.data.CartData;
@@ -45,10 +43,6 @@ public interface AdyenRequestService {
                                         final RecurringContractMode recurringContractMode,
                                         final Boolean guestUserTokenizationEnabled,
                                         final AdyenPartialPaymentOrderData partialPaymentOrderData);
-
-    RecurringDetailsRequest createListRecurringDetailsRequest(final String merchantAccount, final String customerId);
-
-    DisableRequest createDisableRequest(final String merchantAccount, final String customerId, final String recurringReference);
 
     void decoratePayPalSubmitPaymentRequest(final String merchantAccount, final PaymentRequest paymentRequest,
                                                     final RequestInfo requestInfo);
