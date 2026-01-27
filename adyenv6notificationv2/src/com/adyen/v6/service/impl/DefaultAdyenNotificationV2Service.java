@@ -1,10 +1,11 @@
-package com.adyen.v6.service;
+package com.adyen.v6.service.impl;
 
 import com.adyen.model.notification.NotificationRequest;
 import com.adyen.model.notification.NotificationRequestItem;
 import com.adyen.v6.events.AbstractNotificationEvent;
 import com.adyen.v6.events.builder.*;
 import com.adyen.v6.model.AdyenNotificationModel;
+import com.adyen.v6.service.AdyenNotificationV2Service;
 import com.google.gson.Gson;
 import de.hybris.platform.servicelayer.event.EventService;
 import de.hybris.platform.servicelayer.model.ModelService;

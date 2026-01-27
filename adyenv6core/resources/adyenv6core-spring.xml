@@ -464,6 +464,11 @@
         <property name="adyenNotificationService" ref="adyenNotificationService"/>
     </bean>
 
+    <bean id="tokenizationWebhookEventListener" class="com.adyen.v6.listeners.TokenizationWebhookEventListener" parent="abstractEventListener">
+        <property name="paymentTransactionRepository" ref="adyenPaymentTransactionRepository"/>
+        <property name="modelService" ref="modelService"/>
+    </bean>
+
     <bean id="adyenExpressCheckoutFacade" class="com.adyen.v6.facades.impl.DefaultAdyenExpressCheckoutFacade">
         <property name="cartFactory" ref="cartFactory"/>
         <property name="cartService" ref="cartService"/>

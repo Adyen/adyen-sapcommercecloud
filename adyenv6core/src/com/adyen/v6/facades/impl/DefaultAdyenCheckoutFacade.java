@@ -21,7 +21,6 @@
 package com.adyen.v6.facades.impl;
 
 
-import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.commerce.data.PaymentMethodsCartData;
 import com.adyen.model.checkout.*;
 import com.adyen.model.recurring.Recurring;
@@ -235,12 +234,12 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     @Override
     public String getEnvironmentMode() {
         if (Boolean.TRUE.equals(baseStoreService.getCurrentBaseStore().getAdyenTestMode())) {
-            return "test";
+            return TEST_ENV;
         }
         if (AdyenRegions.IN.equals(baseStoreService.getCurrentBaseStore().getAdyenRegion())) {
             return "live-in";
         }
-        return "live";
+        return LIVE_ENV;
     }
 
     @Override
