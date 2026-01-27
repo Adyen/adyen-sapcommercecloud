@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ [y] hybris Platform
+
+ Copyright (c) 2017 SAP SE or an SAP affiliate company.  All rights reserved.
+
+ This software is the confidential and proprietary information of SAP
+ ("Confidential Information"). You shall not disclose such Confidential
+ Information and shall use it only in accordance with the terms of the
+ license agreement you entered into with SAP.
+-->
+<!-- WARNING: This is the Spring WEB configuration file. If you want to replace items or managers you have to do this from the extensions 
+	core configuration file (adyenv6subscription/resources/adyenv6subscription-spring.xml) -->
+
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans.xsd
+           http://www.springframework.org/schema/context
+			  http://www.springframework.org/schema/context/spring-context.xsd">
+
+	<context:annotation-config/>
+	<context:component-scan base-package="com.adyen.commerce.controller"/>
+
+
+	<!-- Spring managed FilterChain for hybris Filter stack -->
+	<bean id="adyenv6subscriptionPlatformFilterChain" class="de.hybris.platform.servicelayer.web.PlatformFilterChain">
+		<constructor-arg>
+			<list>
+				<!-- Filter that catches and resolves exceptions thrown from other filters. Can be uncommented if you need such functionality -->
+				<!-- <ref bean="exceptionTranslationFilter" /> -->
+
+				<ref bean="log4jFilter" />
+				<ref bean="tenantActivationFilter" />
+				<!-- This filter creates new jalo session and close it after request is handled. -->
+				<ref bean="restSessionFilter" />
+				<!-- If you want to track user session:
+					- uncomment filter below
+					- comment or remove restSessionFilter above
+					- comment or remove SessionHindingRequestFilter in web.xml -->
+				<!-- ref bean="sessionFilter" /-->
+
+				<!-- Security -->
+				<!--				<ref bean="springSecurityFilterChain" />-->
+			</list>
+		</constructor-arg>
+	</bean>
+
+	<bean id="restSessionFilter" class="de.hybris.platform.webservicescommons.filter.RestSessionFilter">
+		<property name="sessionService" ref="sessionService" />
+	</bean>
+
+
+
+</beans>

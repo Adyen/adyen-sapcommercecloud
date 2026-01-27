@@ -127,7 +127,7 @@
     <bean id="paymentMethodHandlerFactory" class="com.adyen.commerce.services.impl.PaymentMethodHandlerFactory"/>
 
     <alias name="defaultAdyenRequestService" alias="adyenRequestService" />
-    <bean id="defaultAdyenRequestService" class="com.adyen.commerce.services.impl.DefaultAdyenRequestService">
+    <bean id="defaultAdyenRequestService" class="com.adyen.commerce.services.impl.DefaultAdyenRequestService" autowire="constructor">
         <constructor-arg name="baseStoreService" ref="baseStoreService"/>
         <constructor-arg name="cartService" ref="cartService"/>
         <constructor-arg name="configurationService" ref="configurationService"/>
@@ -467,11 +467,6 @@
         <property name="adyenNotificationService" ref="adyenNotificationService"/>
     </bean>
 
-    <bean id="tokenizationWebhookEventListener" class="com.adyen.v6.listeners.TokenizationWebhookEventListener" parent="abstractEventListener">
-        <property name="paymentTransactionRepository" ref="adyenPaymentTransactionRepository"/>
-        <property name="modelService" ref="modelService"/>
-    </bean>
-
     <bean id="adyenExpressCheckoutFacade" class="com.adyen.v6.facades.impl.DefaultAdyenExpressCheckoutFacade">
         <property name="cartFactory" ref="cartFactory"/>
         <property name="cartService" ref="cartService"/>
@@ -629,6 +624,10 @@
     <bean name="defaultPaymentMethodNameOverrideService" class="com.adyen.commerce.services.impl.DefaultPaymentMethodNameOverrideServiceImpl">
         <property name="baseStoreService" ref="baseStoreService"/>
         <property name="commonI18NService" ref="commonI18NService"/>
+    </bean>
+
+    <bean id="applicationInfoService" class="com.adyen.commerce.services.impl.ApplicationInfoService">
+        <property name="configurationService" ref="configurationService"/>
     </bean>
 
     <bean id="adyenCustomerInteractionRetryTemplate" class="org.springframework.retry.support.RetryTemplate">

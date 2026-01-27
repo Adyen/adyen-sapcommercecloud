@@ -9,7 +9,19 @@
 <beans xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="beans.xsd">
 
     <bean class="de.hybris.platform.commercefacades.order.data.AbstractOrderData">
-<!--        <property name="subscriptionOrder" type="java.lang.Boolean" />-->
+        <property name="subscriptionOrder" type="java.lang.Boolean" />
+    </bean>
+
+    <bean class="com.adyen.commerce.data.TokenWebhookRequestData">
+        <property name="createdAt" type="String"/>
+        <property name="eventId" type="String"/>
+        <property name="environment" type="String"/>
+        <property name="eventType" type="String"/>
+        <property name="merchantAccount" type="String"/>
+        <property name="operation" type="String"/>
+        <property name="shopperReference" type="String"/>
+        <property name="storedPaymentMethodId" type="String"/>
+        <property name="paymentType" type="String"/>
     </bean>
 
 </beans>
