@@ -19,7 +19,7 @@ class AdyenFormValidator {
             return false;
         }
 
-        if (paymentMethod === "adyen_cc") {
+        if (paymentMethod === "card") {
             if (!this.isValidCard(this.adyenCheckoutHybris.card, this.adyenCheckoutHybris.isDebitCard(), this.adyenCheckoutHybris.isValidBrandType())) {
                 this.showAlert('Please check your card details.');
                 this.adyenCheckoutHybris.card.showValidation();
