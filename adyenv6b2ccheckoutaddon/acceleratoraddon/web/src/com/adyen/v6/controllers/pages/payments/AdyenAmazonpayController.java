@@ -73,7 +73,7 @@ public class AdyenAmazonpayController extends AdyenSummaryCheckoutStepController
             );
 
             if (REDIRECTSHOPPER == paymentsResponse.getResultCode()) {
-                return redirectTo3DSValidation(model, paymentsResponse);
+                return getAdyen3DSService().prepareValidation3DSModel(model, paymentsResponse);
             }
 
             return redirectToOrderConfirmationPage(orderFacade.getOrderDetailsForCodeWithoutUser(paymentsResponse.getMerchantReference()));

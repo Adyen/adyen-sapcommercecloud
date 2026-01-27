@@ -20,6 +20,7 @@
  */
 package com.adyen.v6.factory;
 
+import com.adyen.commerce.services.PaymentMethodNameOverrideService;
 import com.adyen.commerce.services.impl.DefaultAdyenRequestService;
 import com.adyen.v6.service.*;
 import com.adyen.v6.strategy.AdyenMerchantAccountStrategy;
@@ -31,20 +32,22 @@ public class AdyenPaymentServiceFactory {
 
     protected final AdyenMerchantAccountStrategy adyenMerchantAccountStrategy;
     private final DefaultAdyenRequestService defaultAdyenRequestService;
+    private final PaymentMethodNameOverrideService paymentMethodNameOverrideService;
     private final RetryTemplate adyenCustomerInteractionRetryTemplate;
     private final RetryTemplate adyenBackgroundProcessRetryTemplate;
 
 
-    public AdyenPaymentServiceFactory(final AdyenMerchantAccountStrategy adyenMerchantAccountStrategy, DefaultAdyenRequestService defaultAdyenRequestService, RetryTemplate adyenCustomerInteractionRetryTemplate, RetryTemplate adyenBackgroundProcessRetryTemplate) {
+    public AdyenPaymentServiceFactory(final AdyenMerchantAccountStrategy adyenMerchantAccountStrategy, DefaultAdyenRequestService defaultAdyenRequestService, PaymentMethodNameOverrideService paymentMethodNameOverrideService, RetryTemplate adyenCustomerInteractionRetryTemplate, RetryTemplate adyenBackgroundProcessRetryTemplate) {
         this.adyenMerchantAccountStrategy = adyenMerchantAccountStrategy;
         this.defaultAdyenRequestService = defaultAdyenRequestService;
+        this.paymentMethodNameOverrideService = paymentMethodNameOverrideService;
         this.adyenCustomerInteractionRetryTemplate = adyenCustomerInteractionRetryTemplate;
         this.adyenBackgroundProcessRetryTemplate = adyenBackgroundProcessRetryTemplate;
     }
-
+    
     public AdyenCheckoutApiService createAdyenCheckoutApiService(final BaseStoreModel baseStoreModel) {
         String webMerchantAccount = adyenMerchantAccountStrategy.getWebMerchantAccount(baseStoreModel);
-        DefaultAdyenCheckoutApiService defaultAdyenCheckoutApiService = new DefaultAdyenCheckoutApiService(baseStoreModel, webMerchantAccount, defaultAdyenRequestService, adyenCustomerInteractionRetryTemplate, adyenBackgroundProcessRetryTemplate);
+        DefaultAdyenCheckoutApiService defaultAdyenCheckoutApiService = new DefaultAdyenCheckoutApiService(baseStoreModel, webMerchantAccount, defaultAdyenRequestService,paymentMethodNameOverrideService, adyenCustomerInteractionRetryTemplate, adyenBackgroundProcessRetryTemplate);
         return defaultAdyenCheckoutApiService;
     }
 
