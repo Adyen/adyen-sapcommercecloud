@@ -46,4 +46,14 @@
 	</bean>
 
 
+	<!-- Adyen Helper Beans -->
+	<bean id="adyen3DSHelper" class="com.adyen.v6.helpers.Adyen3DSHelper">
+		<constructor-arg ref="adyenCheckoutFacade"/>
+	</bean>
+
+	<bean id="adyenUrlHelper" class="com.adyen.v6.helpers.AdyenUrlHelper">
+		<constructor-arg ref="siteBaseUrlResolutionService"/>
+		<constructor-arg ref="baseSiteService"/>
+	</bean>
+
 	</beans>

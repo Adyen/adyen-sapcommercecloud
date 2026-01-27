@@ -27,7 +27,16 @@ public class AdyenSubscriptionCommercePlaceOrderMethodHook extends DefaultSubscr
         LOG.info("Processing order after placement: {}", result.getOrder());
         Optional.ofNullable(result.getOrder())
                 .filter(order -> CollectionUtils.isNotEmpty(order.getChildren()))
-                .ifPresent(this::createSubscriptionsForOrderEntries);
+                .ifPresent(this::handleSubscriptionOrder);
+    }
+
+    protected void handleSubscriptionOrder(OrderModel order){
+        order.getChildren().forEach(childOrder -> {
+            childOrder.setPaymentInfo(getModelService().clone(order.getPaymentInfo()));
+            getModelService().save(childOrder);
+        });
+
+        createSubscriptionsForOrderEntries(order);
     }
 
     protected void createSubscriptionsForOrderEntries(final OrderModel order) {

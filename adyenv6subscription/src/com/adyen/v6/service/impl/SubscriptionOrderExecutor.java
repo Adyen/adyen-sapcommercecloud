@@ -1,6 +1,7 @@
 package com.adyen.v6.service.impl;
 
 import com.adyen.model.checkout.PaymentResponse;
+import com.adyen.v6.constants.StorefrontType;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
 import com.adyen.v6.model.RequestInfo;
 import com.adyen.v6.service.AdyenTransactionService;
@@ -54,10 +55,12 @@ public class SubscriptionOrderExecutor implements ImpersonationService.Executor<
 
         try {
 
-            final RequestInfo request = new RequestInfo();
+            final RequestInfo requestInfo = new RequestInfo();
+            requestInfo.setStorefrontType(StorefrontType.SUBSCRIPTION);
+
             final PaymentResponse paymentResponse = adyenPaymentServiceFactory
                     .createAdyenCheckoutApiService(baseStoreService.getCurrentBaseStore())
-                    .authorisePayment(cartConverter.convert(cart), request, (CustomerModel) cart.getUser());
+                    .processPaymentRequest(cartConverter.convert(cart),null, requestInfo, (CustomerModel) cart.getUser());
 
 
             final PaymentResponse.ResultCodeEnum resultCode = paymentResponse.getResultCode();
@@ -88,6 +91,9 @@ public class SubscriptionOrderExecutor implements ImpersonationService.Executor<
         final CartModel cart = cartService.clone(typeService.getComposedTypeForClass(CartModel.class),
                 typeService.getComposedTypeForClass(CartEntryModel.class), subscriptionOrder, (String) keyGenerator.generate());
         cart.setSubscriptionOrder(Boolean.TRUE);
+        //TODO in refactoring
+        cart.setParent(null);
+        cart.setPaymentInfo(modelService.clone(subscriptionOrder.getParent().getPaymentInfo()));
         modelService.save(cart);
         LOG.debug("Cart setup completed with code: {}", cart.getCode());
         return cart;
