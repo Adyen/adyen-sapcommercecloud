@@ -99,7 +99,7 @@ public class AdyenStoredCardsController extends AbstractSearchPageController {
         CustomerModel customer = getCurrentCustomer();
 
         if (paymentInfoId != null && ! paymentInfoId.isEmpty() && customer != null) {
-            boolean contains = storedCards.stream().anyMatch(storedCard -> paymentInfoId.equals(storedCard));
+            boolean contains = storedCards.stream().anyMatch(storedCard -> paymentInfoId.equals(storedCard.getId()));
 
             if (contains) {
                 try {

@@ -255,17 +255,14 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
 
         RecurringApi recurring = new RecurringApi(client);
 
-        DisableRequest request = adyenRequestService.createDisableRequest(merchantAccount, customerId, recurringReference);
-
-        LOG.debug(request);
         try
         {
-            recurring.deleteTokenForStoredPaymentDetails(recurringReference, merchantAccount, customerId);
+            recurring.deleteTokenForStoredPaymentDetails(recurringReference, customerId, merchantAccount);
         }
         catch (ApiException | IOException e){
-            LOG.error("Couldn't remove token for stored payment details " + e.getMessage());
+            LOG.error("Couldn't disable stored card " + e.getMessage());
         }
-        LOG.debug("Removed token for stored payment details");
+        LOG.debug("Disabled stored card");
     }
 
     @Override

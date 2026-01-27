@@ -23,49 +23,40 @@
                     <c:forEach items="${storedCards}" var="storedCard">
                         <div class="col-xs-12 col-sm-6 col-md-4 card">
                             <ul class="pull-left">
-                                <li>${fn:escapeXml(storedCard.card.holderName)}</li>
-                                <li><img src="https://live.adyen.com/hpp/img/pm/${storedCard.variant}.png"/></li>
-                                <li>****${fn:escapeXml(storedCard.card.number)}</li>
+                                <li>${fn:escapeXml(storedCard.holderName)}</li>
+                                <li><img src="https://live.adyen.com/hpp/img/pm/${storedCard.brand}.png"/></li>
+                                <li>****${fn:escapeXml(storedCard.lastFour)}</li>
                                 <li>
-                                    <c:if test="${storedCard.card.expiryMonth lt 10}">0</c:if>
-                                        ${fn:escapeXml(storedCard.card.expiryMonth)}&nbsp;/&nbsp;${fn:escapeXml(storedCard.card.expiryYear)}
+                                    <c:if test="${storedCard.expiryMonth lt 10}">0</c:if>
+                                        ${fn:escapeXml(storedCard.expiryMonth)}&nbsp;/&nbsp;${fn:escapeXml(storedCard.expiryYear)}
                                 </li>
-                                <c:if test="${storedCard.billingAddress ne null}">
-                                    <li>${fn:escapeXml(storedCard.billingAddress.street)}</li>
-                                    <li>${fn:escapeXml(storedCard.billingAddress.city)}</li>
-                                    <li>${fn:escapeXml(storedCard.billingAddress.country)}&nbsp;${fn:escapeXml(storedCard.billingAddress.postalCode)}</li>
-                                </c:if>
                             </ul>
                             <div class="account-cards-actions pull-left">
                                 <ycommerce:testId code="storedCard_deletePayment_button" >
-                                    <a class="action-links removePaymentDetailsButton" href="#" data-payment-id="${storedCard.recurringDetailReference}" data-popup-title="<spring:theme code="text.account.storedCard.delete.popup.title"/>">
-                                        <span class="glyphicon glyphicon-remove"></span>
+                                    <a class="action-links removePaymentDetailsButton"
+                                       href="#"
+                                       data-payment-id="${storedCard.id}"
+                                       data-popup-title="<spring:theme code="text.account.storedCard.delete.popup.title"/>">
+                                  <span class="glyphicon glyphicon-remove" aria-hidden="true"></span>
                                     </a>
                                 </ycommerce:testId>
                             </div>
                         </div>
 
                         <div class="display-none">
-                            <div id="popup_confirm_payment_removal_${storedCard.recurringDetailReference}" class="account-address-removal-popup">
+                            <div id="popup_confirm_payment_removal_${storedCard.id}" class="account-address-removal-popup">
                                 <spring:theme code="text.account.storedCard.delete.following"/>
                                 <div class="address">
                                     <strong>
-                                            ${fn:escapeXml(storedCard.card.holderName)}
+                                            ${fn:escapeXml(storedCard.holderName)}
                                     </strong>
-                                    <br><img src="https://live.adyen.com/hpp/img/pm/${storedCard.variant}.png"/>
-                                    <br>****${fn:escapeXml(storedCard.card.number)}
+                                    <br><img src="https://live.adyen.com/hpp/img/pm/${storedCard.brand}.png"/>
+                                    <br>****${fn:escapeXml(storedCard.lastFour)}
                                     <br>
-                                    <c:if test="${storedCard.card.expiryMonth lt 10}">0</c:if>
-                                        ${fn:escapeXml(storedCard.card.expiryMonth)}&nbsp;/&nbsp;${fn:escapeXml(storedCard.card.expiryYear)}
-                                    <c:if test="${storedCard.billingAddress ne null}">
-                                        <br>${fn:escapeXml(storedCard.billingAddress.street)}
-                                        <br>${fn:escapeXml(storedCard.billingAddress.city)}
-                                        <br>${fn:escapeXml(storedCard.billingAddress.country)}&nbsp;${fn:escapeXml(storedCard.billingAddress.postalCode)}
-                                    </c:if>
                                 </div>
                                 <c:url value="/my-account/stored-cards/remove" var="removePaymentActionUrl"/>
-                                <form:form id="removeStoredCard${storedCard.recurringDetailReference}" action="${removePaymentActionUrl}" method="post">
-                                    <input type="hidden" name="paymentInfoId" value="${storedCard.recurringDetailReference}"/>
+                                <form:form id="removeStoredCard${storedCard.id}" action="${removePaymentActionUrl}" method="post">
+                                    <input type="hidden" name="paymentInfoId" value="${storedCard.id}"/>
                                     <br />
                                     <div class="modal-actions">
                                         <div class="row">
@@ -77,7 +68,7 @@
                                                 </div>
                                             </ycommerce:testId>
                                             <div class="col-xs-12 col-sm-6 col-sm-pull-6">
-                                                <a class="btn btn-default closeColorBox paymentsDeleteBtn btn-block" data-payment-id="${storedCard.recurringDetailReference}">
+                                                <a class="btn btn-default closeColorBox paymentsDeleteBtn btn-block" data-payment-id="${storedCard.id}">
                                                     <spring:theme code="text.button.cancel" />
                                                 </a>
                                             </div>
