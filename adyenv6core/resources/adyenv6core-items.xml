@@ -95,6 +95,10 @@
         </enumtype>
     </enumtypes>
 
+    <maptypes>
+        <maptype code="String2LocalizedStringMap" argumenttype="java.lang.String" returntype="localized:java.lang.String"/>
+    </maptypes>
+
     <itemtypes>
         <itemtype code="Cart" autocreate="false" generate="false">
             <attributes>
@@ -360,6 +364,10 @@
                 </attribute>
                 <attribute qualifier="adyenInstallmentConfigs" type="AdyenInstallmentConfigList">
                     <description>Installment configurations for different countries</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="adyenPaymentMethodNameConfig" type="String2LocalizedStringMap">
+                    <description>Configuration of payment method name overrides</description>
                     <persistence type="property"/>
                 </attribute>
             </attributes>
@@ -919,7 +927,5 @@
                 </attribute>
             </attributes>
         </itemtype>
-
-
     </itemtypes>
 </items>

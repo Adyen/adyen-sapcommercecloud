@@ -2,6 +2,7 @@ package com.adyen.commerce.listener;
 
 import com.adyen.commerce.data.TokenWebhookRequestData;
 import com.adyen.commerce.event.TokenizationEvent;
+import com.adyen.v6.constants.Adyenv6coreConstants;
 import com.adyen.v6.repository.PaymentTransactionRepository;
 import de.hybris.platform.core.model.order.AbstractOrderModel;
 import de.hybris.platform.core.model.order.payment.PaymentInfoModel;
@@ -9,7 +10,6 @@ import de.hybris.platform.core.model.user.CustomerModel;
 import de.hybris.platform.payment.model.PaymentTransactionModel;
 import de.hybris.platform.servicelayer.event.impl.AbstractEventListener;
 import de.hybris.platform.servicelayer.model.ModelService;
-import org.apache.commons.lang.NotImplementedException;
 import org.apache.log4j.Logger;
 
 import java.util.Objects;
@@ -51,7 +51,7 @@ public class TokenizationWebhookEventListener extends AbstractEventListener<Toke
             paymentInfo.setAdyenSelectedReference(data.getStoredPaymentMethodId());
             modelService.save(paymentInfo);
         } else {
-            throw new NotImplementedException("TokenizationWebhookEventListener not implemented for type " + data.getEventType());
+            LOG.warn("Received Tokenization event of type [" + data.getEventType() + "] which is not currently handled.");
         }
 
     }
@@ -62,8 +62,8 @@ public class TokenizationWebhookEventListener extends AbstractEventListener<Toke
 
         validationResult &= order.getStore().getAdyenMerchantAccount().equals(tokenWebhookRequestData.getMerchantAccount());
 
-        validationResult &= (order.getStore().getAdyenTestMode() && "test".equals(tokenWebhookRequestData.getEnvironment())) ||
-                (!order.getStore().getAdyenTestMode() && "live".equals(tokenWebhookRequestData.getEnvironment()));
+        validationResult &= (order.getStore().getAdyenTestMode() && Adyenv6coreConstants.TEST_ENV.equals(tokenWebhookRequestData.getEnvironment())) ||
+                (!order.getStore().getAdyenTestMode() && Adyenv6coreConstants.LIVE_ENV.equals(tokenWebhookRequestData.getEnvironment()));
 
         if (!validationResult) {
             throw new IllegalArgumentException("Token webhook request is not valid. EventId (pspReference): " + tokenWebhookRequestData.getEventId() +
