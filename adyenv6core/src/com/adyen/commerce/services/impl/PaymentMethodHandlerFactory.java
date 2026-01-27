@@ -1,7 +1,5 @@
 package com.adyen.commerce.services.impl;
 
-import org.springframework.stereotype.Component;
-
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -9,7 +7,6 @@ import java.util.stream.Collectors;
 /**
  * Factory for creating appropriate payment method handlers
  */
-@Component
 public class PaymentMethodHandlerFactory {
     
     private final List<PaymentMethodHandler> handlers;
