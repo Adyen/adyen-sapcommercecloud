@@ -138,6 +138,7 @@
     <bean id="defaultAdyenPaymentServiceFactory" class="com.adyen.v6.factory.AdyenPaymentServiceFactory">
         <constructor-arg name="adyenMerchantAccountStrategy" ref="adyenMerchantStrategy"/>
         <constructor-arg name="defaultAdyenRequestService" ref="adyenRequestService"/>
+        <constructor-arg name="paymentMethodNameOverrideService" ref="paymentMethodNameOverrideService"/>
         <constructor-arg name="adyenCustomerInteractionRetryTemplate" ref="adyenCustomerInteractionRetryTemplate"/>
         <constructor-arg name="adyenBackgroundProcessRetryTemplate" ref="adyenBackgroundProcessRetryTemplate"/>
     </bean>
@@ -183,6 +184,19 @@
     <alias name="defaultAdyenBusinessProcessService" alias="adyenBusinessProcessService"/>
     <bean id="defaultAdyenBusinessProcessService" class="com.adyen.v6.service.DefaultAdyenBusinessProcessService">
         <property name="businessProcessService" ref="businessProcessService" />
+    </bean>
+
+    <alias name="defaultThreeDSAuthorizationService" alias="threeDSAuthorizationService"/>
+    <bean id="defaultThreeDSAuthorizationService" class="com.adyen.v6.service.DefaultThreeDSAuthorizationService">
+        <property name="sessionService" ref="sessionService"/>
+        <property name="orderRepository" ref="adyenOrderRepository"/>
+        <property name="adyenPaymentServiceFactory" ref="adyenPaymentServiceFactory"/>
+        <property name="baseStoreService" ref="baseStoreService"/>
+        <property name="modelService" ref="modelService"/>
+        <property name="adyenTransactionService" ref="adyenTransactionService"/>
+        <property name="adyenOrderService" ref="adyenOrderService"/>
+        <property name="adyenBusinessProcessService" ref="adyenBusinessProcessService"/>
+        <property name="orderConverter" ref="orderConverter"/>
     </bean>
 
     <!-- Process notification cronjob -->
@@ -239,6 +253,7 @@
         <property name="adyenOrderFacade" ref="adyenOrderFacade"/>
         <property name="productFacade" ref="productFacade"/>
         <property name="commerceCartService" ref="commerceCartService"/>
+        <property name="threeDSAuthorizationService" ref="threeDSAuthorizationService"/>
         <property name="adyenShopperIpResolverService" ref="adyenShopperIpResolverService"/>
         <property name="adyenInstallmentsConfigurationService" ref="adyenInstallmentsConfigurationService"/>
     </bean>
@@ -605,10 +620,15 @@
         <property name="adyenPartialPaymentOrderRepository" ref="adyenPartialPaymentOrderRepository" />
     </bean>
 
+    <alias name="defaultPaymentMethodNameOverrideService" alias="paymentMethodNameOverrideService"/>
+    <bean name="defaultPaymentMethodNameOverrideService" class="com.adyen.commerce.services.impl.DefaultPaymentMethodNameOverrideServiceImpl">
+        <property name="baseStoreService" ref="baseStoreService"/>
+        <property name="commonI18NService" ref="commonI18NService"/>
+    </bean>
+
     <bean id="applicationInfoService" class="com.adyen.commerce.services.impl.ApplicationInfoService">
         <property name="configurationService" ref="configurationService"/>
     </bean>
-
 
     <bean id="adyenCustomerInteractionRetryTemplate" class="org.springframework.retry.support.RetryTemplate">
         <property name="retryPolicy">

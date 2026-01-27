@@ -15,19 +15,19 @@ import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
 
 public interface AdyenPayPalExpressCheckoutFacade {
-    PayPalExpressSubmitResponse onPayPalPDPSubmit(HttpServletRequest request, PaymentRequest paymentRequest, String productCode) throws Exception;
+    PayPalExpressSubmitResponse onPayPalPDPSubmit(HttpServletRequest request, PaymentRequest paymentRequest, String productCode) throws IOException, ApiException;
 
-    PayPalExpressSubmitResponse onPayPalPDPSubmitOCC(HttpServletRequest request, PaymentRequest paymentRequest) throws Exception;
+    PayPalExpressSubmitResponse onPayPalPDPSubmitOCC(HttpServletRequest request, PaymentRequest paymentRequest) throws IOException, ApiException;
 
-    PaymentResponse onPayPalCartSubmit(HttpServletRequest request, PaymentRequest paymentRequest) throws Exception;
+    PaymentResponse onPayPalCartSubmit(HttpServletRequest request, PaymentRequest paymentRequest) throws IOException, ApiException;
 
     void onPayPalAuthorizedPDP(String cartGuid, AddressData addressData, String paymentMethod) throws DuplicateUidException, InvalidCartException, CalculationException;
 
     void onPayPalAuthorizedCart(AddressData addressData, String paymentMethod) throws DuplicateUidException, InvalidCartException, CalculationException;
 
-    PaypalUpdateOrderResponse updateShippingAddress(final AddressData addressData, final String pspReference, final String paymentData, final String cartGuid) throws Exception;
+    PaypalUpdateOrderResponse updateShippingAddress(final AddressData addressData, final String pspReference, final String paymentData, final String cartGuid) throws IOException, ApiException, DuplicateUidException, CalculationException;
 
-    PaypalUpdateOrderResponse updateShippingMethod(final String shippingMethodCode, final String pspReference, final String paymentData, final String cartGuid) throws Exception;
+    PaypalUpdateOrderResponse updateShippingMethod(final String shippingMethodCode, final String pspReference, final String paymentData, final String cartGuid) throws IOException, ApiException, CalculationException;
 
-    PaypalUpdateOrderResponse getPaypalUpdateOrderResponse(PaypalUpdateOrderRequest paypalUpdateOrderRequest) throws Exception;
+    PaypalUpdateOrderResponse getPaypalUpdateOrderResponse(PaypalUpdateOrderRequest paypalUpdateOrderRequest) throws IOException, ApiException;
 }

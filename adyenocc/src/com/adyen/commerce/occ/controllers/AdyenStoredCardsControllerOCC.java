@@ -52,7 +52,7 @@ public class AdyenStoredCardsControllerOCC {
     @Operation(operationId = "getStoredCards", summary = "Returns stored card for user", description =
             "Returns stored card for use")
     @ApiBaseSiteIdAndUserIdParam
-    public ResponseEntity<Object> removeStoredCard(@PathVariable String id) throws Exception {
+    public ResponseEntity<Object> removeStoredCard(@PathVariable String id) throws IOException, ApiException {
         CustomerData currentCustomer = customerFacade.getCurrentCustomer();
         adyenCheckoutFacade.getAdyenPaymentService().disableStoredCard(currentCustomer.getCustomerId(),id);
         return ResponseEntity.ok().build();

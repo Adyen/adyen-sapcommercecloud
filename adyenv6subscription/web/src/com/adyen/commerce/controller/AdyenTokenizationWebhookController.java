@@ -19,12 +19,8 @@ import javax.servlet.http.HttpServletRequest;
 @RequestMapping(value = "/adyen/v6/tokenization/{baseSiteId}")
 public class AdyenTokenizationWebhookController {
 
-    private static ObjectMapper objectMapper;
-
-    {
-        objectMapper = new ObjectMapper();
-        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-    }
+    private static final ObjectMapper objectMapper = new ObjectMapper()
+        .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
     @Resource(name = "adyenNotificationAuthenticationProvider")
     private AdyenNotificationAuthenticationProvider adyenNotificationAuthenticationProvider;
