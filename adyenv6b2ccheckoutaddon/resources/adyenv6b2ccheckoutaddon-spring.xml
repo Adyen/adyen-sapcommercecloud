@@ -13,13 +13,12 @@
 
 
 <beans xmlns="http://www.springframework.org/schema/beans"
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xmlns:aop="http://www.springframework.org/schema/aop"
-	xmlns:context="http://www.springframework.org/schema/context"
-	xsi:schemaLocation="http://www.springframework.org/schema/beans
+	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	   xmlns:context="http://www.springframework.org/schema/context"
+	   xsi:schemaLocation="http://www.springframework.org/schema/beans
            http://www.springframework.org/schema/beans/spring-beans.xsd
-           http://www.springframework.org/schema/aop
-           http://www.springframework.org/schema/aop/spring-aop.xsd
+
+
            http://www.springframework.org/schema/context
            http://www.springframework.org/schema/context/spring-context.xsd">
 	<context:annotation-config/>
@@ -43,17 +42,6 @@
 
 	<bean id="adyenv6b2ccheckoutaddonSampleDataEventListener" parent="abstractGenericAddOnSampleDataEventListener"  >
 		<property name="extensionName" value="adyenv6b2ccheckoutaddon" />
-	</bean>
-
-
-	<!-- Adyen Helper Beans -->
-	<bean id="adyen3DSHelper" class="com.adyen.v6.helpers.Adyen3DSHelper">
-		<constructor-arg ref="adyenCheckoutFacade"/>
-	</bean>
-
-	<bean id="adyenUrlHelper" class="com.adyen.v6.helpers.AdyenUrlHelper">
-		<constructor-arg ref="siteBaseUrlResolutionService"/>
-		<constructor-arg ref="baseSiteService"/>
 	</bean>
 
 	</beans>

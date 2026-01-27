@@ -58,8 +58,3 @@ public class AdyenStoredCardsControllerOCC {
         return ResponseEntity.ok().build();
     }
 }
-
-class EmptyResponse {
-    public EmptyResponse() {
-    }
-}
