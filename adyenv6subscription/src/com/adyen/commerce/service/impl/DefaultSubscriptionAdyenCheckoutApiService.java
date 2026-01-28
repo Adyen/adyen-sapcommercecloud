@@ -7,6 +7,7 @@ import com.adyen.commerce.services.impl.AddressConverter;
 import com.adyen.commerce.services.impl.ApplicationInfoService;
 import com.adyen.commerce.services.impl.PaymentRequestBuilder;
 import com.adyen.commerce.util.AddressUtil;
+import com.adyen.model.RequestOptions;
 import com.adyen.model.checkout.PaymentRequest;
 import com.adyen.model.checkout.PaymentResponse;
 import com.adyen.service.checkout.PaymentsApi;
@@ -22,11 +23,13 @@ import de.hybris.platform.core.model.user.CustomerModel;
 import de.hybris.platform.servicelayer.dto.converter.Converter;
 import de.hybris.platform.store.BaseStoreModel;
 import org.apache.log4j.Logger;
+import org.springframework.retry.support.RetryTemplate;
 
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Optional;
+import java.util.UUID;
 
 public class DefaultSubscriptionAdyenCheckoutApiService extends AbstractAdyenApiService implements SubscriptionAdyenCheckoutApiService {
     private static final Logger LOG = Logger.getLogger(DefaultSubscriptionAdyenCheckoutApiService.class);
@@ -36,8 +39,8 @@ public class DefaultSubscriptionAdyenCheckoutApiService extends AbstractAdyenApi
     private final Converter<AddressModel, AddressData> addressConverter;
 
 
-    public DefaultSubscriptionAdyenCheckoutApiService(BaseStoreModel baseStore, String merchantAccount, ApplicationInfoService applicationInfoService, Converter<AddressModel, AddressData> addressConverter) {
-        super(baseStore, merchantAccount, null);
+    public DefaultSubscriptionAdyenCheckoutApiService(BaseStoreModel baseStore, String merchantAccount, ApplicationInfoService applicationInfoService, Converter<AddressModel, AddressData> addressConverter, RetryTemplate adyenCustomerInteractionRetryTemplate, RetryTemplate adyenBackgroundProcessRetryTemplate) {
+        super(baseStore, merchantAccount, null, adyenCustomerInteractionRetryTemplate, adyenBackgroundProcessRetryTemplate);
         this.applicationInfoService = applicationInfoService;
         this.subscriptionPaymentMethodsHandlerFactory = new SubscriptionPaymentMethodsHandlerFactory();
         this.addressConverter = addressConverter;
@@ -54,11 +57,26 @@ public class DefaultSubscriptionAdyenCheckoutApiService extends AbstractAdyenApi
 
         PaymentRequest paymentRequest = buildBasePaymentRequest(subscriptionOrder, requestInfo);
 
-        LOG.debug(paymentRequest);
-        PaymentResponse paymentsResponse = checkoutApi.payments(paymentRequest);
-        LOG.debug(paymentsResponse);
+        RequestOptions requestOptions = new RequestOptions();
+        requestOptions.setIdempotencyKey(UUID.randomUUID().toString());
 
-        return paymentsResponse;
+        try {
+            return adyenBackgroundProcessRetryTemplate.execute(context -> {
+                LOG.debug(paymentRequest);
+                PaymentResponse paymentsResponse = checkoutApi.payments(paymentRequest, requestOptions);
+                LOG.debug(paymentsResponse);
+
+                return paymentsResponse;
+            });
+        } catch (Exception e) {
+            if (e instanceof ApiException) {
+                throw (ApiException) e;
+            } else if (e instanceof IOException) {
+                throw (IOException) e;
+            } else {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     public PaymentResponse processPaymentRequest(final AbstractOrderModel subscriptionOrder, final AbstractOrderModel onFirstBillOrder) throws IOException, ApiException {
@@ -71,11 +89,26 @@ public class DefaultSubscriptionAdyenCheckoutApiService extends AbstractAdyenApi
 
         PaymentRequest paymentRequest = buildBasePaymentRequest(subscriptionOrder, onFirstBillOrder, requestInfo);
 
-        LOG.debug(paymentRequest);
-        PaymentResponse paymentsResponse = checkoutApi.payments(paymentRequest);
-        LOG.debug(paymentsResponse);
+        RequestOptions requestOptions = new RequestOptions();
+        requestOptions.setIdempotencyKey(UUID.randomUUID().toString());
 
-        return paymentsResponse;
+        try {
+            return adyenBackgroundProcessRetryTemplate.execute(context -> {
+                LOG.debug(paymentRequest);
+                PaymentResponse paymentsResponse = checkoutApi.payments(paymentRequest, requestOptions);
+                LOG.debug(paymentsResponse);
+
+                return paymentsResponse;
+            });
+        } catch (Exception e) {
+            if (e instanceof ApiException) {
+                throw (ApiException) e;
+            } else if (e instanceof IOException) {
+                throw (IOException) e;
+            } else {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
 
