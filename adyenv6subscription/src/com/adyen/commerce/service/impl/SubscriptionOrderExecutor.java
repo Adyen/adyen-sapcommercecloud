@@ -60,14 +60,14 @@ public class SubscriptionOrderExecutor implements ImpersonationService.Executor<
 
             AbstractOrderModel onFirstBillOrder = firstBillOrderOptional.get();
 
-            paymentResponse = getAdyenPaymentService().processPaymentRequest(subscriptionOrderOptional.get(), onFirstBillOrder);
+            paymentResponse = getAdyenPaymentService().processSubscriptionPaymentRequest(subscriptionOrderOptional.get(), onFirstBillOrder);
 
             adyenTransactionService.authorizeOrderModel(onFirstBillOrder,
                     onFirstBillOrder.getCode(), paymentResponse.getPspReference());
 
 
         } else if (subscriptionOrderOptional.isPresent()) {
-            paymentResponse = getAdyenPaymentService().processPaymentRequest(subscriptionOrderOptional.get());
+            paymentResponse = getAdyenPaymentService().processSubscriptionPaymentRequest(subscriptionOrderOptional.get());
         } else {
             throw new IllegalArgumentException("No subscription order to be processed");
         }

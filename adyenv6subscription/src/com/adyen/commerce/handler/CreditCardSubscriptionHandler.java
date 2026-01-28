@@ -33,10 +33,6 @@ public class CreditCardSubscriptionHandler implements SubscriptionPaymentMethodH
             CheckoutPaymentMethod checkoutPaymentMethod = new CheckoutPaymentMethod();
             checkoutPaymentMethod.setActualInstance(cardDetails);
             paymentRequest.setPaymentMethod(checkoutPaymentMethod);
-
-            paymentRequest.setRecurringProcessingModel(PaymentRequest.RecurringProcessingModelEnum.SUBSCRIPTION);
-
-            paymentRequest.setShopperInteraction(PaymentRequest.ShopperInteractionEnum.CONTAUTH);
         }
     }
 }

@@ -47,7 +47,7 @@ public class DefaultSubscriptionAdyenCheckoutApiService extends AbstractAdyenApi
     }
 
 
-    public PaymentResponse processPaymentRequest(final AbstractOrderModel subscriptionOrder) throws IOException, ApiException {
+    public PaymentResponse processSubscriptionPaymentRequest(final AbstractOrderModel subscriptionOrder) throws IOException, ApiException {
         LOG.debug("Subscription payment");
 
         PaymentsApi checkoutApi = new PaymentsApi(client);
@@ -79,7 +79,7 @@ public class DefaultSubscriptionAdyenCheckoutApiService extends AbstractAdyenApi
         }
     }
 
-    public PaymentResponse processPaymentRequest(final AbstractOrderModel subscriptionOrder, final AbstractOrderModel onFirstBillOrder) throws IOException, ApiException {
+    public PaymentResponse processSubscriptionPaymentRequest(final AbstractOrderModel subscriptionOrder, final AbstractOrderModel onFirstBillOrder) throws IOException, ApiException {
         LOG.debug("Subscription + onFirstBill payment");
 
         PaymentsApi checkoutApi = new PaymentsApi(client);
@@ -88,6 +88,38 @@ public class DefaultSubscriptionAdyenCheckoutApiService extends AbstractAdyenApi
         requestInfo.setStorefrontType(StorefrontType.SUBSCRIPTION);
 
         PaymentRequest paymentRequest = buildBasePaymentRequest(subscriptionOrder, onFirstBillOrder, requestInfo);
+
+        RequestOptions requestOptions = new RequestOptions();
+        requestOptions.setIdempotencyKey(UUID.randomUUID().toString());
+
+        try {
+            return adyenBackgroundProcessRetryTemplate.execute(context -> {
+                LOG.debug(paymentRequest);
+                PaymentResponse paymentsResponse = checkoutApi.payments(paymentRequest, requestOptions);
+                LOG.debug(paymentsResponse);
+
+                return paymentsResponse;
+            });
+        } catch (Exception e) {
+            if (e instanceof ApiException) {
+                throw (ApiException) e;
+            } else if (e instanceof IOException) {
+                throw (IOException) e;
+            } else {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    public PaymentResponse processOneTimePaymentRequest(final AbstractOrderModel subscriptionOrder) throws IOException, ApiException {
+        LOG.debug("One time payment");
+
+        PaymentsApi checkoutApi = new PaymentsApi(client);
+
+        final RequestInfo requestInfo = new RequestInfo();
+        requestInfo.setStorefrontType(StorefrontType.SUBSCRIPTION);
+
+        PaymentRequest paymentRequest = buildBaseOneTimePaymentRequest(subscriptionOrder, requestInfo);
 
         RequestOptions requestOptions = new RequestOptions();
         requestOptions.setIdempotencyKey(UUID.randomUUID().toString());
@@ -133,6 +165,18 @@ public class DefaultSubscriptionAdyenCheckoutApiService extends AbstractAdyenApi
         return buildBasePaymentRequestInternal(subscriptionOrderModel, requestInfo, totalPrice);
     }
 
+    protected PaymentRequest buildBaseOneTimePaymentRequest(AbstractOrderModel subscriptionOrderModel, RequestInfo requestInfo) {
+
+        BigDecimal totalPrice = BigDecimal.valueOf(subscriptionOrderModel.getTotalPrice());
+
+        PaymentRequest paymentRequest = buildBasePaymentRequestInternal(subscriptionOrderModel, requestInfo, totalPrice);
+
+        paymentRequest.setRecurringProcessingModel(PaymentRequest.RecurringProcessingModelEnum.UNSCHEDULEDCARDONFILE);
+        paymentRequest.setShopperInteraction(PaymentRequest.ShopperInteractionEnum.CONTAUTH);
+
+        return paymentRequest;
+    }
+
     protected PaymentRequest buildBasePaymentRequestInternal(AbstractOrderModel subscriptionOrderModel, RequestInfo requestInfo, BigDecimal totalPrice) {
 
         AddressData deliveryAddressData = addressConverter.convert(subscriptionOrderModel.getDeliveryAddress());
@@ -153,6 +197,9 @@ public class DefaultSubscriptionAdyenCheckoutApiService extends AbstractAdyenApi
 
         paymentRequest.setBillingAddress(AddressConverter.convertToBillingAddress(billingAddressData));
         paymentRequest.setDeliveryAddress(AddressConverter.convertToDeliveryAddress(deliveryAddressData));
+
+        paymentRequest.setRecurringProcessingModel(PaymentRequest.RecurringProcessingModelEnum.SUBSCRIPTION);
+        paymentRequest.setShopperInteraction(PaymentRequest.ShopperInteractionEnum.CONTAUTH);
 
         Optional<SubscriptionPaymentMethodHandler> paymentMethodHandler = subscriptionPaymentMethodsHandlerFactory.getHandler(subscriptionOrderModel.getPaymentInfo().getAdyenPaymentMethod());
 

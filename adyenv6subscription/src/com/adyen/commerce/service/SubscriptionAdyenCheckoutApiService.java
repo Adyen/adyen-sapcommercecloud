@@ -8,7 +8,9 @@ import java.io.IOException;
 
 public interface SubscriptionAdyenCheckoutApiService {
 
-    PaymentResponse processPaymentRequest(final AbstractOrderModel subscriptionOrder) throws IOException, ApiException;
+    PaymentResponse processSubscriptionPaymentRequest(final AbstractOrderModel subscriptionOrder) throws IOException, ApiException;
 
-    PaymentResponse processPaymentRequest(final AbstractOrderModel subscriptionOrder, final AbstractOrderModel onFirstBillOrder) throws IOException, ApiException;
+    PaymentResponse processSubscriptionPaymentRequest(final AbstractOrderModel subscriptionOrder, final AbstractOrderModel onFirstBillOrder) throws IOException, ApiException;
+
+    PaymentResponse processOneTimePaymentRequest(final AbstractOrderModel subscriptionOrder) throws IOException, ApiException;
 }

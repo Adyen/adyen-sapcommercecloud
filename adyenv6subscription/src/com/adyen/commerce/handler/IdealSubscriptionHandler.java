@@ -29,9 +29,6 @@ public class IdealSubscriptionHandler implements SubscriptionPaymentMethodHandle
             checkoutPaymentMethod.setActualInstance(sepaDirectDebitDetails);
             paymentRequest.setPaymentMethod(checkoutPaymentMethod);
 
-            paymentRequest.setRecurringProcessingModel(PaymentRequest.RecurringProcessingModelEnum.SUBSCRIPTION);
-
-            paymentRequest.setShopperInteraction(PaymentRequest.ShopperInteractionEnum.CONTAUTH);
         }
     }
 }

@@ -31,10 +31,6 @@ public class PayPalSubscriptionHandler implements SubscriptionPaymentMethodHandl
             CheckoutPaymentMethod checkoutPaymentMethod = new CheckoutPaymentMethod();
             checkoutPaymentMethod.setActualInstance(payPalDetails);
             paymentRequest.setPaymentMethod(checkoutPaymentMethod);
-
-            paymentRequest.setRecurringProcessingModel(PaymentRequest.RecurringProcessingModelEnum.SUBSCRIPTION);
-
-            paymentRequest.setShopperInteraction(PaymentRequest.ShopperInteractionEnum.CONTAUTH);
         }
     }
 }
