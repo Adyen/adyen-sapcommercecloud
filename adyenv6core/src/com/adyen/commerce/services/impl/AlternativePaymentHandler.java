@@ -71,11 +71,11 @@ public class AlternativePaymentHandler implements PaymentMethodHandler {
                paymentMethod.contains(RATEPAY);
     }
 
-    protected Name createShopperName(de.hybris.platform.commercefacades.user.data.AddressData addressData) {
+    protected ShopperName createShopperName(de.hybris.platform.commercefacades.user.data.AddressData addressData) {
         if (addressData == null) {
-            return new Name();
+            return new ShopperName();
         }
-        return new Name()
+        return new ShopperName()
             .firstName(addressData.getFirstName())
             .lastName(addressData.getLastName());
     }
@@ -87,7 +87,7 @@ public class AlternativePaymentHandler implements PaymentMethodHandler {
             .collect(Collectors.toList());
 
         paymentRequest.setSocialSecurityNumber(cartData.getAdyenSocialSecurityNumber());
-        paymentRequest.setShopperName(new Name()
+        paymentRequest.setShopperName(new ShopperName()
             .firstName(cartData.getAdyenFirstName())
             .lastName(cartData.getAdyenLastName()));
         paymentRequest.setLineItems(invoiceLines);
@@ -103,7 +103,7 @@ public class AlternativePaymentHandler implements PaymentMethodHandler {
 
     protected void setBoletoData(PaymentRequest paymentRequest, CartData cartData) {
         paymentRequest.setSocialSecurityNumber(cartData.getAdyenSocialSecurityNumber());
-        paymentRequest.setShopperName(new Name()
+        paymentRequest.setShopperName(new ShopperName()
             .firstName(cartData.getAdyenFirstName())
             .lastName(cartData.getAdyenLastName()));
 
@@ -150,7 +150,7 @@ public class AlternativePaymentHandler implements PaymentMethodHandler {
         if (AFTERPAY.equals(paymentMethod)) {
             paymentRequest.setShopperEmail(cartData.getAdyenShopperEmail());
             paymentRequest.setTelephoneNumber(cartData.getAdyenShopperTelephone());
-            paymentRequest.setShopperName(new Name()
+            paymentRequest.setShopperName(new ShopperName()
                 .firstName(cartData.getAdyenFirstName())
                 .lastName(cartData.getAdyenLastName()));
         } else if (PAYBRIGHT.equals(paymentMethod)) {
