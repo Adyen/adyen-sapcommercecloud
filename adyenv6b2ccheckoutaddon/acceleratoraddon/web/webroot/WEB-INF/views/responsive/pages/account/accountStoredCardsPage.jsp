@@ -28,7 +28,7 @@
                                 <li>****${fn:escapeXml(storedCard.lastFour)}</li>
                                 <li>
                                     <c:if test="${storedCard.expiryMonth lt 1}">0</c:if>
-                                        ${fn:escapeXml(storedCard.expiryMonth)}&nbsp;/&nbsp;${fn:escapeXml(storedCard.expiryYear)}
+                                        ${fn:escapeXml(storedCard.expiryMonth)}&nbsp;/&nbsp;20${fn:escapeXml(storedCard.expiryYear)}
                                 </li>
                             </ul>
                             <div class="account-cards-actions pull-left">
@@ -52,7 +52,8 @@
                                     </strong>
                                     <br><img src="https://live.adyen.com/hpp/img/pm/${storedCard.brand}.png"/>
                                     <br>****${fn:escapeXml(storedCard.lastFour)}
-                                    <br>
+                                    <br><c:if test="${storedCard.expiryMonth lt 1}">0</c:if>
+                                        ${fn:escapeXml(storedCard.expiryMonth)}&nbsp;/&nbsp;20${fn:escapeXml(storedCard.expiryYear)}
                                 </div>
                                 <c:url value="/my-account/stored-cards/remove" var="removePaymentActionUrl"/>
                                 <form:form id="removeStoredCard${storedCard.id}" action="${removePaymentActionUrl}" method="post">
