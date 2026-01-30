@@ -127,7 +127,7 @@
     <bean id="paymentMethodHandlerFactory" class="com.adyen.commerce.services.impl.PaymentMethodHandlerFactory"/>
 
     <alias name="defaultAdyenRequestService" alias="adyenRequestService" />
-    <bean id="defaultAdyenRequestService" class="com.adyen.commerce.services.impl.DefaultAdyenRequestService">
+    <bean id="defaultAdyenRequestService" class="com.adyen.commerce.services.impl.DefaultAdyenRequestService" autowire="constructor">
         <constructor-arg name="baseStoreService" ref="baseStoreService"/>
         <constructor-arg name="cartService" ref="cartService"/>
         <constructor-arg name="configurationService" ref="configurationService"/>
@@ -138,6 +138,9 @@
     <bean id="defaultAdyenPaymentServiceFactory" class="com.adyen.v6.factory.AdyenPaymentServiceFactory">
         <constructor-arg name="adyenMerchantAccountStrategy" ref="adyenMerchantStrategy"/>
         <constructor-arg name="defaultAdyenRequestService" ref="adyenRequestService"/>
+        <constructor-arg name="paymentMethodNameOverrideService" ref="paymentMethodNameOverrideService"/>
+        <constructor-arg name="adyenCustomerInteractionRetryTemplate" ref="adyenCustomerInteractionRetryTemplate"/>
+        <constructor-arg name="adyenBackgroundProcessRetryTemplate" ref="adyenBackgroundProcessRetryTemplate"/>
     </bean>
 
 
@@ -181,6 +184,19 @@
     <alias name="defaultAdyenBusinessProcessService" alias="adyenBusinessProcessService"/>
     <bean id="defaultAdyenBusinessProcessService" class="com.adyen.v6.service.DefaultAdyenBusinessProcessService">
         <property name="businessProcessService" ref="businessProcessService" />
+    </bean>
+
+    <alias name="defaultThreeDSAuthorizationService" alias="threeDSAuthorizationService"/>
+    <bean id="defaultThreeDSAuthorizationService" class="com.adyen.v6.service.DefaultThreeDSAuthorizationService">
+        <property name="sessionService" ref="sessionService"/>
+        <property name="orderRepository" ref="adyenOrderRepository"/>
+        <property name="adyenPaymentServiceFactory" ref="adyenPaymentServiceFactory"/>
+        <property name="baseStoreService" ref="baseStoreService"/>
+        <property name="modelService" ref="modelService"/>
+        <property name="adyenTransactionService" ref="adyenTransactionService"/>
+        <property name="adyenOrderService" ref="adyenOrderService"/>
+        <property name="adyenBusinessProcessService" ref="adyenBusinessProcessService"/>
+        <property name="orderConverter" ref="orderConverter"/>
     </bean>
 
     <!-- Process notification cronjob -->
@@ -237,6 +253,7 @@
         <property name="adyenOrderFacade" ref="adyenOrderFacade"/>
         <property name="productFacade" ref="productFacade"/>
         <property name="commerceCartService" ref="commerceCartService"/>
+        <property name="threeDSAuthorizationService" ref="threeDSAuthorizationService"/>
         <property name="adyenShopperIpResolverService" ref="adyenShopperIpResolverService"/>
         <property name="adyenInstallmentsConfigurationService" ref="adyenInstallmentsConfigurationService"/>
     </bean>
@@ -602,4 +619,56 @@
         <property name="flexibleSearchService" ref="defaultFlexibleSearchService" />
         <property name="adyenPartialPaymentOrderRepository" ref="adyenPartialPaymentOrderRepository" />
     </bean>
+
+    <alias name="defaultPaymentMethodNameOverrideService" alias="paymentMethodNameOverrideService"/>
+    <bean name="defaultPaymentMethodNameOverrideService" class="com.adyen.commerce.services.impl.DefaultPaymentMethodNameOverrideServiceImpl">
+        <property name="baseStoreService" ref="baseStoreService"/>
+        <property name="commonI18NService" ref="commonI18NService"/>
+    </bean>
+
+    <bean id="applicationInfoService" class="com.adyen.commerce.services.impl.ApplicationInfoService">
+        <property name="configurationService" ref="configurationService"/>
+    </bean>
+
+    <bean id="adyenCustomerInteractionRetryTemplate" class="org.springframework.retry.support.RetryTemplate">
+        <property name="retryPolicy">
+            <bean class="org.springframework.retry.policy.SimpleRetryPolicy">
+                <constructor-arg name="retryableExceptions">
+                    <map>
+                        <entry key="com.adyen.service.exception.ApiException" value="true"/>
+                        <entry key="java.io.IOException" value="true"/>
+                    </map>
+                </constructor-arg>
+                <constructor-arg name="maxAttempts" value="5"/>
+            </bean>
+        </property>
+        <property name="backOffPolicy">
+            <bean class="org.springframework.retry.backoff.ExponentialBackOffPolicy">
+                <property name="initialInterval" value="2000"/>
+                <property name="multiplier" value="2.0"/>
+                <property name="maxInterval" value="70000"/> </bean>
+        </property>
+    </bean>
+
+    <bean id="adyenBackgroundProcessRetryTemplate" class="org.springframework.retry.support.RetryTemplate">
+        <property name="retryPolicy">
+            <bean class="org.springframework.retry.policy.SimpleRetryPolicy">
+                <constructor-arg name="retryableExceptions">
+                    <map>
+                        <entry key="com.adyen.service.exception.ApiException" value="true"/>
+                        <entry key="java.io.IOException" value="true"/>
+                    </map>
+                </constructor-arg>
+                <constructor-arg name="maxAttempts" value="5"/>
+            </bean>
+        </property>
+        <property name="backOffPolicy">
+            <bean class="org.springframework.retry.backoff.ExponentialBackOffPolicy">
+                <property name="initialInterval" value="20000"/>
+                <property name="multiplier" value="2.0"/>
+                <property name="maxInterval" value="700000"/> </bean>
+        </property>
+    </bean>
+
+
 </beans>

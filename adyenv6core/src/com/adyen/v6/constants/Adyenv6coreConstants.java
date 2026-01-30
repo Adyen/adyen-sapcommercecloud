@@ -30,6 +30,8 @@ import java.util.List;
 public final class Adyenv6coreConstants extends GeneratedAdyenv6coreConstants {
 	public static final String EXTENSIONNAME = "adyenv6core";
 
+    public static final String PLATFORM_NAME = "SAP Commerce";
+
 	public static final String PLUGIN_NAME = "adyen-hybris";
 	public static final String PLUGIN_VERSION = "13.4.0";
 	public static final String PAYMENT_PROVIDER = "Adyen";
@@ -37,7 +39,10 @@ public final class Adyenv6coreConstants extends GeneratedAdyenv6coreConstants {
 
 	public static final String INTEGRATOR = "SYSKOPLAN CX";
 
-	public static final String PAYMENT_METHOD_CC = "adyen_cc";
+	public static final String TEST_ENV = "test";
+	public static final String LIVE_ENV = "live";
+
+	public static final String PAYMENT_METHOD_CC = "card";
 	public static final String PAYMENT_METHOD_EPS = "eps";
 	public static final String PAYMENT_METHOD_IDEAL = "ideal";
 	public static final String PAYMENT_METHOD_ONECLICK = "adyen_oneclick_";

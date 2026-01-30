@@ -57,7 +57,7 @@ import java.util.UUID;
 public class DefaultAdyenNotificationService implements AdyenNotificationService {
     public static final String PAYMENT_TRANSACTION_MODEL_IS_NULL_FOR_NOTIFICATION = "PaymentTransactionModel is null for notification: ";
     public static final String ORDER_WITH_ORDER_CODE = "Order with orderCode: ";
-    public static final String CAUSE_AN_EXCEPTION = " cause an exception. \n";
+    public static final String CAUSED_AN_EXCEPTION = " caused an exception. \n";
     public static final String EXCEPTION_DURING_PROCESSING_NOTIFICATION = "Exception during processing notification: ";
 
     private static final String CHARGEBACK_TICKETS_ENABLED="adyen.notification.chargeback.tickets.enabled";
@@ -183,7 +183,7 @@ public class DefaultAdyenNotificationService implements AdyenNotificationService
             adyenBusinessProcessService.triggerOrderProcessEvent(orderModel, Adyenv6coreConstants.PROCESS_EVENT_ADYEN_CAPTURED);
             return paymentTransactionEntryModel;
         }catch (Exception e){
-                LOG.error(ORDER_WITH_ORDER_CODE + orderModel.getCode() + CAUSE_AN_EXCEPTION);
+                LOG.error(ORDER_WITH_ORDER_CODE + orderModel.getCode() + CAUSED_AN_EXCEPTION);
                 orderModel.setStatus(OrderStatus.PROCESSING_ERROR);
                 orderModel.setStatusInfo(EXCEPTION_DURING_PROCESSING_NOTIFICATION + notificationItemModel.getPspReference());
                 getModelService().save(orderModel);
@@ -213,7 +213,7 @@ public class DefaultAdyenNotificationService implements AdyenNotificationService
             adyenBusinessProcessService.triggerOrderProcessEvent(orderModel, Adyenv6coreConstants.PROCESS_EVENT_ADYEN_CAPTURED);
             return paymentTransactionModel;
         } catch (Exception e){
-            LOG.error(ORDER_WITH_ORDER_CODE + orderCode + CAUSE_AN_EXCEPTION);
+            LOG.error(ORDER_WITH_ORDER_CODE + orderCode + CAUSED_AN_EXCEPTION);
             orderModel.setStatus(OrderStatus.PROCESSING_ERROR);
             orderModel.setStatusInfo(EXCEPTION_DURING_PROCESSING_NOTIFICATION + notificationItemModel.getPspReference());
             getModelService().save(orderModel);
@@ -234,10 +234,10 @@ public class DefaultAdyenNotificationService implements AdyenNotificationService
                     notificationItemModel.getPspReference());
             if (BooleanUtils.isTrue(notificationItemModel.getSuccess())) {
                 paymentTransactionEntry.setTransactionStatusDetails(TransactionStatusDetails.SUCCESFULL.name());
-                LOG.debug("Payment cancellation success");
+                LOG.debug("Payment cancellation/OFFER_CLOSED success");
             } else {
                 paymentTransactionEntry.setTransactionStatusDetails(TransactionStatusDetails.UNKNOWN_CODE.name());
-                LOG.warn("Payment cancellation failed for notification: " + notificationItemModel.getPspReference());
+                LOG.warn("Payment cancellation/OFFER_CLOSED  failed for notification: " + notificationItemModel.getPspReference());
             }
 
             LOG.debug("Saving Cancel transaction entry");
@@ -266,42 +266,6 @@ public class DefaultAdyenNotificationService implements AdyenNotificationService
             adyenBusinessProcessService.triggerReturnProcessEvent(orderModel, Adyenv6coreConstants.PROCESS_EVENT_ADYEN_REFUNDED);
             return paymentTransactionEntryModel;
         });
-    }
-
-    @Override
-    public PaymentTransactionModel processOfferClosedEvent(AdyenNotificationModel notificationItemModel) {
-        String orderCode = notificationItemModel.getMerchantReference();
-        if(BooleanUtils.isFalse(notificationItemModel.getSuccess())) {
-            LOG.error("Order " + orderCode + " received unexpected OFFER_CLOSED event with success=false");
-            return null;
-        }
-
-        OrderModel orderModel = orderRepository.getOrderModel(orderCode);
-        if (orderModel == null) {
-            LOG.error("Order " + orderCode + " was not found, skipping OFFER_CLOSED event...");
-            return null;
-        }
-        if (AdyenTransactionService.isOrderAuthorized(orderModel)) {
-            LOG.error("Order " + orderCode + " already authorised, skipping OFFER_CLOSED event...");
-            return null;
-        }
-        if (OrderStatus.CANCELLED.equals(orderModel.getStatus()) || OrderStatus.PROCESSING_ERROR.equals(orderModel.getStatus())) {
-            LOG.error("Order " + orderCode + " already cancelled, skipping OFFER_CLOSED event...");
-            return null;
-        }
-
-        orderModel.setStatus(OrderStatus.PROCESSING_ERROR);
-        orderModel.setStatusInfo("Adyen OFFER_CLOSED: " + notificationItemModel.getPspReference());
-        getModelService().save(orderModel);
-        try {
-            return adyenTransactionService.storeFailedAuthorizationFromNotification(notificationItemModel, orderModel);
-        }catch (Exception e){
-            LOG.error(ORDER_WITH_ORDER_CODE + orderCode + CAUSE_AN_EXCEPTION);
-            orderModel.setStatus(OrderStatus.PROCESSING_ERROR);
-            orderModel.setStatusInfo(EXCEPTION_DURING_PROCESSING_NOTIFICATION + notificationItemModel.getPspReference());
-            getModelService().save(orderModel);
-            throw e;
-        }
     }
 
     @Override
@@ -385,15 +349,12 @@ public class DefaultAdyenNotificationService implements AdyenNotificationService
                     LOG.warn("Authorisation already processed " + paymentTransaction.getRequestId());
                 }
                 break;
-            case NotificationRequestItem.EVENT_CODE_CANCEL_OR_REFUND:
+            case NotificationRequestItem.EVENT_CODE_CANCEL_OR_REFUND, NotificationRequestItem.EVENT_CODE_OFFER_CLOSED:
                 paymentTransaction = paymentTransactionRepository.getTransactionModel(notificationItemModel.getOriginalReference());
                 processCancelEvent(convertFromNotificationItem(notificationItemModel), paymentTransaction);
                 break;
             case NotificationRequestItem.EVENT_CODE_REFUND:
                 processRefundEvent(convertFromNotificationItem(notificationItemModel));
-                break;
-            case NotificationRequestItem.EVENT_CODE_OFFER_CLOSED:
-                processOfferClosedEvent(convertFromNotificationItem(notificationItemModel));
                 break;
         }
     }

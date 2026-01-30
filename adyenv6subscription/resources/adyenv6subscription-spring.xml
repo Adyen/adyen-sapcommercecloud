@@ -10,31 +10,26 @@
 
             http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd">
 
-    <bean id="subscriptionRepository" class="com.adyen.v6.repository.SubscriptionRepository" >
+    <bean id="subscriptionRepository" class="com.adyen.commerce.repository.SubscriptionRepository" >
         <property name="flexibleSearchService" ref="flexibleSearchService" />
     </bean>
 
-    <bean id="subscriptionOrderExecutor" class="com.adyen.v6.service.impl.SubscriptionOrderExecutor" scope="prototype">
+    <bean id="subscriptionOrderExecutor" class="com.adyen.commerce.service.impl.SubscriptionOrderExecutor" scope="prototype">
         <constructor-arg value="originalOrder" />
-        <property name="cartService" ref="defaultCartService" />
-        <property name="typeService" ref="typeService" />
-        <property name="adyenPaymentServiceFactory" ref="adyenPaymentServiceFactory" />
+        <property name="adyenSubscriptionPaymentServiceFactory" ref="adyenSubscriptionPaymentServiceFactory" />
         <property name="adyenTransactionService" ref="adyenTransactionService" />
-        <property name="cartConverter" ref="cartConverter" />
-        <property name="commerceCheckoutService" ref="commerceCheckoutService" />
         <property name="baseStoreService" ref="baseStoreService" />
-        <property name="modelService" ref="modelService" />
-        <property name="keyGenerator" ref="orderCodeGenerator" />
+        <property name="modelService" ref="modelService"/>
     </bean>
 
     <alias alias="subscriptionCommercePlaceOrderMethodHook" name="adyenSubscriptionCommercePlaceOrderMethodHook"/>
     <bean id="adyenSubscriptionCommercePlaceOrderMethodHook"
-          class="com.adyen.v6.hooks.AdyenSubscriptionCommercePlaceOrderMethodHook"
+          class="com.adyen.commerce.hooks.AdyenSubscriptionCommercePlaceOrderMethodHook"
           parent="defaultSubscriptionCommercePlaceOrderMethodHook">
 
     </bean>
 
-    <bean id="adyenSubscriptionOrderPopulator" class="com.adyen.v6.populators.AdyenSubscriptionOrderPopulator" parent="baseOrderPopulator">
+    <bean id="adyenSubscriptionOrderPopulator" class="com.adyen.commerce.populators.AdyenSubscriptionOrderPopulator" parent="baseOrderPopulator">
     </bean>
 
     <bean parent="modifyPopulatorList">
@@ -52,17 +47,17 @@
         <property name="add" ref="adyenSubscriptionOrderPopulator"/>
     </bean>
 
-    <bean id="recurringOrderService" class="com.adyen.v6.service.impl.DefaultRecurringOrderService">
+    <bean id="recurringOrderService" class="com.adyen.commerce.service.impl.DefaultRecurringOrderService">
         <property name="impersonationService" ref="impersonationService"/>
     </bean>
     
-    <bean id="subscriptionCronJob" class="com.adyen.v6.job.SubscriptionCronJob" parent="abstractJobPerformable" >
+    <bean id="subscriptionCronJob" class="com.adyen.commerce.job.SubscriptionCronJob" parent="abstractJobPerformable" >
         <property name="subscriptionRepository" ref="subscriptionRepository" />
         <property name="recurringOrderService" ref="recurringOrderService" />
     </bean>
 
     <alias alias="recurringOrdersCloneAbstractOrderHook" name="adyenRecurringOrdersCloneAbstractOrderHook"/>
-    <bean id="adyenRecurringOrdersCloneAbstractOrderHook" class="com.adyen.v6.hooks.AdyenRecurringOrdersCloneAbstractOrderHook">
+    <bean id="adyenRecurringOrdersCloneAbstractOrderHook" class="com.adyen.commerce.hooks.AdyenRecurringOrdersCloneAbstractOrderHook">
         <property name="itemModelCloneCreator" ref="itemModelCloneCreator"/>
         <property name="modelService" ref="modelService"/>
     </bean>
@@ -87,5 +82,29 @@
         <value>paymentAddress</value>
         <value>parent</value>
     </util:list>
+
+    <bean id="tokenizationWebhookRequestConverter" class="com.adyen.commerce.converter.TokenizationWebhookRequestConverter">
+    </bean>
+
+    <alias name="defaultAdyenTokenizationWebhookService" alias="adyenTokenizationWebhookService"/>
+    <bean id="defaultAdyenTokenizationWebhookService" class="com.adyen.commerce.service.impl.DefaultAdyenTokenizationWebhookService">
+        <property name="eventService" ref="eventService"/>
+        <property name="tokenWebhookRequestConverter" ref="tokenizationWebhookRequestConverter"/>
+    </bean>
+
+    <bean id="tokenizationAdyenPaymentRequestDecorator" class="com.adyen.commerce.decorator.TokenizationAdyenPaymentRequestDecorator">
+    </bean>
+
+    <bean id="adyenSubscriptionPaymentServiceFactory" class="com.adyen.commerce.factory.AdyenSubscriptionPaymentServiceFactory">
+        <constructor-arg name="adyenMerchantAccountStrategy" ref="adyenMerchantStrategy"/>
+        <constructor-arg name="applicationInfoService" ref="applicationInfoService"/>
+        <constructor-arg name="adyenCustomerInteractionRetryTemplate" ref="adyenCustomerInteractionRetryTemplate"/>
+        <constructor-arg name="adyenBackgroundProcessRetryTemplate" ref="adyenBackgroundProcessRetryTemplate"/>
+    </bean>
+
+    <bean id="tokenizationWebhookEventListener" class="com.adyen.commerce.listener.TokenizationWebhookEventListener" parent="abstractEventListener">
+        <property name="paymentTransactionRepository" ref="adyenPaymentTransactionRepository"/>
+        <property name="modelService" ref="modelService"/>
+    </bean>
 
 </beans>
