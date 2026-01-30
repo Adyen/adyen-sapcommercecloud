@@ -3,7 +3,7 @@ package com.adyen.commerce.services.impl;
 import com.adyen.commerce.util.LocalizationUtil;
 import com.adyen.model.checkout.Amount;
 import com.adyen.model.checkout.LineItem;
-import com.adyen.model.checkout.Name;
+import com.adyen.model.checkout.ShopperName;
 import com.adyen.model.checkout.PaymentRequest;
 import com.adyen.v6.enums.RecurringContractMode;
 import com.adyen.v6.util.AmountUtil;
