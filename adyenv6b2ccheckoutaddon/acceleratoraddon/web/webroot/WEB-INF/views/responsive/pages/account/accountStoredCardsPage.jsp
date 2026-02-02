@@ -27,8 +27,11 @@
                                 <li><img src="https://live.adyen.com/hpp/img/pm/${storedCard.brand}.png"/></li>
                                 <li>****${fn:escapeXml(storedCard.lastFour)}</li>
                                 <li>
-                                    <c:if test="${storedCard.expiryMonth lt 1}">0</c:if>
-                                        ${fn:escapeXml(storedCard.expiryMonth)}&nbsp;/&nbsp;20${fn:escapeXml(storedCard.expiryYear)}
+                                    <c:set var="mm" value="${fn:substring('0'.concat(fn:escapeXml(storedCard.expiryMonth)), fn:length('0'.concat(fn:escapeXml(storedCard.expiryMonth))) - 2, fn:length('0'.concat(fn:escapeXml(storedCard.expiryMonth))))}" />
+                                    <c:set var="yyRaw" value="${fn:escapeXml(storedCard.expiryYear)}" />
+                                    <c:set var="yy"
+                                           value="${fn:length(yyRaw) == 2 ? '20'.concat(yyRaw) : yyRaw}" />
+                                    ${mm}&nbsp;/&nbsp;${yy}
                                 </li>
                             </ul>
                             <div class="account-cards-actions pull-left">
@@ -52,8 +55,12 @@
                                     </strong>
                                     <br><img src="https://live.adyen.com/hpp/img/pm/${storedCard.brand}.png"/>
                                     <br>****${fn:escapeXml(storedCard.lastFour)}
-                                    <br><c:if test="${storedCard.expiryMonth lt 1}">0</c:if>
-                                        ${fn:escapeXml(storedCard.expiryMonth)}&nbsp;/&nbsp;20${fn:escapeXml(storedCard.expiryYear)}
+                                    <br>
+                                    <c:set var="mm" value="${fn:substring('0'.concat(fn:escapeXml(storedCard.expiryMonth)), fn:length('0'.concat(fn:escapeXml(storedCard.expiryMonth))) - 2, fn:length('0'.concat(fn:escapeXml(storedCard.expiryMonth))))}" />
+                                    <c:set var="yyRaw" value="${fn:escapeXml(storedCard.expiryYear)}" />
+                                    <c:set var="yy"
+                                           value="${fn:length(yyRaw) == 2 ? '20'.concat(yyRaw) : yyRaw}" />
+                                    ${mm}&nbsp;/&nbsp;${yy}
                                 </div>
                                 <c:url value="/my-account/stored-cards/remove" var="removePaymentActionUrl"/>
                                 <form:form id="removeStoredCard${storedCard.id}" action="${removePaymentActionUrl}" method="post">
