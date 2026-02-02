@@ -594,6 +594,9 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
         throw new CalculationException("Failed to set delivery mode");
     }
 
+    public CartData getSessionCart(){
+        return getCartFacade().getSessionCart();
+    }
 
     public void setCartFactory(CartFactory cartFactory) {
         this.cartFactory = cartFactory;
