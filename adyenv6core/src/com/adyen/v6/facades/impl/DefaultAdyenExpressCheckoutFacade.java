@@ -54,7 +54,6 @@ import de.hybris.platform.site.BaseSiteService;
 import de.hybris.platform.util.PriceValue;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.validator.routines.EmailValidator;
 import org.apache.log4j.Logger;
 import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
@@ -410,9 +409,17 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
     }
 
     protected CustomerModel createGuestCustomer(String emailAddress) throws DuplicateUidException {
-        Assert.isTrue(EmailValidator.getInstance().isValid(emailAddress), "Invalid email address");
+        Assert.isTrue(isValidEmail(emailAddress), "Invalid email address");
 
         return createGuestUserForAnonymousCheckout(emailAddress, USER_NAME);
+    }
+
+    private boolean isValidEmail(String email) {
+        if (email == null) {
+            return false;
+        }
+        String regex = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,6}$";
+        return email.matches(regex);
     }
 
     protected CustomerModel createGuestUserForAnonymousCheckout(final String email, final String name) throws DuplicateUidException {
@@ -585,10 +592,6 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
             return cartConverter.convert(cartModel);
         }
         throw new CalculationException("Failed to set delivery mode");
-    }
-
-    public CartData getSessionCart(){
-        return getCartFacade().getSessionCart();
     }
 
 
