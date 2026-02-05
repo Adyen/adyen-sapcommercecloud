@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 
-<action-definition id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.retrieveDPAAuth"
+<action-definition id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.RetrieveAuthWithDPA"
                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                    xsi:noNamespaceSchemaLocation="http://www.hybris.com/schema/cockpitng/action-definition.xsd">
 

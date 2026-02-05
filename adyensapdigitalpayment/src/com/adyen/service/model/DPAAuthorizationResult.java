@@ -1,6 +1,5 @@
 package com.adyen.service.model;
 
-
 import com.adyen.model.DigitalPaymentGetAuthorizationResult;
 import com.adyen.model.DigitalPaymentGetAuthorizationResultList;
 

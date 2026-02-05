@@ -6,8 +6,8 @@
 		<y:actions xmlns:y="http://www.hybris.com/cockpit/config/hybris">
 			<y:group merge-mode="merge" qualifier="common">
 				<y:label>actiongroup.common</y:label>
-				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.retrieveDPACard" property="currentObject"/>
-				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.retrieveDPAAuth" property="currentObject"/>
+				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.RetrieveCardWithDPA" property="currentObject"/>
+				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.RetrieveAuthWithDPA" property="currentObject"/>
 				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.RegisterCardAuthDPA" property="currentObject"/>
 				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.RegisterCaptureWithDPA" property="currentObject" />
 				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.RegisterCardWithDPA" property="currentObject" />
@@ -19,8 +19,8 @@
 		<y:actions xmlns:y="http://www.hybris.com/cockpit/config/hybris">
 			<y:group merge-mode="merge" qualifier="common">
 				<y:label>actiongroup.common</y:label>
-				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.retrieveDPACard" property="currentObject"/>
-				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.retrieveDPAAuth" property="currentObject"/>
+				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.RetrieveCardWithDPA" property="currentObject"/>
+				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.RetrieveAuthWithDPA" property="currentObject"/>
 				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.RegisterCardAuthDPA" property="currentObject"/>
 				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.RegisterCaptureWithDPA" property="currentObject" />
 				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.RegisterCardWithDPA" property="currentObject" />
@@ -33,8 +33,8 @@
 		<y:actions xmlns:y="http://www.hybris.com/cockpit/config/hybris">
 			<y:group merge-mode="merge" qualifier="common">
 				<y:label>actiongroup.common</y:label>
-				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.retrieveDPACard" property="currentObject"/>
-				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.retrieveDPAAuth" property="currentObject"/>
+				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.RetrieveCardWithDPA" property="currentObject"/>
+				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.RetrieveAuthWithDPA" property="currentObject"/>
 				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.RegisterCardAuthDPA" property="currentObject"/>
 				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.RegisterCaptureWithDPA" property="currentObject" />
 				<y:action action-id="com.adyen.sapdigitalpaymentbackoffice.widgets.actions.RegisterCardWithDPA" property="currentObject" />

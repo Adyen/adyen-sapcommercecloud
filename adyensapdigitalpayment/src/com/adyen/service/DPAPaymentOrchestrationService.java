@@ -1,5 +1,8 @@
 package com.adyen.service;
 
+import com.adyen.service.model.DPACardResult;
+import com.adyen.service.model.DPACaptureResult;
+import com.adyen.service.model.DPAAuthorizationResult;
 import de.hybris.platform.core.model.order.OrderModel;
 
 /**
@@ -18,7 +21,7 @@ public interface DPAPaymentOrchestrationService {
 	 * <p>
 	 * The implementation is expected to locate a CAPTURE payment transaction
 	 * on the order, call DPA to register the capture and persist the resulting
-	 * DPA operation details.
+	 * DPA operation details.import com.adyen.model.authorization.FetchAuthorization;
 	 * </p>
 	 **/
 	DPACaptureResult registerCapture(OrderModel order);
