@@ -311,17 +311,27 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
     }
 
     @Override
-    public void disableStoredCard(final String customerId, final String recurringReference) {
+    public void disableStoredCard(final String customerId, final String recurringReference) throws ApiException, IOException {
         LOG.debug("Disable stored card");
 
         RecurringApi recurring = new RecurringApi(client);
 
-        try
-        {
-            recurring.deleteTokenForStoredPaymentDetails(recurringReference, customerId, merchantAccount);
-        }
-        catch (ApiException | IOException e){
-            LOG.error("Couldn't disable stored card " + e.getMessage());
+        RequestOptions requestOptions = new RequestOptions();
+        requestOptions.setIdempotencyKey(UUID.randomUUID().toString());
+
+        try {
+            adyenCustomerInteractionRetryTemplate.execute(context -> {
+                recurring.deleteTokenForStoredPaymentDetails(recurringReference, customerId, merchantAccount, requestOptions);
+                return null;
+            });
+        } catch (Exception e) {
+            if (e instanceof ApiException) {
+                throw (ApiException) e;
+            } else if (e instanceof IOException) {
+                throw (IOException) e;
+            } else {
+                throw new RuntimeException(e);
+            }
         }
         LOG.debug("Disabled stored card");
     }
