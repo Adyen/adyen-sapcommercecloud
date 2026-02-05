@@ -28,9 +28,9 @@
                                 <li>****${fn:escapeXml(storedCard.lastFour)}</li>
                                 <li>
                                     <c:set var="formattedExpiryMonth" value="${fn:substring('0'.concat(fn:escapeXml(storedCard.expiryMonth)), fn:length('0'.concat(fn:escapeXml(storedCard.expiryMonth))) - 2, fn:length('0'.concat(fn:escapeXml(storedCard.expiryMonth))))}" />
-                                    <c:set var="yyRaw" value="${fn:escapeXml(storedCard.expiryYear)}" />
+                                    <c:set var="expiryYear" value="${fn:escapeXml(storedCard.expiryYear)}" />
                                     <c:set var="formattedExpiryYear"
-                                           value="${fn:length(yyRaw) == 2 ? '20'.concat(yyRaw) : yyRaw}" />
+                                           value="${fn:length(expiryYear) == 2 ? '20'.concat(expiryYear) : expiryYear}" />
                                     ${formattedExpiryMonth}&nbsp;/&nbsp;${formattedExpiryYear}
                                 </li>
                             </ul>
@@ -57,9 +57,9 @@
                                     <br>****${fn:escapeXml(storedCard.lastFour)}
                                     <br>
                                     <c:set var="formattedExpiryMonth" value="${fn:substring('0'.concat(fn:escapeXml(storedCard.expiryMonth)), fn:length('0'.concat(fn:escapeXml(storedCard.expiryMonth))) - 2, fn:length('0'.concat(fn:escapeXml(storedCard.expiryMonth))))}" />
-                                    <c:set var="yyRaw" value="${fn:escapeXml(storedCard.expiryYear)}" />
+                                    <c:set var="expiryYear" value="${fn:escapeXml(storedCard.expiryYear)}" />
                                     <c:set var="formattedExpiryYear"
-                                           value="${fn:length(yyRaw) == 2 ? '20'.concat(yyRaw) : yyRaw}" />
+                                           value="${fn:length(expiryYear) == 2 ? '20'.concat(expiryYear) : expiryYear}" />
                                     ${formattedExpiryMonth}&nbsp;/&nbsp;${formattedExpiryYear}
                                 </div>
                                 <c:url value="/my-account/stored-cards/remove" var="removePaymentActionUrl"/>
