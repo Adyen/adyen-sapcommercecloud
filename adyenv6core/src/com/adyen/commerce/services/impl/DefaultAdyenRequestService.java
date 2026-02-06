@@ -3,10 +3,12 @@ package com.adyen.commerce.services.impl;
 import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.commerce.decorator.AdyenPaymentRequestDecorator;
 import com.adyen.commerce.services.AdyenRequestService;
+import com.adyen.commerce.services.impl.AddressConverter;
 import com.adyen.commerce.util.AddressUtil;
 import com.adyen.model.checkout.*;
 import com.adyen.model.recurring.DisableRequest;
 import com.adyen.model.recurring.RecurringDetailsRequest;
+import com.adyen.v6.constants.Adyenv6coreConstants;
 import com.adyen.v6.enums.RecurringContractMode;
 import com.adyen.v6.model.RequestInfo;
 import de.hybris.platform.commercefacades.order.data.CartData;
@@ -139,22 +141,6 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
         return paymentRequest;
     }
 
-    @Override
-    public RecurringDetailsRequest createListRecurringDetailsRequest(final String merchantAccount, final String customerId) {
-        validateRecurringRequestInputs(merchantAccount, customerId);
-        return new RecurringDetailsRequest()
-            .merchantAccount(merchantAccount)
-            .shopperReference(customerId);
-    }
-
-    @Override
-    public DisableRequest createDisableRequest(final String merchantAccount, final String customerId, final String recurringReference) {
-        validateDisableRequestInputs(merchantAccount, customerId, recurringReference);
-        return new DisableRequest()
-            .merchantAccount(merchantAccount)
-            .shopperReference(customerId)
-            .recurringDetailReference(recurringReference);
-    }
 
     @Override
     public void decoratePayPalSubmitPaymentRequest(final String merchantAccount, final PaymentRequest paymentRequest,
