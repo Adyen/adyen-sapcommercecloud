@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import com.adyen.model.checkout.StoredPaymentMethodResource;
 
 import java.io.IOException;
 import java.util.List;
@@ -41,9 +42,9 @@ public class AdyenStoredCardsControllerOCC {
     @Operation(operationId = "getStoredCards", summary = "Returns stored card for user", description =
             "Returns stored card for use")
     @ApiBaseSiteIdAndUserIdParam
-    public ResponseEntity<List<RecurringDetail>> getStoredCards() throws IOException, ApiException {
+    public ResponseEntity<List<StoredPaymentMethodResource>> getStoredCards() throws IOException, ApiException {
         CustomerData currentCustomer = customerFacade.getCurrentCustomer();
-        List<RecurringDetail> storedCards = adyenCheckoutFacade.getAdyenPaymentService().getStoredCards(currentCustomer.getCustomerId());
+        List<StoredPaymentMethodResource> storedCards = adyenCheckoutFacade.getAdyenPaymentService().getStoredCards(currentCustomer.getCustomerId());
         return ResponseEntity.ok(storedCards);
     }
 

@@ -65,7 +65,7 @@ const Payment: React.FC<Props> = (props) => {
         handleError,
         setDropIn,
         setErrorCode
-    } = useAdyenPayment(useDifferentBillingAddress, saveInAddressBook, billingAddress);
+    } = useAdyenPayment(useDifferentBillingAddress, saveInAddressBook, billingAddress, shippingAddressFromCart);
 
     useEffect(() => {
         AddressService.fetchAddressConfig();
@@ -152,6 +152,7 @@ const Payment: React.FC<Props> = (props) => {
                     <PaymentDropIn
                         adyenConfig={adyenConfig}
                         shippingAddress={shippingAddressFromCart}
+                        useDifferentBillingAddress={useDifferentBillingAddress}
                         partialPaymentId={paymentState.partialPaymentId}
                         onPayment={handlePayment}
                         onAdditionalDetails={handleAdditionalDetails}

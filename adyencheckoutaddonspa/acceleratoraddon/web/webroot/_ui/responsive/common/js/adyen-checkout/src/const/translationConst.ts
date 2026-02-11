@@ -53,6 +53,7 @@ export const translationKeys: string[] = [
 
     //payment
     "checkout.multi.payment.useDifferentBillingAddress",
+    "checkout.multi.payment.useSameAddressAsShippingAddress",
 
     //error messages
     "checkout.error.authorization.failed",

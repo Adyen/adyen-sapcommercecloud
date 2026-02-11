@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { Dropin } from '@adyen/adyen-web/auto';
 import { PaymentService, PlaceOrderResponse } from '../service/paymentService';
 import { AddressModel } from '../reducers/types';
+import { AddressData } from '../types/addressData';
 import { SubmitActions, AdditionalDetailsActions } from '@adyen/adyen-web';
 
 interface PaymentState {
@@ -29,7 +30,8 @@ interface UseAdyenPaymentReturn {
 export const useAdyenPayment = (
     useDifferentBillingAddress: boolean,
     saveInAddressBook: boolean,
-    billingAddress: AddressModel
+    billingAddress: AddressModel,
+    shippingAddress: AddressData
 ): UseAdyenPaymentReturn => {
     const [paymentState, setPaymentState] = useState<PaymentState>({
         errorCode: '',
@@ -127,16 +129,58 @@ export const useAdyenPayment = (
     }, [dropIn]);
 
     const handlePayment = useCallback(async (data: any, element: any, actions: SubmitActions) => {
+        // Extract billing address from Adyen form
+        const billingAddressFromCard = data.billingAddress;
+        
+        let finalBillingAddress = billingAddress;
+        let usesDifferentBillingAddress = useDifferentBillingAddress;
+        
+        const fallbackFirstName = billingAddress?.firstName || shippingAddress?.firstName || '';
+        const fallbackLastName = billingAddress?.lastName || shippingAddress?.lastName || '';
+
+        // Only use different billing address if user explicitly chose it
+        if (useDifferentBillingAddress) {
+            // If user chose different billing address, check if we have one filled
+            if (billingAddress?.firstName && billingAddress?.lastName && billingAddress?.line1) {
+                // Use user-filled address from form
+                finalBillingAddress = billingAddress;
+            } else if (billingAddressFromCard && (billingAddressFromCard.street || billingAddressFromCard.city)) {
+                // Fallback to Adyen billing address if form is empty but Adyen collected address
+                finalBillingAddress = {
+                    id: billingAddress?.id || '',
+                    firstName: fallbackFirstName,
+                    lastName: fallbackLastName,
+                    line1: billingAddressFromCard.street || '',
+                    line2: billingAddressFromCard.houseNumberOrName || '',
+                    city: billingAddressFromCard.city || '',
+                    postalCode: billingAddressFromCard.postalCode || '',
+                    countryCode: billingAddressFromCard.country || '',
+                    country: billingAddress?.country || '',
+                    regionCode: billingAddressFromCard.stateOrProvince !== 'N/A' ? billingAddressFromCard.stateOrProvince : (billingAddress?.regionCode || ''),
+                    region: billingAddress?.region || '',
+                    phoneNumber: billingAddress?.phoneNumber || '',
+                    titleCode: billingAddress?.titleCode || '',
+                    title: billingAddress?.title || '',
+                    companyName: billingAddress?.companyName || '',
+                    taxNumber: billingAddress?.taxNumber || '',
+                    registrationNumber: billingAddress?.registrationNumber || ''
+                };
+            }
+        } else {
+            // User wants to use shipping address - send null
+            finalBillingAddress = null;
+        }
+
         const adyenPaymentForm = PaymentService.preparePlaceOrderRequest(
             data,
-            useDifferentBillingAddress,
+            usesDifferentBillingAddress,
             isSaveInAddressBook(),
-            billingAddress,
+            finalBillingAddress,
             partialPaymentIdRef.current
         );
-
+        
         await handleResponse(PaymentService.placeOrder(adyenPaymentForm), actions);
-    }, [useDifferentBillingAddress, billingAddress, handleResponse, isSaveInAddressBook]);
+    }, [useDifferentBillingAddress, billingAddress, shippingAddress, handleResponse, isSaveInAddressBook]);
 
     const handleAdditionalDetails = useCallback(async (data: any, element: any, actions: AdditionalDetailsActions) => {
         await handleResponse(PaymentService.sendAdditionalDetails(data), actions);

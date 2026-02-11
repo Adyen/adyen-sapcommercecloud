@@ -14,6 +14,7 @@ import { AddressData } from "../../types/addressData";
 interface PaymentDropInProps {
     adyenConfig: AdyenConfigData;
     shippingAddress: AddressData;
+    useDifferentBillingAddress: boolean;
     partialPaymentId?: string;
     onPayment: (state: any, element: UIElement, actions: SubmitActions) => void;
     onAdditionalDetails: (state: any, element: UIElement, actions: AdditionalDetailsActions) => void;
@@ -26,6 +27,7 @@ interface PaymentDropInProps {
 export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
     adyenConfig,
     shippingAddress,
+    useDifferentBillingAddress,
     partialPaymentId,
     onPayment,
     onAdditionalDetails,
@@ -102,10 +104,11 @@ export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
     ]);
 
     const getAdyenCardConfig = useCallback((): CardConfiguration => {
-         const config: CardConfiguration ={
+        const config: CardConfiguration ={
             type: 'card',
-            hasHolderName: true,
+            hasHolderName: adyenConfig.cardHolderNameRequired,
             holderNameRequired: adyenConfig.cardHolderNameRequired,
+            billingAddressRequired: useDifferentBillingAddress,
             enableStoreDetails: adyenConfig.showRememberTheseDetails,
             clickToPayConfiguration: {
                 merchantDisplayName: adyenConfig.merchantDisplayName,
@@ -120,6 +123,7 @@ export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
         
         return config;
     }, [
+        useDifferentBillingAddress,
         adyenConfig.cardHolderNameRequired,
         adyenConfig.showRememberTheseDetails,
         adyenConfig.merchantDisplayName,
