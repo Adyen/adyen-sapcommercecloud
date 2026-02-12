@@ -6,7 +6,7 @@ public class DPAResult<M, R> {
 	private final boolean success;
 	private final String resultCode;
 	private final String resultDesc;
-	private final M resultModel;
+	private final M result;
 	private final R rawResultList;
 
 	protected DPAResult(
@@ -14,14 +14,14 @@ public class DPAResult<M, R> {
 			boolean success,
 			String resultCode,
 			String resultDesc,
-			M resultModel,
+			M result,
 			R rawResultList
 	) {
 		this.hasResult = hasResult;
 		this.success = success;
 		this.resultCode = resultCode;
 		this.resultDesc = resultDesc;
-		this.resultModel = resultModel;
+		this.result = result;
 		this.rawResultList = rawResultList;
 	}
 
@@ -41,8 +41,8 @@ public class DPAResult<M, R> {
 		return resultDesc;
 	}
 
-	public M getResultModel() {
-		return resultModel;
+	public M getResult() {
+		return result;
 	}
 
 	public R getRawResultList() {

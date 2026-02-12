@@ -13,10 +13,10 @@ public class DPACardResult extends DPAResult<
 			boolean success,
 			String resultCode,
 			String resultDesc,
-			DigitalPaymentsCardResultModel resultModel,
+			DigitalPaymentsCardResultModel result,
 			DigitalPaymentsCardResultList rawResultList
 	) {
-		super(hasResult, success, resultCode, resultDesc, resultModel, rawResultList);
+		super(hasResult, success, resultCode, resultDesc, result, rawResultList);
 	}
 
 	public static DPACardResult empty() {

@@ -13,10 +13,10 @@ public class DPACaptureResult extends DPAResult<
 			boolean success,
 			String resultCode,
 			String resultDesc,
-			DigitalPaymentGetCaptureResultModel resultModel,
+			DigitalPaymentGetCaptureResultModel result,
 			DigitalPaymentGetCaptureResultList rawResultList
 	) {
-		super(hasResult, success, resultCode, resultDesc, resultModel, rawResultList);
+		super(hasResult, success, resultCode, resultDesc, result, rawResultList);
 	}
 
 	public static DPACaptureResult empty() {

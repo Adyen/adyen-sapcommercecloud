@@ -13,10 +13,10 @@ public class DPAAuthorizationResult extends DPAResult<
 			boolean success,
 			String resultCode,
 			String resultDesc,
-			DigitalPaymentGetAuthorizationResult resultModel,
+			DigitalPaymentGetAuthorizationResult result,
 			DigitalPaymentGetAuthorizationResultList rawResultList
 	) {
-		super(hasResult, success, resultCode, resultDesc, resultModel, rawResultList);
+		super(hasResult, success, resultCode, resultDesc, result, rawResultList);
 	}
 
 	public static DPAAuthorizationResult empty() {
