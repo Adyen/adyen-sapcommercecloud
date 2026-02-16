@@ -312,12 +312,9 @@ public class AdyenSummaryCheckoutStepControllerTest {
         when(checkoutFacadeMock.getCheckoutCart()).thenReturn(cartDataMock);
         when(checkoutFlowFacadeMock.getCheckoutCart()).thenReturn(cartDataMock);
         when(cartDataMock.getEntries()).thenReturn(null);
-     //   when(cmsPageServiceMock.getHomepage(anyObject())).thenReturn(contentPageModelMock);
         when(cmsSiteServiceMock.getCurrentSite()).thenReturn(cmsSiteModelMock);
         when(cmsSiteServiceMock.getStartPageLabelOrId(cmsSiteModelMock)).thenReturn(CONTENT_PAGE_MODEL_ID);
         when(cmsPreviewServiceMock.getPagePreviewCriteria()).thenReturn(pagePreviewCriteriaDataMock);
-       // when(cmsPageServiceMock.getPageForLabelOrId(MULTI_CHECKOUT_SUMMARY_CMS_PAGE_LABEL_MOCK, pagePreviewCriteriaDataMock)).
-       //         thenReturn(contentPageModelMock);
         when(pageTitleResolverMock.resolveContentPageTitle(CONTENT_PAGE_MODEL_TITLE)).thenReturn(CONTENT_PAGE_MODEL_TITLE);
         when(resourceBreadcrumbBuilderMock.getBreadcrumbs(anyObject())).thenReturn(breadcrumbs);
         when(checkoutFacadeMock.getCheckoutFlowGroupForCheckout()).thenReturn(CHECKOUT_FLOW_GROUP_FOR_CHECKOUT_MOCK);

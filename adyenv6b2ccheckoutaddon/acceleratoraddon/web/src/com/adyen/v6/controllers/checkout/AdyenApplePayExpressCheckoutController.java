@@ -8,10 +8,10 @@ import com.adyen.service.exception.ApiException;
 import com.adyen.v6.constants.Adyenv6coreConstants;
 import com.adyen.v6.facades.AdyenExpressCheckoutFacade;
 import com.adyen.v6.request.ApplePayExpressRequest;
+import de.hybris.platform.acceleratorstorefrontcommons.security.GUIDCookieStrategy;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.log4j.Logger;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -26,8 +26,8 @@ public class AdyenApplePayExpressCheckoutController {
     @Resource
     private AdyenExpressCheckoutFacade adyenExpressCheckoutFacade;
 
-    //@Autowired
-    //private GUIDCookieStrategy guidCookieStrategy;
+    @Resource
+    private GUIDCookieStrategy guidCookieStrategy;
 
     @PostMapping("PDP")
     public ResponseEntity applePayExpressPDP(final HttpServletRequest request, final HttpServletResponse response, @RequestBody ApplePayExpressRequest applePayExpressPDPRequest) throws Exception {
@@ -37,7 +37,7 @@ public class AdyenApplePayExpressCheckoutController {
         PaymentResponse paymentsResponse = adyenExpressCheckoutFacade.expressCheckoutPDP(applePayExpressPDPRequest.getCartId(),
                 paymentRequest, Adyenv6coreConstants.PAYMENT_METHOD_APPLEPAY, applePayExpressPDPRequest.getAddressData(), request);
 
-        //guidCookieStrategy.setCookie(request, response);
+        guidCookieStrategy.setCookie(request, response);
 
         return new ResponseEntity<>(paymentsResponse, HttpStatus.OK);
     }
@@ -50,7 +50,7 @@ public class AdyenApplePayExpressCheckoutController {
         PaymentResponse paymentsResponse = adyenExpressCheckoutFacade.expressCheckoutCart(paymentRequest, Adyenv6coreConstants.PAYMENT_METHOD_APPLEPAY,
                 applePayExpressRequest.getAddressData(), request);
 
-        //guidCookieStrategy.setCookie(request, response);
+        guidCookieStrategy.setCookie(request, response);
 
         return new ResponseEntity<>(paymentsResponse, HttpStatus.OK);
     }

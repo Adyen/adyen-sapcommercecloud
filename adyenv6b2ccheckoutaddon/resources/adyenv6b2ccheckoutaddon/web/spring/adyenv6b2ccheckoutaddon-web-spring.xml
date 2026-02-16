@@ -26,6 +26,7 @@
 
 	<context:component-scan base-package="com.adyen.v6.controllers"/>
 
+
 	<import resource="acceleratorCheckoutFlowGroup.xml"/>
 
     <bean id="sameSiteCookieAttributeAppenderUtils" class="com.adyen.v6.utils.SameSiteCookieAttributeAppenderUtils" >
