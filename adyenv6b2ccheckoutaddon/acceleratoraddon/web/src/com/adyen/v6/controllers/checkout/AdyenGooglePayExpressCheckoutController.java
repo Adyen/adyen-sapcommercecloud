@@ -8,12 +8,11 @@ import com.adyen.service.exception.ApiException;
 import com.adyen.v6.constants.Adyenv6coreConstants;
 import com.adyen.v6.facades.AdyenExpressCheckoutFacade;
 import com.adyen.v6.request.GooglePayExpressRequest;
-//import de.hybris.platform.acceleratorstorefrontcommons.security.GUIDCookieStrategy;
+import de.hybris.platform.acceleratorstorefrontcommons.security.GUIDCookieStrategy;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.log4j.Logger;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -28,8 +27,8 @@ public class AdyenGooglePayExpressCheckoutController {
     @Resource
     private AdyenExpressCheckoutFacade adyenExpressCheckoutFacade;
 
-//    @Autowired
-//    private GUIDCookieStrategy guidCookieStrategy;
+    @Resource
+    private GUIDCookieStrategy guidCookieStrategy;
 
     @PostMapping("PDP")
     public ResponseEntity googlePayExpressPDP(final HttpServletRequest request, final HttpServletResponse response, @RequestBody GooglePayExpressRequest googlePayExpressPDPRequest) throws Exception {
@@ -39,7 +38,7 @@ public class AdyenGooglePayExpressCheckoutController {
         PaymentResponse paymentsResponse = adyenExpressCheckoutFacade.expressCheckoutPDP(googlePayExpressPDPRequest.getCartId(),
                 paymentRequest, Adyenv6coreConstants.PAYMENT_METHOD_GOOGLE_PAY, googlePayExpressPDPRequest.getAddressData(), request);
 
-//        guidCookieStrategy.setCookie(request, response);
+        guidCookieStrategy.setCookie(request, response);
 
         return new ResponseEntity<>(paymentsResponse, HttpStatus.OK);
     }
@@ -52,7 +51,7 @@ public class AdyenGooglePayExpressCheckoutController {
         PaymentResponse paymentsResponse = adyenExpressCheckoutFacade.expressCheckoutCart(paymentRequest, Adyenv6coreConstants.PAYMENT_METHOD_GOOGLE_PAY,
                 googlePayExpressRequest.getAddressData(), request);
 
-        //guidCookieStrategy.setCookie(request, response);
+        guidCookieStrategy.setCookie(request, response);
 
         return new ResponseEntity<>(paymentsResponse, HttpStatus.OK);
     }
