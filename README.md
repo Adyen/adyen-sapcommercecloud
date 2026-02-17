@@ -3,19 +3,23 @@
 Latest stable version:
 https://github.com/Adyen/adyen-hybris/releases
 
-This plugin supports SAP Commerce (Hybris) versions 2105
+This plugin supports SAP Commerce (Hybris) versions 2211-jdk21 with Spring 6.
 
 The plugin is using following adyen libraries and API.
-- [adyen-java-api-library](https://github.com/Adyen/adyen-java-api-library) (v24.0.0)
-- [adyen-web](https://github.com/Adyen/adyen-web) (v5.56.1)
+- [adyen-java-api-library](https://github.com/Adyen/adyen-java-api-library) (v24.1.0)
+- [adyen-web](https://github.com/Adyen/adyen-web) (v5.63.0)
 - [Adyen Checkout API](https://docs.adyen.com/api-explorer/) (v71)
+
+## Spring 6 migration
+This plugin has been migrated to Spring 6. This is a major change that requires attention.
+If you have custom extensions that depend on this plugin, you will need to update your code to use the new `jakarta` packages instead of `javax`.
 
 ## Integration
 
 The SAP Commerce integrates Adyen Checkout for all card payments and local/redirect payment methods.
 
 ## Requirements
-SAP Commerce (Hybris) version 2105 or later
+SAP Commerce (Hybris) version 2211-jdk21 with Spring 6
 
 ## Installation
 
@@ -57,20 +61,6 @@ Required for the notifications:
 Required for the event driven notifications:
 ```
 <extension dir="${HYBRIS_BIN_DIR}/custom/adyen-hybris/adyenv6notificationv2"/>
-```
-
-#### Order management
-
-Additionally, required when using yacceleratorordermanagement (b2c_acc_oms recipe for 6.x and b2c_b2b_acc_oms recipe for 1905) :
-```
-<extension dir="${HYBRIS_BIN_DIR}/custom/adyen-hybris/adyenv6ordermanagement"/>
-```
-
-#### Fulfilment
-
-Additionally, required when using yacceleratorfulfilment (b2c_acc recipe for 6.x and b2c_acc_plus for 1905):
-```
-<extension dir="${HYBRIS_BIN_DIR}/custom/adyen-hybris/adyenv6fulfilmentprocess"/>
 ```
 
 ### 3. Modify local.properties
@@ -212,13 +202,6 @@ This plugin uses Adyen's Checkout Component for PayPal payments. To use that in 
 On Google Chrome browser versions 80 or later, it might occur that an account is logged out after trying to place an order using a credit card that requires 3D Secure authentication or using other redirect payment methods.
 This is a consequence of how newer versions of Chrome browsers handle the [SameSite attribute](https://web.dev/samesite-cookies-explained/) on cookies, invalidating the user session after a redirect to a third-party page happened.
 
-To avoid those issues, for SAP Commerce versions 6.x or 1905, a cookie handler included in this plugin can be used. To enable it, add the following configuration to the config/local.properties file:
-
-```
-adyen.samesitecookie.handler.enabled=true
-```
-
-For SAP Commerce versions 2005 and above, check how to use [SAP's SameSite Cookie Attribute Handler](https://help.sap.com/viewer/d0224eca81e249cb821f2cdf45a82ace/2005/en-US/bde41b6a42c541a08eb2a3b1993fb097.html).
 
 ## Amazon Pay configuration
 To be able to complete payments in Amazon Pay, you must add your Amazon Pay private key to the following folder /adyen-hybris/adyenv6core/resources/certificates, and once done, set the correct PEM file name on /adyen-hybris/adyenv6core/src/com/adyen/v6/DefaultAdyenAmazonPayIntegratorService.java in the following line:

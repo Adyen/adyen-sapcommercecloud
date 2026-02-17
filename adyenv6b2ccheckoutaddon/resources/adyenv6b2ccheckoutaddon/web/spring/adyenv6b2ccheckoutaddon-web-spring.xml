@@ -44,11 +44,6 @@
 	<alias name="adyenAddressValidator" alias="addressValidator"/>
 	<bean id="adyenAddressValidator" class="com.adyen.v6.validator.AdyenAddressValidator"/>
 
-	<!--<alias name="adyenPaymentMethodCheckoutStepController" alias="paymentMethodCheckoutStepController"/>
-	<bean id="adyenPaymentMethodCheckoutStepController" class="com.adyen.v6.controllers.pages.checkout.steps.AdyenPaymentMethodCheckoutStepController"/>-->
-
-	<!-- Removed conflicting alias to prevent Spring 6 bean conflicts -->
-	<!-- <alias name="adyenDeliveryAddressCheckoutStepController" alias="deliveryAddressCheckoutStepController"/> -->
 	<bean id="adyenDeliveryAddressCheckoutStepController" class="com.adyen.v6.controllers.pages.checkout.steps.AdyenDeliveryAddressCheckoutStepController"/>
 
 </beans>
