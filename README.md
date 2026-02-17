@@ -6,8 +6,8 @@ https://github.com/Adyen/adyen-hybris/releases
 This plugin supports SAP Commerce (Hybris) versions 2211-jdk21 with Spring 6.
 
 The plugin is using following adyen libraries and API.
-- [adyen-java-api-library](https://github.com/Adyen/adyen-java-api-library) (v24.1.0)
-- [adyen-web](https://github.com/Adyen/adyen-web) (v5.63.0)
+- [adyen-java-api-library](https://github.com/Adyen/adyen-java-api-library) (v38.3.0)
+- [adyen-web](https://github.com/Adyen/adyen-web) (v6.5.0)
 - [Adyen Checkout API](https://docs.adyen.com/api-explorer/) (v71)
 
 ## Spring 6 migration
