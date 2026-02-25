@@ -3,12 +3,8 @@ package com.adyen.commerce.services.impl;
 import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.commerce.decorator.AdyenPaymentRequestDecorator;
 import com.adyen.commerce.services.AdyenRequestService;
-import com.adyen.commerce.services.impl.AddressConverter;
 import com.adyen.commerce.util.AddressUtil;
 import com.adyen.model.checkout.*;
-import com.adyen.model.recurring.DisableRequest;
-import com.adyen.model.recurring.RecurringDetailsRequest;
-import com.adyen.v6.constants.Adyenv6coreConstants;
 import com.adyen.v6.enums.RecurringContractMode;
 import com.adyen.v6.model.RequestInfo;
 import de.hybris.platform.commercefacades.order.data.CartData;
@@ -141,6 +137,37 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
         return paymentRequest;
     }
 
+    @Override
+    public PaymentRequest createZeroAuthPaymentsRequest(final String merchantAccount,
+                                                        final CustomerModel customerModel,
+                                                        final CheckoutPaymentMethod paymentMethod) {
+
+        if (paymentMethod == null) {
+            throw new IllegalArgumentException("paymentMethod cannot be null");
+        }
+
+        PaymentRequest paymentRequest = new PaymentRequest();
+
+
+        String currency = baseStoreService.getCurrentBaseStore().getDefaultCurrency().getIsocode();
+
+        Amount zero = new Amount();
+        zero.setCurrency(currency);
+        zero.setValue(0L);
+        paymentRequest.setAmount(zero);
+
+        paymentRequest.setPaymentMethod(paymentMethod);
+
+        paymentRequest.reference("ZERO-AUTH_" + UUID.randomUUID());
+        paymentRequest.setShopperReference(customerModel.getUid());
+        paymentRequest.setShopperInteraction(PaymentRequest.ShopperInteractionEnum.ECOMMERCE);
+        paymentRequest.setRecurringProcessingModel(PaymentRequest.RecurringProcessingModelEnum.CARDONFILE);
+        paymentRequest.setStorePaymentMethod(true);
+
+        paymentRequest.setChannel(PaymentRequest.ChannelEnum.WEB);
+
+        return paymentRequest;
+    }
 
     @Override
     public void decoratePayPalSubmitPaymentRequest(final String merchantAccount, final PaymentRequest paymentRequest,

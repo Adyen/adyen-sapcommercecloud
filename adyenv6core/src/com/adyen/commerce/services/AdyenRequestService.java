@@ -1,7 +1,7 @@
 package com.adyen.commerce.services;
 
 import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
-import com.adyen.model.checkout.PaymentRequest;
+import com.adyen.model.checkout.*;
 import com.adyen.v6.enums.RecurringContractMode;
 import com.adyen.v6.model.RequestInfo;
 import de.hybris.platform.commercefacades.order.data.CartData;
@@ -56,4 +56,8 @@ public interface AdyenRequestService {
                                                final Boolean guestUserTokenizationEnabled,
                                                final java.math.BigDecimal customAmount,
                                                final String currency);
+
+    PaymentRequest createZeroAuthPaymentsRequest(String merchantAccount,
+                                                 CustomerModel customerModel,
+                                                 CheckoutPaymentMethod paymentMethod);
 }

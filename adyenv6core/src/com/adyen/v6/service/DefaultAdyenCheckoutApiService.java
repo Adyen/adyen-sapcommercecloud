@@ -145,6 +145,37 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
         }
     }
 
+    @Override
+    public PaymentResponse processZeroAuthRequest(final CustomerModel customerModel,
+                                                  final CheckoutPaymentMethod paymentMethod) throws Exception {
+
+        LOG.debug("Zero-auth payment");
+
+        PaymentsApi checkoutApi = new PaymentsApi(client);
+
+        PaymentRequest paymentsRequest = adyenRequestService.createZeroAuthPaymentsRequest(
+                merchantAccount,
+                customerModel,
+                paymentMethod
+        );
+
+        RequestOptions requestOptions = new RequestOptions();
+        requestOptions.setIdempotencyKey(UUID.randomUUID().toString());
+
+        try {
+            return adyenCustomerInteractionRetryTemplate.execute(context -> {
+                LOG.debug("Zero-auth request ref=" + paymentsRequest.getReference() + ", shopper=" + paymentsRequest.getShopperReference());
+                PaymentResponse paymentsResponse = checkoutApi.payments(paymentsRequest, requestOptions);
+                LOG.debug("Zero-auth response resultCode=" + paymentsResponse.getResultCode() + ", psp=" + paymentsResponse.getPspReference());
+                return paymentsResponse;
+            });
+        } catch (Exception e) {
+            if (e instanceof ApiException) throw (ApiException) e;
+            if (e instanceof IOException) throw (IOException) e;
+            throw new RuntimeException(e);
+        }
+    }
+
     public PaymentResponse sendPaymentRequest(final PaymentRequest paymentRequest, final RequestInfo requestInfo) throws IOException, ApiException {
         PaymentsApi checkoutApi = new PaymentsApi(client);
 

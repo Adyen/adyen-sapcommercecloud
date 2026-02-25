@@ -42,6 +42,7 @@ class AdyenCheckoutHelper {
         this.paypalButton = null;
         this.formValidator = new AdyenFormValidator(this);
         this.factory = null;
+        $(document).ready(() => this.bindZeroAuthButton());
     }
     i =0;
 
@@ -210,6 +211,27 @@ class AdyenCheckoutHelper {
         }
     }
 
+    bindZeroAuthButton() {
+        $(document).on('click', '#zeroAuthBtn', (e) => {
+            e.preventDefault();
+
+            const $res = $('#zeroAuthResult');
+            if ($res.length) {
+                $res.text('Calling zero-auth...');
+            }
+
+            this.zeroAuth((resp, isError) => {
+                const txt = (typeof resp === 'string') ? resp : JSON.stringify(resp);
+
+                if ($res.length) {
+                    $res.text(isError ? ('Zero-auth ERROR: ' + txt) : ('Zero-auth OK: ' + txt));
+                } else {
+                    showAlert(isError ? ('Zero-auth ERROR: ' + txt) : ('Zero-auth OK: ' + txt));
+                }
+            });
+        });
+    }
+
     configureButton(form, useSpinner, label) {
         $(document).ready(() => {
             $("#placeOrder-" + label).click(() => {
@@ -285,6 +307,42 @@ class AdyenCheckoutHelper {
                 }
             }
         })
+    }
+
+    zeroAuth(handleResult) {
+        const csrfToken = $("meta[name='_csrf']").attr("content");
+        const csrfHeader = $("meta[name='_csrf_header']").attr("content");
+        const requestBody = {
+            paymentMethodDto: {
+                type: "scheme",
+                encryptedCardNumber: "test_4111111111111111",
+                encryptedExpiryMonth: "test_03",
+                encryptedExpiryYear: "test_2030",
+                encryptedSecurityCode: "test_737",
+                holderName: "Marek Marucha"
+            }
+        };
+
+        $.ajax({
+            url: ACC.config.encodedContextPath + '/adyen/zero-auth',
+            type: 'POST',
+            data: JSON.stringify({
+                requestBody
+            }),
+            contentType: "application/json; charset=utf-8",
+            beforeSend: function (xhr) {
+                if (csrfToken && csrfHeader) {
+                    xhr.setRequestHeader(csrfHeader, csrfToken);
+                }
+            },
+            success: function (response) {
+                handleResult(response, false);
+            },
+            error: function (xhr) {
+                const msg = xhr.responseJSON || xhr.responseText || ('HTTP ' + xhr.status);
+                handleResult(msg, true);
+            }
+        });
     }
 
     isTermsAccepted(label) {
