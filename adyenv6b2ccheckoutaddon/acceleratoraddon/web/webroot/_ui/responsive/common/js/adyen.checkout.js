@@ -319,7 +319,7 @@ class AdyenCheckoutHelper {
                 encryptedExpiryMonth: "test_03",
                 encryptedExpiryYear: "test_2030",
                 encryptedSecurityCode: "test_737",
-                holderName: "Marek Marucha"
+                holderName: "John Smith Test"
             }
         };
 

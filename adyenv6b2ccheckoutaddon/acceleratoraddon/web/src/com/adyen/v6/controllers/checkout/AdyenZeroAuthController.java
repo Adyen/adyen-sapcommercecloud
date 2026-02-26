@@ -1,21 +1,16 @@
 package com.adyen.v6.controllers.checkout;
 
 import com.adyen.commerce.facades.*;
-import com.adyen.commerce.facades.impl.*;
 import com.adyen.model.checkout.*;
 import com.adyen.service.exception.*;
 import com.adyen.v6.controllers.checkout.dto.*;
-import com.adyen.v6.facades.impl.*;
-import com.adyen.v6.model.*;
 import org.apache.log4j.*;
 import org.springframework.http.*;
 import org.springframework.stereotype.*;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.*;
-import javax.servlet.http.*;
 import java.io.*;
-import java.util.*;
 
 @Controller
 @RequestMapping("/adyen")

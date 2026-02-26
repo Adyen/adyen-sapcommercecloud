@@ -146,10 +146,6 @@
             </div>
             <multi-checkout:checkoutSteps checkoutSteps="${checkoutSteps}" progressBarId="${progressBarId}">
                 <ycommerce:testId code="checkoutStepFour">
-                    <button type="button" class="btn btn-default" id="zeroAuthBtn">
-                        Zero-auth
-                    </button>
-                    <div id="zeroAuthResult" style="margin-top:10px;"></div>
                     <div class="checkout-review hidden-xs">
                         <div class="checkout-order-summary">
                             <multi-checkout:orderTotals cartData="${cartData}" showTaxEstimate="${showTaxEstimate}" showTax="${showTax}" subtotalsCssClasses="dark"/>
