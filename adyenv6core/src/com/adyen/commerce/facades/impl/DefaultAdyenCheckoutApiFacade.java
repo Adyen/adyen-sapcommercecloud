@@ -275,6 +275,7 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
         return paymentResponse;
     }
 
+    @Override
     public PaymentResponse processZeroAuthCard(CheckoutPaymentMethod paymentMethod) throws Exception {
         final CustomerModel customer = getCheckoutCustomerStrategy().getCurrentUserForCheckout();
         return getAdyenPaymentService().processZeroAuthRequest(customer, paymentMethod);

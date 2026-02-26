@@ -157,7 +157,7 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
         paymentRequest.setAmount(zero);
 
         paymentRequest.setPaymentMethod(paymentMethod);
-
+        paymentRequest.setMerchantAccount(merchantAccount);
         paymentRequest.reference("ZERO-AUTH_" + UUID.randomUUID());
         paymentRequest.setShopperReference(customerModel.getUid());
         paymentRequest.setShopperInteraction(PaymentRequest.ShopperInteractionEnum.ECOMMERCE);

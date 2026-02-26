@@ -20,7 +20,7 @@ public final class ZeroAuthMapper {
 				.encryptedExpiryMonth(pm.getEncryptedExpiryMonth())
 				.encryptedExpiryYear(pm.getEncryptedExpiryYear())
 				.encryptedSecurityCode(pm.getEncryptedSecurityCode())
-				.holderName(pm.getHolderName());
+				.holderName(pm.getHolderName()).type(CardDetails.TypeEnum.valueOf(pm.getType()));
 
 		return new CheckoutPaymentMethod(cardDetails);
 	}

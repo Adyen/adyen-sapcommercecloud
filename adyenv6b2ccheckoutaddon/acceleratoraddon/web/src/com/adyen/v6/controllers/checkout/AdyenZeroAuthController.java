@@ -1,5 +1,6 @@
 package com.adyen.v6.controllers.checkout;
 
+import com.adyen.commerce.facades.*;
 import com.adyen.commerce.facades.impl.*;
 import com.adyen.model.checkout.*;
 import com.adyen.service.exception.*;
@@ -22,8 +23,8 @@ public class AdyenZeroAuthController {
 
 	private static final Logger LOGGER = Logger.getLogger(AdyenZeroAuthController.class);
 
-	@Resource(name = "adyenCheckoutFacade")
-	private DefaultAdyenCheckoutApiFacade adyenCheckoutApiFacade;
+	@Resource(name = "adyenCheckoutApiFacade")
+	private AdyenCheckoutApiFacade adyenCheckoutApiFacade;
 
 	@PostMapping(value = "/zero-auth", consumes = "application/json", produces = "application/json")
 	@ResponseBody

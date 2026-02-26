@@ -314,7 +314,7 @@ class AdyenCheckoutHelper {
         const csrfHeader = $("meta[name='_csrf_header']").attr("content");
         const requestBody = {
             paymentMethodDto: {
-                type: "scheme",
+                type: "SCHEME",
                 encryptedCardNumber: "test_4111111111111111",
                 encryptedExpiryMonth: "test_03",
                 encryptedExpiryYear: "test_2030",
@@ -326,9 +326,7 @@ class AdyenCheckoutHelper {
         $.ajax({
             url: ACC.config.encodedContextPath + '/adyen/zero-auth',
             type: 'POST',
-            data: JSON.stringify({
-                requestBody
-            }),
+            data: JSON.stringify(requestBody),
             contentType: "application/json; charset=utf-8",
             beforeSend: function (xhr) {
                 if (csrfToken && csrfHeader) {
