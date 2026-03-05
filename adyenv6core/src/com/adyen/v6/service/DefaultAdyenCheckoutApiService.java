@@ -148,16 +148,10 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
     @Override
     public PaymentResponse processZeroAuthRequest(final CustomerModel customerModel,
                                                   final CheckoutPaymentMethod paymentMethod) throws Exception {
-
         LOG.debug("Zero-auth payment");
 
         PaymentsApi checkoutApi = new PaymentsApi(client);
-
-        PaymentRequest paymentsRequest = adyenRequestService.createZeroAuthPaymentsRequest(
-                merchantAccount,
-                customerModel,
-                paymentMethod
-        );
+        PaymentRequest paymentsRequest = adyenRequestService.createZeroAuthPaymentsRequest(merchantAccount, customerModel, paymentMethod);
 
         RequestOptions requestOptions = new RequestOptions();
         requestOptions.setIdempotencyKey(UUID.randomUUID().toString());

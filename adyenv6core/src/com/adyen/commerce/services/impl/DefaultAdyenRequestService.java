@@ -148,24 +148,20 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
 
         PaymentRequest paymentRequest = new PaymentRequest();
 
-
         String currency = baseStoreService.getCurrentBaseStore().getDefaultCurrency().getIsocode();
-
         Amount zero = new Amount();
         zero.setCurrency(currency);
         zero.setValue(0L);
-        paymentRequest.setAmount(zero);
 
+        paymentRequest.setAmount(zero);
         paymentRequest.setPaymentMethod(paymentMethod);
         paymentRequest.setMerchantAccount(merchantAccount);
         paymentRequest.reference("ZERO-AUTH_" + UUID.randomUUID());
-        paymentRequest.setShopperReference(customerModel.getUid());
+        paymentRequest.setShopperReference(customerModel.getCustomerID());
         paymentRequest.setShopperInteraction(PaymentRequest.ShopperInteractionEnum.ECOMMERCE);
         paymentRequest.setRecurringProcessingModel(PaymentRequest.RecurringProcessingModelEnum.CARDONFILE);
         paymentRequest.setStorePaymentMethod(true);
-
         paymentRequest.setChannel(PaymentRequest.ChannelEnum.WEB);
-
         return paymentRequest;
     }
 

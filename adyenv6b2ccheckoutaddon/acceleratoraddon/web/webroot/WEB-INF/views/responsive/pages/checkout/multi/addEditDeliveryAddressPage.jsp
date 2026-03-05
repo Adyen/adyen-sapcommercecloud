@@ -28,10 +28,8 @@
 
                             <div class="checkout-indent">
                                 <div class="headline"><spring:theme code="checkout.summary.shippingAddress" /></div>
-                                <button type="button" class="btn btn-default" id="zeroAuthBtn">
-                                    Zero-auth
-                                </button>
-                                <div id="zeroAuthResult" style="margin-top:10px;"></div>
+
+
                                     <adyen:addressFormSelector supportedCountries="${countries}"
                                         regions="${regions}" cancelUrl="${currentStepUrl}"
                                         country="${country}" />

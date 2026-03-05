@@ -1,6 +1,13 @@
 package com.adyen.v6.controllers.checkout.dto;
 
+import javax.validation.Valid;
+import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.NotNull;
+
 public class ZeroAuthRequest {
+
+	@Valid
+	@NotNull(message = "paymentMethodDto is missing")
 	private PaymentMethodDto paymentMethodDto;
 
 	public PaymentMethodDto getPaymentMethodDto() {
@@ -12,11 +19,22 @@ public class ZeroAuthRequest {
 	}
 
 	public static class PaymentMethodDto {
+
+		@NotBlank(message = "paymentMethodDto.type is missing")
 		private String type;
+
+		@NotBlank(message = "paymentMethodDto.encryptedCardNumber is missing")
 		private String encryptedCardNumber;
+
+		@NotBlank(message = "paymentMethodDto.encryptedExpiryMonth is missing")
 		private String encryptedExpiryMonth;
+
+		@NotBlank(message = "paymentMethodDto.encryptedExpiryYear is missing")
 		private String encryptedExpiryYear;
+
+		@NotBlank(message = "paymentMethodDto.encryptedSecurityCode is missing")
 		private String encryptedSecurityCode;
+
 		private String holderName;
 
 		public String getType() {
