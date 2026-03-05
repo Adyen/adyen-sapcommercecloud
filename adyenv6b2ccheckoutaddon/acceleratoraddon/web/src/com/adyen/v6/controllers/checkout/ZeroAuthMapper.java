@@ -10,27 +10,14 @@ public final class ZeroAuthMapper {
 	private ZeroAuthMapper() {}
 
 	public static CheckoutPaymentMethod toCheckoutPaymentMethod(final ZeroAuthRequest req) {
-		if (req == null) {
-			throw new IllegalArgumentException("request is missing");
-		}
-		if (req.getPaymentMethodDto() == null) {
-			throw new IllegalArgumentException("paymentMethodDto is missing");
-		}
 
 		final ZeroAuthRequest.PaymentMethodDto pm = req.getPaymentMethodDto();
 
-		final String type = StringUtils.trimToEmpty(pm.getType());
-		if (StringUtils.isBlank(type)) {
-			throw new IllegalArgumentException("paymentMethodDto.type is missing");
+		if (!"scheme".equalsIgnoreCase(pm.getType())) {
+			throw new IllegalArgumentException(
+					"Unsupported paymentMethodDto.type: " + pm.getType() + " (only 'scheme' is supported)"
+			);
 		}
-		if (!"scheme".equalsIgnoreCase(type)) {
-			throw new IllegalArgumentException("Unsupported paymentMethodDto.type: " + type + " (only 'scheme' is supported)");
-		}
-
-		requireNotBlank(pm.getEncryptedCardNumber(), "paymentMethodDto.encryptedCardNumber");
-		requireNotBlank(pm.getEncryptedExpiryMonth(), "paymentMethodDto.encryptedExpiryMonth");
-		requireNotBlank(pm.getEncryptedExpiryYear(), "paymentMethodDto.encryptedExpiryYear");
-		requireNotBlank(pm.getEncryptedSecurityCode(), "paymentMethodDto.encryptedSecurityCode");
 
 		final CardDetails cardDetails = new CardDetails()
 				.encryptedCardNumber(pm.getEncryptedCardNumber())
@@ -43,11 +30,5 @@ public final class ZeroAuthMapper {
 		}
 
 		return new CheckoutPaymentMethod(cardDetails);
-	}
-
-	private static void requireNotBlank(final String value, final String fieldName) {
-		if (StringUtils.isBlank(value)) {
-			throw new IllegalArgumentException(fieldName + " is missing");
-		}
 	}
 }

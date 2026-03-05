@@ -12,6 +12,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
+import javax.validation.*;
 import java.io.IOException;
 
 @Controller
@@ -25,7 +26,7 @@ public class AdyenZeroAuthController {
 
 	@PostMapping(value = "/zero-auth", consumes = "application/json", produces = "application/json")
 	@ResponseBody
-	public ResponseEntity<String> zeroAuth(@RequestBody ZeroAuthRequest request) {
+	public ResponseEntity<String> zeroAuth(@Valid @RequestBody ZeroAuthRequest request) {
 		try {
 			final CheckoutPaymentMethod paymentMethod = ZeroAuthMapper.toCheckoutPaymentMethod(request);
 			final PaymentResponse resp = adyenCheckoutApiFacade.processZeroAuthCard(paymentMethod);
@@ -35,10 +36,6 @@ public class AdyenZeroAuthController {
 					: null;
 
 			return ResponseEntity.ok(result);
-
-		} catch (IllegalArgumentException e) {
-			LOGGER.warn("Invalid zero-auth request", e);
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
 
 		} catch (ApiException e) {
 			LOGGER.error("Adyen API exception during zero-auth", e);
