@@ -6,6 +6,7 @@
 <%@ taglib prefix="ycommerce" uri="http://hybris.com/tld/ycommercetags" %>
 <%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
 <%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
+<%@ taglib prefix="adyen" tagdir="/WEB-INF/tags/addons/adyenv6b2ccheckoutaddon/responsive" %>
 
 <c:set var="noBorder" value=""/>
 <c:if test="${not empty storedCards}">
@@ -15,6 +16,7 @@
 <div class="account-section-header ${noBorder}">
     <spring:theme code="text.account.storedCards" />
 </div>
+
 <c:choose>
     <c:when test="${not empty storedCards}">
         <div class="account-storedCards account-list">
@@ -31,7 +33,7 @@
                                     <c:set var="expiryYear" value="${fn:escapeXml(storedCard.expiryYear)}" />
                                     <c:set var="formattedExpiryYear"
                                            value="${fn:length(expiryYear) == 2 ? '20'.concat(expiryYear) : expiryYear}" />
-                                    ${formattedExpiryMonth}&nbsp;/&nbsp;${formattedExpiryYear}
+                                        ${formattedExpiryMonth}&nbsp;/&nbsp;${formattedExpiryYear}
                                 </li>
                             </ul>
                             <div class="account-cards-actions pull-left">
@@ -40,7 +42,7 @@
                                        href="#"
                                        data-payment-id="${storedCard.id}"
                                        data-popup-title="<spring:theme code="text.account.storedCard.delete.popup.title"/>">
-                                  <span class="glyphicon glyphicon-remove" aria-hidden="true"></span>
+                                        <span class="glyphicon glyphicon-remove" aria-hidden="true"></span>
                                     </a>
                                 </ycommerce:testId>
                             </div>
@@ -60,7 +62,7 @@
                                     <c:set var="expiryYear" value="${fn:escapeXml(storedCard.expiryYear)}" />
                                     <c:set var="formattedExpiryYear"
                                            value="${fn:length(expiryYear) == 2 ? '20'.concat(expiryYear) : expiryYear}" />
-                                    ${formattedExpiryMonth}&nbsp;/&nbsp;${formattedExpiryYear}
+                                        ${formattedExpiryMonth}&nbsp;/&nbsp;${formattedExpiryYear}
                                 </div>
                                 <c:url value="/my-account/stored-cards/remove" var="removePaymentActionUrl"/>
                                 <form:form id="removeStoredCard${storedCard.id}" action="${removePaymentActionUrl}" method="post">
@@ -96,3 +98,31 @@
         </div>
     </c:otherwise>
 </c:choose>
+
+<div class="account-section-header" style="margin-top: 30px;">
+    Add new card
+</div>
+
+<div class="account-section-content">
+    <div id="adyen-myaccount-config"
+         data-client-key="${adyenClientKey}"
+         data-environment="${adyenEnvironment}"
+         data-locale="${adyenLocale}"
+         data-country-code="${adyenCountryCode}">
+    </div>
+
+    <div id="adyen-myaccount-card" style="max-width: 500px;"></div>
+
+    <div style="margin-top: 16px;">
+        <button id="adyen-tokenize-card-btn"
+                type="button"
+                class="btn btn-primary"
+                disabled="disabled">
+            Save card
+        </button>
+    </div>
+
+    <div id="adyen-tokenize-card-msg" style="margin-top: 12px;"></div>
+</div>
+<adyen:adyenLibrary showDefaultCss="false"/>
+<script src="${contextPath}/_ui/addons/adyenv6b2ccheckoutaddon/responsive/common/js/adyenMyAccountStoredCards.js"></script>

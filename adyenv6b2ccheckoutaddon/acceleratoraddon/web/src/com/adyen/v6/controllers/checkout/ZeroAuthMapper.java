@@ -23,7 +23,8 @@ public final class ZeroAuthMapper {
 				.encryptedCardNumber(pm.getEncryptedCardNumber())
 				.encryptedExpiryMonth(pm.getEncryptedExpiryMonth())
 				.encryptedExpiryYear(pm.getEncryptedExpiryYear())
-				.encryptedSecurityCode(pm.getEncryptedSecurityCode());
+				.encryptedSecurityCode(pm.getEncryptedSecurityCode())
+				.type(CardDetails.TypeEnum.SCHEME);
 
 		if (StringUtils.isNotBlank(pm.getHolderName())) {
 			cardDetails.holderName(pm.getHolderName());

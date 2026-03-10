@@ -23,6 +23,7 @@ package com.adyen.v6.controllers.pages.account;
 import com.adyen.model.checkout.StoredPaymentMethodResource;
 import com.adyen.model.recurring.RecurringDetail;
 import com.adyen.service.exception.ApiException;
+import com.adyen.v6.enums.*;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
 import com.adyen.v6.service.AdyenCheckoutApiService;
 import de.hybris.platform.acceleratorstorefrontcommons.annotations.RequireHardLogIn;
@@ -47,6 +48,12 @@ import javax.annotation.Resource;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+
+import static com.adyen.v6.constants.Adyenv6coreConstants.LIVE_ENV;
+import static com.adyen.v6.constants.Adyenv6coreConstants.TEST_ENV;
+import static com.adyen.v6.facades.impl.DefaultAdyenCheckoutFacade.CHECKOUT_SHOPPER_HOST_LIVE;
+import static com.adyen.v6.facades.impl.DefaultAdyenCheckoutFacade.CHECKOUT_SHOPPER_HOST_LIVE_IN;
+import static com.adyen.v6.facades.impl.DefaultAdyenCheckoutFacade.CHECKOUT_SHOPPER_HOST_TEST;
 
 /**
  * Controller for Adyen stored cards
@@ -80,12 +87,18 @@ public class AdyenStoredCardsController extends AbstractSearchPageController {
     @RequireHardLogIn
     public String listStoredCards(@Nonnull final Model model) throws CMSItemNotFoundException {
         List<StoredPaymentMethodResource> storedCards = getStoredCards();
+        final BaseStoreModel baseStore = baseStoreService.getCurrentBaseStore();
 
         storeCmsPageInModel(model, getContentPageForLabelOrId(STORED_CARDS_CMS_PAGE));
         setUpMetaDataForContentPage(model, getContentPageForLabelOrId(STORED_CARDS_CMS_PAGE));
         model.addAttribute("storedCards", storedCards);
         model.addAttribute("breadcrumbs", accountBreadcrumbBuilder.getBreadcrumbs("text.account.storedCards"));
         model.addAttribute("metaRobots", "no-index,no-follow");
+        model.addAttribute("adyenClientKey", baseStore.getAdyenClientKey());
+        model.addAttribute("adyenLocale", "en_US");
+        model.addAttribute("adyenCountryCode", resolveCountryCode());
+        model.addAttribute("adyenEnvironment", getEnvironmentMode());
+        model.addAttribute("checkoutShopperHost", getCheckoutShopperHost());
 
         return getViewForPage(model);
     }
@@ -145,6 +158,66 @@ public class AdyenStoredCardsController extends AbstractSearchPageController {
         LOGGER.error("Customer not found");
 
         return null;
+    }
+
+    public String getEnvironmentMode() {
+        if (Boolean.TRUE.equals(baseStoreService.getCurrentBaseStore().getAdyenTestMode())) {
+            return TEST_ENV;
+        }
+        if (AdyenRegions.IN.equals(baseStoreService.getCurrentBaseStore().getAdyenRegion())) {
+            return "live-in";
+        }
+        return LIVE_ENV;
+    }
+
+    private String getCheckoutShopperHost() {
+        final BaseStoreModel baseStore = baseStoreService.getCurrentBaseStore();
+
+        if (Boolean.TRUE.equals(baseStore.getAdyenTestMode())) {
+            return CHECKOUT_SHOPPER_HOST_TEST;
+        }
+
+        if (AdyenRegions.IN.equals(baseStore.getAdyenRegion())) {
+            return CHECKOUT_SHOPPER_HOST_LIVE_IN;
+        }
+        return CHECKOUT_SHOPPER_HOST_LIVE;
+    }
+
+    private String resolveCountryCode() {
+        CustomerModel customer = getCurrentCustomer();
+
+        if (customer != null) {
+
+            if (customer.getDefaultPaymentAddress() != null &&
+                    customer.getDefaultPaymentAddress().getCountry() != null) {
+
+                return customer.getDefaultPaymentAddress()
+                        .getCountry()
+                        .getIsocode();
+            }
+
+            if (customer.getDefaultShipmentAddress() != null &&
+                    customer.getDefaultShipmentAddress().getCountry() != null) {
+
+                return customer.getDefaultShipmentAddress()
+                        .getCountry()
+                        .getIsocode();
+            }
+        }
+
+        BaseStoreModel baseStore = baseStoreService.getCurrentBaseStore();
+
+        if (baseStore != null &&
+                baseStore.getDeliveryCountries() != null &&
+                !baseStore.getDeliveryCountries().isEmpty()) {
+
+            return baseStore.getDeliveryCountries()
+                    .iterator()
+                    .next()
+                    .getIsocode();
+        }
+
+        return "EN";
     }
 
     public AdyenCheckoutApiService getAdyenPaymentService() {
