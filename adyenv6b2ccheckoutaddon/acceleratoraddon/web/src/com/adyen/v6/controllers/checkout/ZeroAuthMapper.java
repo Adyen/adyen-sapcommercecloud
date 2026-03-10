@@ -7,13 +7,15 @@ import org.apache.commons.lang3.StringUtils;
 
 public final class ZeroAuthMapper {
 
+	public static final String SCHEME = "scheme";
+
 	private ZeroAuthMapper() {}
 
 	public static CheckoutPaymentMethod toCheckoutPaymentMethod(final ZeroAuthRequest req) {
 
 		final ZeroAuthRequest.PaymentMethodDto pm = req.getPaymentMethodDto();
 
-		if (!"scheme".equalsIgnoreCase(pm.getType())) {
+		if (!SCHEME.equalsIgnoreCase(pm.getType())) {
 			throw new IllegalArgumentException(
 					"Unsupported paymentMethodDto.type: " + pm.getType() + " (only 'scheme' is supported)"
 			);

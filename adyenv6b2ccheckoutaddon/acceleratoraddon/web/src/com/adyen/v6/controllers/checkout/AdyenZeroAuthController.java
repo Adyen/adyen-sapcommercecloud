@@ -12,7 +12,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
-import javax.validation.*;
+import javax.validation.Valid;
 import java.io.IOException;
 
 @Controller
@@ -21,12 +21,16 @@ public class AdyenZeroAuthController {
 
 	private static final Logger LOGGER = Logger.getLogger(AdyenZeroAuthController.class);
 
+	private static final String INVALID_REQUEST_MESSAGE = "Invalid zero-auth request";
+	private static final String ZERO_AUTH_FAILED_MESSAGE = "Zero-auth request failed";
+	private static final String UNEXPECTED_ERROR_MESSAGE = "Unexpected error";
+
 	@Resource(name = "adyenCheckoutApiFacade")
 	private AdyenCheckoutApiFacade adyenCheckoutApiFacade;
 
 	@PostMapping(value = "/zero-auth", consumes = "application/json", produces = "application/json")
 	@ResponseBody
-	public ResponseEntity<String> zeroAuth(@Valid @RequestBody ZeroAuthRequest request) {
+	public ResponseEntity<String> zeroAuth(@Valid @RequestBody final ZeroAuthRequest request) {
 		try {
 			final CheckoutPaymentMethod paymentMethod = ZeroAuthMapper.toCheckoutPaymentMethod(request);
 			final PaymentResponse resp = adyenCheckoutApiFacade.processZeroAuthCard(paymentMethod);
@@ -37,17 +41,21 @@ public class AdyenZeroAuthController {
 
 			return ResponseEntity.ok(result);
 
+		} catch (IllegalArgumentException e) {
+			LOGGER.warn("Invalid zero-auth request", e);
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(INVALID_REQUEST_MESSAGE);
+
 		} catch (ApiException e) {
 			LOGGER.error("Adyen API exception during zero-auth", e);
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ZERO_AUTH_FAILED_MESSAGE);
 
 		} catch (IOException e) {
 			LOGGER.error("I/O error during zero-auth", e);
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ZERO_AUTH_FAILED_MESSAGE);
 
 		} catch (Exception e) {
 			LOGGER.error("Unexpected error during zero-auth", e);
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Unexpected error");
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(UNEXPECTED_ERROR_MESSAGE);
 		}
 	}
 }
