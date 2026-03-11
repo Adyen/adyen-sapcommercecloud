@@ -9,6 +9,41 @@
         };
     }
 
+    function showPopup(title, message, onClose) {
+        const overlay = document.getElementById("adyen-popup-overlay");
+        const popup = document.getElementById("adyen-popup");
+        const titleNode = document.getElementById("adyen-popup-title");
+        const messageNode = document.getElementById("adyen-popup-message");
+        const closeButton = document.getElementById("adyen-popup-close");
+
+        if (!overlay || !popup) {
+            alert(message);
+            if (onClose) onClose();
+            return;
+        }
+
+        titleNode.textContent = title;
+        messageNode.textContent = message;
+
+        overlay.style.display = "block";
+        popup.style.display = "block";
+
+        function closeHandler() {
+            overlay.style.display = "none";
+            popup.style.display = "none";
+
+            closeButton.removeEventListener("click", closeHandler);
+            overlay.removeEventListener("click", closeHandler);
+
+            if (onClose) {
+                onClose();
+            }
+        }
+
+        closeButton.addEventListener("click", closeHandler);
+        overlay.addEventListener("click", closeHandler);
+    }
+
     async function init() {
         const cfgNode = document.getElementById("adyen-myaccount-config");
         if (!cfgNode) {
@@ -70,7 +105,7 @@
                     return;
                 }
 
-                const { token, header } = getCsrf();
+                const {token, header} = getCsrf();
                 const paymentMethod = latestState.data.paymentMethod;
 
                 const requestBody = {
@@ -94,17 +129,14 @@
                             xhr.setRequestHeader(header, token);
                         }
                     },
-                    success: function (response) {
-                        if (msgNode) {
-                            msgNode.textContent = "Saved. Response: " + (typeof response === "string" ? response : JSON.stringify(response));
-                        }
+                    success: function () {
+                        showPopup("Success", "Card saved successfully.", function () {
+                            window.location.href = ACC.config.encodedContextPath + "/my-account/stored-cards";
+                        });
                     },
-                    error: function (xhr) {
-                        const msg = xhr.responseJSON || xhr.responseText || ('HTTP ' + xhr.status);
-                        console.log("Zero-auth request failed", msg);
-                        if (msgNode) {
-                            msgNode.textContent = "Error: " + (typeof msg === "string" ? msg : JSON.stringify(msg));
-                        }
+
+                    error: function () {
+                        showPopup("Error", "Failed to save card. Please try again.");
                     }
                 });
             });
