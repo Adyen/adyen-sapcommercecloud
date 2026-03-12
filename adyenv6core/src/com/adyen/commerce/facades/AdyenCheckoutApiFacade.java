@@ -2,9 +2,7 @@ package com.adyen.commerce.facades;
 
 import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.commerce.dto.OrderPaymentResult;
-import com.adyen.model.checkout.PaymentDetailsRequest;
-import com.adyen.model.checkout.PaymentRequest;
-import com.adyen.model.checkout.PaymentResponse;
+import com.adyen.model.checkout.*;
 import com.adyen.v6.facades.AdyenCheckoutFacade;
 import com.adyen.v6.forms.AddressForm;
 import com.adyen.v6.model.RequestInfo;
@@ -61,4 +59,6 @@ public interface AdyenCheckoutApiFacade extends AdyenCheckoutFacade {
                                                        com.adyen.v6.model.RequestInfo requestInfo,
                                                        de.hybris.platform.core.model.user.CustomerModel customer,
                                                        com.adyen.commerce.data.AdyenPartialPaymentOrderData partialPaymentData) throws Exception;
+
+    PaymentResponse processZeroAuthCard(CheckoutPaymentMethod paymentMethod) throws Exception;
 }

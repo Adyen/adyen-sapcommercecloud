@@ -51,6 +51,9 @@ public interface AdyenCheckoutApiService {
         throw new UnsupportedOperationException("Partial payment processing not supported by this implementation");
     }
 
+    PaymentResponse processZeroAuthRequest(CustomerModel customerModel,
+                                           CheckoutPaymentMethod paymentMethod) throws Exception;
+
     PaymentResponse sendPaymentRequest(final PaymentRequest paymentRequest, final RequestInfo requestInfo) throws IOException, ApiException;
 
     PaymentDetailsResponse authorise3DSPayment(PaymentDetailsRequest paymentsDetailsRequest) throws Exception;
