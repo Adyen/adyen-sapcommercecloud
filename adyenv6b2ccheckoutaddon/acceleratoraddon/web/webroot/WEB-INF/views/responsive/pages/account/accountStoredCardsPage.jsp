@@ -113,7 +113,6 @@
     <div id="adyen-myaccount-config"
          data-client-key="${adyenClientKey}"
          data-environment="${adyenEnvironment}"
-         data-locale="${adyenLocale}"
          data-country-code="${adyenCountryCode}">
     </div>
 

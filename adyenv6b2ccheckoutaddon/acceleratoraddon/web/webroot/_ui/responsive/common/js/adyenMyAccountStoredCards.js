@@ -53,14 +53,12 @@
 
         const clientKey = cfgNode.dataset.clientKey;
         const environment = cfgNode.dataset.environment;
-        const locale = cfgNode.dataset.locale || "en_US";
         const countryCode = cfgNode.dataset.countryCode || "EN";
 
         if (!clientKey || !environment || !countryCode) {
             console.log("Missing Adyen config on My Account page", {
                 clientKey,
                 environment,
-                locale,
                 countryCode
             });
             return;
@@ -69,7 +67,6 @@
         const checkout = await AdyenWeb.AdyenCheckout({
             clientKey,
             environment,
-            locale,
             countryCode
         });
 
