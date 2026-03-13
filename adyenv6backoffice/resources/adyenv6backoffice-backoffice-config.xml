@@ -93,10 +93,11 @@
 					<editorArea:attribute qualifier="amazonpayRegion"/>
 				</editorArea:section>
 				<editorArea:section name="hmc.adyen.advanced">
-					<editorArea:attribute qualifier="adyenBoleto"/>
-					<editorArea:attribute qualifier="adyenPaypalMerchantId"/>
-					<editorArea:attribute qualifier="l2L3ESDEnabled"/>
-				</editorArea:section>
+						<editorArea:attribute qualifier="adyenBoleto"/>
+						<editorArea:attribute qualifier="adyenPaypalMerchantId"/>
+						<editorArea:attribute qualifier="l2L3ESDEnabled"/>
+						<editorArea:attribute qualifier="adyenSkipCvcForOneClick"/>
+					</editorArea:section>
 				<editorArea:section name="hmc.adyen.installments">
 					<editorArea:attribute qualifier="adyenInstallmentConfigs"/>
 				</editorArea:section>

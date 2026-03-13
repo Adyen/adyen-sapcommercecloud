@@ -107,6 +107,7 @@ export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
             hasHolderName: true,
             holderNameRequired: adyenConfig.cardHolderNameRequired,
             enableStoreDetails: adyenConfig.showRememberTheseDetails,
+            hideCVC: adyenConfig.skipCvcForOneClick,
             clickToPayConfiguration: {
                 merchantDisplayName: adyenConfig.merchantDisplayName,
                 shopperEmail: adyenConfig.shopperEmail,
@@ -122,6 +123,7 @@ export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
     }, [
         adyenConfig.cardHolderNameRequired,
         adyenConfig.showRememberTheseDetails,
+        adyenConfig.skipCvcForOneClick,
         adyenConfig.merchantDisplayName,
         adyenConfig.shopperEmail,
         adyenConfig.clickToPayLocale,

@@ -370,6 +370,12 @@
                     <description>Configuration of payment method name overrides</description>
                     <persistence type="property"/>
                 </attribute>
+                <attribute qualifier="adyenSkipCvcForOneClick" type="java.lang.boolean">
+                    <description>Skip CVC requirement for one-click (stored card) payments</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false"/>
+                    <defaultvalue>Boolean.FALSE</defaultvalue>
+                </attribute>
             </attributes>
         </itemtype>
 

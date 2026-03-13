@@ -721,7 +721,8 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
                 .setMerchantDisplayName(baseStore.getName())
                 .setShopperEmail(customerModel.getContactEmail())
                 .setClickToPayLocale(baseStore.getClickToPayLocale())
-                .setInstallmentOptions(adyenInstallmentsConfigurationService.getInstallmentOptionsForCountry());
+                .setInstallmentOptions(adyenInstallmentsConfigurationService.getInstallmentOptionsForCountry())
+                .setSkipCvcForOneClick(baseStore.getAdyenSkipCvcForOneClick());
 
         ExpressPaymentConfigModel expressPaymentConfigModel = baseStore.getExpressPaymentConfig();
         if (expressPaymentConfigModel != null) {
@@ -875,7 +876,8 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
                 .setAmountDecimal(cartData.getTotalPriceWithTax().getValue())
                 .setMerchantDisplayName(baseStore.getName())
                 .setShopperEmail(customerModel.getContactEmail())
-                .setClickToPayLocale(baseStore.getClickToPayLocale());
+                .setClickToPayLocale(baseStore.getClickToPayLocale())
+                .setSkipCvcForOneClick(baseStore.getAdyenSkipCvcForOneClick());
 
         ExpressPaymentConfigModel expressPaymentConfigModel = baseStore.getExpressPaymentConfig();
         if (expressPaymentConfigModel != null) {
