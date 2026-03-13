@@ -27,6 +27,7 @@ public class DefaultAdyenNotificationV2Service implements AdyenNotificationV2Ser
         eventTemplateMap = new HashMap<>();
         eventTemplateMap.put(NotificationRequestItem.EVENT_CODE_AUTHORISATION, new AuthorisationEventBuilder());
         eventTemplateMap.put(NotificationRequestItem.EVENT_CODE_CANCEL_OR_REFUND, new CancelOrRefundEventBuilder());
+        eventTemplateMap.put(NotificationRequestItem.EVENT_CODE_CANCELLATION, new CancellationEventBuilder());
         eventTemplateMap.put(NotificationRequestItem.EVENT_CODE_CAPTURE, new CaptureEventBuilder());
         eventTemplateMap.put(NotificationRequestItem.EVENT_CODE_OFFER_CLOSED, new OfferClosedEventBuilder());
         eventTemplateMap.put(NotificationRequestItem.EVENT_CODE_REFUND, new RefundEventBuilder());

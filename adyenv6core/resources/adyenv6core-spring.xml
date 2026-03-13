@@ -448,6 +448,12 @@
         <property name="adyenNotificationService" ref="adyenNotificationService"/>
     </bean>
 
+    <bean id="cancellationNotificationEventListener" class="com.adyen.v6.listeners.CancellationNotificationEventListener" parent="abstractEventListener">
+        <property name="modelService" ref="modelService"/>
+        <property name="paymentTransactionRepository" ref="adyenPaymentTransactionRepository"/>
+        <property name="adyenNotificationService" ref="adyenNotificationService"/>
+    </bean>
+
 
     <bean id="refundNotificationEventListener" class="com.adyen.v6.listeners.RefundNotificationEventListener" parent="abstractEventListener">
         <property name="modelService" ref="modelService"/>
