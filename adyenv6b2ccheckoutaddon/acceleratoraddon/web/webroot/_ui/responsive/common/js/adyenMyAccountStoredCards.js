@@ -53,7 +53,7 @@
 
         const clientKey = cfgNode.dataset.clientKey;
         const environment = cfgNode.dataset.environment;
-        const countryCode = cfgNode.dataset.countryCode || "EN";
+        const countryCode = cfgNode.dataset.countryCode;
 
         if (!clientKey || !environment || !countryCode) {
             console.log("Missing Adyen config on My Account page", {
@@ -84,7 +84,7 @@
             onChange: (state) => {
                 latestState = state;
                 if (saveButton) {
-                    saveButton.disabled = !(state && state.isValid);
+                    saveButton.disabled = !(state?.isValid);
                 }
             }
         }).mount("#adyen-myaccount-card");
@@ -95,7 +95,7 @@
                     msgNode.textContent = "";
                 }
 
-                if (!latestState || !latestState.isValid) {
+                if (!latestState?.isValid) {
                     if (msgNode) {
                         msgNode.textContent = "Card data is invalid.";
                     }
