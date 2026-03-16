@@ -60,4 +60,10 @@ public class PaymentMethodsController implements AdyenPaymentMethodsApi
         String response = objectMapper.writeValueAsString(adyenCheckoutFacade.initializeExpressCheckoutCartPageDataOCC());
         return ResponseEntity.ok().body(response);
     }
+
+    @Override
+    @GetMapping(value = AdyenoccConstants.ADYEN_USER_PREFIX + "/checkout-configuration")
+    public ResponseEntity<String> getConfiguration() throws JsonProcessingException {
+        return ResponseEntity.ok(objectMapper.writeValueAsString(adyenCheckoutFacade.getConfig()));
+    }
 }

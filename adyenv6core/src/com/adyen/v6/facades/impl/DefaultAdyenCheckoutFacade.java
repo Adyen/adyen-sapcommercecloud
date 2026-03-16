@@ -486,6 +486,36 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         return placePendingOrder(PaymentDetailsResponse.ResultCodeEnum.PENDING.getValue());
     }
 
+    @Override
+    public CheckoutConfigDTO getConfig() {
+        CheckoutConfigDTOBuilder checkoutConfigDTOBuilder = new CheckoutConfigDTOBuilder();
+        Amount zero_auth_amount = new Amount();
+        zero_auth_amount.setValue(0L);
+        zero_auth_amount.setCurrency("USD");
+        CustomerModel customerModel = getCheckoutCustomerStrategy().getCurrentUserForCheckout();
+        PaymentMethod paymentMethod = new PaymentMethod();
+        paymentMethod.setBrands(List.of("visa", "mc", "amex"));
+        paymentMethod.setType("scheme");
+        paymentMethod.setName("Card");
+        List<PaymentMethod> paymentMethods = List.of(paymentMethod);
+        BaseStoreModel baseStore = baseStoreService.getCurrentBaseStore();
+
+        checkoutConfigDTOBuilder
+                .setPaymentMethods(paymentMethods)
+                .setAdyenClientKey(baseStore.getAdyenClientKey())
+                .setAmount(zero_auth_amount)
+                .setSelectedPaymentMethod("scheme")
+                .setEnvironmentMode(getEnvironmentMode())
+                .setShopperLocale(getShopperLocale())
+                .setShowSocialSecurityNumber(showSocialSecurityNumber())
+                .setCountryCode("US")
+                .setCardHolderNameRequired(getHolderNameRequired())
+                .setAdyenPaypalMerchantId(baseStore.getAdyenPaypalMerchantId())
+                .setShopperEmail(customerModel.getContactEmail());
+
+        return checkoutConfigDTOBuilder.build();
+    }
+
     /**
      * Create order and authorized TX
      */

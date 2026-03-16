@@ -208,4 +208,6 @@ public interface AdyenCheckoutFacade {
     AdyenCheckoutApiService  getAdyenPaymentService();
 
     OrderData placePendingOrder() throws InvalidCartException;
+
+    CheckoutConfigDTO getConfig();
 }
