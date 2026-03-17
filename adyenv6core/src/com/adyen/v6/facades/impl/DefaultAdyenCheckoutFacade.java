@@ -104,6 +104,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.adyen.constants.ApiConstants.ThreeDS2Property.THREEDS2_CHALLENGE_TOKEN;
 import static com.adyen.constants.ApiConstants.ThreeDS2Property.THREEDS2_FINGERPRINT_TOKEN;
@@ -489,23 +490,33 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     @Override
     public CheckoutConfigDTO getConfig() {
         CheckoutConfigDTOBuilder checkoutConfigDTOBuilder = new CheckoutConfigDTOBuilder();
-        Amount zero_auth_amount = new Amount();
-        zero_auth_amount.setValue(0L);
-        zero_auth_amount.setCurrency("USD");
+        Amount zeroAuthAmount = new Amount();
+        zeroAuthAmount.setValue(0L);
+        zeroAuthAmount.setCurrency("USD");
         CustomerModel customerModel = getCheckoutCustomerStrategy().getCurrentUserForCheckout();
-        PaymentMethod paymentMethod = new PaymentMethod();
-        paymentMethod.setBrands(List.of("visa", "mc", "amex"));
-        paymentMethod.setType("scheme");
-        paymentMethod.setName("Card");
-        List<PaymentMethod> paymentMethods = List.of(paymentMethod);
+        List<PaymentMethod> paymentMethod1 = List.of();
         BaseStoreModel baseStore = baseStoreService.getCurrentBaseStore();
+        try {
+            paymentMethod1 = getAdyenPaymentService().getPaymentMethodsResponse(BigDecimal.ZERO, baseStore.getDefaultCurrency().getIsocode(), "US", getShopperLocale(), customerModel.getCustomerID(), "").getPaymentMethods();
+        } catch (IOException | ApiException e) {
+            LOGGER.warn("Payment methods couldn't be fetched "  + e);
+        }
+        PaymentMethod cardPaymentMethod = paymentMethod1.stream().filter(paymentMethod -> PAYMENT_METHOD_SCHEME.equals(paymentMethod.getType())).findAny().orElse(new PaymentMethod());
+
+        List<String> allowedCards = baseStore.getAdyenAllowedCards().stream().map(AdyenCardTypeEnum::getCode).toList();
+
+        List<String> cardBrands = cardPaymentMethod.getBrands();
+
+        allowedCards = allowedCards.stream()
+                .filter(cardBrands::contains)
+                .toList();
+
+        cardPaymentMethod.setBrands(allowedCards);
 
         checkoutConfigDTOBuilder
-                .setPaymentMethods(paymentMethods)
+                .setPaymentMethods(List.of(cardPaymentMethod))
                 .setAdyenClientKey(baseStore.getAdyenClientKey())
-                .setAmount(zero_auth_amount)
-                .setSelectedPaymentMethod("scheme")
-                .setEnvironmentMode(getEnvironmentMode())
+                .setAmount(zeroAuthAmount).setEnvironmentMode(getEnvironmentMode())
                 .setShopperLocale(getShopperLocale())
                 .setShowSocialSecurityNumber(showSocialSecurityNumber())
                 .setCountryCode("US")
