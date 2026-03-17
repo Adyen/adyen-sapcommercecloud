@@ -676,5 +676,17 @@
         </property>
     </bean>
 
+    <bean id="adyenStoredCardsService"
+          class="com.adyen.v6.service.impl.DefaultAdyenStoredCardsService">
+        <property name="baseStoreService" ref="baseStoreService"/>
+        <property name="adyenPaymentServiceFactory" ref="adyenPaymentServiceFactory"/>
+    </bean>
+
+    <bean id="adyenStoredCardsFacade"
+          class="com.adyen.v6.facades.impl.DefaultAdyenStoredCardsFacade">
+        <property name="userService" ref="userService"/>
+        <property name="baseStoreService" ref="baseStoreService"/>
+        <property name="adyenStoredCardsService" ref="adyenStoredCardsService"/>
+    </bean>
 
 </beans>
