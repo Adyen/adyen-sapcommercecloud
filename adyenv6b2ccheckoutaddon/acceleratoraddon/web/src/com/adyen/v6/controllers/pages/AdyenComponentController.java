@@ -21,7 +21,6 @@
 package com.adyen.v6.controllers.pages;
 
 
-import com.adyen.model.checkout.GooglePayDetails;
 import com.adyen.model.checkout.PaymentDetailsRequest;
 import com.adyen.model.checkout.PaymentDetailsResponse;
 import com.adyen.model.checkout.PaymentRequest;
@@ -31,11 +30,11 @@ import com.adyen.v6.controllers.dtos.PaymentResultDTO;
 import com.adyen.v6.exceptions.AdyenComponentException;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
 import com.adyen.v6.facades.AdyenCheckoutFacade;
+import com.adyen.v6.helpers.AdyenUrlHelper;
 import de.hybris.platform.acceleratorfacades.flow.CheckoutFlowFacade;
 import de.hybris.platform.acceleratorfacades.order.AcceleratorCheckoutFacade;
 import de.hybris.platform.acceleratorservices.urlresolver.SiteBaseUrlResolutionService;
 import de.hybris.platform.acceleratorstorefrontcommons.controllers.pages.AbstractCheckoutController;
-import de.hybris.platform.basecommerce.model.site.BaseSiteModel;
 import de.hybris.platform.commercefacades.order.data.CartData;
 import de.hybris.platform.commercefacades.order.data.OrderData;
 import de.hybris.platform.order.InvalidCartException;
@@ -60,9 +59,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
-import static com.adyen.v6.constants.AdyenControllerConstants.CHECKOUT_RESULT_URL;
+import static com.adyen.v6.constants.AdyenControllerConstants.CHECKOUT_ERROR_AUTHORIZATION_PAYMENT_ERROR;
+import static com.adyen.v6.constants.AdyenControllerConstants.CHECKOUT_ERROR_AUTHORIZATION_PAYMENT_REFUSED;
 import static com.adyen.v6.constants.AdyenControllerConstants.COMPONENT_PREFIX;
-import static com.adyen.v6.constants.AdyenControllerConstants.SUMMARY_CHECKOUT_PREFIX;
 import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_AMAZONPAY;
 import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_BCMC_MOBILE;
 import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_PIX;
@@ -87,6 +86,9 @@ public class AdyenComponentController extends AbstractCheckoutController {
 
     @Resource(name = "baseSiteService")
     private BaseSiteService baseSiteService;
+
+    @Resource(name = "adyenUrlHelper")
+    private AdyenUrlHelper adyenUrlHelper;
 
     private final List<String> PAYMENT_METHODS_WITH_VALIDATED_TERMS = Arrays.asList(PAYMENT_METHOD_AMAZONPAY,
             PAYMENT_METHOD_BCMC_MOBILE,
@@ -117,16 +119,16 @@ public class AdyenComponentController extends AbstractCheckoutController {
             throw new AdyenComponentException(e.getMessage());
         } catch (ApiException e) {
             LOGGER.error("ApiException: " + e);
-            throw new AdyenComponentException("checkout.error.authorization.payment.refused");
+            throw new AdyenComponentException(CHECKOUT_ERROR_AUTHORIZATION_PAYMENT_REFUSED);
         } catch (AdyenNonAuthorizedPaymentException e) {
             if (Objects.nonNull(e.getPaymentsResponse()) && Objects.nonNull(e.getPaymentsResponse().getAction())) {
                 return ResponseEntity.ok().body(e.getPaymentsResponse());
             }
             LOGGER.warn("AdyenNonAuthorizedPaymentException occurred. Payment " + e.getPaymentResult().getPspReference() + "is refused.");
-            throw new AdyenComponentException("checkout.error.authorization.payment.refused");
+            throw new AdyenComponentException(CHECKOUT_ERROR_AUTHORIZATION_PAYMENT_REFUSED);
         } catch (Exception e) {
             LOGGER.error("Exception", e);
-            throw new AdyenComponentException("checkout.error.authorization.payment.error");
+            throw new AdyenComponentException(CHECKOUT_ERROR_AUTHORIZATION_PAYMENT_ERROR);
         }
     }
 
@@ -137,10 +139,10 @@ public class AdyenComponentController extends AbstractCheckoutController {
             return ResponseEntity.ok().body(paymentsResponse);
         } catch (ApiException e) {
             LOGGER.error("ApiException: " + e);
-            throw new AdyenComponentException("checkout.error.authorization.payment.refused");
+            throw new AdyenComponentException(CHECKOUT_ERROR_AUTHORIZATION_PAYMENT_REFUSED);
         } catch (Exception e) {
             LOGGER.error("Exception", e);
-            throw new AdyenComponentException("checkout.error.authorization.payment.error");
+            throw new AdyenComponentException(CHECKOUT_ERROR_AUTHORIZATION_PAYMENT_ERROR);
         }
     }
 
@@ -153,8 +155,7 @@ public class AdyenComponentController extends AbstractCheckoutController {
     /**
      * Validates the order form before to filter out invalid order states
      *
-     * @param requestJson
-     * @return True if the order form is invalid and false if everything is valid.
+     * @throws InvalidCartException if cart validation fails
      */
     protected void validateOrderForm() throws InvalidCartException {
 
@@ -183,16 +184,14 @@ public class AdyenComponentController extends AbstractCheckoutController {
         }
     }
 
+    /**
+     * Gets the return URL for the specified payment method
+     *
+     * @param paymentMethod the payment method
+     * @return the return URL
+     */
     private String getReturnUrl(String paymentMethod) {
-        String url;
-        if (GooglePayDetails.TypeEnum.GOOGLEPAY.getValue().equals(paymentMethod)) {
-            //Google Pay will only use returnUrl if redirected to 3DS authentication
-            url = SUMMARY_CHECKOUT_PREFIX + "/authorise-3d-adyen-response";
-        } else {
-            url = SUMMARY_CHECKOUT_PREFIX + CHECKOUT_RESULT_URL;
-        }
-        BaseSiteModel currentBaseSite = baseSiteService.getCurrentBaseSite();
-        return siteBaseUrlResolutionService.getWebsiteUrlForSite(currentBaseSite, true, url);
+        return adyenUrlHelper.getReturnUrl(paymentMethod);
     }
 
     public AdyenCheckoutFacade getAdyenCheckoutFacade() {

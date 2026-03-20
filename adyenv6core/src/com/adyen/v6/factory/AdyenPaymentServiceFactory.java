@@ -20,39 +20,47 @@
  */
 package com.adyen.v6.factory;
 
+import com.adyen.commerce.services.PaymentMethodNameOverrideService;
 import com.adyen.commerce.services.impl.DefaultAdyenRequestService;
 import com.adyen.v6.service.*;
 import com.adyen.v6.strategy.AdyenMerchantAccountStrategy;
 import de.hybris.platform.store.BaseStoreModel;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.retry.support.RetryTemplate;
 
 
 public class AdyenPaymentServiceFactory {
 
     protected final AdyenMerchantAccountStrategy adyenMerchantAccountStrategy;
     private final DefaultAdyenRequestService defaultAdyenRequestService;
+    private final PaymentMethodNameOverrideService paymentMethodNameOverrideService;
+    private final RetryTemplate adyenCustomerInteractionRetryTemplate;
+    private final RetryTemplate adyenBackgroundProcessRetryTemplate;
 
 
-    public AdyenPaymentServiceFactory(final AdyenMerchantAccountStrategy adyenMerchantAccountStrategy, @Lazy DefaultAdyenRequestService defaultAdyenRequestService) {
+    public AdyenPaymentServiceFactory(final AdyenMerchantAccountStrategy adyenMerchantAccountStrategy, @Lazy DefaultAdyenRequestService defaultAdyenRequestService, PaymentMethodNameOverrideService paymentMethodNameOverrideService, RetryTemplate adyenCustomerInteractionRetryTemplate, RetryTemplate adyenBackgroundProcessRetryTemplate) {
         this.adyenMerchantAccountStrategy = adyenMerchantAccountStrategy;
         this.defaultAdyenRequestService = defaultAdyenRequestService;
+        this.paymentMethodNameOverrideService = paymentMethodNameOverrideService;
+        this.adyenCustomerInteractionRetryTemplate = adyenCustomerInteractionRetryTemplate;
+        this.adyenBackgroundProcessRetryTemplate = adyenBackgroundProcessRetryTemplate;
     }
     
     public AdyenCheckoutApiService createAdyenCheckoutApiService(final BaseStoreModel baseStoreModel) {
         String webMerchantAccount = adyenMerchantAccountStrategy.getWebMerchantAccount(baseStoreModel);
-        DefaultAdyenCheckoutApiService defaultAdyenCheckoutApiService = new DefaultAdyenCheckoutApiService(baseStoreModel, webMerchantAccount, defaultAdyenRequestService);
+        DefaultAdyenCheckoutApiService defaultAdyenCheckoutApiService = new DefaultAdyenCheckoutApiService(baseStoreModel, webMerchantAccount, defaultAdyenRequestService,paymentMethodNameOverrideService, adyenCustomerInteractionRetryTemplate, adyenBackgroundProcessRetryTemplate);
         return defaultAdyenCheckoutApiService;
     }
 
     public AdyenModificationsApiService createAdyenModificationsApiService(final BaseStoreModel baseStoreModel) {
         String webMerchantAccount = adyenMerchantAccountStrategy.getWebMerchantAccount(baseStoreModel);
-        DefaultAdyenModificationsApiService adyenModificationsApiService = new DefaultAdyenModificationsApiService(baseStoreModel, webMerchantAccount, defaultAdyenRequestService);
+        DefaultAdyenModificationsApiService adyenModificationsApiService = new DefaultAdyenModificationsApiService(baseStoreModel, webMerchantAccount, defaultAdyenRequestService, adyenCustomerInteractionRetryTemplate, adyenBackgroundProcessRetryTemplate);
         return adyenModificationsApiService;
     }
 
     public AdyenUtilityApiService createAdyenUtilityApiService(final BaseStoreModel baseStoreModel) {
         String webMerchantAccount = adyenMerchantAccountStrategy.getWebMerchantAccount(baseStoreModel);
-        DefaultAdyenUtilityApiService adyenUtilityApiService = new DefaultAdyenUtilityApiService(baseStoreModel, webMerchantAccount, defaultAdyenRequestService);
+        DefaultAdyenUtilityApiService adyenUtilityApiService = new DefaultAdyenUtilityApiService(baseStoreModel, webMerchantAccount, defaultAdyenRequestService, adyenCustomerInteractionRetryTemplate, adyenBackgroundProcessRetryTemplate);
         return adyenUtilityApiService;
     }
 }

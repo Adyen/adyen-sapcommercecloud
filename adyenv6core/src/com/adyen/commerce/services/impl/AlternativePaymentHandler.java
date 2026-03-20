@@ -1,6 +1,11 @@
 package com.adyen.commerce.services.impl;
 
-import com.adyen.model.checkout.*;
+import com.adyen.commerce.util.LocalizationUtil;
+import com.adyen.model.checkout.Amount;
+import com.adyen.model.checkout.LineItem;
+import com.adyen.model.checkout.ShopperName;
+import com.adyen.model.checkout.PaymentRequest;
+import com.adyen.model.checkout.ShopperName;
 import com.adyen.v6.enums.RecurringContractMode;
 import com.adyen.v6.util.AmountUtil;
 import de.hybris.platform.commercefacades.order.data.CartData;
@@ -9,7 +14,6 @@ import de.hybris.platform.core.model.user.CustomerModel;
 import de.hybris.platform.util.TaxValue;
 import org.apache.commons.lang3.StringUtils;
 
-import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -24,6 +28,8 @@ import static com.adyen.v6.constants.Adyenv6coreConstants.*;
  * Handler for alternative payment methods (Klarna, PayPal, etc.)
  */
 public class AlternativePaymentHandler implements PaymentMethodHandler {
+
+    private static final String DELIVERY_COST_KEY= "adyen.lineItem.deliveryCost";
 
     @Override
     public boolean canHandle(String paymentMethod) {
@@ -66,11 +72,11 @@ public class AlternativePaymentHandler implements PaymentMethodHandler {
                paymentMethod.contains(RATEPAY);
     }
 
-    protected Name createShopperName(de.hybris.platform.commercefacades.user.data.AddressData addressData) {
+    protected ShopperName createShopperName(de.hybris.platform.commercefacades.user.data.AddressData addressData) {
         if (addressData == null) {
-            return new Name();
+            return new ShopperName();
         }
-        return new Name()
+        return new ShopperName()
             .firstName(addressData.getFirstName())
             .lastName(addressData.getLastName());
     }
@@ -82,7 +88,7 @@ public class AlternativePaymentHandler implements PaymentMethodHandler {
             .collect(Collectors.toList());
 
         paymentRequest.setSocialSecurityNumber(cartData.getAdyenSocialSecurityNumber());
-        paymentRequest.setShopperName(new Name()
+        paymentRequest.setShopperName(new ShopperName()
             .firstName(cartData.getAdyenFirstName())
             .lastName(cartData.getAdyenLastName()));
         paymentRequest.setLineItems(invoiceLines);
@@ -98,7 +104,7 @@ public class AlternativePaymentHandler implements PaymentMethodHandler {
 
     protected void setBoletoData(PaymentRequest paymentRequest, CartData cartData) {
         paymentRequest.setSocialSecurityNumber(cartData.getAdyenSocialSecurityNumber());
-        paymentRequest.setShopperName(new Name()
+        paymentRequest.setShopperName(new ShopperName()
             .firstName(cartData.getAdyenFirstName())
             .lastName(cartData.getAdyenLastName()));
 
@@ -145,7 +151,7 @@ public class AlternativePaymentHandler implements PaymentMethodHandler {
         if (AFTERPAY.equals(paymentMethod)) {
             paymentRequest.setShopperEmail(cartData.getAdyenShopperEmail());
             paymentRequest.setTelephoneNumber(cartData.getAdyenShopperTelephone());
-            paymentRequest.setShopperName(new Name()
+            paymentRequest.setShopperName(new ShopperName()
                 .firstName(cartData.getAdyenFirstName())
                 .lastName(cartData.getAdyenLastName()));
         } else if (PAYBRIGHT.equals(paymentMethod)) {
@@ -211,8 +217,10 @@ public class AlternativePaymentHandler implements PaymentMethodHandler {
     }
 
     protected LineItem createDeliveryLineItem(CartData cartData, String currency) {
+        String localizedDeliveryCostName = LocalizationUtil.getLocalizedStringOrDefault(DELIVERY_COST_KEY, "Delivery Cost");
+
         LineItem lineItem = new LineItem();
-        lineItem.setDescription("Delivery Costs");
+        lineItem.setDescription(localizedDeliveryCostName);
         lineItem.setQuantity(1L);
 
         Amount deliveryAmount = AmountUtil.createAmount(cartData.getDeliveryCost().getValue(), currency);

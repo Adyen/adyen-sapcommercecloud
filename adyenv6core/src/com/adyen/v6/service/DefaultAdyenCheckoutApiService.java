@@ -22,9 +22,10 @@ package com.adyen.v6.service;
 
 import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.commerce.services.AdyenRequestService;
+import com.adyen.commerce.services.PaymentMethodNameOverrideService;
+import com.adyen.model.RequestOptions;
 import com.adyen.model.checkout.*;
-import com.adyen.model.recurring.*;
-import com.adyen.service.RecurringApi;
+import com.adyen.service.checkout.RecurringApi;
 import com.adyen.service.checkout.PaymentsApi;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.model.RequestInfo;
@@ -35,23 +36,23 @@ import de.hybris.platform.store.BaseStoreModel;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
+import org.springframework.retry.support.RetryTemplate;
 
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.List;
-import java.util.stream.Collectors;
+import java.util.*;
 
 public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService implements AdyenCheckoutApiService {
 
     private static final Logger LOG = Logger.getLogger(DefaultAdyenCheckoutApiService.class);
 
-    public DefaultAdyenCheckoutApiService(BaseStoreModel baseStore, String merchantAccount, AdyenRequestService adyenRequestService) {
-        super(baseStore, merchantAccount, adyenRequestService);
+    private final PaymentMethodNameOverrideService paymentMethodNameOverrideService;
+
+    public DefaultAdyenCheckoutApiService(BaseStoreModel baseStore, String merchantAccount, AdyenRequestService adyenRequestService, PaymentMethodNameOverrideService paymentMethodNameOverrideService, RetryTemplate adyenCustomerInteractionRetryTemplate, RetryTemplate adyenBackgroundProcessRetryTemplate) {
+        super(baseStore, merchantAccount, adyenRequestService,adyenCustomerInteractionRetryTemplate, adyenBackgroundProcessRetryTemplate);
+        this.paymentMethodNameOverrideService = paymentMethodNameOverrideService;
     }
 
     @Override
@@ -73,11 +74,26 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
 
         adyenRequestService.applyAdditionalData(cartData, paymentsRequest);
 
-        LOG.debug(paymentsRequest);
-        PaymentResponse paymentsResponse = checkoutApi.payments(paymentsRequest);
-        LOG.debug(paymentsResponse);
+        RequestOptions requestOptions = new RequestOptions();
+        requestOptions.setIdempotencyKey(UUID.randomUUID().toString());
 
-        return paymentsResponse;
+        try {
+            return adyenCustomerInteractionRetryTemplate.execute(context -> {
+                LOG.debug(paymentsRequest);
+                PaymentResponse paymentsResponse = checkoutApi.payments(paymentsRequest, requestOptions);
+                LOG.debug(paymentsResponse);
+
+                return paymentsResponse;
+            });
+        } catch (Exception e) {
+            if (e instanceof ApiException) {
+                throw (ApiException) e;
+            } else if (e instanceof IOException) {
+                throw (IOException) e;
+            } else {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     /**
@@ -107,11 +123,51 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
 
         adyenRequestService.applyAdditionalData(cartData, paymentsRequest);
 
-        LOG.debug(paymentsRequest);
-        PaymentResponse paymentsResponse = checkoutApi.payments(paymentsRequest);
-        LOG.debug(paymentsResponse);
+        RequestOptions requestOptions = new RequestOptions();
+        requestOptions.setIdempotencyKey(UUID.randomUUID().toString());
 
-        return paymentsResponse;
+        try {
+            return adyenCustomerInteractionRetryTemplate.execute(context -> {
+                LOG.debug(paymentsRequest);
+                PaymentResponse paymentsResponse = checkoutApi.payments(paymentsRequest, requestOptions);
+                LOG.debug(paymentsResponse);
+
+                return paymentsResponse;
+            });
+        } catch (Exception e) {
+            if (e instanceof ApiException) {
+                throw (ApiException) e;
+            } else if (e instanceof IOException) {
+                throw (IOException) e;
+            } else {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    @Override
+    public PaymentResponse processZeroAuthRequest(final CustomerModel customerModel,
+                                                  final CheckoutPaymentMethod paymentMethod) throws Exception {
+        LOG.debug("Zero-auth payment");
+
+        PaymentsApi checkoutApi = new PaymentsApi(client);
+        PaymentRequest paymentsRequest = adyenRequestService.createZeroAuthPaymentsRequest(merchantAccount, customerModel, paymentMethod);
+
+        RequestOptions requestOptions = new RequestOptions();
+        requestOptions.setIdempotencyKey(UUID.randomUUID().toString());
+
+        try {
+            return adyenCustomerInteractionRetryTemplate.execute(context -> {
+                LOG.debug("Zero-auth request ref=" + paymentsRequest.getReference() + ", shopper=" + paymentsRequest.getShopperReference());
+                PaymentResponse paymentsResponse = checkoutApi.payments(paymentsRequest, requestOptions);
+                LOG.debug("Zero-auth response resultCode=" + paymentsResponse.getResultCode() + ", psp=" + paymentsResponse.getPspReference());
+                return paymentsResponse;
+            });
+        } catch (Exception e) {
+            if (e instanceof ApiException) throw (ApiException) e;
+            if (e instanceof IOException) throw (IOException) e;
+            throw new RuntimeException(e);
+        }
     }
 
     public PaymentResponse sendPaymentRequest(final PaymentRequest paymentRequest, final RequestInfo requestInfo) throws IOException, ApiException {
@@ -119,11 +175,26 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
 
         adyenRequestService.decoratePayPalSubmitPaymentRequest(merchantAccount, paymentRequest, requestInfo);
 
-        LOG.debug(paymentRequest);
-        PaymentResponse paymentsResponse = checkoutApi.payments(paymentRequest);
-        LOG.debug(paymentsResponse);
+        RequestOptions requestOptions = new RequestOptions();
+        requestOptions.setIdempotencyKey(UUID.randomUUID().toString());
 
-        return paymentsResponse;
+        try {
+            return adyenCustomerInteractionRetryTemplate.execute(context -> {
+                LOG.debug(paymentRequest);
+                PaymentResponse paymentsResponse = checkoutApi.payments(paymentRequest, requestOptions);
+                LOG.debug(paymentsResponse);
+
+                return paymentsResponse;
+            });
+        } catch (Exception e) {
+            if (e instanceof ApiException) {
+                throw (ApiException) e;
+            } else if (e instanceof IOException) {
+                throw (IOException) e;
+            } else {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     @Override
@@ -132,11 +203,26 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
 
         PaymentsApi checkout = new PaymentsApi(client);
 
-        LOG.debug(paymentsDetailsRequest);
-        PaymentDetailsResponse paymentsDetailsResponse = checkout.paymentsDetails(paymentsDetailsRequest);
-        LOG.debug(paymentsDetailsResponse);
+        RequestOptions requestOptions = new RequestOptions();
+        requestOptions.setIdempotencyKey(UUID.randomUUID().toString());
 
-        return paymentsDetailsResponse;
+        try {
+            return adyenCustomerInteractionRetryTemplate.execute(context -> {
+                LOG.debug(paymentsDetailsRequest);
+                PaymentDetailsResponse paymentsDetailsResponse = checkout.paymentsDetails(paymentsDetailsRequest, requestOptions);
+                LOG.debug(paymentsDetailsResponse);
+
+                return paymentsDetailsResponse;
+            });
+        } catch (Exception e) {
+            if (e instanceof ApiException) {
+                throw (ApiException) e;
+            } else if (e instanceof IOException) {
+                throw (IOException) e;
+            } else {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
 
@@ -209,7 +295,7 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
         final PaymentMethodsResponse response = checkout.paymentMethods(request);
         LOG.debug(response);
 
-        return response;
+        return paymentMethodNameOverrideService.overridePaymentMethodNamesFromConfig(response);
     }
 
     @Override
@@ -228,7 +314,7 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
 
     @Override
     @Deprecated
-    public List<RecurringDetail> getStoredCards(final String customerId) throws IOException, ApiException {
+    public List<StoredPaymentMethodResource> getStoredCards(final String customerId) throws IOException, ApiException {
         LOG.debug("Get stored cards");
 
         if (customerId == null) {
@@ -238,37 +324,41 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
 
         RecurringApi recurring = new RecurringApi(client);
 
-        RecurringDetailsRequest request = adyenRequestService.createListRecurringDetailsRequest(merchantAccount, customerId);
-
-        LOG.debug(request);
-        RecurringDetailsResult result = recurring.listRecurringDetails(request);
+        ListStoredPaymentMethodsResponse result = recurring.getTokensForStoredPaymentDetails(customerId, merchantAccount, null);
         LOG.debug(result);
 
-        if (result.getDetails() == null || result.getDetails().isEmpty()) {
+        if (result.getStoredPaymentMethods() == null || result.getStoredPaymentMethods().isEmpty()) {
             return new ArrayList<>();
         }
 
         //Return only cards
-        return result.getDetails()
-                .stream()
-                .map(RecurringDetailWrapper::getRecurringDetail)
-                .filter(detail -> (detail.getCard() != null && detail.getRecurringDetailReference() != null))
-                .collect(Collectors.toList());
+        return result.getStoredPaymentMethods();
     }
 
     @Override
-    public boolean disableStoredCard(final String customerId, final String recurringReference) throws IOException, ApiException {
+    public void disableStoredCard(final String customerId, final String recurringReference) throws ApiException, IOException {
         LOG.debug("Disable stored card");
 
         RecurringApi recurring = new RecurringApi(client);
 
-        DisableRequest request = adyenRequestService.createDisableRequest(merchantAccount, customerId, recurringReference);
+        RequestOptions requestOptions = new RequestOptions();
+        requestOptions.setIdempotencyKey(UUID.randomUUID().toString());
 
-        LOG.debug(request);
-        DisableResult result = recurring.disable(request);
-        LOG.debug(result);
-
-        return ("[detail-successfully-disabled]".equals(result.getResponse()) || "[all-details-successfully-disabled]".equals(result.getResponse()));
+        try {
+            adyenCustomerInteractionRetryTemplate.execute(context -> {
+                recurring.deleteTokenForStoredPaymentDetails(recurringReference, customerId, merchantAccount, requestOptions);
+                return null;
+            });
+        } catch (Exception e) {
+            if (e instanceof ApiException) {
+                throw (ApiException) e;
+            } else if (e instanceof IOException) {
+                throw (IOException) e;
+            } else {
+                throw new RuntimeException(e);
+            }
+        }
+        LOG.debug("Disabled stored card");
     }
 
     @Override

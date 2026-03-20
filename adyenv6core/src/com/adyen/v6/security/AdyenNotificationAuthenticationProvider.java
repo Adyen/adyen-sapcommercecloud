@@ -54,6 +54,24 @@ public class AdyenNotificationAuthenticationProvider {
     public boolean authenticate(final HttpServletRequest request, NotificationRequest notificationRequest, String baseSiteId) {
         LOG.debug("Trying to authenticate for baseSiteId " + baseSiteId);
 
+        BaseStoreModel baseStore = getBaseStore(baseSiteId);
+
+        boolean basicAuthenticated = authenticateBasic(request, baseStore);
+        boolean checkHMAC = checkHMACFromAdditionalData(notificationRequest, baseStore);
+
+        return basicAuthenticated && checkHMAC;
+    }
+
+    public boolean authenticate(final HttpServletRequest request, final String requestBody, String baseSiteId) {
+        BaseStoreModel baseStore = getBaseStore(baseSiteId);
+
+        boolean basicAuthenticated = authenticateBasic(request, baseStore);
+        boolean checkHMAC = checkHMACFromHeader(request, requestBody, baseStore);
+
+        return basicAuthenticated && checkHMAC;
+    }
+
+    protected BaseStoreModel getBaseStore(final String baseSiteId) {
         final BaseSiteModel requestedBaseSite = getBaseSiteService().getBaseSiteForUID(baseSiteId);
         if (requestedBaseSite != null) {
             final BaseSiteModel currentBaseSite = getBaseSiteService().getCurrentBaseSite();
@@ -64,17 +82,11 @@ public class AdyenNotificationAuthenticationProvider {
             BaseStoreModel baseStore = baseStoreService.getCurrentBaseStore();
 
             if (baseStore == null) {
-                LOG.error("BaseStore does not exist for baseSite: " + baseSiteId);
-                return false;
+                throw new RuntimeException("BaseStore does not exist for baseSite: " + baseSiteId);
             }
-
-            boolean basicAuthenticated = authenticateBasic(request, baseStore);
-            boolean checkHMAC = checkHMAC(notificationRequest, baseStore);
-
-            return basicAuthenticated && checkHMAC;
+            return baseStore;
         }
-        LOG.error("BaseSite does not exist: " + baseSiteId);
-        return false;
+        throw new RuntimeException("BaseSite does not exist: " + baseSiteId);
     }
 
     protected boolean authenticateBasic(final HttpServletRequest request, BaseStoreModel baseStoreModel) {
@@ -107,7 +119,7 @@ public class AdyenNotificationAuthenticationProvider {
         return false;
     }
 
-    protected boolean checkHMAC(NotificationRequest notificationRequest, BaseStoreModel baseStore) {
+    protected boolean checkHMACFromAdditionalData(NotificationRequest notificationRequest, BaseStoreModel baseStore) {
         String hmacKey = baseStore.getAdyenNotificationHMACKey();
 
         if (StringUtils.isNotEmpty(hmacKey)) {
@@ -118,6 +130,27 @@ public class AdyenNotificationAuthenticationProvider {
                         LOG.error("Signature check failed");
                         return false;
                     }
+                }
+            } catch (IllegalArgumentException | SignatureException e) {
+                LOG.error("Signature check exception");
+                return false;
+            }
+            return true;
+        }
+        LOG.warn("HMAC authentication not configured");
+        return true;
+    }
+
+    protected boolean checkHMACFromHeader(final HttpServletRequest request, final String requestBody, BaseStoreModel baseStore) {
+        String hmacSignature = request.getHeader("hmacsignature");
+        String hmacKey = baseStore.getAdyenNotificationHMACKey();
+
+        if (StringUtils.isNotEmpty(hmacKey)) {
+            HMACValidator hmacValidator = new HMACValidator();
+            try {
+                if (!hmacValidator.validateHMAC(hmacSignature, hmacKey, requestBody)) {
+                    LOG.error("Signature check failed");
+                    return false;
                 }
             } catch (IllegalArgumentException | SignatureException e) {
                 LOG.error("Signature check exception");

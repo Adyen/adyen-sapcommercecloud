@@ -157,7 +157,7 @@ public class AdyenCaptureCommandTest {
     public void shouldReturnTrueForSupportedMethods() {
         // All supported payment methods
         String[] supportedMethods = {
-                "card", "adyen_cc", "scheme", "paypal", "klarna", "klarna_account", "klarna_paynow", "afterpay_default",
+                "card", "scheme", "paypal", "klarna", "klarna_account", "klarna_paynow", "afterpay_default",
                 "afterpaytouch", "clearpay", "ratepay", "afterpay_default", "sepadirectdebit", "applepay",
                 "paywithgoogle", "googlepay", "amazonpay", "twint"
         };

@@ -35,6 +35,7 @@ public interface AdyenControllerConstants
     String CHECKOUT_ERROR_AUTHORIZATION_PAYMENT_REFUSED = "checkout.error.authorization.payment.refused";
     String CHECKOUT_ERROR_AUTHORIZATION_PAYMENT_CANCELLED = "checkout.error.authorization.payment.cancelled";
     String CHECKOUT_ERROR_AUTHORIZATION_PAYMENT_ERROR = "checkout.error.authorization.payment.error";
+    String AUTHORISE_3D_SECURE_PAYMENT_URL = "/authorise-3d-adyen-response";
 
 	/**
 	 * Class with view name constants

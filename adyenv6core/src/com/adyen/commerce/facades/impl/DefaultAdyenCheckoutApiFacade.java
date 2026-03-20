@@ -3,15 +3,7 @@ package com.adyen.commerce.facades.impl;
 import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.commerce.dto.OrderPaymentResult;
 import com.adyen.commerce.facades.AdyenCheckoutApiFacade;
-import com.adyen.model.checkout.AfterpayDetails;
-import com.adyen.model.checkout.ApplePayDetails;
-import com.adyen.model.checkout.BrowserInfo;
-import com.adyen.model.checkout.CardDetails;
-import com.adyen.model.checkout.PaymentDetails;
-import com.adyen.model.checkout.PaymentDetailsRequest;
-import com.adyen.model.checkout.PaymentDetailsResponse;
-import com.adyen.model.checkout.PaymentRequest;
-import com.adyen.model.checkout.PaymentResponse;
+import com.adyen.model.checkout.*;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
 import com.adyen.v6.facades.impl.DefaultAdyenCheckoutFacade;
 import com.adyen.v6.forms.AddressForm;
@@ -281,6 +273,12 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
             );
         }
         return paymentResponse;
+    }
+
+    @Override
+    public PaymentResponse processZeroAuthCard(CheckoutPaymentMethod paymentMethod) throws Exception {
+        final CustomerModel customer = getCheckoutCustomerStrategy().getCurrentUserForCheckout();
+        return getAdyenPaymentService().processZeroAuthRequest(customer, paymentMethod);
     }
 
     public AdyenPartialPaymentService getAdyenPartialPaymentService() {

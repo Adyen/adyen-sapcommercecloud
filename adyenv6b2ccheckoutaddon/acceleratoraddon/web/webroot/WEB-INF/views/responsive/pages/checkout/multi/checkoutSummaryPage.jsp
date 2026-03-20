@@ -102,7 +102,7 @@
         paymentMethodConfigs['createBlik'] = callbackConfig
         </c:when>
 
-        <c:when test="${selectedPaymentMethod eq 'adyen_cc' ||
+        <c:when test="${selectedPaymentMethod eq 'card' ||
                     fn:startsWith(selectedPaymentMethod, 'adyen_oneclick_')}">
         adyenCheckout.configureButton($("#placeOrderForm-hidden-xs"), true, "hidden-xs");
         adyenCheckout.configureButton($("#placeOrderForm-visible-xs"), true, "visible-xs");
