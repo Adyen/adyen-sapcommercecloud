@@ -492,12 +492,12 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         CheckoutConfigDTOBuilder checkoutConfigDTOBuilder = new CheckoutConfigDTOBuilder();
         Amount zeroAuthAmount = new Amount();
         zeroAuthAmount.setValue(0L);
-        zeroAuthAmount.setCurrency("USD");
+        zeroAuthAmount.setCurrency(baseStoreService.getCurrentBaseStore().getDefaultCurrency().getIsocode());
         CustomerModel customerModel = getCheckoutCustomerStrategy().getCurrentUserForCheckout();
         List<PaymentMethod> paymentMethod1 = List.of();
         BaseStoreModel baseStore = baseStoreService.getCurrentBaseStore();
         try {
-            paymentMethod1 = getAdyenPaymentService().getPaymentMethodsResponse(BigDecimal.ZERO, baseStore.getDefaultCurrency().getIsocode(), "US", getShopperLocale(), customerModel.getCustomerID(), "").getPaymentMethods();
+            paymentMethod1 = getAdyenPaymentService().getPaymentMethodsResponse(BigDecimal.ZERO, baseStore.getDefaultCurrency().getIsocode(), customerModel.getDefaultShipmentAddress().getCountry().getIsocode(), getShopperLocale(), customerModel.getCustomerID(), "").getPaymentMethods();
         } catch (IOException | ApiException e) {
             LOGGER.warn("Payment methods couldn't be fetched "  + e);
         }
@@ -519,7 +519,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
                 .setAmount(zeroAuthAmount).setEnvironmentMode(getEnvironmentMode())
                 .setShopperLocale(getShopperLocale())
                 .setShowSocialSecurityNumber(showSocialSecurityNumber())
-                .setCountryCode("US")
+                .setCountryCode(customerModel.getDefaultShipmentAddress().getCountry().getIsocode())
                 .setCardHolderNameRequired(getHolderNameRequired())
                 .setAdyenPaypalMerchantId(baseStore.getAdyenPaypalMerchantId())
                 .setShopperEmail(customerModel.getContactEmail());
