@@ -24,6 +24,7 @@ import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.model.checkout.*;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.controllers.dtos.PaymentResultDTO;
+import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
 import com.adyen.v6.dto.CheckoutConfigDTO;
 import com.adyen.v6.dto.ExpressCheckoutConfigDTO;
 import com.adyen.v6.forms.AdyenPaymentForm;
@@ -40,6 +41,7 @@ import org.springframework.ui.Model;
 import org.springframework.validation.Errors;
 
 
+import java.io.IOException;
 import java.util.Set;
 
 /**
@@ -83,7 +85,8 @@ public interface AdyenCheckoutFacade {
      * @param details consisting of parameters present in response query string
      * @return PaymentsResponse
      */
-    PaymentDetailsResponse handleRedirectPayload(PaymentCompletionDetails details) throws Exception;
+    PaymentDetailsResponse handleRedirectPayload(PaymentCompletionDetails details)
+            throws AdyenNonAuthorizedPaymentException, InvalidCartException, CalculationException;
 
     /**
      * Authorizes a payment using Adyen API
@@ -94,9 +97,10 @@ public interface AdyenCheckoutFacade {
      * @return OrderData
      * @throws Exception In case order failed to be created
      */
-    OrderData authorisePayment(HttpServletRequest request, CartData cartData) throws Exception;
+    OrderData authorisePayment(HttpServletRequest request, CartData cartData)
+            throws AdyenNonAuthorizedPaymentException, InvalidCartException, ApiException, IOException;
 
-    OrderData handleResultcomponentPayment(PaymentResultDTO paymentResultDTO) throws Exception;
+    OrderData handleResultcomponentPayment(PaymentResultDTO paymentResultDTO) throws InvalidCartException;
 
     /**
      * Creates a payment coming from an Adyen Checkout Component
@@ -107,7 +111,8 @@ public interface AdyenCheckoutFacade {
      * @return PaymentsResponse
      * @throws Exception In case payment failed
      */
-    PaymentResponse componentPayment(HttpServletRequest request, CartData cartData, PaymentRequest paymentRequest) throws Exception;
+    PaymentResponse componentPayment(HttpServletRequest request, CartData cartData, PaymentRequest paymentRequest)
+            throws AdyenNonAuthorizedPaymentException, InvalidCartException, ApiException, IOException;
 
     /**
      * Submit details from a payment made on an Adyen Checkout Component
@@ -119,7 +124,8 @@ public interface AdyenCheckoutFacade {
      * @return PaymentsResponse
      * @throws Exception In case request failed
      */
-    PaymentDetailsResponse componentDetails(PaymentDetailsRequest detailsRequest) throws Exception;
+    PaymentDetailsResponse componentDetails(PaymentDetailsRequest detailsRequest)
+            throws ApiException, IOException, InvalidCartException;
 
     /**
      * Add payment details to cart
@@ -136,7 +142,8 @@ public interface AdyenCheckoutFacade {
      * @throws Exception In case order failed to be created
      */
 
-    OrderData handle3DSResponse(PaymentDetailsRequest paymentDetailsRequest) throws Exception;
+    OrderData handle3DSResponse(PaymentDetailsRequest paymentDetailsRequest)
+            throws AdyenNonAuthorizedPaymentException, InvalidCartException, CalculationException;
 
     /**
      * Retrieve available payment methods
@@ -194,7 +201,8 @@ public interface AdyenCheckoutFacade {
      * Handles payment result from component
      * Validates the result and updates the cart based on it
      */
-    OrderData handleComponentResult(String resultCode,  String merchantReference) throws Exception;
+    OrderData handleComponentResult(String resultCode, String merchantReference)
+            throws AdyenNonAuthorizedPaymentException, InvalidCartException, CalculationException;
 
     void restoreCartFromOrderCodeInSession() throws InvalidCartException, CalculationException;
 
