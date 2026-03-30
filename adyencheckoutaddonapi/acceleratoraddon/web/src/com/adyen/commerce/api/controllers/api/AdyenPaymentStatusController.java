@@ -1,6 +1,6 @@
 package com.adyen.commerce.api.controllers.api;
 
-import com.adyen.v6.facades.AdyenOrderFacade;
+import com.adyen.commerce.facades.AdyenOrderFacade;
 import de.hybris.platform.acceleratorstorefrontcommons.annotations.RequireHardLogIn;
 import de.hybris.platform.acceleratorstorefrontcommons.constants.WebConstants;
 import de.hybris.platform.servicelayer.session.SessionService;

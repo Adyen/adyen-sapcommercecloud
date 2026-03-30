@@ -10,16 +10,16 @@ import de.hybris.platform.store.BaseStoreModel;
 import de.hybris.platform.store.services.BaseStoreService;
 import org.apache.log4j.Logger;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 import static com.adyen.v6.constants.Adyenv6coreConstants.LIVE_ENV;
 import static com.adyen.v6.constants.Adyenv6coreConstants.TEST_ENV;
-import static com.adyen.v6.facades.impl.DefaultAdyenCheckoutFacade.CHECKOUT_SHOPPER_HOST_LIVE;
-import static com.adyen.v6.facades.impl.DefaultAdyenCheckoutFacade.CHECKOUT_SHOPPER_HOST_LIVE_IN;
-import static com.adyen.v6.facades.impl.DefaultAdyenCheckoutFacade.CHECKOUT_SHOPPER_HOST_TEST;
+import static com.adyen.commerce.facades.impl.DefaultAdyenCheckoutFacade.CHECKOUT_SHOPPER_HOST_LIVE;
+import static com.adyen.commerce.facades.impl.DefaultAdyenCheckoutFacade.CHECKOUT_SHOPPER_HOST_LIVE_IN;
+import static com.adyen.commerce.facades.impl.DefaultAdyenCheckoutFacade.CHECKOUT_SHOPPER_HOST_TEST;
 
 public class DefaultAdyenStoredCardsService implements AdyenStoredCardsService {
 

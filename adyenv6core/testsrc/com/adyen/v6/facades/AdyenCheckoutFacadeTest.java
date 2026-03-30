@@ -29,7 +29,7 @@ import com.adyen.service.exception.ApiException;
 import com.adyen.v6.constants.Adyenv6coreConstants;
 import com.adyen.v6.enums.RecurringContractMode;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
-import com.adyen.v6.facades.impl.DefaultAdyenCheckoutFacade;
+import com.adyen.commerce.facades.impl.DefaultAdyenCheckoutFacade;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
 import com.adyen.v6.repository.OrderRepository;
 import com.adyen.v6.service.AdyenBusinessProcessService;
@@ -87,7 +87,7 @@ import java.util.UUID;
 import static com.adyen.constants.ApiConstants.ThreeDS2Property.CHALLENGE_RESULT;
 import static com.adyen.constants.ApiConstants.ThreeDS2Property.FINGERPRINT_RESULT;
 import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_EPS;
-import static com.adyen.v6.facades.impl.DefaultAdyenCheckoutFacade.*;
+import static com.adyen.commerce.facades.impl.DefaultAdyenCheckoutFacade.*;
 import static org.junit.Assert.*;
 
 import static org.mockito.Mockito.*;
