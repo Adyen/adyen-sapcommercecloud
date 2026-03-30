@@ -1,9 +1,10 @@
 package com.adyen.v6.facades;
 
-import com.adyen.commerce.data.DataCollectionConfiguration;
-
-public interface AdyenDataCollectionFacade {
-
-    DataCollectionConfiguration getDataCollectionConfiguration();
-
+/**
+ * @deprecated Use {@link com.adyen.commerce.facades.AdyenDataCollectionFacade} instead.
+ *             This interface will be removed in a future release.
+ */
+@Deprecated(since = "2.x", forRemoval = true)
+public interface AdyenDataCollectionFacade extends com.adyen.commerce.facades.AdyenDataCollectionFacade {
+    // All methods inherited from com.adyen.commerce.facades.AdyenDataCollectionFacade
 }

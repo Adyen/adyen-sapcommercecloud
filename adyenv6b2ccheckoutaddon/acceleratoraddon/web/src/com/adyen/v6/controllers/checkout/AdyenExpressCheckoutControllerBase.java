@@ -4,7 +4,7 @@ import com.adyen.v6.helpers.AdyenUrlHelper;
 import de.hybris.platform.acceleratorservices.urlresolver.SiteBaseUrlResolutionService;
 import de.hybris.platform.site.BaseSiteService;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 
 /**
  * Base class for express checkout controllers providing common URL generation functionality

@@ -1,21 +1,23 @@
-package com.adyen.v6.facades.impl;
+package com.adyen.commerce.facades.impl;
 
 import com.adyen.commerce.data.DataCollectionConfiguration;
-import com.adyen.v6.facades.AdyenCheckoutFacade;
-import com.adyen.v6.facades.AdyenDataCollectionFacade;
+import com.adyen.commerce.facades.AdyenCheckoutFacade;
+import com.adyen.commerce.facades.AdyenDataCollectionFacade;
 import de.hybris.platform.store.BaseStoreModel;
 import de.hybris.platform.store.services.BaseStoreService;
 import org.springframework.util.Assert;
 
 import java.util.Objects;
 
+/**
+ * Default implementation of {@link AdyenDataCollectionFacade}.
+ */
 public class DefaultAdyenDataCollectionFacade implements AdyenDataCollectionFacade {
+
+    public static final String MODEL_DATA_CONFIGURATION_ENABLED = "adyenDataCollectionEnabled";
 
     private AdyenCheckoutFacade adyenCheckoutFacade;
     private BaseStoreService baseStoreService;
-
-    public static String MODEL_DATA_CONFIGURATION_ENABLED = "adyenDataCollectionEnabled";
-
 
     @Override
     public DataCollectionConfiguration getDataCollectionConfiguration() {

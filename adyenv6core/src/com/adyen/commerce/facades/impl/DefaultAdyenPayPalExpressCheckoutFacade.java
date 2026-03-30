@@ -1,9 +1,9 @@
-package com.adyen.v6.facades.impl;
+package com.adyen.commerce.facades.impl;
 
+import com.adyen.commerce.facades.AdyenPayPalExpressCheckoutFacade;
 import com.adyen.model.checkout.*;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.constants.StorefrontType;
-import com.adyen.v6.facades.AdyenPayPalExpressCheckoutFacade;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
 import com.adyen.v6.model.RequestInfo;
 import com.adyen.v6.response.PayPalExpressSubmitResponse;
@@ -29,9 +29,9 @@ import de.hybris.platform.site.BaseSiteService;
 import de.hybris.platform.store.BaseStoreModel;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.util.Assert;
-
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -41,14 +41,17 @@ import java.util.Optional;
 
 import static de.hybris.platform.servicelayer.util.ServicesUtil.validateParameterNotNull;
 
+/**
+ * Default implementation of {@link AdyenPayPalExpressCheckoutFacade}.
+ */
 public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpressCheckoutFacade implements AdyenPayPalExpressCheckoutFacade {
-    private static final Logger LOG = Logger.getLogger(DefaultAdyenPayPalExpressCheckoutFacade.class);
+
+    // Improvement #15: use SLF4J instead of Log4j 1.x
+    private static final Logger LOG = LoggerFactory.getLogger(DefaultAdyenPayPalExpressCheckoutFacade.class);
 
     private BaseSiteService baseSiteService;
     private AdyenPaymentServiceFactory adyenPaymentServiceFactory;
     private AdyenShopperIpResolverService adyenShopperIpResolverService;
-
-
 
     @Override
     public PayPalExpressSubmitResponse onPayPalPDPSubmitOCC(HttpServletRequest request, PaymentRequest paymentRequest) throws IOException, ApiException {
@@ -94,7 +97,6 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
 
         Amount amount = AmountUtil.createAmount(BigDecimal.valueOf(expressCart.getTotalPrice()), expressCart.getCurrency().getIsocode());
 
-
         paymentRequest.setReference(expressCart.getCode());
         paymentRequest.setAmount(amount);
 
@@ -107,7 +109,6 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
         PaymentResponse paymentResponse = adyenCheckoutFacade.getAdyenPaymentService().sendPaymentRequest(paymentRequest, requestInfo);
 
         PayPalExpressSubmitResponse payPalExpressSubmitResponse = new PayPalExpressSubmitResponse();
-
         payPalExpressSubmitResponse.setPaymentResponse(paymentResponse);
         payPalExpressSubmitResponse.setExpressCartGuid(expressCart.getGuid());
         payPalExpressSubmitResponse.setPspReference(paymentResponse.getPspReference());
@@ -134,20 +135,21 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
         requestInfo.setStorefrontType(StorefrontType.ACCELERATOR);
         requestInfo.setShopperLocale(adyenCheckoutFacade.getShopperLocale());
 
-        return adyenCheckoutFacade.getAdyenPaymentService().sendPaymentRequest(paymentRequest,requestInfo);
+        return adyenCheckoutFacade.getAdyenPaymentService().sendPaymentRequest(paymentRequest, requestInfo);
     }
 
+    @Override
     public void onPayPalAuthorizedPDP(String cartGuid, AddressData addressData, String paymentMethod) throws DuplicateUidException, InvalidCartException, CalculationException {
         validateAddress(addressData);
-
         updateRegionData(addressData);
 
         PaymentInfoModel paymentInfoModel = getModelService().create(PaymentInfoModel.class);
         paymentInfoModel.setAdyenPaymentMethod(paymentMethod);
 
-        CustomerModel user = (CustomerModel) userService.getCurrentUser();
+        // Improvement #5: guard before cast
+        CustomerModel user = resolveCustomerModel();
         boolean isGuestUser = false;
-        if (userService.isAnonymousUser(user)) {
+        if (userService.isAnonymousUser(userService.getCurrentUser())) {
             user = createGuestCustomer(addressData.getEmail());
             isGuestUser = true;
         }
@@ -157,29 +159,29 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
         if (expressCartForGuid != null && cartHasEntries(expressCartForGuid)) {
             prepareCartForPayPalExpressCheckout(addressData, expressCartForGuid, user, paymentInfoModel);
 
-            CartModel sessionCart = null;
-            if (cartService.hasSessionCart()) {
-                sessionCart = cartService.getSessionCart();
-            }
-            cartService.setSessionCart(expressCartForGuid);
+            // Improvement #2: session cart restore wrapped in try/finally
+            final boolean guestUser = isGuestUser;
+            try {
+                withTemporarySessionCart(expressCartForGuid, () -> {
+                    adyenCheckoutFacade.placePendingOrder();
 
-            adyenCheckoutFacade.placePendingOrder();
-
-            if (isGuestUser) {
-                sessionService.setAttribute(ANONYMOUS_CHECKOUT_GUID,
-                        StringUtils.substringBefore(expressCartForGuid.getUser().getUid(), "|"));
-                sessionService.setAttribute(ANONYMOUS_CHECKOUT, Boolean.TRUE);
-            }
-
-            if (sessionCart != null) {
-                cartService.setSessionCart(sessionCart);
+                    // Improvement #3: extracted helper
+                    if (guestUser) {
+                        markSessionAsAnonymousCheckout(expressCartForGuid);
+                    }
+                    return null;
+                });
+            } catch (InvalidCartException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new InvalidCartException(e.getMessage());
             }
             return;
-
         }
         throw new InvalidCartException("No cart for checkout or empty cart");
     }
 
+    @Override
     public void onPayPalAuthorizedCart(AddressData addressData, String paymentMethod) throws DuplicateUidException, InvalidCartException, CalculationException {
         validateAddress(addressData);
 
@@ -188,9 +190,10 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
 
         updateRegionData(addressData);
 
-        CustomerModel user = (CustomerModel) userService.getCurrentUser();
+        // Improvement #5: guard before cast
+        CustomerModel user = resolveCustomerModel();
         boolean isGuestUser = false;
-        if (userService.isAnonymousUser(user)) {
+        if (userService.isAnonymousUser(userService.getCurrentUser())) {
             user = createGuestCustomer(addressData.getEmail());
             cartService.changeCurrentCartUser(user);
             isGuestUser = true;
@@ -203,16 +206,16 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
 
             adyenCheckoutFacade.placePendingOrder();
 
+            // Improvement #3: extracted helper
             if (isGuestUser) {
-                sessionService.setAttribute(ANONYMOUS_CHECKOUT_GUID,
-                        StringUtils.substringBefore(sessionCart.getUser().getUid(), "|"));
-                sessionService.setAttribute(ANONYMOUS_CHECKOUT, Boolean.TRUE);
+                markSessionAsAnonymousCheckout(sessionCart);
             }
             return;
         }
         throw new InvalidCartException("No cart for checkout or empty cart");
     }
 
+    @Override
     public PaypalUpdateOrderResponse updateShippingAddress(final AddressData addressData, final String pspReference, final String paymentData, final String cartGuid) throws IOException, ApiException, DuplicateUidException, CalculationException {
         CartModel cart = getCartForPayPalCheckout(cartGuid);
 
@@ -223,6 +226,7 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
         return patchPaypalOrder(cart, null, paymentData, pspReference);
     }
 
+    @Override
     public PaypalUpdateOrderResponse updateShippingMethod(final String shippingMethodCode, final String pspReference, final String paymentData, final String cartGuid) throws IOException, ApiException, CalculationException {
         CartModel cart = getCartForPayPalCheckout(cartGuid);
 
@@ -231,6 +235,7 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
         return patchPaypalOrder(cart, shippingMethodCode, paymentData, pspReference);
     }
 
+    @Override
     public PaypalUpdateOrderResponse getPaypalUpdateOrderResponse(PaypalUpdateOrderRequest paypalUpdateOrderOriginRequest) throws IOException, ApiException {
         BaseStoreModel currentBaseStore = getBaseStoreService().getCurrentBaseStore();
         final CartModel sessionCart = cartService.getSessionCart();
@@ -241,17 +246,19 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
 
         String selectedDeliveryMethodReference = paypalUpdateOrderOriginRequest.getDeliveryMethods()
                 .stream()
-                .filter(deliveryMethod ->
-                        deliveryMethod.getSelected()).map(DeliveryMethod::getReference)
+                .filter(DeliveryMethod::getSelected)
+                .map(DeliveryMethod::getReference)
                 .findFirst().orElse(StringUtils.EMPTY);
         List<DeliveryModeModel> deliveryModes = getDeliveryService().getSupportedDeliveryModeListForOrder(sessionCart);
 
         List<DeliveryMethod> deliveryMethods = deliveryModes.stream()
                 .map(deliveryModeModel -> convert(deliveryModeModel, sessionCart))
-                .map(deliveryModeData -> getDeliveryMethod(deliveryModeData, selectedDeliveryMethodReference)).toList();
+                .map(deliveryModeData -> getDeliveryMethod(deliveryModeData, selectedDeliveryMethodReference))
+                .toList();
 
         Amount amount = AmountUtil.createAmount(BigDecimal.valueOf(sessionCart.getTotalPrice()), sessionCart.getCurrency().getIsocode());
-        PaypalUpdateOrderRequest paypalUpdateOrderRequest = getPaypalUpdateOrderRequest(paypalUpdateOrderOriginRequest.getPaymentData(),
+        PaypalUpdateOrderRequest paypalUpdateOrderRequest = getPaypalUpdateOrderRequest(
+                paypalUpdateOrderOriginRequest.getPaymentData(),
                 paypalUpdateOrderOriginRequest.getPspReference(),
                 amount,
                 deliveryMethods
@@ -260,7 +267,6 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
         AdyenUtilityApiService adyenUtilityApiService = adyenPaymentServiceFactory.createAdyenUtilityApiService(currentBaseStore);
 
         return adyenUtilityApiService.paypalUpdateOrder(paypalUpdateOrderRequest);
-
     }
 
     protected CartModel getCartForPayPalCheckout(String cartGuid) {
@@ -304,7 +310,7 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
 
             return adyenUtilityApiService.paypalUpdateOrder(paypalUpdateOrderRequest);
         }
-        throw new IllegalArgumentException("No delivery method found for express checkout cart:  " + cart.getCode());
+        throw new IllegalArgumentException("No delivery method found for express checkout cart: " + cart.getCode());
     }
 
     private void removeDeliveryMethodAndRecalculateCart(CartModel expressCart) {
@@ -317,22 +323,23 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
 
     private static DeliveryMethod getDeliveryMethod(DeliveryModeData method, String selectedDeliveryMethodCode) {
         Amount amount = null;
-        if (method.getDeliveryCost() != null) {
+        if (method != null && method.getDeliveryCost() != null) {
             amount = AmountUtil.createAmount(method.getDeliveryCost().getValue(), method.getDeliveryCost().getCurrencyIso());
         } else {
-            LOG.warn("No method delivery cost found for delivery mode: " + method.getCode());
+            LOG.warn("No method delivery cost found for delivery mode: {}", method != null ? method.getCode() : "null");
         }
 
         DeliveryMethod deliveryMethod = new DeliveryMethod();
-        deliveryMethod.reference(method.getCode())
-                .description(method.getDescription())
-                .selected(selectedDeliveryMethodCode.equals(method.getCode()))
-                .setAmount(amount);
+        if (method != null) {
+            deliveryMethod.reference(method.getCode())
+                    .description(method.getDescription())
+                    .selected(selectedDeliveryMethodCode.equals(method.getCode()))
+                    .setAmount(amount);
+        }
         return deliveryMethod;
     }
 
     private static PaypalUpdateOrderRequest getPaypalUpdateOrderRequest(String paymentData, String pspReference, Amount amount, List<DeliveryMethod> deliveryMethods) {
-
         PaypalUpdateOrderRequest paypalUpdateOrderRequest = new PaypalUpdateOrderRequest();
         paypalUpdateOrderRequest.amount(amount)
                 .deliveryMethods(deliveryMethods)
@@ -340,7 +347,6 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
                 .setPspReference(pspReference);
         return paypalUpdateOrderRequest;
     }
-
 
     protected void prepareCartForPayPalExpressCheckout(AddressData addressData, CartModel sessionCart, CustomerModel user, PaymentInfoModel paymentInfoModel) throws CalculationException {
         sessionCart.setUser(user);
@@ -369,7 +375,6 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
     protected DeliveryModeModel getExpressDeliveryMode() {
         DeliveryModeModel deliveryMode = deliveryModeService.getDeliveryModeForCode(DELIVERY_MODE_CODE);
         validateParameterNotNull(deliveryMode, "Delivery mode for Adyen express checkout not configured");
-
         return deliveryMode;
     }
 
