@@ -9,7 +9,7 @@ import de.hybris.platform.store.BaseStoreModel;
 import de.hybris.platform.store.services.BaseStoreService;
 import org.apache.log4j.Logger;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 
 public class DefaultAdyenStoredCardsFacade implements AdyenStoredCardsFacade {
 

@@ -34,7 +34,7 @@ import de.hybris.platform.commercefacades.user.data.CountryData;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.ui.Model;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.Optional;
 
 import static com.adyen.commerce.constants.AdyenwebcommonsConstants.PAYLOAD_PARAM;
