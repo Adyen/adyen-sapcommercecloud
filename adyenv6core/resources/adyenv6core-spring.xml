@@ -661,13 +661,13 @@
     <bean id="adyenCustomerInteractionRetryTemplate" class="org.springframework.retry.support.RetryTemplate">
         <property name="retryPolicy">
             <bean class="org.springframework.retry.policy.SimpleRetryPolicy">
+                <constructor-arg name="maxAttempts" value="5"/>
                 <constructor-arg name="retryableExceptions">
                     <map>
                         <entry key="com.adyen.service.exception.ApiException" value="true"/>
                         <entry key="java.io.IOException" value="true"/>
                     </map>
                 </constructor-arg>
-                <constructor-arg name="maxAttempts" value="5"/>
             </bean>
         </property>
         <property name="backOffPolicy">
@@ -681,13 +681,13 @@
     <bean id="adyenBackgroundProcessRetryTemplate" class="org.springframework.retry.support.RetryTemplate">
         <property name="retryPolicy">
             <bean class="org.springframework.retry.policy.SimpleRetryPolicy">
+                <constructor-arg name="maxAttempts" value="5"/>
                 <constructor-arg name="retryableExceptions">
                     <map>
                         <entry key="com.adyen.service.exception.ApiException" value="true"/>
                         <entry key="java.io.IOException" value="true"/>
                     </map>
                 </constructor-arg>
-                <constructor-arg name="maxAttempts" value="5"/>
             </bean>
         </property>
         <property name="backOffPolicy">
