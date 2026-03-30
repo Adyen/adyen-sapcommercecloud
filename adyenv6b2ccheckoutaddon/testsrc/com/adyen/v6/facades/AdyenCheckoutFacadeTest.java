@@ -25,7 +25,7 @@ import com.adyen.model.checkout.PaymentDetailsResponse;
 import com.adyen.model.checkout.PaymentResponse;
 import com.adyen.model.checkout.PaymentResponseAction;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
-import com.adyen.v6.facades.impl.DefaultAdyenCheckoutFacade;
+import com.adyen.commerce.facades.impl.DefaultAdyenCheckoutFacade;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
 import com.adyen.v6.model.RequestInfo;
 import com.adyen.v6.repository.OrderRepository;
@@ -74,7 +74,7 @@ import java.math.BigDecimal;
 import java.security.SignatureException;
 
 import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_CC;
-import static com.adyen.v6.facades.impl.DefaultAdyenCheckoutFacade.SESSION_LOCKED_CART;
+import static com.adyen.commerce.facades.impl.DefaultAdyenCheckoutFacade.SESSION_LOCKED_CART;
 import static com.adyen.v6.model.RequestInfo.ACCEPT_HEADER;
 import static com.adyen.v6.model.RequestInfo.USER_AGENT_HEADER;
 import static de.hybris.platform.order.impl.DefaultCartService.SESSION_CART_PARAMETER_NAME;

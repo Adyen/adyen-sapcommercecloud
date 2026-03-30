@@ -43,7 +43,7 @@ import java.util.Map;
 import static com.adyen.constants.ApiConstants.ThreeDS2Property.THREEDS2_CHALLENGE_TOKEN;
 import static com.adyen.constants.ApiConstants.ThreeDS2Property.THREEDS2_FINGERPRINT_TOKEN;
 import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD;
-import static com.adyen.v6.facades.impl.DefaultAdyenCheckoutFacade.SESSION_PENDING_ORDER_CODE;
+import static com.adyen.commerce.facades.impl.DefaultAdyenCheckoutFacade.SESSION_PENDING_ORDER_CODE;
 
 /**
  * Default implementation of ThreeDSAuthorizationService.

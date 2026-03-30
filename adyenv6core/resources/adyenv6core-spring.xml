@@ -240,7 +240,7 @@
 
 
     <alias name="defaultAdyenCheckoutFacade" alias="adyenCheckoutFacade" />
-    <bean id="defaultAdyenCheckoutFacade" class="com.adyen.v6.facades.impl.DefaultAdyenCheckoutFacade">
+    <bean id="defaultAdyenCheckoutFacade" class="com.adyen.commerce.facades.impl.DefaultAdyenCheckoutFacade">
         <property name="countryConverter" ref="countryConverter"/>
         <property name="baseStoreService" ref="baseStoreService"/>
         <property name="sessionService" ref="sessionService"/>
@@ -327,7 +327,7 @@
     </bean>
 
     <alias name="defaultAdyenDataCollectionFacade" alias="adyenDataCollectionFacade" />
-    <bean id="defaultAdyenDataCollectionFacade" class="com.adyen.v6.facades.impl.DefaultAdyenDataCollectionFacade">
+    <bean id="defaultAdyenDataCollectionFacade" class="com.adyen.commerce.facades.impl.DefaultAdyenDataCollectionFacade">
         <property name="adyenCheckoutFacade" ref="adyenCheckoutFacade"/>
         <property name="baseStoreService" ref="baseStoreService"/>
     </bean>
@@ -442,7 +442,7 @@
     </bean>
 
     <alias name="defaultAdyenAmazonPayFacade" alias="adyenAmazonPayFacade"/>
-    <bean id="defaultAdyenAmazonPayFacade" class="com.adyen.v6.facades.impl.DefaultAdyenAmazonPayFacade">
+    <bean id="defaultAdyenAmazonPayFacade" class="com.adyen.commerce.facades.impl.DefaultAdyenAmazonPayFacade">
         <constructor-arg name="adyenAmazonPayIntegratorService" ref="adyenAmazonPayIntegratorService"/>
         <constructor-arg name="baseSiteService" ref="baseSiteService"/>
         <constructor-arg name="siteBaseUrlResolutionService" ref="siteBaseUrlResolutionService"/>
@@ -495,7 +495,7 @@
         <property name="adyenNotificationService" ref="adyenNotificationService"/>
     </bean>
 
-    <bean id="adyenExpressCheckoutFacade" class="com.adyen.v6.facades.impl.DefaultAdyenExpressCheckoutFacade">
+    <bean id="adyenExpressCheckoutFacade" class="com.adyen.commerce.facades.impl.DefaultAdyenExpressCheckoutFacade">
         <property name="cartFactory" ref="cartFactory"/>
         <property name="cartService" ref="cartService"/>
         <property name="productService" ref="productService"/>
@@ -530,14 +530,13 @@
         <property name="baseStoreService" ref="baseStoreService"/>
         <property name="checkoutCustomerStrategy" ref="checkoutCustomerStrategy"/>
         <property name="countryConverter" ref="countryConverter"/>
-        <property name="impersonationService" ref="impersonationService"/>
         <property name="baseSiteService" ref="baseSiteService"/>
         <property name="siteBaseUrlResolutionService" ref="siteBaseUrlResolutionService"/>
         <property name="occPaymentRedirectReturnUrlResolver" ref="occPaymentRedirectReturnUrlResolver"/>
         <property name="adyenShopperIpResolverService" ref="adyenShopperIpResolverService"/>
     </bean>
 
-    <bean id="adyenPayPalExpressCheckoutFacade" class="com.adyen.v6.facades.impl.DefaultAdyenPayPalExpressCheckoutFacade">
+    <bean id="adyenPayPalExpressCheckoutFacade" class="com.adyen.commerce.facades.impl.DefaultAdyenPayPalExpressCheckoutFacade">
         <property name="baseSiteService" ref="baseSiteService"/>
         <property name="cartFactory" ref="cartFactory"/>
         <property name="cartService" ref="cartService"/>
@@ -573,12 +572,11 @@
         <property name="baseStoreService" ref="baseStoreService"/>
         <property name="checkoutCustomerStrategy" ref="checkoutCustomerStrategy"/>
         <property name="countryConverter" ref="countryConverter"/>
-        <property name="impersonationService" ref="impersonationService"/>
         <property name="adyenPaymentServiceFactory" ref="adyenPaymentServiceFactory"/>
         <property name="adyenShopperIpResolverService" ref="adyenShopperIpResolverService"/>
     </bean>
 
-    <bean id="adyenOrderFacade" class="com.adyen.v6.facades.impl.DefaultAdyenOrderFacade">
+    <bean id="adyenOrderFacade" class="com.adyen.commerce.facades.impl.DefaultAdyenOrderFacade">
         <property name="baseStoreService" ref="baseStoreService"/>
         <property name="checkoutCustomerStrategy" ref="checkoutCustomerStrategy"/>
         <property name="customerAccountService" ref="customerAccountService"/>
@@ -705,7 +703,7 @@
     </bean>
 
     <bean id="adyenStoredCardsFacade"
-          class="com.adyen.v6.facades.impl.DefaultAdyenStoredCardsFacade">
+          class="com.adyen.commerce.facades.impl.DefaultAdyenStoredCardsFacade">
         <property name="userService" ref="userService"/>
         <property name="baseStoreService" ref="baseStoreService"/>
         <property name="adyenStoredCardsService" ref="adyenStoredCardsService"/>

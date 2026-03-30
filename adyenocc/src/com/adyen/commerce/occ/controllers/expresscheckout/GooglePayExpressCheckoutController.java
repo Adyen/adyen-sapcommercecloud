@@ -8,7 +8,7 @@ import com.adyen.model.checkout.CheckoutPaymentMethod;
 import com.adyen.model.checkout.GooglePayDetails;
 import com.adyen.model.checkout.PaymentRequest;
 import com.adyen.v6.constants.Adyenv6coreConstants;
-import com.adyen.v6.facades.AdyenExpressCheckoutFacade;
+import com.adyen.commerce.facades.AdyenExpressCheckoutFacade;
 import de.hybris.platform.commercefacades.order.CartFacade;
 import de.hybris.platform.commerceservices.request.mapping.annotation.ApiVersion;
 import de.hybris.platform.commerceservices.strategies.CheckoutCustomerStrategy;
