@@ -1,9 +1,9 @@
 package com.adyen.v6.controllers.cms;
 
 import com.adyen.commerce.data.DataCollectionConfiguration;
-import com.adyen.v6.facades.AdyenDataCollectionFacade;
-import com.adyen.v6.facades.impl.DefaultAdyenCheckoutFacade;
-import com.adyen.v6.facades.impl.DefaultAdyenDataCollectionFacade;
+import com.adyen.commerce.facades.AdyenDataCollectionFacade;
+import com.adyen.commerce.facades.impl.DefaultAdyenCheckoutFacade;
+import com.adyen.commerce.facades.impl.DefaultAdyenDataCollectionFacade;
 import com.adyen.v6.model.contents.components.AdyenDataCollectionComponentModel;
 import de.hybris.platform.addonsupport.controllers.cms.AbstractCMSAddOnComponentController;
 import jakarta.annotation.Resource;

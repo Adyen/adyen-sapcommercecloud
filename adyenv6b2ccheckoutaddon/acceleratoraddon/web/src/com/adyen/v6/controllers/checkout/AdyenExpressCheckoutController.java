@@ -1,7 +1,7 @@
 package com.adyen.v6.controllers.checkout;
 
 import com.adyen.v6.controllers.checkout.dto.CartDataDTO;
-import com.adyen.v6.facades.AdyenExpressCheckoutFacade;
+import com.adyen.commerce.facades.AdyenExpressCheckoutFacade;
 import de.hybris.platform.commercefacades.order.data.CartData;
 import de.hybris.platform.commercefacades.order.data.DeliveryModeData;
 import de.hybris.platform.commercefacades.user.data.AddressData;

@@ -26,7 +26,7 @@ import com.adyen.model.payment.PaymentResult;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.constants.AdyenControllerConstants;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
-import com.adyen.v6.facades.AdyenCheckoutFacade;
+import com.adyen.commerce.facades.AdyenCheckoutFacade;
 import com.adyen.v6.helpers.Adyen3DSHelper;
 import com.adyen.v6.helpers.AdyenUrlHelper;
 import com.fasterxml.jackson.core.JsonProcessingException;

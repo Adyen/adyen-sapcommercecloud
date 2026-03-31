@@ -1,7 +1,7 @@
 package com.adyen.commerce.spa.controllers.checkout;
 
-import com.adyen.v6.facades.AdyenCheckoutFacade;
-import com.adyen.v6.facades.impl.DefaultAdyenCheckoutFacade;
+import com.adyen.commerce.facades.AdyenCheckoutFacade;
+import com.adyen.commerce.facades.impl.DefaultAdyenCheckoutFacade;
 import de.hybris.platform.acceleratorstorefrontcommons.annotations.PreValidateCheckoutStep;
 import de.hybris.platform.acceleratorstorefrontcommons.annotations.PreValidateQuoteCheckoutStep;
 import de.hybris.platform.acceleratorstorefrontcommons.annotations.RequireHardLogIn;

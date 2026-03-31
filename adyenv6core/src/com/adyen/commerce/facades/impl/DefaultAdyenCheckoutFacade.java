@@ -18,7 +18,7 @@
  *  This file is open source and available under the MIT license.
  *  See the LICENSE file for more info.
  */
-package com.adyen.v6.facades.impl;
+package com.adyen.commerce.facades.impl;
 
 
 import com.adyen.commerce.data.PaymentMethodsCartData;
@@ -33,9 +33,9 @@ import com.adyen.v6.enums.AdyenCardTypeEnum;
 import com.adyen.v6.enums.AdyenRegions;
 import com.adyen.v6.enums.RecurringContractMode;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
-import com.adyen.v6.facades.AdyenCheckoutFacade;
-import com.adyen.v6.facades.AdyenExpressCheckoutFacade;
-import com.adyen.v6.facades.AdyenOrderFacade;
+import com.adyen.commerce.facades.AdyenCheckoutFacade;
+import com.adyen.commerce.facades.AdyenExpressCheckoutFacade;
+import com.adyen.commerce.facades.AdyenOrderFacade;
 import com.adyen.v6.converters.ExpressPaymentConfigConverter;
 import com.adyen.v6.factory.AdyenPaymentInfoFactory;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
@@ -642,7 +642,6 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
 
         return builder.build();
     }
-
     /**
      * Builds a {@link CheckoutConfigDTOBuilder} pre-populated with fields common to both
      * {@link #getReactCheckoutConfig()} and {@link #getCheckoutConfig()}.
@@ -923,7 +922,6 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     @Override
     public boolean showBoleto() {
         BaseStoreModel baseStore = baseStoreService.getCurrentBaseStore();
-        //Check base store settings
         if (baseStore.getAdyenBoleto() == null || !baseStore.getAdyenBoleto()) {
             return false;
         }
@@ -932,7 +930,6 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         String currency = cartData.getTotalPriceWithTax().getCurrencyIso();
         String country = cartData.getDeliveryAddress().getCountry().getIsocode();
 
-        //Show only on Brasil with BRL
         return "BRL".equals(currency) && "BR".equals(country);
     }
 
@@ -947,10 +944,6 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     public boolean showRememberDetails() {
         BaseStoreModel baseStore = baseStoreService.getCurrentBaseStore();
 
-        /*
-         * The show remember me checkout should only be shown as the
-         * user is logged in and the recurirng mode is set to ONECLICK or ONECLICK,RECURRING
-         */
         RecurringContractMode recurringContractMode = baseStore.getAdyenRecurringContractMode();
         if (!getCheckoutCustomerStrategy().isAnonymousCheckout()) {
             if (Recurring.ContractEnum.RECURRING.name().equals(recurringContractMode.getCode()) || Recurring.ContractEnum.ONECLICK.name().equals(recurringContractMode.getCode())) {
@@ -1018,7 +1011,6 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
             userFacade.addAddress(addressData);
         }
 
-        //Put encrypted data to session
         if (!StringUtils.isEmpty(adyenPaymentForm.getCseToken())) {
             getSessionService().setAttribute(SESSION_CSE_TOKEN, adyenPaymentForm.getCseToken());
         }
@@ -1041,11 +1033,9 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
             getSessionService().setAttribute(SESSION_ADYEN_RISK_DATA, adyenPaymentForm.getRiskData());
         }
 
-        //Update CartModel
         cartModel.setAdyenDfValue(adyenPaymentForm.getDfValue());
 
         transactionTemplate.execute(transactionStatus -> {
-            //Create payment info
             PaymentInfoModel paymentInfo = createPaymentInfo(cartModel, adyenPaymentForm);
             cartModel.setPaymentInfo(paymentInfo);
             modelService.save(cartModel);
@@ -1053,13 +1043,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         });
     }
 
-    /**
-     * Converts an {@link AddressForm} to an {@link AddressModel}.
-     * Delegates to {@link AdyenPaymentInfoFactory} which owns address conversion logic.
-     */
     public AddressModel convertToAddressModel(final AddressForm addressForm) {
-        // Keep this method on the facade for backward compatibility with Accelerator controllers
-        // that call it directly. The factory owns the canonical implementation.
         final AddressData addressData = convertToAddressData(addressForm);
         final AddressModel billingAddress = getModelService().create(AddressModel.class);
         getAddressReverseConverter().convert(addressData, billingAddress);
@@ -1166,7 +1150,6 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         }
         return holderNameRequired;
     }
-
 
     public Set<String> getStoredCards() {
         CartModel cartModel = cartService.getSessionCart();

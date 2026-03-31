@@ -6,7 +6,7 @@ import com.adyen.model.checkout.PaymentRequest;
 import com.adyen.model.checkout.PaymentResponse;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.constants.Adyenv6coreConstants;
-import com.adyen.v6.facades.AdyenExpressCheckoutFacade;
+import com.adyen.commerce.facades.AdyenExpressCheckoutFacade;
 import com.adyen.v6.request.ApplePayExpressRequest;
 import de.hybris.platform.acceleratorstorefrontcommons.security.GUIDCookieStrategy;
 import jakarta.annotation.Resource;

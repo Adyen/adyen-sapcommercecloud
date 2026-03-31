@@ -3,7 +3,7 @@ package com.adyen.v6.controllers.checkout;
 import com.adyen.model.checkout.*;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.constants.Adyenv6coreConstants;
-import com.adyen.v6.facades.AdyenPayPalExpressCheckoutFacade;
+import com.adyen.commerce.facades.AdyenPayPalExpressCheckoutFacade;
 import com.adyen.v6.request.*;
 import com.adyen.v6.response.PayPalExpressSubmitResponse;
 import de.hybris.platform.acceleratorservices.urlresolver.SiteBaseUrlResolutionService;

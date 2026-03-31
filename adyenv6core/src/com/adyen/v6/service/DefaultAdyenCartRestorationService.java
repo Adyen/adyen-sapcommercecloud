@@ -22,7 +22,7 @@ package com.adyen.v6.service;
 
 import com.adyen.commerce.data.PaymentMethodsCartData;
 import com.adyen.v6.constants.Adyenv6coreConstants;
-import com.adyen.v6.facades.AdyenOrderFacade;
+import com.adyen.commerce.facades.AdyenOrderFacade;
 import com.adyen.v6.repository.OrderRepository;
 import de.hybris.platform.commercefacades.order.CheckoutFacade;
 import de.hybris.platform.commercefacades.user.data.AddressData;

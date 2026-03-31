@@ -5,7 +5,7 @@ import com.adyen.commerce.dto.OrderPaymentResult;
 import com.adyen.commerce.facades.AdyenCheckoutApiFacade;
 import com.adyen.model.checkout.*;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
-import com.adyen.v6.facades.impl.DefaultAdyenCheckoutFacade;
+import com.adyen.commerce.facades.impl.DefaultAdyenCheckoutFacade;
 import com.adyen.v6.forms.AddressForm;
 import com.adyen.v6.model.RequestInfo;
 import com.adyen.v6.model.AdyenPartialPaymentOrderModel;

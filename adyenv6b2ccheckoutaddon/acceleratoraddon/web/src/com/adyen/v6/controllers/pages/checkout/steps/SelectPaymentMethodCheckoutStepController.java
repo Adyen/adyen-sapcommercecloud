@@ -22,7 +22,7 @@ package com.adyen.v6.controllers.pages.checkout.steps;
 
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.constants.AdyenControllerConstants;
-import com.adyen.v6.facades.AdyenCheckoutFacade;
+import com.adyen.commerce.facades.AdyenCheckoutFacade;
 import com.adyen.v6.forms.AddressForm;
 import com.adyen.v6.forms.AdyenPaymentForm;
 import de.hybris.platform.acceleratorstorefrontcommons.annotations.RequireHardLogIn;
