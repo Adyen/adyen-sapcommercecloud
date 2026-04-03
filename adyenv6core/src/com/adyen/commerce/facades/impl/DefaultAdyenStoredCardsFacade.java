@@ -54,7 +54,6 @@ public class DefaultAdyenStoredCardsFacade implements AdyenStoredCardsFacade {
             return null;
         }
 
-        // Improvement #19: guard before cast
         if (!(userService.getCurrentUser() instanceof CustomerModel)) {
             LOGGER.warn("Current user is not a CustomerModel");
             return null;

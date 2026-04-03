@@ -22,10 +22,10 @@ package com.adyen.commerce.facades.impl;
 
 
 import com.adyen.commerce.data.PaymentMethodsCartData;
+import com.adyen.commerce.services.AdyenPaymentMethodConfigService;
 import com.adyen.model.checkout.*;
 import com.adyen.model.recurring.Recurring;
 import com.adyen.service.exception.ApiException;
-import com.adyen.v6.constants.Adyenv6coreConstants;
 import com.adyen.v6.constants.StorefrontType;
 import com.adyen.v6.controllers.dtos.PaymentResultDTO;
 import com.adyen.v6.dto.*;
@@ -37,16 +37,16 @@ import com.adyen.commerce.facades.AdyenCheckoutFacade;
 import com.adyen.commerce.facades.AdyenExpressCheckoutFacade;
 import com.adyen.commerce.facades.AdyenOrderFacade;
 import com.adyen.v6.converters.ExpressPaymentConfigConverter;
-import com.adyen.v6.factory.AdyenPaymentInfoFactory;
+import com.adyen.commerce.factory.AdyenPaymentInfoFactory;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
-import com.adyen.v6.populator.AdyenCheckoutModelPopulator;
+import com.adyen.commerce.populators.AdyenCheckoutModelPopulator;
 import com.adyen.v6.forms.AddressForm;
 import com.adyen.v6.forms.AdyenPaymentForm;
 import com.adyen.v6.forms.validation.AdyenPaymentFormValidator;
 import com.adyen.v6.model.RequestInfo;
 import com.adyen.v6.repository.OrderRepository;
 import com.adyen.v6.service.*;
-import com.adyen.v6.service.AdyenCartRestorationService;
+import com.adyen.commerce.services.AdyenCartRestorationService;
 import com.adyen.v6.strategy.AdyenMerchantAccountStrategy;
 import com.adyen.v6.util.AmountUtil;
 import com.google.gson.Gson;
@@ -69,13 +69,11 @@ import de.hybris.platform.commercewebservicescommons.dto.order.PaymentDetailsWsD
 import de.hybris.platform.converters.Populator;
 import de.hybris.platform.core.enums.OrderStatus;
 import de.hybris.platform.core.model.c2l.CountryModel;
-import de.hybris.platform.core.model.order.AbstractOrderEntryModel;
 import de.hybris.platform.core.model.order.CartModel;
 import de.hybris.platform.core.model.order.OrderModel;
 import de.hybris.platform.core.model.order.payment.PaymentInfoModel;
 import de.hybris.platform.core.model.user.AddressModel;
 import de.hybris.platform.core.model.user.CustomerModel;
-import de.hybris.platform.core.model.user.TitleModel;
 import de.hybris.platform.deliveryzone.model.ZoneDeliveryModeValueModel;
 import de.hybris.platform.order.CalculationService;
 import de.hybris.platform.order.CartFactory;
@@ -106,10 +104,7 @@ import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static com.adyen.constants.ApiConstants.ThreeDS2Property.THREEDS2_CHALLENGE_TOKEN;
-import static com.adyen.constants.ApiConstants.ThreeDS2Property.THREEDS2_FINGERPRINT_TOKEN;
 import static com.adyen.v6.constants.Adyenv6coreConstants.*;
-import static de.hybris.platform.order.impl.DefaultCartService.SESSION_CART_PARAMETER_NAME;
 
 /**
  * Adyen Checkout Facade for initiating payments using CC or APM

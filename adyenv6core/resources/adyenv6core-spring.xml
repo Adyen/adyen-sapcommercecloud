@@ -606,7 +606,7 @@
     </bean>
 
     <alias name="defaultAdyenPaymentMethodConfigService" alias="adyenPaymentMethodConfigService"/>
-    <bean id="defaultAdyenPaymentMethodConfigService" class="com.adyen.v6.service.DefaultAdyenPaymentMethodConfigService">
+    <bean id="defaultAdyenPaymentMethodConfigService" class="com.adyen.commerce.services.impl.DefaultAdyenPaymentMethodConfigService">
         <property name="configurationService" ref="configurationService"/>
     </bean>
 
@@ -614,14 +614,14 @@
     <bean id="defaultExpressPaymentConfigConverter" class="com.adyen.v6.converters.DefaultExpressPaymentConfigConverter"/>
 
     <alias name="defaultAdyenPaymentInfoFactory" alias="adyenPaymentInfoFactory"/>
-    <bean id="defaultAdyenPaymentInfoFactory" class="com.adyen.v6.factory.DefaultAdyenPaymentInfoFactory">
+    <bean id="defaultAdyenPaymentInfoFactory" class="com.adyen.commerce.factory.impl.DefaultAdyenPaymentInfoFactory">
         <property name="modelService" ref="modelService"/>
         <property name="i18NFacade" ref="i18NFacade"/>
         <property name="addressReverseConverter" ref="addressReverseConverter"/>
     </bean>
 
     <alias name="defaultAdyenCartRestorationService" alias="adyenCartRestorationService"/>
-    <bean id="defaultAdyenCartRestorationService" class="com.adyen.v6.service.DefaultAdyenCartRestorationService">
+    <bean id="defaultAdyenCartRestorationService" class="com.adyen.commerce.services.impl.DefaultAdyenCartRestorationService">
         <property name="sessionService" ref="sessionService"/>
         <property name="cartService" ref="cartService"/>
         <property name="cartFactory" ref="cartFactory"/>
@@ -636,7 +636,7 @@
         <property name="addressPopulator" ref="addressPopulator"/>
     </bean>
 
-    <bean id="adyenCheckoutModelPopulator" class="com.adyen.v6.populator.AdyenCheckoutModelPopulator"/>
+    <bean id="adyenCheckoutModelPopulator" class="com.adyen.commerce.populators.AdyenCheckoutModelPopulator"/>
 
     <!-- To support getCheckoutCart for non credit cards (CreditCardPaymentInfoModel) -->
     <alias name="adyenCheckoutFlowFacade" alias="checkoutFlowFacade"/>

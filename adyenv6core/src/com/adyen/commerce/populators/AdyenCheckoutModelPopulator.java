@@ -18,15 +18,12 @@
  *  This file is open source and available under the MIT license.
  *  See the LICENSE file for more info.
  */
-package com.adyen.v6.populator;
+package com.adyen.commerce.populators;
 
 import com.adyen.v6.dto.CheckoutConfigDTO;
 import com.adyen.v6.dto.ExpressCheckoutConfigDTO;
-import com.google.gson.Gson;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.ui.Model;
-
-import java.util.Objects;
 
 import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_SEPA_DIRECTDEBIT;
 import static com.adyen.v6.constants.Adyenv6coreConstants.SHOPPER_LOCALE;
