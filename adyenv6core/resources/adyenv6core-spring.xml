@@ -278,6 +278,11 @@
         <property name="threeDSAuthorizationService" ref="threeDSAuthorizationService"/>
         <property name="adyenShopperIpResolverService" ref="adyenShopperIpResolverService"/>
         <property name="adyenInstallmentsConfigurationService" ref="adyenInstallmentsConfigurationService"/>
+        <property name="adyenPaymentMethodConfigService" ref="adyenPaymentMethodConfigService"/>
+        <property name="expressPaymentConfigConverter" ref="expressPaymentConfigConverter"/>
+        <property name="adyenPaymentInfoFactory" ref="adyenPaymentInfoFactory"/>
+        <property name="adyenCartRestorationService" ref="adyenCartRestorationService"/>
+        <property name="adyenCheckoutModelPopulator" ref="adyenCheckoutModelPopulator"/>
     </bean>
 
     <alias name="defaultAdyenCheckoutApiFacade" alias="adyenCheckoutApiFacade" />
@@ -599,6 +604,39 @@
         <property name="cartService" ref="cartService"/>
         <property name="modelService" ref="modelService"/>
     </bean>
+
+    <alias name="defaultAdyenPaymentMethodConfigService" alias="adyenPaymentMethodConfigService"/>
+    <bean id="defaultAdyenPaymentMethodConfigService" class="com.adyen.commerce.services.impl.DefaultAdyenPaymentMethodConfigService">
+        <property name="configurationService" ref="configurationService"/>
+    </bean>
+
+    <alias name="defaultExpressPaymentConfigConverter" alias="expressPaymentConfigConverter"/>
+    <bean id="defaultExpressPaymentConfigConverter" class="com.adyen.v6.converters.DefaultExpressPaymentConfigConverter"/>
+
+    <alias name="defaultAdyenPaymentInfoFactory" alias="adyenPaymentInfoFactory"/>
+    <bean id="defaultAdyenPaymentInfoFactory" class="com.adyen.commerce.factory.impl.DefaultAdyenPaymentInfoFactory">
+        <property name="modelService" ref="modelService"/>
+        <property name="i18NFacade" ref="i18NFacade"/>
+        <property name="addressReverseConverter" ref="addressReverseConverter"/>
+    </bean>
+
+    <alias name="defaultAdyenCartRestorationService" alias="adyenCartRestorationService"/>
+    <bean id="defaultAdyenCartRestorationService" class="com.adyen.commerce.services.impl.DefaultAdyenCartRestorationService">
+        <property name="sessionService" ref="sessionService"/>
+        <property name="cartService" ref="cartService"/>
+        <property name="cartFactory" ref="cartFactory"/>
+        <property name="modelService" ref="modelService"/>
+        <property name="calculationService" ref="calculationService"/>
+        <property name="checkoutFacade" ref="checkoutFacade"/>
+        <property name="checkoutCustomerStrategy" ref="checkoutCustomerStrategy"/>
+        <property name="orderRepository" ref="adyenOrderRepository"/>
+        <property name="adyenOrderFacade" ref="adyenOrderFacade"/>
+        <property name="adyenBusinessProcessService" ref="adyenBusinessProcessService"/>
+        <property name="threeDSAuthorizationService" ref="threeDSAuthorizationService"/>
+        <property name="addressPopulator" ref="addressPopulator"/>
+    </bean>
+
+    <bean id="adyenCheckoutModelPopulator" class="com.adyen.commerce.populators.AdyenCheckoutModelPopulator"/>
 
     <!-- To support getCheckoutCart for non credit cards (CreditCardPaymentInfoModel) -->
     <alias name="adyenCheckoutFlowFacade" alias="checkoutFlowFacade"/>

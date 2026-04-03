@@ -46,7 +46,6 @@ import static de.hybris.platform.servicelayer.util.ServicesUtil.validateParamete
  */
 public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpressCheckoutFacade implements AdyenPayPalExpressCheckoutFacade {
 
-    // Improvement #15: use SLF4J instead of Log4j 1.x
     private static final Logger LOG = LoggerFactory.getLogger(DefaultAdyenPayPalExpressCheckoutFacade.class);
 
     private BaseSiteService baseSiteService;
@@ -146,7 +145,6 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
         PaymentInfoModel paymentInfoModel = getModelService().create(PaymentInfoModel.class);
         paymentInfoModel.setAdyenPaymentMethod(paymentMethod);
 
-        // Improvement #5: guard before cast
         CustomerModel user = resolveCustomerModel();
         boolean isGuestUser = false;
         if (userService.isAnonymousUser(userService.getCurrentUser())) {
@@ -159,13 +157,11 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
         if (expressCartForGuid != null && cartHasEntries(expressCartForGuid)) {
             prepareCartForPayPalExpressCheckout(addressData, expressCartForGuid, user, paymentInfoModel);
 
-            // Improvement #2: session cart restore wrapped in try/finally
             final boolean guestUser = isGuestUser;
             try {
                 withTemporarySessionCart(expressCartForGuid, () -> {
                     adyenCheckoutFacade.placePendingOrder();
 
-                    // Improvement #3: extracted helper
                     if (guestUser) {
                         markSessionAsAnonymousCheckout(expressCartForGuid);
                     }
@@ -190,7 +186,6 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
 
         updateRegionData(addressData);
 
-        // Improvement #5: guard before cast
         CustomerModel user = resolveCustomerModel();
         boolean isGuestUser = false;
         if (userService.isAnonymousUser(userService.getCurrentUser())) {
@@ -206,7 +201,6 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
 
             adyenCheckoutFacade.placePendingOrder();
 
-            // Improvement #3: extracted helper
             if (isGuestUser) {
                 markSessionAsAnonymousCheckout(sessionCart);
             }

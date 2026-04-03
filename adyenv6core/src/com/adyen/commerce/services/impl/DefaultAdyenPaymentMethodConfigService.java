@@ -18,8 +18,9 @@
  *  This file is open source and available under the MIT license.
  *  See the LICENSE file for more info.
  */
-package com.adyen.v6.service;
+package com.adyen.commerce.services.impl;
 
+import com.adyen.commerce.services.AdyenPaymentMethodConfigService;
 import com.adyen.model.checkout.PaymentMethod;
 import de.hybris.platform.servicelayer.config.ConfigurationService;
 import org.apache.commons.lang3.StringUtils;

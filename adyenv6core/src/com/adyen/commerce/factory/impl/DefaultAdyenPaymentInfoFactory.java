@@ -18,7 +18,7 @@
  *  This file is open source and available under the MIT license.
  *  See the LICENSE file for more info.
  */
-package com.adyen.v6.factory;
+package com.adyen.commerce.factory.impl;
 
 import com.adyen.commerce.factory.AdyenPaymentInfoFactory;
 import com.adyen.v6.forms.AddressForm;

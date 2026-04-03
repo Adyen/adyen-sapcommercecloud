@@ -76,7 +76,6 @@ import static de.hybris.platform.servicelayer.util.ServicesUtil.validateParamete
  */
 public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade implements AdyenExpressCheckoutFacade {
 
-    // Improvement #15: use SLF4J instead of Log4j 1.x
     private static final Logger LOG = LoggerFactory.getLogger(DefaultAdyenExpressCheckoutFacade.class);
 
     public static final String USER_NAME = "ExpressCheckoutGuest";
@@ -85,7 +84,6 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
     protected static final String ANONYMOUS_CHECKOUT = "anonymous_checkout";
     protected static final String REDIRECT_RETURN_URL_BASE = "/checkout/express/checkout-adyen-response";
 
-    // Improvement #6: named constant for session key prefix
     private static final String EXPRESS_CART_SESSION_KEY_PREFIX = "expressCartCode-";
 
     protected CartFactory cartFactory;
@@ -108,10 +106,6 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
     protected BaseSiteService baseSiteService;
     protected OccPaymentRedirectReturnUrlResolver occPaymentRedirectReturnUrlResolver;
     protected AdyenShopperIpResolverService adyenShopperIpResolverService;
-
-    // -------------------------------------------------------------------------
-    // Public entry points — Improvement #1: extract preparePaymentInfo helper
-    // -------------------------------------------------------------------------
 
     @Override
     public PaymentResponse expressCheckoutPDP(String cartId, PaymentRequest paymentRequest, String paymentMethod, AddressData addressData,
@@ -141,9 +135,6 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
         return expressCartCheckoutOCC(paymentRequest, addressData, paymentInfoModel, request);
     }
 
-    // -------------------------------------------------------------------------
-    // Improvement #1: shared preamble extracted here
-    // -------------------------------------------------------------------------
 
     /**
      * Validates the payment method and address, then creates and initialises a {@link PaymentInfoModel}.
@@ -167,7 +158,7 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
 
     protected PaymentResponse expressPDPCheckout(PaymentRequest paymentRequest, AddressData addressData, PaymentInfoModel paymentInfoModel, String cartId,
                                                  HttpServletRequest request) throws Exception {
-        // Improvement #5: guard before cast
+
         CustomerModel user = resolveCustomerModel();
         boolean guestUser = false;
         if (userService.isAnonymousUser(userService.getCurrentUser())) {
@@ -181,7 +172,6 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
         if (cartHasEntries(cart)) {
             calculateCart(cart);
 
-            // Improvement #2: session cart restore wrapped in try/finally
             return withTemporarySessionCart(cart, () -> {
                 CartData cartData = cartConverter.convert(cart);
 
@@ -197,7 +187,6 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
 
                 PaymentResponse paymentsResponse = adyenCheckoutFacade.componentPayment(request, cartData, paymentRequest);
 
-                // Improvement #3: extracted helper
                 if (isGuestUser) {
                     markSessionAsAnonymousCheckout(cart);
                 }
@@ -211,7 +200,6 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
 
     protected OrderPaymentResult expressPDPCheckoutOCC(PaymentRequest paymentRequest, AddressData addressData, PaymentInfoModel paymentInfoModel, String cartId,
                                                        HttpServletRequest request) throws Exception {
-        // Improvement #5: guard before cast
         CustomerModel user = resolveCustomerModel();
         if (userService.isAnonymousUser(userService.getCurrentUser())) {
             user = createGuestCustomer(addressData.getEmail());
@@ -222,10 +210,6 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
         if (cartHasEntries(cart)) {
             calculateCart(cart);
 
-            // Improvement #2: session cart restore wrapped in try/finally
-            // Improvement #14: OCC is stateless — ANONYMOUS_CHECKOUT session attributes are intentionally
-            // omitted here. The OCC layer uses token-based auth and does not rely on session attributes
-            // for anonymous checkout tracking.
             return withTemporarySessionCart(cart, () -> {
                 CartData cartData = cartConverter.convert(cart);
 
@@ -252,7 +236,6 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
 
     protected PaymentResponse expressCartCheckout(PaymentRequest paymentRequest, AddressData addressData, PaymentInfoModel paymentInfoModel,
                                                   HttpServletRequest request) throws Exception {
-        // Improvement #5: guard before cast
         CustomerModel user = resolveCustomerModel();
         boolean isGuestUser = false;
         if (userService.isAnonymousUser(userService.getCurrentUser())) {
@@ -266,7 +249,6 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
         if (cartHasEntries(cart)) {
             CartData cartData = cartConverter.convert(cart);
 
-            // Improvement #3: extracted helper
             if (isGuestUser) {
                 markSessionAsAnonymousCheckout(cart);
             }
@@ -281,7 +263,6 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
 
     protected OrderPaymentResult expressCartCheckoutOCC(PaymentRequest paymentRequest, AddressData addressData, PaymentInfoModel paymentInfoModel,
                                                         HttpServletRequest request) throws Exception {
-        // Improvement #5: guard before cast
         CustomerModel user = resolveCustomerModel();
         if (userService.isAnonymousUser(userService.getCurrentUser())) {
             user = createGuestCustomer(addressData.getEmail());
@@ -299,16 +280,11 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
 
             paymentRequest.setReturnUrl(occPaymentRedirectReturnUrlResolver.resolvePaymentRedirectReturnUrlExpressCartCheckout());
 
-            // Improvement #10: removed unnecessary local variable
             return adyenCheckoutApiFacade.placeOrderWithPayment(request, cartData, paymentRequest, requestInfo);
         } else {
             throw new InvalidCartException("Checkout attempt on empty cart");
         }
     }
-
-    // -------------------------------------------------------------------------
-    // Improvement #2: try/finally session cart helper
-    // -------------------------------------------------------------------------
 
     /**
      * Executes {@code action} with {@code tempCart} set as the session cart,
@@ -341,9 +317,6 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
         T get() throws Exception;
     }
 
-    // -------------------------------------------------------------------------
-    // Improvement #3: extracted guest session attribute helper
-    // -------------------------------------------------------------------------
 
     /**
      * Sets the anonymous checkout session attributes for the given guest cart's user.
@@ -356,9 +329,6 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
         sessionService.setAttribute(ANONYMOUS_CHECKOUT, Boolean.TRUE);
     }
 
-    // -------------------------------------------------------------------------
-    // Improvement #5: safe user resolution helper
-    // -------------------------------------------------------------------------
 
     /**
      * Returns the current user as a {@link CustomerModel}, or {@code null} if the user is anonymous.
@@ -448,9 +418,6 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
         return addressModel;
     }
 
-    // -------------------------------------------------------------------------
-    // Improvement #12: removed dead null check; productService never returns null
-    // -------------------------------------------------------------------------
 
     /**
      * Adds the product identified by {@code productCode} to the cart.
@@ -466,9 +433,6 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
         getModelService().save(cart);
     }
 
-    // -------------------------------------------------------------------------
-    // Improvement #13: flattened updateRegionData with early returns
-    // -------------------------------------------------------------------------
 
     /**
      * Resolves the full {@link RegionData} for the region short code in {@code addressData}.
@@ -488,9 +452,6 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
                 .orElse(null));
     }
 
-    // -------------------------------------------------------------------------
-    // Improvement #7: guarded cast in getExpressDeliveryModePrice
-    // -------------------------------------------------------------------------
 
     @Override
     public Optional<ZoneDeliveryModeValueModel> getExpressDeliveryModePrice() {
@@ -515,7 +476,6 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
         return createGuestUserForAnonymousCheckout(emailAddress, USER_NAME);
     }
 
-    // Improvement #8: validate email with a compiled Pattern constant (replaces hand-rolled inline regex)
     private static final java.util.regex.Pattern EMAIL_PATTERN =
             java.util.regex.Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
 
@@ -580,9 +540,6 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
         return siteBaseUrlResolutionService.getWebsiteUrlForSite(currentBaseSite, true, url);
     }
 
-    // -------------------------------------------------------------------------
-    // Improvement #6: session key built via named helper
-    // -------------------------------------------------------------------------
 
     @Override
     public CartData createOrGetCartForExpressCheckout(String productCode) {
@@ -598,7 +555,6 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
             }
         }
 
-        // Improvement #5: guard before cast
         if (!(currentUser instanceof CustomerModel)) {
             throw new IllegalStateException("Express checkout is only supported for customer or anonymous users");
         }
@@ -619,7 +575,6 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
         cartModel.setEntries(new ArrayList<>());
         getModelService().save(cartModel);
 
-        // Improvement #12: removed dead null check — getProductForCode throws if not found
         ProductModel product = productService.getProductForCode(productCode);
         cartService.addNewEntry(cartModel, product, quantity, product.getUnit());
         getModelService().save(cartModel);
@@ -649,7 +604,6 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
     public AddressModel addAddressForExpress(final AddressData addressData) {
         validateParameterNotNullStandardMessage("addressData", addressData);
 
-        // Improvement #5: guard before cast
         UserModel rawUser = userService.getCurrentUser();
         if (!(rawUser instanceof CustomerModel)) {
             throw new IllegalStateException("Express checkout is only supported for customer users");
@@ -662,146 +616,140 @@ public class DefaultAdyenExpressCheckoutFacade extends DefaultCheckoutFacade imp
         getCustomerAccountService().saveAddressEntry(currentCustomer, newAddress);
 
         addressData.setId(newAddress.getPk().toString());
-return newAddress;
-}
-
-// -------------------------------------------------------------------------
-// Improvement #17: filter nulls from getDeliveryModes result
-// -------------------------------------------------------------------------
-
-@Override
-public List<DeliveryModeData> getDeliveryModes(final String cartId) {
-final CartModel cartModel = cartRepository.getCart(cartId);
-return getDeliveryService().getSupportedDeliveryModeListForOrder(cartModel).stream()
-        .map(mode -> convert(mode, cartModel))
-        .filter(Objects::nonNull)
-        .collect(Collectors.toList());
-}
-
-protected DeliveryModeData convert(final DeliveryModeModel deliveryModeModel, final CartModel cartModel) {
-if (deliveryModeModel instanceof ZoneDeliveryModeModel) {
-    final ZoneDeliveryModeModel zoneDeliveryModeModel = (ZoneDeliveryModeModel) deliveryModeModel;
-    if (cartModel != null) {
-        final ZoneDeliveryModeData zoneDeliveryModeData = getZoneDeliveryModeConverter().convert(zoneDeliveryModeModel);
-        final PriceValue deliveryCost = getDeliveryService().getDeliveryCostForDeliveryModeAndAbstractOrder(deliveryModeModel, cartModel);
-        if (deliveryCost != null) {
-            zoneDeliveryModeData.setDeliveryCost(getPriceDataFactory().create(PriceDataType.BUY,
-                    BigDecimal.valueOf(deliveryCost.getValue()), deliveryCost.getCurrencyIso()));
-        }
-        return zoneDeliveryModeData;
+        return newAddress;
     }
-    // Improvement #17: return null here; caller filters via Objects::nonNull
-    return null;
-}
-return getDeliveryModeConverter().convert(deliveryModeModel);
-}
 
-@Override
-public CartData setDeliveryModeForCart(final String deliveryModeCode, final String cartId) throws CalculationException {
-final CartModel cartModel = cartRepository.getCart(cartId);
-final DeliveryModeModel deliveryMode = deliveryModeService.getDeliveryModeForCode(deliveryModeCode);
-return setDeliveryModeForCart(deliveryMode, cartModel);
-}
 
-// Improvement #16: replaced CalculationException with IllegalStateException (semantically correct)
-public CartData setDeliveryModeForCart(final DeliveryModeModel deliveryModeModel, final CartModel cartModel) throws CalculationException {
-final CommerceCheckoutParameter parameter = createCommerceCheckoutParameter(cartModel, true);
-parameter.setDeliveryMode(deliveryModeModel);
-if (getCommerceCheckoutService().setDeliveryMode(parameter)) {
-    return cartConverter.convert(cartModel);
-}
-throw new IllegalStateException("Failed to set delivery mode: " + deliveryModeModel.getCode());
-}
+    @Override
+    public List<DeliveryModeData> getDeliveryModes(final String cartId) {
+        final CartModel cartModel = cartRepository.getCart(cartId);
+        return getDeliveryService().getSupportedDeliveryModeListForOrder(cartModel).stream()
+                .map(mode -> convert(mode, cartModel))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+    }
 
-@Override
-public CartData getSessionCart() {
-return getCartFacade().getSessionCart();
-}
+    protected DeliveryModeData convert(final DeliveryModeModel deliveryModeModel, final CartModel cartModel) {
+        if (deliveryModeModel instanceof ZoneDeliveryModeModel) {
+            final ZoneDeliveryModeModel zoneDeliveryModeModel = (ZoneDeliveryModeModel) deliveryModeModel;
+            if (cartModel != null) {
+                final ZoneDeliveryModeData zoneDeliveryModeData = getZoneDeliveryModeConverter().convert(zoneDeliveryModeModel);
+                final PriceValue deliveryCost = getDeliveryService().getDeliveryCostForDeliveryModeAndAbstractOrder(deliveryModeModel, cartModel);
+                if (deliveryCost != null) {
+                    zoneDeliveryModeData.setDeliveryCost(getPriceDataFactory().create(PriceDataType.BUY,
+                            BigDecimal.valueOf(deliveryCost.getValue()), deliveryCost.getCurrencyIso()));
+                }
+                return zoneDeliveryModeData;
+            }
+
+            return null;
+        }
+        return getDeliveryModeConverter().convert(deliveryModeModel);
+    }
+
+    @Override
+    public CartData setDeliveryModeForCart(final String deliveryModeCode, final String cartId) throws CalculationException {
+        final CartModel cartModel = cartRepository.getCart(cartId);
+        final DeliveryModeModel deliveryMode = deliveryModeService.getDeliveryModeForCode(deliveryModeCode);
+        return setDeliveryModeForCart(deliveryMode, cartModel);
+    }
+
+    public CartData setDeliveryModeForCart(final DeliveryModeModel deliveryModeModel, final CartModel cartModel) throws CalculationException {
+        final CommerceCheckoutParameter parameter = createCommerceCheckoutParameter(cartModel, true);
+        parameter.setDeliveryMode(deliveryModeModel);
+        if (getCommerceCheckoutService().setDeliveryMode(parameter)) {
+            return cartConverter.convert(cartModel);
+        }
+        throw new IllegalStateException("Failed to set delivery mode: " + deliveryModeModel.getCode());
+    }
+
+    @Override
+    public CartData getSessionCart() {
+        return getCartFacade().getSessionCart();
+    }
 
 // -------------------------------------------------------------------------
 // Setters
 // -------------------------------------------------------------------------
 
-public void setCartFactory(CartFactory cartFactory) {
-this.cartFactory = cartFactory;
-}
+    public void setCartFactory(CartFactory cartFactory) {
+        this.cartFactory = cartFactory;
+    }
 
-public void setCartService(CartService cartService) {
-this.cartService = cartService;
-}
+    public void setCartService(CartService cartService) {
+        this.cartService = cartService;
+    }
 
-public void setProductService(ProductService productService) {
-this.productService = productService;
-}
+    public void setProductService(ProductService productService) {
+        this.productService = productService;
+    }
 
-public void setAddressReverseConverter(Converter<AddressData, AddressModel> addressReverseConverter) {
-this.addressReverseConverter = addressReverseConverter;
-}
+    public void setAddressReverseConverter(Converter<AddressData, AddressModel> addressReverseConverter) {
+        this.addressReverseConverter = addressReverseConverter;
+    }
 
-public void setCustomerFacade(CustomerFacade customerFacade) {
-this.customerFacade = customerFacade;
-}
+    public void setCustomerFacade(CustomerFacade customerFacade) {
+        this.customerFacade = customerFacade;
+    }
 
-public void setCommonI18NService(CommonI18NService commonI18NService) {
-this.commonI18NService = commonI18NService;
-}
+    public void setCommonI18NService(CommonI18NService commonI18NService) {
+        this.commonI18NService = commonI18NService;
+    }
 
-public void setCommerceCartService(CommerceCartService commerceCartService) {
-this.commerceCartService = commerceCartService;
-}
+    public void setCommerceCartService(CommerceCartService commerceCartService) {
+        this.commerceCartService = commerceCartService;
+    }
 
-public void setDeliveryModeService(DeliveryModeService deliveryModeService) {
-this.deliveryModeService = deliveryModeService;
-}
+    public void setDeliveryModeService(DeliveryModeService deliveryModeService) {
+        this.deliveryModeService = deliveryModeService;
+    }
 
-public void setAdyenCheckoutFacade(AdyenCheckoutFacade adyenCheckoutFacade) {
-this.adyenCheckoutFacade = adyenCheckoutFacade;
-}
+    public void setAdyenCheckoutFacade(AdyenCheckoutFacade adyenCheckoutFacade) {
+        this.adyenCheckoutFacade = adyenCheckoutFacade;
+    }
 
-public void setCartConverter(Converter<CartModel, CartData> cartConverter) {
-this.cartConverter = cartConverter;
-}
+    public void setCartConverter(Converter<CartModel, CartData> cartConverter) {
+        this.cartConverter = cartConverter;
+    }
 
-public void setSessionService(SessionService sessionService) {
-this.sessionService = sessionService;
-}
+    public void setSessionService(SessionService sessionService) {
+        this.sessionService = sessionService;
+    }
 
-public void setUserService(UserService userService) {
-this.userService = userService;
-}
+    public void setUserService(UserService userService) {
+        this.userService = userService;
+    }
 
-public void setI18NFacade(I18NFacade i18NFacade) {
-this.i18NFacade = i18NFacade;
-}
+    public void setI18NFacade(I18NFacade i18NFacade) {
+        this.i18NFacade = i18NFacade;
+    }
 
-public void setAdyenCheckoutApiFacade(com.adyen.commerce.facades.AdyenCheckoutApiFacade adyenCheckoutApiFacade) {
-this.adyenCheckoutApiFacade = adyenCheckoutApiFacade;
-}
+    public void setAdyenCheckoutApiFacade(com.adyen.commerce.facades.AdyenCheckoutApiFacade adyenCheckoutApiFacade) {
+        this.adyenCheckoutApiFacade = adyenCheckoutApiFacade;
+    }
 
-public void setCartRepository(CartRepository cartRepository) {
-this.cartRepository = cartRepository;
-}
+    public void setCartRepository(CartRepository cartRepository) {
+        this.cartRepository = cartRepository;
+    }
 
-// Improvement #9: removed dead setImpersonationService setter (empty body, unused import)
+    public void setUserFacade(UserFacade userFacade) {
+        this.userFacade = userFacade;
+    }
 
-public void setUserFacade(UserFacade userFacade) {
-this.userFacade = userFacade;
-}
+    public void setSiteBaseUrlResolutionService(SiteBaseUrlResolutionService siteBaseUrlResolutionService) {
+        this.siteBaseUrlResolutionService = siteBaseUrlResolutionService;
+    }
 
-public void setSiteBaseUrlResolutionService(SiteBaseUrlResolutionService siteBaseUrlResolutionService) {
-this.siteBaseUrlResolutionService = siteBaseUrlResolutionService;
-}
+    public void setBaseSiteService(BaseSiteService baseSiteService) {
+        this.baseSiteService = baseSiteService;
+    }
 
-public void setBaseSiteService(BaseSiteService baseSiteService) {
-this.baseSiteService = baseSiteService;
-}
+    public void setOccPaymentRedirectReturnUrlResolver(OccPaymentRedirectReturnUrlResolver occPaymentRedirectReturnUrlResolver) {
+        this.occPaymentRedirectReturnUrlResolver = occPaymentRedirectReturnUrlResolver;
+    }
 
-public void setOccPaymentRedirectReturnUrlResolver(OccPaymentRedirectReturnUrlResolver occPaymentRedirectReturnUrlResolver) {
-this.occPaymentRedirectReturnUrlResolver = occPaymentRedirectReturnUrlResolver;
-}
-
-public void setAdyenShopperIpResolverService(AdyenShopperIpResolverService adyenShopperIpResolverService) {
-this.adyenShopperIpResolverService = adyenShopperIpResolverService;
-}
+    public void setAdyenShopperIpResolverService(AdyenShopperIpResolverService adyenShopperIpResolverService) {
+        this.adyenShopperIpResolverService = adyenShopperIpResolverService;
+    }
 }
 
