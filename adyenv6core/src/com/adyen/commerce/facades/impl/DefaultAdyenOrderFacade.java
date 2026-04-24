@@ -67,11 +67,8 @@ public class DefaultAdyenOrderFacade implements AdyenOrderFacade {
     public OrderModel getOrderModelForCodeOCC(String code) {
         BaseStoreModel currentBaseStore = baseStoreService.getCurrentBaseStore();
 
-        // Improvement #19: guard before cast
         UserModel currentUser = userService.getCurrentUser();
-        if (!(currentUser instanceof CustomerModel)) {
-            throw new IllegalStateException("Current user is not a CustomerModel, cannot retrieve order for code: " + code);
-        }
+        userCastGuard(code, currentUser);
 
         final OrderModel orderModel = customerAccountService.getOrderForCode((CustomerModel) currentUser, code, currentBaseStore);
 
@@ -88,11 +85,8 @@ public class DefaultAdyenOrderFacade implements AdyenOrderFacade {
         if (checkoutCustomerStrategy.isAnonymousCheckout()) {
             orderModel = customerAccountService.getGuestOrderForGUID(code, currentBaseStore);
         } else {
-            // Improvement #19: guard before cast
             UserModel currentUser = userService.getCurrentUser();
-            if (!(currentUser instanceof CustomerModel)) {
-                throw new IllegalStateException("Current user is not a CustomerModel, cannot retrieve order for code: " + code);
-            }
+            userCastGuard(code, currentUser);
             orderModel = customerAccountService.getOrderForCode((CustomerModel) currentUser, code, currentBaseStore);
         }
 
@@ -100,6 +94,12 @@ public class DefaultAdyenOrderFacade implements AdyenOrderFacade {
             throw new UnknownIdentifierException(String.format(ORDER_NOT_FOUND_FOR_USER_AND_BASE_STORE, code));
         }
         return orderModel;
+    }
+
+    private static void userCastGuard(String code, UserModel currentUser) {
+        if (!(currentUser instanceof CustomerModel)) {
+            throw new IllegalStateException("Current user is not a CustomerModel, cannot retrieve order for code: " + code);
+        }
     }
 
     protected OrderModel getOrderModelForCode(final String code, final String sessionGuid) {
@@ -113,11 +113,8 @@ public class DefaultAdyenOrderFacade implements AdyenOrderFacade {
                 orderModel = null;
             }
         } else {
-            // Improvement #19: guard before cast
             UserModel currentUser = userService.getCurrentUser();
-            if (!(currentUser instanceof CustomerModel)) {
-                throw new IllegalStateException("Current user is not a CustomerModel, cannot retrieve order for code: " + code);
-            }
+            userCastGuard(code, currentUser);
             try {
                 orderModel = customerAccountService.getOrderForCode((CustomerModel) currentUser, code, baseStoreModel);
             } catch (final ModelNotFoundException e) {
