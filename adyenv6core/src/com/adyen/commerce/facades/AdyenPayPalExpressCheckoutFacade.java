@@ -1,5 +1,6 @@
 package com.adyen.commerce.facades;
 
+<<<<<<<< HEAD:adyenv6core/src/com/adyen/commerce/facades/AdyenPayPalExpressCheckoutFacade.java
 import com.adyen.model.checkout.PaymentRequest;
 import com.adyen.model.checkout.PaymentResponse;
 import com.adyen.model.checkout.PaypalUpdateOrderRequest;
@@ -34,4 +35,13 @@ public interface AdyenPayPalExpressCheckoutFacade {
     PaypalUpdateOrderResponse updateShippingMethod(final String shippingMethodCode, final String pspReference, final String paymentData, final String cartGuid) throws IOException, ApiException, CalculationException;
 
     PaypalUpdateOrderResponse getPaypalUpdateOrderResponse(PaypalUpdateOrderRequest paypalUpdateOrderRequest) throws IOException, ApiException;
+========
+/**
+ * @deprecated Use {@link com.adyen.commerce.facades.AdyenPayPalExpressCheckoutFacade} instead.
+ *             This interface will be removed in a future release.
+ */
+@Deprecated(since = "2.x", forRemoval = true)
+public interface AdyenPayPalExpressCheckoutFacade extends com.adyen.commerce.facades.AdyenPayPalExpressCheckoutFacade {
+    // All methods inherited from com.adyen.commerce.facades.AdyenPayPalExpressCheckoutFacade
+>>>>>>>> feature/AD-489_fixed:adyenv6core/src/com/adyen/v6/facades/AdyenPayPalExpressCheckoutFacade.java
 }

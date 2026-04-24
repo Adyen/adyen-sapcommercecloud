@@ -20,6 +20,7 @@
  */
 package com.adyen.commerce.facades;
 
+<<<<<<<< HEAD:adyenv6core/src/com/adyen/commerce/facades/AdyenCheckoutFacade.java
 import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.model.checkout.*;
 import com.adyen.service.exception.ApiException;
@@ -212,4 +213,13 @@ public interface AdyenCheckoutFacade {
     AdyenCheckoutApiService getAdyenPaymentService();
 
     OrderData placePendingOrder() throws InvalidCartException;
+========
+/**
+ * @deprecated Use {@link com.adyen.commerce.facades.AdyenCheckoutFacade} instead.
+ *             This interface will be removed in a future release.
+ */
+@Deprecated(since = "2.x", forRemoval = true)
+public interface AdyenCheckoutFacade extends com.adyen.commerce.facades.AdyenCheckoutFacade {
+    // All methods inherited from com.adyen.commerce.facades.AdyenCheckoutFacade
+>>>>>>>> feature/AD-489_fixed:adyenv6core/src/com/adyen/v6/facades/AdyenCheckoutFacade.java
 }

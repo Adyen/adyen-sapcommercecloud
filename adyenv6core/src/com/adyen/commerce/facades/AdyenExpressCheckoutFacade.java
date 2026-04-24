@@ -1,5 +1,6 @@
 package com.adyen.commerce.facades;
 
+<<<<<<<< HEAD:adyenv6core/src/com/adyen/commerce/facades/AdyenExpressCheckoutFacade.java
 import com.adyen.commerce.dto.OrderPaymentResult;
 import com.adyen.model.checkout.PaymentRequest;
 import com.adyen.model.checkout.PaymentResponse;
@@ -52,4 +53,13 @@ public interface AdyenExpressCheckoutFacade {
     CartData setDeliveryModeForCart(final String deliveryModeCode, final String cartId) throws CalculationException;
 
     CartData getSessionCart();
+========
+/**
+ * @deprecated Use {@link com.adyen.commerce.facades.AdyenExpressCheckoutFacade} instead.
+ *             This interface will be removed in a future release.
+ */
+@Deprecated(since = "2.x", forRemoval = true)
+public interface AdyenExpressCheckoutFacade extends com.adyen.commerce.facades.AdyenExpressCheckoutFacade {
+    // All methods inherited from com.adyen.commerce.facades.AdyenExpressCheckoutFacade
+>>>>>>>> feature/AD-489_fixed:adyenv6core/src/com/adyen/v6/facades/AdyenExpressCheckoutFacade.java
 }
