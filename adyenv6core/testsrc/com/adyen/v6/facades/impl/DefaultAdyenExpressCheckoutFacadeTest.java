@@ -3,7 +3,7 @@ package com.adyen.v6.facades.impl;
 import com.adyen.commerce.facades.AdyenCheckoutApiFacade;
 import com.adyen.commerce.facades.impl.DefaultAdyenExpressCheckoutFacade;
 import com.adyen.model.checkout.PaymentRequest;
-import com.adyen.v6.facades.AdyenCheckoutFacade;
+import com.adyen.commerce.facades.AdyenCheckoutFacade;
 import de.hybris.bootstrap.annotations.UnitTest;
 import de.hybris.platform.commercefacades.customer.CustomerFacade;
 import de.hybris.platform.commercefacades.i18n.I18NFacade;
