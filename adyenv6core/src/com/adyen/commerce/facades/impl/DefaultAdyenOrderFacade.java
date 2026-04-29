@@ -68,9 +68,7 @@ public class DefaultAdyenOrderFacade implements AdyenOrderFacade {
         BaseStoreModel currentBaseStore = baseStoreService.getCurrentBaseStore();
 
         UserModel currentUser = userService.getCurrentUser();
-        if (!(currentUser instanceof CustomerModel)) {
-            throw new IllegalStateException("Current user is not a CustomerModel, cannot retrieve order for code: " + code);
-        }
+        checkIfUserIsCustomer(code, currentUser);
 
         final OrderModel orderModel = customerAccountService.getOrderForCode((CustomerModel) currentUser, code, currentBaseStore);
 
@@ -78,6 +76,12 @@ public class DefaultAdyenOrderFacade implements AdyenOrderFacade {
             throw new UnknownIdentifierException(String.format(ORDER_NOT_FOUND_FOR_USER_AND_BASE_STORE, code));
         }
         return orderModel;
+    }
+
+    private static void checkIfUserIsCustomer(String code, UserModel currentUser) {
+        if (!(currentUser instanceof CustomerModel)) {
+            throw new IllegalStateException("Current user is not a CustomerModel, cannot retrieve order for code: " + code);
+        }
     }
 
     protected OrderModel getOrderModelForCodeOrGuidOCC(String code) {
@@ -89,9 +93,7 @@ public class DefaultAdyenOrderFacade implements AdyenOrderFacade {
         } else {
 
             UserModel currentUser = userService.getCurrentUser();
-            if (!(currentUser instanceof CustomerModel)) {
-                throw new IllegalStateException("Current user is not a CustomerModel, cannot retrieve order for code: " + code);
-            }
+            checkIfUserIsCustomer(code, currentUser);
             orderModel = customerAccountService.getOrderForCode((CustomerModel) currentUser, code, currentBaseStore);
         }
 
@@ -113,9 +115,7 @@ public class DefaultAdyenOrderFacade implements AdyenOrderFacade {
             }
         } else {
             UserModel currentUser = userService.getCurrentUser();
-            if (!(currentUser instanceof CustomerModel)) {
-                throw new IllegalStateException("Current user is not a CustomerModel, cannot retrieve order for code: " + code);
-            }
+            checkIfUserIsCustomer(code, currentUser);
             try {
                 orderModel = customerAccountService.getOrderForCode((CustomerModel) currentUser, code, baseStoreModel);
             } catch (final ModelNotFoundException e) {
