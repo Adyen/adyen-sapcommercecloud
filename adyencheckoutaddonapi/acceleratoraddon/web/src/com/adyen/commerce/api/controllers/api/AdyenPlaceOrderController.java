@@ -5,7 +5,7 @@ import com.adyen.commerce.facades.AdyenCheckoutApiFacade;
 import com.adyen.commerce.request.PlaceOrderRequest;
 import com.adyen.commerce.response.PlaceOrderResponse;
 import com.adyen.model.checkout.PaymentDetailsRequest;
-import com.adyen.v6.facades.AdyenCheckoutFacade;
+import com.adyen.commerce.facades.AdyenCheckoutFacade;
 import com.adyen.v6.service.AdyenShopperIpResolverService;
 import com.adyen.v6.service.AdyenPartialPaymentService;
 import de.hybris.platform.acceleratorfacades.flow.CheckoutFlowFacade;

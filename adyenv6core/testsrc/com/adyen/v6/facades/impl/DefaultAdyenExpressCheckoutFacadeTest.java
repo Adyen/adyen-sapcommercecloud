@@ -1,8 +1,9 @@
 package com.adyen.v6.facades.impl;
 
 import com.adyen.commerce.facades.AdyenCheckoutApiFacade;
+import com.adyen.commerce.facades.impl.DefaultAdyenExpressCheckoutFacade;
 import com.adyen.model.checkout.PaymentRequest;
-import com.adyen.v6.facades.AdyenCheckoutFacade;
+import com.adyen.commerce.facades.AdyenCheckoutFacade;
 import de.hybris.bootstrap.annotations.UnitTest;
 import de.hybris.platform.commercefacades.customer.CustomerFacade;
 import de.hybris.platform.commercefacades.i18n.I18NFacade;
@@ -49,7 +50,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 
-import static com.adyen.v6.facades.impl.DefaultAdyenExpressCheckoutFacade.USER_NAME;
+import static com.adyen.commerce.facades.impl.DefaultAdyenExpressCheckoutFacade.USER_NAME;
 import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;

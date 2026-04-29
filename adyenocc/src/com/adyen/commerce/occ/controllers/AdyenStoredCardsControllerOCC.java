@@ -1,7 +1,7 @@
 package com.adyen.commerce.occ.controllers;
 
 import com.adyen.service.exception.ApiException;
-import com.adyen.v6.facades.AdyenCheckoutFacade;
+import com.adyen.commerce.facades.AdyenCheckoutFacade;
 import de.hybris.platform.commercefacades.customer.CustomerFacade;
 import de.hybris.platform.commercefacades.user.data.CustomerData;
 import de.hybris.platform.webservicescommons.cache.CacheControl;

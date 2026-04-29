@@ -1,5 +1,6 @@
 package com.adyen.v6.facades.impl;
 
+import com.adyen.commerce.facades.impl.DefaultAdyenAmazonPayFacade;
 import com.adyen.v6.service.AdyenAmazonPayIntegratorService;
 import de.hybris.bootstrap.annotations.UnitTest;
 import de.hybris.platform.acceleratorservices.urlresolver.SiteBaseUrlResolutionService;
