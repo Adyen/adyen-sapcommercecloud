@@ -21,7 +21,7 @@
 package com.adyen.v6.controllers.pages.account;
 
 import com.adyen.v6.dto.*;
-import com.adyen.v6.facades.*;
+import com.adyen.commerce.facades.*;
 import de.hybris.platform.acceleratorstorefrontcommons.annotations.*;
 import de.hybris.platform.acceleratorstorefrontcommons.breadcrumb.*;
 import de.hybris.platform.acceleratorstorefrontcommons.controllers.pages.*;

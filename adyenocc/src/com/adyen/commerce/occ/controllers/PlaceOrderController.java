@@ -7,7 +7,7 @@ import com.adyen.commerce.occ.api.AdyenPlaceOrderApi;
 import com.adyen.commerce.request.PlaceOrderRequest;
 import com.adyen.commerce.response.OCCPlaceOrderResponse;
 import com.adyen.model.checkout.PaymentDetailsRequest;
-import com.adyen.v6.facades.AdyenCheckoutFacade;
+import com.adyen.commerce.facades.AdyenCheckoutFacade;
 import com.adyen.v6.resolver.OccPaymentRedirectReturnUrlResolver;
 import com.adyen.v6.service.AdyenPartialPaymentService;
 import com.adyen.v6.service.AdyenShopperIpResolverService;

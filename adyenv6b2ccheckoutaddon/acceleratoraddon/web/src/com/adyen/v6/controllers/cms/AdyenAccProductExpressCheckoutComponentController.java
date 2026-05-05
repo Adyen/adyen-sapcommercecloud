@@ -1,7 +1,7 @@
 package com.adyen.v6.controllers.cms;
 
 import com.adyen.service.exception.ApiException;
-import com.adyen.v6.facades.AdyenCheckoutFacade;
+import com.adyen.commerce.facades.AdyenCheckoutFacade;
 import com.adyen.v6.model.contents.components.AdyenAccExpressCheckoutProductPageComponentModel;
 import de.hybris.platform.acceleratorservices.data.RequestContextData;
 import de.hybris.platform.addonsupport.controllers.cms.AbstractCMSAddOnComponentController;
