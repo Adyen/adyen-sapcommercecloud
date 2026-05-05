@@ -86,18 +86,16 @@ public abstract class RedirectControllerBase {
                             + response.getRefusalReason());
                 }
             }
-
+            OrderData orderData1 = new OrderData();
             if (paymentLinkResponse != null) {
                 getSessionService().setAttribute(SESSION_PAYMENT_LINK, paymentLinkUrl);
-                LOGGER.info("Payment link: " + getSessionService().getAttribute(SESSION_PAYMENT_LINK));
+                orderData1.setCode(paymentLinkResponse.getReference());
             }
 
             if (isExpress) {
                 return getExpressErrorRedirectUrl(errorMessage, productCode);
             }
-            OrderData orderData1 = new OrderData();
-            orderData1.setCode(paymentLinkResponse.getReference());
-            if(Boolean.TRUE.equals(getBaseStoreService().getCurrentBaseStore().getAdditionalPaymentRetry())) {
+            if(getBaseStoreService().getCurrentBaseStore().getAdditionalPaymentRetry() && paymentLinkResponse != null) {
                 return getOrderConfirmationUrl(orderData1);
             }
             else

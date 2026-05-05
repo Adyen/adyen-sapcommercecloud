@@ -463,26 +463,31 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
 
     @Override
     public PaymentLinkResponse generatePaymentLink(PaymentDetailsResponse detailsRequest) {
-        BaseStoreModel baseStore = baseStoreService.getCurrentBaseStore();
-        PaymentLinkRequest paymentLinkRequest = new  PaymentLinkRequest();
-        Amount amount = detailsRequest.getAmount();
-        CustomerModel currentUserForCheckout = getCheckoutCustomerStrategy().getCurrentUserForCheckout();
-        Locale localeForIsoCode = getCommonI18NService().getLocaleForIsoCode(currentUserForCheckout.getDefaultShipmentAddress().getCountry().getIsocode());
+        try {
+            CustomerModel currentUserForCheckout = getCheckoutCustomerStrategy().getCurrentUserForCheckout();
+            BaseStoreModel baseStore = baseStoreService.getCurrentBaseStore();
+            PaymentLinkRequest paymentLinkRequest = new PaymentLinkRequest();
+            Amount amount = detailsRequest.getAmount();
+            Locale localeForIsoCode = getCommonI18NService().getLocaleForIsoCode(currentUserForCheckout.getDefaultShipmentAddress().getCountry().getIsocode());
 
-        paymentLinkRequest.setReference(currentUserForCheckout.getOrders().stream().toList().getLast().getCode());
-        paymentLinkRequest.setAmount(amount);
-        paymentLinkRequest.setCountryCode(currentUserForCheckout != null ? currentUserForCheckout.getDefaultShipmentAddress().getCountry().getIsocode() : "PL");
-        paymentLinkRequest.setMerchantAccount(baseStore.getAdyenMerchantAccount());
-        paymentLinkRequest.setShopperReference(currentUserForCheckout != null ? currentUserForCheckout.getCustomerID() : "SHOPPER_REFERENCE");
-        paymentLinkRequest.setShopperLocale(localeForIsoCode.toString());
-        paymentLinkRequest.setStorePaymentMethodMode(PaymentLinkRequest.StorePaymentMethodModeEnum.ASKFORCONSENT);
-        paymentLinkRequest.setRecurringProcessingModel(PaymentLinkRequest.RecurringProcessingModelEnum.CARDONFILE);
-        paymentLinkRequest.setRequiredShopperFields(List.of(PaymentLinkRequest.RequiredShopperFieldsEnum.BILLINGADDRESS, PaymentLinkRequest.RequiredShopperFieldsEnum.DELIVERYADDRESS, PaymentLinkRequest.RequiredShopperFieldsEnum.SHOPPEREMAIL));
-        paymentLinkRequest.setLineItems(convertEntriesToLineItems(currentUserForCheckout.getOrders().stream().toList().getLast().getEntries()));
-        paymentLinkRequest.setExpiresAt(OffsetDateTime.now().plusMinutes(10L));
+            paymentLinkRequest.setReference(currentUserForCheckout.getOrders().stream().toList().getLast().getCode());
+            paymentLinkRequest.setAmount(amount);
+            paymentLinkRequest.setCountryCode(currentUserForCheckout.getDefaultShipmentAddress().getCountry().getIsocode());
+            paymentLinkRequest.setMerchantAccount(baseStore.getAdyenMerchantAccount());
+            paymentLinkRequest.setShopperReference(currentUserForCheckout.getCustomerID());
+            paymentLinkRequest.setShopperLocale(localeForIsoCode.toString());
+            paymentLinkRequest.setStorePaymentMethodMode(PaymentLinkRequest.StorePaymentMethodModeEnum.ASKFORCONSENT);
+            paymentLinkRequest.setRecurringProcessingModel(PaymentLinkRequest.RecurringProcessingModelEnum.CARDONFILE);
+            paymentLinkRequest.setRequiredShopperFields(List.of(PaymentLinkRequest.RequiredShopperFieldsEnum.BILLINGADDRESS, PaymentLinkRequest.RequiredShopperFieldsEnum.DELIVERYADDRESS, PaymentLinkRequest.RequiredShopperFieldsEnum.SHOPPEREMAIL));
+            paymentLinkRequest.setLineItems(convertEntriesToLineItems(currentUserForCheckout.getOrders().stream().toList().getLast().getEntries()));
+            paymentLinkRequest.setExpiresAt(OffsetDateTime.now().plusMinutes(10L));
 
-        AdyenCheckoutApiService adyenCheckoutApiService = getAdyenPaymentService();
-        return adyenCheckoutApiService.generatePaymentLink(paymentLinkRequest);
+            AdyenCheckoutApiService adyenCheckoutApiService = getAdyenPaymentService();
+            return adyenCheckoutApiService.generatePaymentLink(paymentLinkRequest);
+        }
+        catch (IllegalStateException e) {
+            return null;
+        }
     }
 
     private List<LineItem> convertEntriesToLineItems(List<AbstractOrderEntryModel> orders){
