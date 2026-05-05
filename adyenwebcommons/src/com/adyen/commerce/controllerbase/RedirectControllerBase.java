@@ -3,15 +3,20 @@ package com.adyen.commerce.controllerbase;
 import com.adyen.model.checkout.PaymentCompletionDetails;
 import com.adyen.model.checkout.PaymentDetailsRequest;
 import com.adyen.model.checkout.PaymentDetailsResponse;
+import com.adyen.model.checkout.PaymentLinkResponse;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
 import com.adyen.v6.facades.AdyenCheckoutFacade;
 import de.hybris.platform.commercefacades.order.data.OrderData;
 import de.hybris.platform.order.InvalidCartException;
 import de.hybris.platform.order.exceptions.CalculationException;
+import de.hybris.platform.servicelayer.session.SessionService;
+import de.hybris.platform.store.services.BaseStoreService;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.log4j.Logger;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import static com.adyen.commerce.constants.AdyenwebcommonsConstants.CHECKOUT_ERROR_AUTHORIZATION_FAILED;
 import static com.adyen.commerce.util.ErrorMessageUtil.getErrorMessageByRefusalReason;
@@ -26,6 +31,7 @@ public abstract class RedirectControllerBase {
     private static final String PRODUCT_CODE = "productCode";
     private static final String EXPRESS = "express";
     private static final String PAYLOAD = "payload";
+    private static final String SESSION_PAYMENT_LINK = "adyenPaymentLinkUrl";
     private static final String NON_AUTHORIZED_ERROR = "Handling AdyenNonAuthorizedPaymentException. Checking PaymentResponse.";
     private static final String REDIRECTING_TO_CART_PAGE = "Redirecting to cart page...";
 
@@ -58,17 +64,17 @@ public abstract class RedirectControllerBase {
 
     private String authoriseRedirectPayment(final PaymentDetailsRequest details, final String productCode, final boolean isExpress) {
         LOGGER.info("Redirect payment authorization");
-
         try {
             OrderData orderData = getAdyenCheckoutFacade().handle3DSResponse(details);
 
             LOGGER.debug("Redirecting to confirmation");
-
             return getOrderConfirmationUrl(orderData);
 
         } catch (AdyenNonAuthorizedPaymentException e) {
             LOGGER.debug(NON_AUTHORIZED_ERROR);
             String errorMessage = CHECKOUT_ERROR_AUTHORIZATION_FAILED;
+            PaymentLinkResponse paymentLinkResponse = getAdyenCheckoutFacade().generatePaymentLink(e.getPaymentsDetailsResponse());
+            String paymentLinkUrl = paymentLinkResponse != null ? paymentLinkResponse.getUrl() : null;
             PaymentDetailsResponse response = e.getPaymentsDetailsResponse();
             if (response != null) {
                 if (REFUSED.equals(response.getResultCode())) {
@@ -81,11 +87,21 @@ public abstract class RedirectControllerBase {
                 }
             }
 
+            if (paymentLinkResponse != null) {
+                getSessionService().setAttribute(SESSION_PAYMENT_LINK, paymentLinkUrl);
+                LOGGER.info("Payment link: " + getSessionService().getAttribute(SESSION_PAYMENT_LINK));
+            }
+
             if (isExpress) {
                 return getExpressErrorRedirectUrl(errorMessage, productCode);
             }
-
-            return getErrorRedirectUrl(errorMessage);
+            OrderData orderData1 = new OrderData();
+            orderData1.setCode(paymentLinkResponse.getReference());
+            if(Boolean.TRUE.equals(getBaseStoreService().getCurrentBaseStore().getAdditionalPaymentRetry())) {
+                return getOrderConfirmationUrl(orderData1);
+            }
+            else
+                return getCartUrl();
         } catch (CalculationException | InvalidCartException e) {
             LOGGER.warn(e.getMessage(), e);
         } catch (Exception e) {
@@ -105,4 +121,8 @@ public abstract class RedirectControllerBase {
     public abstract String getCartUrl();
 
     public abstract AdyenCheckoutFacade getAdyenCheckoutFacade();
+
+    public abstract SessionService getSessionService();
+
+    public abstract BaseStoreService getBaseStoreService();
 }

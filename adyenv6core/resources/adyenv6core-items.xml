@@ -376,6 +376,12 @@
                     <modifiers optional="false"/>
                     <defaultvalue>Boolean.FALSE</defaultvalue>
                 </attribute>
+                <attribute qualifier="additionalPaymentRetry" type="java.lang.boolean">
+                    <description>Generate additional payment retry if the payment was not successful</description>
+                    <persistence type="property" />
+                    <modifiers optional="true" />
+                    <defaultvalue>Boolean.FALSE</defaultvalue>
+                </attribute>
             </attributes>
         </itemtype>
 

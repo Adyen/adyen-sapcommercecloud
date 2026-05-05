@@ -12,7 +12,9 @@ import de.hybris.platform.commercefacades.order.data.OrderData;
 import de.hybris.platform.commerceservices.i18n.CommerceCommonI18NService;
 import de.hybris.platform.commerceservices.request.mapping.annotation.ApiVersion;
 import de.hybris.platform.servicelayer.config.ConfigurationService;
+import de.hybris.platform.servicelayer.session.SessionService;
 import de.hybris.platform.site.BaseSiteService;
+import de.hybris.platform.store.services.BaseStoreService;
 import io.swagger.v3.oas.annotations.Parameter;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Controller;
@@ -99,5 +101,15 @@ public class RedirectController extends RedirectControllerBase implements Redire
     @Override
     public AdyenCheckoutFacade getAdyenCheckoutFacade() {
         return adyenCheckoutFacade;
+    }
+
+    @Override
+    public SessionService getSessionService() {
+        return null;
+    }
+
+    @Override
+    public BaseStoreService getBaseStoreService() {
+        return null;
     }
 }

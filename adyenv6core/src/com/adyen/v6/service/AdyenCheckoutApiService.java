@@ -101,4 +101,6 @@ public interface AdyenCheckoutApiService {
      */
     String getDeviceFingerprintUrl();
 
+    PaymentLinkResponse generatePaymentLink(PaymentLinkRequest paymentLinkRequest);
+
 }

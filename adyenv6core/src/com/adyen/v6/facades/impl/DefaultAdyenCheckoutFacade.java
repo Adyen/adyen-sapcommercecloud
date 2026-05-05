@@ -22,8 +22,10 @@ package com.adyen.v6.facades.impl;
 
 
 import com.adyen.commerce.data.PaymentMethodsCartData;
+import com.adyen.commerce.util.AddressUtil;
 import com.adyen.model.checkout.*;
 import com.adyen.model.recurring.Recurring;
+import com.adyen.service.checkout.PaymentLinksApi;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.constants.Adyenv6coreConstants;
 import com.adyen.v6.constants.StorefrontType;
@@ -48,6 +50,7 @@ import com.adyen.v6.strategy.AdyenMerchantAccountStrategy;
 import com.adyen.v6.util.AmountUtil;
 import com.google.gson.Gson;
 import de.hybris.platform.commercefacades.i18n.I18NFacade;
+import de.hybris.platform.commercefacades.order.CartFacade;
 import de.hybris.platform.commercefacades.order.CheckoutFacade;
 import de.hybris.platform.commercefacades.order.OrderFacade;
 import de.hybris.platform.commercefacades.order.data.CartData;
@@ -58,6 +61,7 @@ import de.hybris.platform.commercefacades.product.data.ProductData;
 import de.hybris.platform.commercefacades.user.UserFacade;
 import de.hybris.platform.commercefacades.user.data.AddressData;
 import de.hybris.platform.commercefacades.user.data.CountryData;
+import de.hybris.platform.commercefacades.user.data.CustomerData;
 import de.hybris.platform.commercefacades.user.data.RegionData;
 import de.hybris.platform.commerceservices.order.CommerceCartService;
 import de.hybris.platform.commerceservices.service.data.CommerceCartParameter;
@@ -73,11 +77,9 @@ import de.hybris.platform.core.model.order.payment.PaymentInfoModel;
 import de.hybris.platform.core.model.user.AddressModel;
 import de.hybris.platform.core.model.user.CustomerModel;
 import de.hybris.platform.core.model.user.TitleModel;
+import de.hybris.platform.core.model.user.UserModel;
 import de.hybris.platform.deliveryzone.model.ZoneDeliveryModeValueModel;
-import de.hybris.platform.order.CalculationService;
-import de.hybris.platform.order.CartFactory;
-import de.hybris.platform.order.CartService;
-import de.hybris.platform.order.InvalidCartException;
+import de.hybris.platform.order.*;
 import de.hybris.platform.order.exceptions.CalculationException;
 import de.hybris.platform.servicelayer.config.ConfigurationService;
 import de.hybris.platform.servicelayer.dto.converter.Converter;
@@ -86,6 +88,7 @@ import de.hybris.platform.servicelayer.keygenerator.KeyGenerator;
 import de.hybris.platform.servicelayer.model.ModelService;
 import de.hybris.platform.servicelayer.search.FlexibleSearchService;
 import de.hybris.platform.servicelayer.session.SessionService;
+import de.hybris.platform.servicelayer.user.UserService;
 import de.hybris.platform.store.BaseStoreModel;
 import de.hybris.platform.store.services.BaseStoreService;
 import org.apache.commons.configuration2.Configuration;
@@ -101,6 +104,8 @@ import org.springframework.validation.Errors;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -485,6 +490,44 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         return placePendingOrder(PaymentDetailsResponse.ResultCodeEnum.PENDING.getValue());
     }
 
+    @Override
+    public PaymentLinkResponse generatePaymentLink(PaymentDetailsResponse detailsRequest) {
+        BaseStoreModel baseStore = baseStoreService.getCurrentBaseStore();
+        PaymentLinkRequest paymentLinkRequest = new  PaymentLinkRequest();
+        Amount amount = detailsRequest.getAmount();
+        CustomerModel currentUserForCheckout = getCheckoutCustomerStrategy().getCurrentUserForCheckout();
+        Locale localeForIsoCode = getCommonI18NService().getLocaleForIsoCode(currentUserForCheckout.getDefaultShipmentAddress().getCountry().getIsocode());
+
+        paymentLinkRequest.setReference(currentUserForCheckout.getOrders().stream().toList().getLast().getCode());
+        paymentLinkRequest.setAmount(amount);
+        paymentLinkRequest.setCountryCode(currentUserForCheckout != null ? currentUserForCheckout.getDefaultShipmentAddress().getCountry().getIsocode() : "PL");
+        paymentLinkRequest.setMerchantAccount(baseStore.getAdyenMerchantAccount());
+        paymentLinkRequest.setShopperReference(currentUserForCheckout != null ? currentUserForCheckout.getCustomerID() : "SHOPPER_REFERENCE");
+        paymentLinkRequest.setShopperLocale(localeForIsoCode.toString());
+        paymentLinkRequest.setStorePaymentMethodMode(PaymentLinkRequest.StorePaymentMethodModeEnum.ASKFORCONSENT);
+        paymentLinkRequest.setRecurringProcessingModel(PaymentLinkRequest.RecurringProcessingModelEnum.CARDONFILE);
+        paymentLinkRequest.setRequiredShopperFields(List.of(PaymentLinkRequest.RequiredShopperFieldsEnum.BILLINGADDRESS, PaymentLinkRequest.RequiredShopperFieldsEnum.DELIVERYADDRESS, PaymentLinkRequest.RequiredShopperFieldsEnum.SHOPPEREMAIL));
+        paymentLinkRequest.setLineItems(convertEntriesToLineItems(currentUserForCheckout.getOrders().stream().toList().getLast().getEntries()));
+        paymentLinkRequest.setExpiresAt(OffsetDateTime.now().plusMinutes(10L));
+
+        AdyenCheckoutApiService adyenCheckoutApiService = getAdyenPaymentService();
+        return adyenCheckoutApiService.generatePaymentLink(paymentLinkRequest);
+    }
+
+    private List<LineItem> convertEntriesToLineItems(List<AbstractOrderEntryModel> orders){
+        List<LineItem> lineItems = new ArrayList<>();
+        for(AbstractOrderEntryModel order : orders){
+            LineItem lineItem = new LineItem();
+            lineItem.setQuantity(order.getQuantity());
+            lineItem.setAmountExcludingTax(order.getBasePrice().longValue());
+            lineItem.setTaxPercentage((long) order.getTaxValues().stream().toList().getFirst().getValue());
+            lineItem.setDescription(order.getProduct().getDescription());
+            lineItem.setId(order.getProduct().getCode());
+            lineItem.setAmountIncludingTax(order.getTotalPrice().longValue());
+            lineItems.add(lineItem);
+        }
+        return lineItems;
+    }
     /**
      * Create order and authorized TX
      */
