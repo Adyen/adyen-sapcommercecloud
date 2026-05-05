@@ -44,7 +44,6 @@ public class AdyenPageCheckoutStepController extends AbstractCheckoutStepControl
     @Autowired
     private SessionService sessionService;
 
-
     @GetMapping(value = "/adyen/**")
     @RequireHardLogIn
     @PreValidateQuoteCheckoutStep

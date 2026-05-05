@@ -48,6 +48,12 @@ public class RedirectController extends RedirectControllerBase implements Redire
     @Resource(name = "baseSiteService")
     private BaseSiteService baseSiteService;
 
+    @Resource(name = "baseStoreService")
+    private BaseStoreService baseStoreService;
+
+    @Resource(name = "sessionService")
+    private SessionService sessionService;
+
     @Override
     @GetMapping(value = REDIRECT_URL)
     public String authorizeRedirectPaymentGet(final HttpServletRequest request) {
@@ -105,11 +111,11 @@ public class RedirectController extends RedirectControllerBase implements Redire
 
     @Override
     public SessionService getSessionService() {
-        return null;
+        return sessionService;
     }
 
     @Override
     public BaseStoreService getBaseStoreService() {
-        return null;
+        return baseStoreService;
     }
 }

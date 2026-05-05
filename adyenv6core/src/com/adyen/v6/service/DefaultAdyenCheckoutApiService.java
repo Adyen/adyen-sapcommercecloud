@@ -404,7 +404,7 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
         try {
            return paymentLinksApi.paymentLinks(paymentLinkRequest, null);
         } catch (ApiException | IOException e) {
-            throw new RuntimeException(e);
+            throw new IllegalStateException("There was an error generating the payment link.", e);
         }
     }
 }
