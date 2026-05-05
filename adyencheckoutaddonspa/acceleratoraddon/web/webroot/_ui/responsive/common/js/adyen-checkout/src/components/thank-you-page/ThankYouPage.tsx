@@ -12,7 +12,7 @@ import {isGuid} from "../../util/guidUtil";
 
 interface Props {
     orderCode: string;
-    adyenPaymentLinkUrl?: string; // dodaj URL retry jako props (z backendu)
+    adyenPaymentLinkUrl?: string;
 }
 
 interface State {
