@@ -63,7 +63,7 @@
             </c:if>
 
             <c:if test="${not empty issuerLists['onlineBanking_PL']}">
-            paymentMethodConfigs['createOnlineBankingPL'] = null;
+            paymentMethodConfigs['createOnlineBankingPL'] = ${issuerLists['onlineBanking_PL']};
             </c:if>
 
             <c:if test="${not empty issuerLists['eps']}">
@@ -272,6 +272,13 @@
                                     <adyen:alternativeMethod
                                             brandCode="ideal"
                                             name="iDEAL"
+                                    />
+                                </c:if>
+
+                                <c:if test="${not empty issuerLists['onlineBanking_PL']}">
+                                    <adyen:alternativeMethod
+                                            brandCode="onlineBanking_PL"
+                                            name="Online Banking Poland"
                                     />
                                 </c:if>
 
