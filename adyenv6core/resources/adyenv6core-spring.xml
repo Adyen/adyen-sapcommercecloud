@@ -292,6 +292,7 @@
         <property name="configurationService" ref="configurationService"/>
         <property name="adyenPartialPaymentService" ref="adyenPartialPaymentService"/>
         <property name="adyenPartialPaymentOrderRepository" ref="adyenPartialPaymentOrderRepository" />
+        <property name="threeDSAuthorizationService" ref="threeDSAuthorizationService"/>
     </bean>
 
     <alias name="defaultAdyenGiftCardFacade" alias="adyenGiftCardFacade" />
