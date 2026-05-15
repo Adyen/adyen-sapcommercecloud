@@ -126,10 +126,17 @@
                             xhr.setRequestHeader(header, token);
                         }
                     },
-                    success: function () {
-                        showPopup("Success", "Card saved successfully.", function () {
-                            window.location.href = ACC.config.encodedContextPath + "/my-account/stored-cards";
-                        });
+                    success: function (response) {
+                        if (response === "Authorised") {
+                            showPopup("Success", "Card saved successfully.", function () {
+                                window.location.href = ACC.config.encodedContextPath + "/my-account/stored-cards";
+                            });
+                        } else {
+                            showPopup(
+                                "Error",
+                                "Failed to save card. Please try again."
+                            );
+                        }
                     },
 
                     error: function () {
