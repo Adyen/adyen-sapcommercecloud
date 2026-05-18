@@ -5,6 +5,9 @@ import com.adyen.commerce.request.PartialPaymentOrderRequest;
 import com.adyen.commerce.response.PartialPaymentOrderResponse;
 import com.adyen.model.checkout.CreateOrderRequest;
 import com.adyen.model.checkout.CreateOrderResponse;
+import com.adyen.model.checkout.CancelOrderRequest;
+import com.adyen.model.checkout.CancelOrderResponse;
+import com.adyen.model.checkout.EncryptedOrderData;
 import com.adyen.service.checkout.OrdersApi;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.repository.AdyenPartialPaymentOrderRepository;
@@ -111,6 +114,84 @@ public class DefaultPartialPaymentOrderFacade implements AdyenPartialPaymentOrde
     }
     
     /**
+     * Create a new OrdersApi instance. Protected to allow overriding in tests.
+     */
+    protected OrdersApi createOrdersApi(DefaultAdyenCheckoutApiService adyenService) {
+        return new OrdersApi(adyenService.getClient());
+    }
+
+    /**
+     * Cancel a partial payment order via Adyen /orders/cancel endpoint.
+     * This releases the held amount back to the gift card when the secondary payment fails.
+     */
+    @Override
+    public void cancelPartialPaymentOrder(String pspReference) {
+        LOG.debug("Cancelling partial payment order with PSP reference: " + pspReference);
+
+        if (pspReference == null || pspReference.trim().isEmpty()) {
+            LOG.error("Cannot cancel partial payment order: PSP reference is null or empty");
+            return;
+        }
+
+        try {
+            // Find the partial payment order in the database
+            AdyenPartialPaymentOrderModel partialPaymentOrder =
+                    adyenPartialPaymentOrderRepository.findPartialPaymentOrderByPspReference(pspReference);
+
+            if (partialPaymentOrder == null) {
+                LOG.warn("Partial payment order not found for PSP reference: " + pspReference + " — may have already been cleaned up");
+                return;
+            }
+
+            // Get base store and create Adyen service
+            BaseStoreModel baseStore = getBaseStoreService().getCurrentBaseStore();
+            DefaultAdyenCheckoutApiService adyenService = (DefaultAdyenCheckoutApiService)
+                getAdyenPaymentServiceFactory().createAdyenCheckoutApiService(baseStore);
+
+            // Create OrdersApi instance
+            OrdersApi ordersApi = createOrdersApi(adyenService);
+
+            // Build cancel order request
+            CancelOrderRequest cancelOrderRequest = new CancelOrderRequest();
+            cancelOrderRequest.setMerchantAccount(baseStore.getAdyenMerchantAccount());
+
+            // Set the order reference via EncryptedOrderData
+            // The Adyen /orders/cancel API requires the pspReference and optionally orderData
+            EncryptedOrderData encryptedOrderData = new EncryptedOrderData();
+            encryptedOrderData.setPspReference(pspReference);
+            if (partialPaymentOrder.getOrderData() != null) {
+                encryptedOrderData.setOrderData(partialPaymentOrder.getOrderData());
+            }
+            cancelOrderRequest.setOrder(encryptedOrderData);
+
+            LOG.debug("Sending cancel order request to Adyen for PSP reference: " + pspReference);
+
+            // Call Adyen API
+            CancelOrderResponse adyenResponse = ordersApi.cancelOrder(cancelOrderRequest);
+
+            LOG.debug("Received cancel order response from Adyen: " + adyenResponse);
+
+            // Update partial payment order status to CANCELLED
+            partialPaymentOrder.setStatus(AdyenPartialPaymentStatus.CANCELLED);
+            partialPaymentOrder.setProcessedAt(new java.util.Date());
+            getModelService().save(partialPaymentOrder);
+
+            LOG.info("Successfully cancelled partial payment order with PSP reference: " + pspReference +
+                    ", Adyen response result code: " + (adyenResponse.getResultCode() != null ? adyenResponse.getResultCode().getValue() : "null"));
+
+        } catch (ApiException e) {
+            LOG.error("Adyen API error during partial payment order cancellation for PSP reference: " + pspReference, e);
+            throw new RuntimeException(PARTIAL_PAYMENT_ERROR_PAYMENT_SERVICE + ": " + e.getMessage());
+        } catch (IOException e) {
+            LOG.error("IO error during partial payment order cancellation for PSP reference: " + pspReference, e);
+            throw new RuntimeException(PARTIAL_PAYMENT_ERROR_COMMUNICATION);
+        } catch (Exception e) {
+            LOG.error("Unexpected error during partial payment order cancellation for PSP reference: " + pspReference, e);
+            throw new RuntimeException(PARTIAL_PAYMENT_ERROR_INTERNAL_SERVER + ": " + e.getMessage());
+        }
+    }
+
+    /**
      * Validate the partial payment order request
      */
     protected void validateRequest(PartialPaymentOrderRequest request) {
@@ -162,6 +243,7 @@ public class DefaultPartialPaymentOrderFacade implements AdyenPartialPaymentOrde
     protected void updatePartialPaymentOrder(AdyenPartialPaymentOrderModel partialPaymentOrder, CreateOrderResponse adyenResponse) {
         partialPaymentOrder.setStatus(AdyenPartialPaymentStatus.CREATED);
         partialPaymentOrder.setProcessedAt(new java.util.Date());
+        partialPaymentOrder.setOrderData(adyenResponse.getOrderData());
         getModelService().save(partialPaymentOrder);
 
         LOG.info("Updated partial payment order with PSP reference: " + partialPaymentOrder.getPspReference());

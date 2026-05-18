@@ -836,6 +836,12 @@
                     <persistence type="property"/>
                 </attribute>
 
+                <attribute qualifier="orderData" type="java.lang.String">
+                    <description>Order data returned from Adyen /orders endpoint, required for /orders/cancel</description>
+                    <modifiers optional="true"/>
+                    <persistence type="property"/>
+                </attribute>
+
                 <!-- Request Information -->
                 <attribute qualifier="requestAmount" type="java.math.BigDecimal">
                     <description>Amount requested for partial payment</description>
