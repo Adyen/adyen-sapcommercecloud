@@ -10,7 +10,7 @@ import com.adyen.commerce.validators.PaymentRequestValidator;
 import com.adyen.model.checkout.PaymentDetailsRequest;
 import com.adyen.model.checkout.PaymentResponse;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
-import com.adyen.v6.facades.AdyenCheckoutFacade;
+import com.adyen.commerce.facades.AdyenCheckoutFacade;
 import com.adyen.v6.model.RequestInfo;
 import com.adyen.v6.service.AdyenShopperIpResolverService;
 import com.adyen.v6.model.AdyenPartialPaymentOrderModel;
@@ -35,7 +35,7 @@ import org.apache.log4j.Logger;
 import org.springframework.context.support.DefaultMessageSourceResolvable;
 import org.springframework.validation.BeanPropertyBindingResult;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.lang.reflect.InvocationTargetException;
 import java.math.BigDecimal;
 

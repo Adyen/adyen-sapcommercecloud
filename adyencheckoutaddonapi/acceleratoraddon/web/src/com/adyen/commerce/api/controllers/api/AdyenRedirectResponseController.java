@@ -2,19 +2,19 @@ package com.adyen.commerce.api.controllers.api;
 
 import com.adyen.commerce.controllerbase.RedirectControllerBase;
 import com.adyen.model.checkout.PaymentDetailsRequest;
-import com.adyen.v6.facades.AdyenCheckoutFacade;
+import com.adyen.commerce.facades.AdyenCheckoutFacade;
 import de.hybris.platform.acceleratorstorefrontcommons.annotations.RequireHardLogIn;
 import de.hybris.platform.commercefacades.order.data.OrderData;
 import de.hybris.platform.commerceservices.strategies.CheckoutCustomerStrategy;
-import org.apache.commons.lang.NotImplementedException;
+import org.apache.commons.lang3.NotImplementedException;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 
-import javax.annotation.Resource;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.Base64;
 
 import static com.adyen.commerce.constants.AdyencheckoutaddonapiWebConstants.*;

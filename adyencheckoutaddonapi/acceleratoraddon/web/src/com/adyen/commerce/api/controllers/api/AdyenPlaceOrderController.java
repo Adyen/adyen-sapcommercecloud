@@ -5,18 +5,19 @@ import com.adyen.commerce.facades.AdyenCheckoutApiFacade;
 import com.adyen.commerce.request.PlaceOrderRequest;
 import com.adyen.commerce.response.PlaceOrderResponse;
 import com.adyen.model.checkout.PaymentDetailsRequest;
-import com.adyen.v6.facades.AdyenCheckoutFacade;
+import com.adyen.commerce.facades.AdyenCheckoutFacade;
 import com.adyen.v6.service.AdyenShopperIpResolverService;
 import com.adyen.v6.service.AdyenPartialPaymentService;
 import de.hybris.platform.acceleratorfacades.flow.CheckoutFlowFacade;
 import de.hybris.platform.acceleratorservices.urlresolver.SiteBaseUrlResolutionService;
-import de.hybris.platform.acceleratorstorefrontcommons.annotations.RequireHardLogIn;
+
 import de.hybris.platform.basecommerce.model.site.BaseSiteModel;
 import de.hybris.platform.commercefacades.order.CartFacade;
 import de.hybris.platform.commerceservices.strategies.CheckoutCustomerStrategy;
 import de.hybris.platform.order.InvalidCartException;
 import de.hybris.platform.order.exceptions.CalculationException;
 import de.hybris.platform.site.BaseSiteService;
+import jakarta.annotation.Resource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -24,8 +25,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 
-import javax.annotation.Resource;
-import javax.servlet.http.HttpServletRequest;
+import de.hybris.platform.acceleratorstorefrontcommons.annotations.RequireHardLogIn;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 import static com.adyen.commerce.constants.AdyenwebcommonsConstants.ADYEN_CHECKOUT_API_PREFIX;
 import static com.adyen.commerce.constants.AdyenwebcommonsConstants.AUTHORISE_3D_SECURE_PAYMENT_URL;

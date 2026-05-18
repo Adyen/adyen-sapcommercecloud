@@ -1,7 +1,7 @@
 package com.adyen.commerce.spa.controllers.checkout;
 
-import com.adyen.v6.facades.AdyenCheckoutFacade;
-import com.adyen.v6.facades.impl.DefaultAdyenCheckoutFacade;
+import com.adyen.commerce.facades.AdyenCheckoutFacade;
+import com.adyen.commerce.facades.impl.DefaultAdyenCheckoutFacade;
 import de.hybris.platform.acceleratorstorefrontcommons.annotations.PreValidateCheckoutStep;
 import de.hybris.platform.acceleratorstorefrontcommons.annotations.PreValidateQuoteCheckoutStep;
 import de.hybris.platform.acceleratorstorefrontcommons.annotations.RequireHardLogIn;
@@ -12,7 +12,7 @@ import de.hybris.platform.acceleratorstorefrontcommons.forms.AddressForm;
 import de.hybris.platform.cms2.exceptions.CMSItemNotFoundException;
 import de.hybris.platform.cms2.model.pages.ContentPageModel;
 import de.hybris.platform.commercefacades.order.data.CartData;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;

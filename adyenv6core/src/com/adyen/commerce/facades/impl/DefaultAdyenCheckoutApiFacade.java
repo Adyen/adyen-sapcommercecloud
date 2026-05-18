@@ -5,7 +5,7 @@ import com.adyen.commerce.dto.OrderPaymentResult;
 import com.adyen.commerce.facades.AdyenCheckoutApiFacade;
 import com.adyen.model.checkout.*;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
-import com.adyen.v6.facades.impl.DefaultAdyenCheckoutFacade;
+import com.adyen.commerce.facades.impl.DefaultAdyenCheckoutFacade;
 import com.adyen.v6.forms.AddressForm;
 import com.adyen.v6.model.RequestInfo;
 import com.adyen.v6.model.AdyenPartialPaymentOrderModel;
@@ -22,9 +22,9 @@ import de.hybris.platform.core.model.order.OrderModel;
 import de.hybris.platform.core.model.order.payment.PaymentInfoModel;
 import de.hybris.platform.core.model.user.AddressModel;
 import de.hybris.platform.core.model.user.CustomerModel;
+import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.lang3.StringUtils;
 
-import javax.servlet.http.HttpServletRequest;
 import java.math.BigDecimal;
 
 public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade implements AdyenCheckoutApiFacade {

@@ -4,7 +4,7 @@ import de.hybris.platform.servicelayer.config.ConfigurationService;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 
 public class DefaultAdyenShopperIpResolverService implements AdyenShopperIpResolverService {

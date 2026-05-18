@@ -29,7 +29,7 @@ import de.hybris.platform.order.CartService;
 import de.hybris.platform.servicelayer.model.ModelService;
 import de.hybris.platform.store.BaseStoreModel;
 import de.hybris.platform.store.services.BaseStoreService;
-import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 import org.spockframework.util.CollectionUtil;

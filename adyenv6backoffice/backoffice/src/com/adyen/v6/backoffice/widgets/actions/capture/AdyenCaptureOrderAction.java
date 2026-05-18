@@ -17,10 +17,9 @@ import de.hybris.platform.promotions.backoffice.constants.PromotionsbackofficeCo
 import de.hybris.platform.servicelayer.session.SessionService;
 import de.hybris.platform.store.BaseStoreModel;
 import org.apache.log4j.Logger;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.Assert;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import java.math.BigDecimal;
 import java.util.Currency;
 
@@ -31,10 +30,10 @@ public class AdyenCaptureOrderAction implements CockpitAction<OrderModel, OrderM
     private static final String CAPTURE_MESSAGE_SOURCE = "adyen-capture-message-source";
 
 
-    @Autowired
+    @Resource
     private NotificationService notificationService;
 
-    @Autowired
+    @Resource
     private AdyenPaymentServiceFactory adyenPaymentServiceFactory;
 
 

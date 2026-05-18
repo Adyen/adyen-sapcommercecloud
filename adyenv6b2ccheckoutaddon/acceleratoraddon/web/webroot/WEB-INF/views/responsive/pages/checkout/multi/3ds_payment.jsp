@@ -11,9 +11,6 @@
             <json:property name="environment" value="${environmentMode}"/>
             <json:property name="clientKey" value="${clientKey}"/>
             <json:property name="countryCode" value="${countryCode}"/>
-            <json:object name="risk" escapeXml="false">
-                <json:property name="enabled" value="${false}"/>
-            </json:object>
         </json:object>
     </c:set>
     <script type="text/javascript">

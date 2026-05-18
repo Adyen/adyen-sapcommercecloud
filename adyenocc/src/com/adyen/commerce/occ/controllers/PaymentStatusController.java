@@ -2,7 +2,7 @@ package com.adyen.commerce.occ.controllers;
 
 import com.adyen.commerce.constants.AdyenoccConstants;
 import com.adyen.commerce.occ.api.PaymentStatusApi;
-import com.adyen.v6.facades.AdyenOrderFacade;
+import com.adyen.commerce.facades.AdyenOrderFacade;
 import de.hybris.platform.commerceservices.request.mapping.annotation.ApiVersion;
 import de.hybris.platform.commercewebservices.core.strategies.OrderCodeIdentificationStrategy;
 import io.swagger.v3.oas.annotations.Parameter;

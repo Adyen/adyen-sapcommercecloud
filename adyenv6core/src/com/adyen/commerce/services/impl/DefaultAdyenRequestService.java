@@ -15,7 +15,8 @@ import de.hybris.platform.core.model.user.CustomerModel;
 import de.hybris.platform.order.CartService;
 import de.hybris.platform.servicelayer.config.ConfigurationService;
 import de.hybris.platform.store.services.BaseStoreService;
-import org.apache.commons.configuration.Configuration;
+
+import org.apache.commons.configuration2.Configuration;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 

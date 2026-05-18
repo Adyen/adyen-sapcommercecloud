@@ -7,7 +7,7 @@ import com.adyen.commerce.constants.AdyenoccConstants;
 import com.adyen.commerce.controllerbase.RedirectControllerBase;
 import com.adyen.commerce.occ.api.RedirectApi;
 import com.adyen.model.checkout.PaymentDetailsRequest;
-import com.adyen.v6.facades.AdyenCheckoutFacade;
+import com.adyen.commerce.facades.AdyenCheckoutFacade;
 import de.hybris.platform.commercefacades.order.data.OrderData;
 import de.hybris.platform.commerceservices.i18n.CommerceCommonI18NService;
 import de.hybris.platform.commerceservices.request.mapping.annotation.ApiVersion;
@@ -21,8 +21,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 
-import javax.annotation.Resource;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.Base64;
 
 import static com.adyen.commerce.constants.AdyenwebcommonsConstants.REDIRECT_PREFIX;

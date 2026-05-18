@@ -116,6 +116,11 @@ public class PaymentRequestBuilder {
         return this;
     }
 
+    public PaymentRequestBuilder shopperInteraction(PaymentRequest.ShopperInteractionEnum shopperInteraction) {
+        paymentRequest.setShopperInteraction(shopperInteraction);
+        return this;
+    }
+
     public PaymentRequestBuilder channel(PaymentRequest.ChannelEnum channel) {
         paymentRequest.setChannel(channel);
         return this;

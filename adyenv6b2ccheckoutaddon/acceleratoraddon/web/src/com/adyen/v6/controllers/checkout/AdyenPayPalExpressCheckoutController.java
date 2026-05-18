@@ -3,7 +3,7 @@ package com.adyen.v6.controllers.checkout;
 import com.adyen.model.checkout.*;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.constants.Adyenv6coreConstants;
-import com.adyen.v6.facades.AdyenPayPalExpressCheckoutFacade;
+import com.adyen.commerce.facades.AdyenPayPalExpressCheckoutFacade;
 import com.adyen.v6.request.*;
 import com.adyen.v6.response.PayPalExpressSubmitResponse;
 import de.hybris.platform.acceleratorservices.urlresolver.SiteBaseUrlResolutionService;
@@ -11,15 +11,16 @@ import de.hybris.platform.acceleratorstorefrontcommons.security.GUIDCookieStrate
 import de.hybris.platform.commerceservices.customer.DuplicateUidException;
 import de.hybris.platform.order.exceptions.CalculationException;
 import de.hybris.platform.site.BaseSiteService;
+import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletResponse;
 import org.apache.log4j.Logger;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+
 import java.io.IOException;
 
 @Controller
@@ -27,16 +28,16 @@ import java.io.IOException;
 public class AdyenPayPalExpressCheckoutController extends AdyenExpressCheckoutControllerBase {
     private static final Logger LOG = Logger.getLogger(AdyenPayPalExpressCheckoutController.class);
 
-    @Autowired
+    @Resource
     private AdyenPayPalExpressCheckoutFacade adyenPayPalExpressCheckoutFacade;
 
-    @Autowired
+    @Resource
     private GUIDCookieStrategy guidCookieStrategy;
 
-    @Autowired
+    @Resource
     private SiteBaseUrlResolutionService siteBaseUrlResolutionService;
 
-    @Autowired
+    @Resource
     private BaseSiteService baseSiteService;
 
     @PostMapping("submit/PDP")

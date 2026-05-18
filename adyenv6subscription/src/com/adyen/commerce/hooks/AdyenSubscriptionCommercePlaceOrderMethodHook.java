@@ -12,7 +12,7 @@ import de.hybris.platform.subscriptionservices.model.BillingPlanModel;
 import de.hybris.platform.subscriptionservices.model.SubscriptionModel;
 import de.hybris.platform.subscriptionservices.model.SubscriptionTermModel;
 import de.hybris.platform.subscriptionservices.subscription.impl.DefaultSubscriptionCommercePlaceOrderMethodHook;
-import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections4.CollectionUtils
 import org.joda.time.LocalDate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -6,8 +6,8 @@ import com.hybris.charon.annotations.*;
 import de.hybris.platform.cissapdigitalpayment.client.*;
 import rx.*;
 
-import javax.ws.rs.*;
-import javax.ws.rs.core.*;
+import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.*;
 
 /*
  *Client to connect to SAP Digital Payment Addon using Charon API.

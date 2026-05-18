@@ -25,6 +25,7 @@ import com.adyen.commerce.services.impl.DefaultAdyenRequestService;
 import com.adyen.v6.service.*;
 import com.adyen.v6.strategy.AdyenMerchantAccountStrategy;
 import de.hybris.platform.store.BaseStoreModel;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.retry.support.RetryTemplate;
 
 
@@ -37,7 +38,7 @@ public class AdyenPaymentServiceFactory {
     private final RetryTemplate adyenBackgroundProcessRetryTemplate;
 
 
-    public AdyenPaymentServiceFactory(final AdyenMerchantAccountStrategy adyenMerchantAccountStrategy, DefaultAdyenRequestService defaultAdyenRequestService, PaymentMethodNameOverrideService paymentMethodNameOverrideService, RetryTemplate adyenCustomerInteractionRetryTemplate, RetryTemplate adyenBackgroundProcessRetryTemplate) {
+    public AdyenPaymentServiceFactory(final AdyenMerchantAccountStrategy adyenMerchantAccountStrategy, @Lazy DefaultAdyenRequestService defaultAdyenRequestService, PaymentMethodNameOverrideService paymentMethodNameOverrideService, RetryTemplate adyenCustomerInteractionRetryTemplate, RetryTemplate adyenBackgroundProcessRetryTemplate) {
         this.adyenMerchantAccountStrategy = adyenMerchantAccountStrategy;
         this.defaultAdyenRequestService = defaultAdyenRequestService;
         this.paymentMethodNameOverrideService = paymentMethodNameOverrideService;

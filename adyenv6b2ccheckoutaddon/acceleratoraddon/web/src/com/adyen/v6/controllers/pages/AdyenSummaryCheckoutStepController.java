@@ -26,7 +26,7 @@ import com.adyen.model.payment.PaymentResult;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.constants.AdyenControllerConstants;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
-import com.adyen.v6.facades.AdyenCheckoutFacade;
+import com.adyen.commerce.facades.AdyenCheckoutFacade;
 import com.adyen.v6.helpers.Adyen3DSHelper;
 import com.adyen.v6.helpers.AdyenUrlHelper;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -61,8 +61,8 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import javax.annotation.Resource;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Objects;
@@ -100,7 +100,7 @@ public class AdyenSummaryCheckoutStepController extends AbstractCheckoutStepCont
     @Resource(name = "configurationService")
     private ConfigurationService configurationService;
 
-    @Autowired
+    @Resource
     private HttpServletRequest httpServletRequest;
 
     @Resource(name = "adyenUrlHelper")

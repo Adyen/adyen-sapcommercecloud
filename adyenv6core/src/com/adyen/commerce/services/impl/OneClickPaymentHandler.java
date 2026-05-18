@@ -26,6 +26,7 @@ public class OneClickPaymentHandler implements PaymentMethodHandler {
                                    Boolean guestUserTokenizationEnabled) {
         
         setOneClickPaymentMethod(paymentRequest, cartData);
+        paymentRequest.setShopperInteraction(PaymentRequest.ShopperInteractionEnum.CONTAUTH);
         paymentRequest.setRecurringProcessingModel(PaymentRequest.RecurringProcessingModelEnum.CARDONFILE);
 
         if (Boolean.TRUE.equals(is3DS2Allowed)) {

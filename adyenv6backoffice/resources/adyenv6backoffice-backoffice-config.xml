@@ -26,8 +26,6 @@
 		<y:actions xmlns:y="http://www.hybris.com/cockpit/config/hybris">
 			<y:group qualifier="common" merge-mode="merge">
 				<y:label>actiongroup.common</y:label>
-				<y:action action-id="de.hybris.ordermanagementbackoffice.actions.order.cancelorderaction"
-						  property="currentObject" merge-mode="remove"/>
 				<y:action action-id="com.adyen.v6.backoffice.widgets.actions.adyencancelorderaction"
 						  property="currentObject" merge-mode="append" position="1"/>
 			</y:group>
@@ -93,10 +91,11 @@
 					<editorArea:attribute qualifier="amazonpayRegion"/>
 				</editorArea:section>
 				<editorArea:section name="hmc.adyen.advanced">
-					<editorArea:attribute qualifier="adyenBoleto"/>
-					<editorArea:attribute qualifier="adyenPaypalMerchantId"/>
-					<editorArea:attribute qualifier="l2L3ESDEnabled"/>
-				</editorArea:section>
+						<editorArea:attribute qualifier="adyenBoleto"/>
+						<editorArea:attribute qualifier="adyenPaypalMerchantId"/>
+						<editorArea:attribute qualifier="l2L3ESDEnabled"/>
+						<editorArea:attribute qualifier="adyenSkipCvcForOneClick"/>
+					</editorArea:section>
 				<editorArea:section name="hmc.adyen.installments">
 					<editorArea:attribute qualifier="adyenInstallmentConfigs"/>
 				</editorArea:section>

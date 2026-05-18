@@ -164,6 +164,11 @@ public class CheckoutConfigDTOBuilder {
         return this;
     }
 
+    public CheckoutConfigDTOBuilder setSkipCvcForOneClick(boolean skipCvcForOneClick) {
+        checkoutConfigDTO.setSkipCvcForOneClick(skipCvcForOneClick);
+        return this;
+    }
+
     public CheckoutConfigDTO build() {
         return checkoutConfigDTO;
     }

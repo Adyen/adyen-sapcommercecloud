@@ -18,6 +18,7 @@ import com.adyen.v6.service.AdyenNotificationV2Service;
 import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -25,8 +26,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import javax.annotation.Resource;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 
 
@@ -34,13 +35,16 @@ import java.io.IOException;
 @RequestMapping(value = "/adyen/v6/notification/{baseSiteId}")
 public class AdyenNotificationControllerV2 {
 	private static final Logger LOG = Logger.getLogger(AdyenNotificationControllerV2.class);
-	@Autowired
+	@Resource
+	@Lazy
 	private AdyenNotificationV2Service adyenNotificationV2Service;
 
 	@Resource(name = "adyenNotificationAuthenticationProvider")
+	@Lazy
 	private AdyenNotificationAuthenticationProvider adyenNotificationAuthenticationProvider;
 
 	@Resource(name = "adyenNotificationService")
+	@Lazy
 	private AdyenNotificationService adyenNotificationService;
 
 	private static final String RESPONSE_ACCEPTED = "[accepted]";
