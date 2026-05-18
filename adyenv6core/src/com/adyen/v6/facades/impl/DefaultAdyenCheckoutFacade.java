@@ -104,10 +104,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
-import static com.adyen.constants.ApiConstants.ThreeDS2Property.THREEDS2_CHALLENGE_TOKEN;
-import static com.adyen.constants.ApiConstants.ThreeDS2Property.THREEDS2_FINGERPRINT_TOKEN;
 import static com.adyen.v6.constants.Adyenv6coreConstants.*;
 import static de.hybris.platform.order.impl.DefaultCartService.SESSION_CART_PARAMETER_NAME;
 
@@ -213,6 +210,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     public static final String ECOMMERCE_SHOPPER_INTERACTION = "Ecommerce";
     public static final String MODEL_CARD_HOLDER_NAME_REQUIRED = "cardHolderNameRequired";
     public static final String IS_CARD_HOLDER_NAME_REQUIRED_PROPERTY = "isCardHolderNameRequired";
+    private static final Long ZERO_AUTH_VALUE = 0L;
 
     public DefaultAdyenCheckoutFacade() {
     }
@@ -491,27 +489,30 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     public CheckoutConfigDTO getConfig() {
         CheckoutConfigDTOBuilder checkoutConfigDTOBuilder = new CheckoutConfigDTOBuilder();
         Amount zeroAuthAmount = new Amount();
-        zeroAuthAmount.setValue(0L);
+        zeroAuthAmount.setValue(ZERO_AUTH_VALUE);
         zeroAuthAmount.setCurrency(baseStoreService.getCurrentBaseStore().getDefaultCurrency().getIsocode());
         CustomerModel customerModel = getCheckoutCustomerStrategy().getCurrentUserForCheckout();
-        List<PaymentMethod> paymentMethod1 = List.of();
+        List<PaymentMethod> paymentMethods = List.of();
         BaseStoreModel baseStore = baseStoreService.getCurrentBaseStore();
         try {
-            paymentMethod1 = getAdyenPaymentService().getPaymentMethodsResponse(BigDecimal.ZERO, baseStore.getDefaultCurrency().getIsocode(), customerModel.getDefaultShipmentAddress().getCountry().getIsocode(), getShopperLocale(), customerModel.getCustomerID(), "").getPaymentMethods();
+            paymentMethods = getAdyenPaymentService().getPaymentMethodsResponse(BigDecimal.ZERO, baseStore.getDefaultCurrency().getIsocode(), customerModel.getDefaultShipmentAddress().getCountry().getIsocode(), getShopperLocale(), customerModel.getCustomerID(), "").getPaymentMethods();
         } catch (IOException | ApiException e) {
             LOGGER.warn("Payment methods couldn't be fetched "  + e);
         }
-        PaymentMethod cardPaymentMethod = paymentMethod1.stream().filter(paymentMethod -> PAYMENT_METHOD_SCHEME.equals(paymentMethod.getType())).findAny().orElse(new PaymentMethod());
+        PaymentMethod cardPaymentMethod = paymentMethods.stream().filter(paymentMethod -> PAYMENT_METHOD_SCHEME.equals(paymentMethod.getType())).findAny().orElse(null);
 
-        List<String> allowedCards = baseStore.getAdyenAllowedCards().stream().map(AdyenCardTypeEnum::getCode).toList();
+        if (cardPaymentMethod != null) {
+            List<String> allowedCards = baseStore.getAdyenAllowedCards().stream().map(AdyenCardTypeEnum::getCode).toList();
 
-        List<String> cardBrands = cardPaymentMethod.getBrands();
+            List<String> cardBrands = cardPaymentMethod.getBrands();
 
-        allowedCards = allowedCards.stream()
-                .filter(cardBrands::contains)
-                .toList();
+            allowedCards = allowedCards.stream()
+                    .filter(cardBrands::contains)
+                    .toList();
 
-        cardPaymentMethod.setBrands(allowedCards);
+            cardPaymentMethod.setBrands(allowedCards);
+        } else
+            cardPaymentMethod = new PaymentMethod();
 
         checkoutConfigDTOBuilder
                 .setPaymentMethods(List.of(cardPaymentMethod))
@@ -519,7 +520,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
                 .setAmount(zeroAuthAmount).setEnvironmentMode(getEnvironmentMode())
                 .setShopperLocale(getShopperLocale())
                 .setShowSocialSecurityNumber(showSocialSecurityNumber())
-                .setCountryCode(customerModel.getDefaultShipmentAddress().getCountry().getIsocode())
+                .setCountryCode(customerModel.getDefaultShipmentAddress() != null ? customerModel.getDefaultShipmentAddress().getCountry().getIsocode() : "")
                 .setCardHolderNameRequired(getHolderNameRequired())
                 .setAdyenPaypalMerchantId(baseStore.getAdyenPaypalMerchantId())
                 .setShopperEmail(customerModel.getContactEmail());
