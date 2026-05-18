@@ -1,9 +1,8 @@
 package com.adyen.commerce.occ.request;
 
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotNull;
-
-import javax.validation.Valid;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
 public class ZeroAuthRequest {
     @Valid

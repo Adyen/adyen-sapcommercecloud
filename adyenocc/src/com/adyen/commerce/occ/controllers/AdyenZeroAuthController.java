@@ -6,6 +6,8 @@ import com.adyen.commerce.occ.request.ZeroAuthRequest;
 import com.adyen.model.checkout.CheckoutPaymentMethod;
 import com.adyen.model.checkout.PaymentResponse;
 import com.adyen.service.exception.ApiException;
+import jakarta.annotation.Resource;
+import jakarta.validation.Valid;
 import org.apache.log4j.Logger;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,8 +16,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import javax.annotation.Resource;
-import javax.validation.Valid;
 import java.io.IOException;
 
 @RestController
