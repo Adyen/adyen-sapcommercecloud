@@ -1,7 +1,6 @@
 package com.adyen.commerce.occ.api;
 
 import com.adyen.commerce.request.GiftCardBalanceRequest;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import de.hybris.platform.webservicescommons.swagger.ApiBaseSiteIdUserIdAndCartIdParam;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -11,6 +10,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.RequestBody;
 
 @Tag(name = "Adyen Gift Card")
 public interface AdyenGiftCardApi {
@@ -59,6 +59,6 @@ public interface AdyenGiftCardApi {
             @Parameter(
                     description = "The gift card balance request containing card details and amount",
                     required = true
-            ) @org.springframework.web.bind.annotation.RequestBody final GiftCardBalanceRequest request
+            ) @RequestBody final GiftCardBalanceRequest request
     );
 }

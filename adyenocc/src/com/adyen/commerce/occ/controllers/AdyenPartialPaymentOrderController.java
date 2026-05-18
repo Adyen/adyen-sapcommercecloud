@@ -42,7 +42,7 @@ public class AdyenPartialPaymentOrderController implements AdyenPartialPaymentOr
     @Override
     @Secured({ "ROLE_CUSTOMERGROUP", "ROLE_TRUSTED_CLIENT", "ROLE_CUSTOMERMANAGERGROUP" })
     @PostMapping(value = AdyenoccConstants.ADYEN_USER_CART_PREFIX + "/orders/partial-payment")
-    public ResponseEntity<String> createPartialPaymentOrder(@RequestBody PartialPaymentOrderRequest request) throws JsonProcessingException {
+    public ResponseEntity<String> createPartialPaymentOrder(@RequestBody PartialPaymentOrderRequest request) {
         LOG.debug("Received partial payment order request for amount: " +
             (request != null && request.getAmount() != null ? request.getAmount().getValue() + " " + request.getAmount().getCurrency() : "null"));
         

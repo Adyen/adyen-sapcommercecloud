@@ -15,7 +15,7 @@ import org.springframework.http.ResponseEntity;
 import jakarta.servlet.http.HttpServletRequest;
 import de.hybris.platform.order.InvalidCartException;
 import de.hybris.platform.order.exceptions.CalculationException;
-
+import org.springframework.web.bind.annotation.RequestBody;
 
 @Tag(name = "Adyen")
 public interface AdyenPlaceOrderApi {
@@ -78,7 +78,7 @@ public interface AdyenPlaceOrderApi {
             }
     )
     @ApiBaseSiteIdAndUserIdParam
-    ResponseEntity<String> onAdditionalDetails(@org.springframework.web.bind.annotation.RequestBody PaymentDetailsRequest detailsRequest) throws JsonProcessingException;
+    ResponseEntity<String> onAdditionalDetails(@RequestBody PaymentDetailsRequest detailsRequest) throws JsonProcessingException;
 
     @Operation(
             operationId = "cancelPayment",
