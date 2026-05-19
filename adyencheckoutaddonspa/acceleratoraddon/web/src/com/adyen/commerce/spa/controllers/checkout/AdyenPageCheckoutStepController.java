@@ -26,6 +26,7 @@ import jakarta.servlet.http.HttpSession;
 
 import java.util.logging.Logger;
 
+import static com.adyen.commerce.constants.AdyenwebcommonsConstants.SESSION_PAYMENT_LINK;
 import static com.adyen.commerce.spa.constants.AdyencheckoutaddonspaWebConstants.ADYEN_CHECKOUT_ORDER_CONFIRMATION;
 import static com.adyen.commerce.spa.constants.AdyencheckoutaddonspaWebConstants.ADYEN_CHECKOUT_PAGE_PREFIX;
 
@@ -36,7 +37,6 @@ public class AdyenPageCheckoutStepController extends AbstractCheckoutStepControl
     private static final String DELIVERY_ADDRESS = "delivery-address";
     private static final String SHOW_SAVE_TO_ADDRESS_BOOK_ATTR = "showSaveToAddressBook";
     public static final String SPA_CHECKOUT_PAGE = "addon:/adyencheckoutaddonspa/pages/adyenSPACheckout";
-    private static final String SESSION_PAYMENT_LINK = "adyenPaymentLinkUrl";
 
 
     @Autowired
