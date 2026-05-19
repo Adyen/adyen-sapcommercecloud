@@ -8,9 +8,12 @@
            http://www.springframework.org/schema/aop
            http://www.springframework.org/schema/aop/spring-aop.xsd">
 
-    <bean id="adyencissapdigitalpaymentlibService" class="com.adyen.service.impl.DefaultAdyenSapDigitalPaymentService">
-        <!-- setter injection example -->
+    <bean id="defaultAdyenSapDigitalPaymentService" class="com.adyen.service.impl.DefaultAdyenSapDigitalPaymentService">
     </bean>
-
-			
+    <bean id="defaultDPAPaymentOrchestrationService" class="com.adyen.service.impl.DefaultDPAPaymentOrchestrationService">
+    </bean>
+    <alias name="defaultDPAPaymentOrchestrationService"
+           alias="dpaPaymentOrchestrationService"/>
+    <alias name="defaultAdyenSapDigitalPaymentService"
+           alias="adyenSapDigitalPaymentService"/>
 </beans>

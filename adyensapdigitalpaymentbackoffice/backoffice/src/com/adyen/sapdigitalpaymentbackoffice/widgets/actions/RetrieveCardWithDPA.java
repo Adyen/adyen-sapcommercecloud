@@ -7,13 +7,9 @@ import static com.adyen.sapdigitalpaymentbackoffice.widgets.actions.utils.Action
 import de.hybris.platform.cissapdigitalpayment.model.SAPDigitalPaymentConfigurationModel;
 import de.hybris.platform.core.model.order.OrderModel;
 import de.hybris.platform.servicelayer.model.ModelService;
-
 import java.time.Instant;
 import java.util.Date;
-import javax.annotation.Resource;
-
 import org.zkoss.zk.ui.Component;
-
 import com.adyen.model.DPAOperationResultModel;
 import com.adyen.model.PaymentCardResult;
 import com.adyen.sapdigitalpaymentbackoffice.widgets.actions.utils.MessageBoxUtil;
@@ -24,6 +20,7 @@ import com.hybris.cockpitng.actions.ActionResult;
 import com.hybris.cockpitng.actions.CockpitAction;
 import com.hybris.cockpitng.engine.impl.AbstractComponentWidgetAdapterAware;
 import com.hybris.cockpitng.util.WidgetUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 
 public class RetrieveCardWithDPA extends AbstractComponentWidgetAdapterAware implements CockpitAction<OrderModel, Object> {
 
@@ -37,13 +34,13 @@ public class RetrieveCardWithDPA extends AbstractComponentWidgetAdapterAware imp
 			Exp Month:  %s
 			""";
 
-	@Resource
+	@Autowired
 	private WidgetUtils widgetUtils;
 
-	@Resource
+	@Autowired
 	private AdyenSapDigitalPaymentService adyenSapDigitalPaymentService;
 
-	@Resource
+	@Autowired
 	private ModelService modelService;
 
 	@Override

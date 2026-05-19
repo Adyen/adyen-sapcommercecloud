@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<process xmlns="http://www.hybris.de/xsd/processdefinition"
+         name="adyenDpaDirectCaptureProcess"
+         start="checkCardAndDirectCapture">
+
+    <action id="checkCardAndDirectCapture" bean="adyenCheckCardAndDirectCaptureAction">
+        <transition name="OK" to="dpaSucceeded"/>
+        <transition name="NOK" to="dpaFailed"/>
+    </action>
+
+    <end id="dpaSucceeded" state="SUCCEEDED"/>
+    <end id="dpaFailed" state="FAILED"/>
+</process>

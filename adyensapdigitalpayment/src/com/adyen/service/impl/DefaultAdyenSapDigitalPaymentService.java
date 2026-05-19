@@ -1,16 +1,12 @@
 package com.adyen.service.impl;
 
 import static de.hybris.platform.cissapdigitalpayment.constants.CisSapDigitalPaymentConstant.SAP_DIGITAL_PAYMENT_PAYMENT_METHOD_KEY;
-
 import de.hybris.platform.cissapdigitalpayment.client.model.CisSapDigitalPaymentPollRegisteredCardResult;
 import de.hybris.platform.cissapdigitalpayment.model.SAPDigitalPaymentConfigurationModel;
 import de.hybris.platform.cissapdigitalpayment.service.impl.DefaultCisSapDigitalPaymentService;
-
 import java.util.Map;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import com.adyen.client.AdyenSapDigitalPaymentClient;
 import com.adyen.model.DigitalGetPaymentCardList;
 import com.adyen.model.DigitalPaymentGetAuthorizationList;
@@ -24,9 +20,7 @@ import com.adyen.model.PaymentCardResult;
 import com.adyen.model.authorization.FetchAuthorizationList;
 import com.adyen.service.AdyenSapDigitalPaymentService;
 import com.hybris.charon.Charon;
-
 import rx.Observable;
-
 
 public class DefaultAdyenSapDigitalPaymentService extends DefaultCisSapDigitalPaymentService implements AdyenSapDigitalPaymentService {
 	private static final Logger LOG = LoggerFactory.getLogger(DefaultAdyenSapDigitalPaymentService.class);
@@ -36,7 +30,7 @@ public class DefaultAdyenSapDigitalPaymentService extends DefaultCisSapDigitalPa
 	}
 
 	private static void logError(final Throwable error) {
-		LOG.error("Error while fetching the response" + error);
+		LOG.error("Error while fetching the response " + error);
 	}
 
 	@Override
