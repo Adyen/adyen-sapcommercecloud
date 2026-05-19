@@ -103,7 +103,7 @@ export class ThankYouPage extends React.Component<Props, State> {
                     {translationsStore.get("checkout.payment.retry") || "Pay again"}
                 </a>
                 <span id="adyen-retry-timer" style={{marginLeft: "8px"}}>
-                    {`Link expires in ${this.formatRetryTime(retryRemainingSeconds)}`}
+                    {(translationsStore.get("checkout.payment.link.expires") || "Link expires in") + ` ${this.formatRetryTime(retryRemainingSeconds)}`}
                 </span>
             </div>
         );
