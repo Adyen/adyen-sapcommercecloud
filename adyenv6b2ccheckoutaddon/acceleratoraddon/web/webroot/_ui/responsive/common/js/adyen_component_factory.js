@@ -106,8 +106,12 @@ class PaymentComponentFactory {
 
     }
 
-    createOnlineBankingPL() {
-        new OnlineBankingIN(this.checkout, {onChange: this.handleOnChange}).mount('#adyen_hpp_onlineBanking_PL_container');
+    createOnlineBankingPL(issuers) {
+        this.onlineBankingPLComponent = new AdyenWeb.OnlineBankingPL(this.checkout, {
+            showPayButton: false,
+            issuers: issuers,
+            onChange: this.handleOnChange
+        }).mount('#adyen_hpp_onlineBanking_PL_container');
     }
 
     createEps(epsDetails) {
