@@ -13,6 +13,7 @@ import de.hybris.platform.cms2.exceptions.CMSItemNotFoundException;
 import de.hybris.platform.cms2.model.pages.ContentPageModel;
 import de.hybris.platform.commercefacades.order.data.CartData;
 import de.hybris.platform.servicelayer.session.SessionService;
+import jakarta.annotation.Resource;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -41,7 +42,7 @@ public class AdyenPageCheckoutStepController extends AbstractCheckoutStepControl
     @Autowired
     private AdyenCheckoutFacade adyenCheckoutFacade;
 
-    @Autowired
+    @Resource(name = "sessionService")
     private SessionService sessionService;
 
     @GetMapping(value = "/adyen/**")
