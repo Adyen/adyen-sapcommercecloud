@@ -1,22 +1,19 @@
 package com.adyen.commerce.controllerbase;
 
+import com.adyen.commerce.facades.AdyenCheckoutFacade;
 import com.adyen.model.checkout.PaymentCompletionDetails;
 import com.adyen.model.checkout.PaymentDetailsRequest;
 import com.adyen.model.checkout.PaymentDetailsResponse;
 import com.adyen.model.checkout.PaymentLinkResponse;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
-import com.adyen.commerce.facades.AdyenCheckoutFacade;
 import de.hybris.platform.commercefacades.order.data.OrderData;
 import de.hybris.platform.order.InvalidCartException;
 import de.hybris.platform.order.exceptions.CalculationException;
 import de.hybris.platform.servicelayer.session.SessionService;
 import de.hybris.platform.store.services.BaseStoreService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.log4j.Logger;
-
-import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
 import static com.adyen.commerce.constants.AdyenwebcommonsConstants.CHECKOUT_ERROR_AUTHORIZATION_FAILED;
 import static com.adyen.commerce.util.ErrorMessageUtil.getErrorMessageByRefusalReason;
@@ -86,17 +83,17 @@ public abstract class RedirectControllerBase {
                             + response.getRefusalReason());
                 }
             }
-            OrderData orderData1 = new OrderData();
+            OrderData orderWithReference = new OrderData();
             if (paymentLinkResponse != null) {
                 getSessionService().setAttribute(SESSION_PAYMENT_LINK, paymentLinkUrl);
-                orderData1.setCode(paymentLinkResponse.getReference());
+                orderWithReference.setCode(paymentLinkResponse.getReference());
             }
 
             if (isExpress) {
                 return getExpressErrorRedirectUrl(errorMessage, productCode);
             }
             if(getBaseStoreService().getCurrentBaseStore().getAdditionalPaymentRetry() && paymentLinkResponse != null) {
-                return getOrderConfirmationUrl(orderData1);
+                return getOrderConfirmationUrl(orderWithReference);
             }
             else
                 return getCartUrl();
