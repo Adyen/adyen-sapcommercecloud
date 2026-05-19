@@ -8,7 +8,6 @@ import com.adyen.commerce.facades.AdyenPartialPaymentOrderFacade;
 import com.adyen.commerce.occ.api.AdyenPartialPaymentOrderApi;
 import com.adyen.commerce.request.PartialPaymentOrderRequest;
 import com.adyen.commerce.response.PartialPaymentOrderResponse;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import de.hybris.platform.commerceservices.request.mapping.annotation.ApiVersion;
