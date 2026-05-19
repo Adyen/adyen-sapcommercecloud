@@ -21,10 +21,6 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpSession;
-
-import java.util.logging.Logger;
 
 import static com.adyen.commerce.constants.AdyenwebcommonsConstants.SESSION_PAYMENT_LINK;
 import static com.adyen.commerce.spa.constants.AdyencheckoutaddonspaWebConstants.ADYEN_CHECKOUT_ORDER_CONFIRMATION;
