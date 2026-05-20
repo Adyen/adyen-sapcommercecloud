@@ -19,7 +19,7 @@
         <property name="validationResultsMap">
             <map merge="true">
                 <entry key="FAILED" value-ref="REDIRECT_TO_CART"/>
-                <entry key="REDIRECT_TO_DELIVERY_ADDRESS" value-ref="REDIRECT_TO_DELIVERY_ADDRESS"/>
+                <entry key="REDIRECT_TO_DELIVERY_ADDRESS" value-ref="REDIRECT_TO_DELIVERY_ADDRESS_ADYEN"/>
                 <entry key="REDIRECT_TO_CART" value-ref="REDIRECT_TO_CART"/>
                 <entry key="REDIRECT_TO_PAYMENT_METHOD" value-ref="REDIRECT_TO_PAYMENT_METHOD_ADYEN"/>
                 <entry key="REDIRECT_TO_DELIVERY_METHOD" value-ref="REDIRECT_TO_DELIVERY_METHOD"/>
@@ -44,7 +44,7 @@
             <map>
                 <entry key="previous" value-ref="REDIRECT_TO_CART"/>
                 <entry key="current" value-ref="REDIRECT_MULTI_STEP_CHECKOUT"/>
-                <entry key="next" value-ref="REDIRECT_TO_DELIVERY_ADDRESS"/>
+                <entry key="next" value-ref="REDIRECT_TO_DELIVERY_ADDRESS_ADYEN"/>
             </map>
         </property>
         <property name="progressBarId" value="multi"/>
@@ -58,7 +58,7 @@
         <property name="transitions">
             <map merge="true">
                 <entry key="previous" value-ref="REDIRECT_TO_CART"/>
-                <entry key="current" value-ref="REDIRECT_TO_DELIVERY_ADDRESS"/>
+                <entry key="current" value-ref="REDIRECT_TO_DELIVERY_ADDRESS_ADYEN"/>
                 <entry key="next" value-ref="REDIRECT_TO_DELIVERY_METHOD"/>
             </map>
         </property>
@@ -72,7 +72,7 @@
         <property name="checkoutStepValidator" ref="defaultResponsiveDeliveryMethodCheckoutValidator"/>
         <property name="transitions">
             <map merge="true">
-                <entry key="previous" value-ref="REDIRECT_TO_DELIVERY_ADDRESS"/>
+                <entry key="previous" value-ref="REDIRECT_TO_DELIVERY_ADDRESS_ADYEN"/>
                 <entry key="current" value-ref="REDIRECT_TO_DELIVERY_METHOD"/>
                 <entry key="next" value-ref="REDIRECT_TO_PAYMENT_METHOD_ADYEN"/>
             </map>
@@ -133,6 +133,10 @@
 
     <bean id="REDIRECT_TO_SUMMARY_ADYEN" class="java.lang.String">
         <constructor-arg value="redirect:/checkout/multi/adyen/summary/view"/>
+    </bean>
+
+    <bean id="REDIRECT_TO_DELIVERY_ADDRESS_ADYEN" class="java.lang.String">
+        <constructor-arg value="redirect:/checkout/multi/adyen/delivery-address/add"/>
     </bean>
 
     <bean id="REDIRECT_TO_PAYMENT_METHOD_ADYEN" class="java.lang.String">
