@@ -23,6 +23,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import static com.adyen.commerce.constants.AdyenwebcommonsConstants.SESSION_PAYMENT_LINK;
+import static com.adyen.commerce.constants.AdyenwebcommonsConstants.SESSION_PAYMENT_LINK_CREATED_AT;
+import static com.adyen.commerce.constants.AdyenwebcommonsConstants.SESSION_PAYMENT_LINK_TTL_MILLIS;
 import static com.adyen.commerce.spa.constants.AdyencheckoutaddonspaWebConstants.ADYEN_CHECKOUT_ORDER_CONFIRMATION;
 import static com.adyen.commerce.spa.constants.AdyencheckoutaddonspaWebConstants.ADYEN_CHECKOUT_PAGE_PREFIX;
 
@@ -73,8 +75,12 @@ public class AdyenPageCheckoutStepController extends AbstractCheckoutStepControl
         storeCmsPageInModel(model, multiCheckoutSummaryPage);
         setUpMetaDataForContentPage(model, multiCheckoutSummaryPage);
 
-        model.addAttribute(SESSION_PAYMENT_LINK,sessionService.getCurrentSession().getAttribute(SESSION_PAYMENT_LINK));
-        sessionService.getCurrentSession().removeAttribute(SESSION_PAYMENT_LINK);
+            final String paymentLinkUrl = (String) sessionService.getCurrentSession().getAttribute(SESSION_PAYMENT_LINK);
+            if (StringUtils.isNotBlank(paymentLinkUrl) && !isPaymentLinkExpired()) {
+              model.addAttribute(SESSION_PAYMENT_LINK, paymentLinkUrl);
+            } else if (StringUtils.isNotBlank(paymentLinkUrl)) {
+              clearPaymentLinkSessionAttributes();
+            }
 
         return SPA_CHECKOUT_PAGE;
     }
@@ -119,4 +125,19 @@ public class AdyenPageCheckoutStepController extends AbstractCheckoutStepControl
     public String next(RedirectAttributes redirectAttributes) {
         return null;
     }
+
+      private boolean isPaymentLinkExpired() {
+        final Object createdAtAttr = sessionService.getCurrentSession().getAttribute(SESSION_PAYMENT_LINK_CREATED_AT);
+        if (!(createdAtAttr instanceof Number)) {
+          return true;
+        }
+
+        final long createdAt = ((Number) createdAtAttr).longValue();
+        return System.currentTimeMillis() - createdAt >= SESSION_PAYMENT_LINK_TTL_MILLIS;
+      }
+
+      private void clearPaymentLinkSessionAttributes() {
+        sessionService.getCurrentSession().removeAttribute(SESSION_PAYMENT_LINK);
+        sessionService.getCurrentSession().removeAttribute(SESSION_PAYMENT_LINK_CREATED_AT);
+      }
 }

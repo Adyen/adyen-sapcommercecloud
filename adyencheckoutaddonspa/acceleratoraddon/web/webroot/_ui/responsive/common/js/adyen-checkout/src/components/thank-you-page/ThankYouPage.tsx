@@ -23,11 +23,12 @@ interface State {
 }
 
 export class ThankYouPage extends React.Component<Props, State> {
-    private statusRequestInterval = 2 * 1000;
-    private numberOfAllStatusChecks = 60;
+    private readonly statusRequestInterval = 2 * 1000;
+    private readonly numberOfAllStatusChecks = 60;
     private timer: NodeJS.Timeout;
     private retryTimer?: NodeJS.Timeout;
     private readonly retryTimeoutSeconds = 600; // 10 min
+    private readonly retryExpiryStoragePrefix = "adyen-retry-link-expires-at:";
 
     constructor(props: Props) {
         super(props);
@@ -62,18 +63,56 @@ export class ThankYouPage extends React.Component<Props, State> {
             return;
         }
 
+        const expiresAt = this.getOrCreateRetryExpiryTimestamp();
+        const initialRemaining = this.getRemainingRetrySeconds(expiresAt);
+        if (initialRemaining <= 0) {
+            this.clearRetryCountdown();
+            this.setState((prevState) => ({...prevState, retryRemainingSeconds: 0}));
+            return;
+        }
+
+        this.setState((prevState) => ({...prevState, retryRemainingSeconds: initialRemaining}));
+
         this.retryTimer = setInterval(() => {
             this.setState((prevState) => {
-                const next = prevState.retryRemainingSeconds - 1;
+                const next = this.getRemainingRetrySeconds(expiresAt);
                 if (next <= 0) {
-                    if (this.retryTimer) {
-                        clearInterval(this.retryTimer);
-                    }
+                    this.clearRetryCountdown();
                     return {...prevState, retryRemainingSeconds: 0};
                 }
                 return {...prevState, retryRemainingSeconds: next};
             });
         }, 1000);
+    }
+
+    private getRetryExpiryStorageKey(): string {
+        return `${this.retryExpiryStoragePrefix}${this.props.orderCode}`;
+    }
+
+    private getOrCreateRetryExpiryTimestamp(): number {
+        const storageKey = this.getRetryExpiryStorageKey();
+        const stored = globalThis.localStorage.getItem(storageKey);
+        const parsed = stored ? Number(stored) : Number.NaN;
+
+        if (!Number.isNaN(parsed) && parsed > Date.now()) {
+            return parsed;
+        }
+
+        const expiresAt = Date.now() + (this.retryTimeoutSeconds * 1000);
+        globalThis.localStorage.setItem(storageKey, String(expiresAt));
+        return expiresAt;
+    }
+
+    private getRemainingRetrySeconds(expiresAt: number): number {
+        return Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+    }
+
+    private clearRetryCountdown() {
+        if (this.retryTimer) {
+            clearInterval(this.retryTimer);
+            this.retryTimer = undefined;
+        }
+        globalThis.localStorage.removeItem(this.getRetryExpiryStorageKey());
     }
 
     private formatRetryTime(totalSeconds: number): string {

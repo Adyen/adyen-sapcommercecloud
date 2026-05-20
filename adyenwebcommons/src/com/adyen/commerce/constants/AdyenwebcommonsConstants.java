@@ -39,6 +39,8 @@ public final class AdyenwebcommonsConstants extends GeneratedAdyenwebcommonsCons
 	public static final String REDIRECTING_TO_CART_PAGE = "Redirecting to cart page...";
 	public static final String NON_AUTHORIZED_ERROR = "Handling AdyenNonAuthorizedPaymentException. Checking PaymentResponse.";
 	public static final String SESSION_PAYMENT_LINK = "adyenPaymentLinkUrl";
+	public static final String SESSION_PAYMENT_LINK_CREATED_AT = "adyenPaymentLinkCreatedAt";
+	public static final long SESSION_PAYMENT_LINK_TTL_MILLIS = 10 * 60 * 1000L;
 
 	private AdyenwebcommonsConstants()
 	{
