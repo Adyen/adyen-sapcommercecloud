@@ -71,7 +71,7 @@ public class DefaultPartialPaymentOrderFacadeTest {
     private ArgumentCaptor<CancelOrderRequest> cancelOrderRequestCaptor;
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp() {
         doReturn(ordersApiMock).when(testObj).createOrdersApi(adyenCheckoutApiServiceMock);
         when(baseStoreServiceMock.getCurrentBaseStore()).thenReturn(baseStoreModelMock);
         when(baseStoreModelMock.getAdyenMerchantAccount()).thenReturn(MERCHANT_ACCOUNT);

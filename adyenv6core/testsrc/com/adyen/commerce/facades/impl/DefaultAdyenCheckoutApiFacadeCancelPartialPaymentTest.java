@@ -25,6 +25,7 @@ public class DefaultAdyenCheckoutApiFacadeCancelPartialPaymentTest {
 
     private static final String PSP_REFERENCE_1 = "GCB_ORDER_001";
     private static final String PSP_REFERENCE_2 = "GCB_ORDER_002";
+    private static final String PSP_REFERENCE_3 = "GCB_ORDER_003";
 
     @Spy
     @InjectMocks
@@ -58,19 +59,20 @@ public class DefaultAdyenCheckoutApiFacadeCancelPartialPaymentTest {
         when(partialPaymentAuthorizedMock.getPspReference()).thenReturn(PSP_REFERENCE_2);
         when(partialPaymentAuthorizedMock.getStatus()).thenReturn(AdyenPartialPaymentStatus.AUTHORIZED);
 
-        when(partialPaymentCapturedMock.getPspReference()).thenReturn(PSP_REFERENCE_2);
+        when(partialPaymentCapturedMock.getPspReference()).thenReturn(PSP_REFERENCE_3);
         when(partialPaymentCapturedMock.getStatus()).thenReturn(AdyenPartialPaymentStatus.CAPTURED);
     }
 
     @Test
-    public void cancelPartialPaymentOrdersOnFailure_shouldCancelCreatedOrders() {
+    public void cancelPartialPaymentOrdersOnFailure_shouldCancelCreatedAndAuthorizedOrders() {
         when(cartModelMock.getAdyenPartialPaymentOrders()).thenReturn(
                 Arrays.asList(partialPaymentCreatedMock, partialPaymentAuthorizedMock, partialPaymentCapturedMock));
 
         testObj.cancelPartialPaymentOrdersOnFailure();
 
         verify(adyenPartialPaymentOrderFacadeMock).cancelPartialPaymentOrder(PSP_REFERENCE_1);
-        verify(adyenPartialPaymentOrderFacadeMock, never()).cancelPartialPaymentOrder(PSP_REFERENCE_2);
+        verify(adyenPartialPaymentOrderFacadeMock).cancelPartialPaymentOrder(PSP_REFERENCE_2);
+        verify(adyenPartialPaymentOrderFacadeMock, never()).cancelPartialPaymentOrder(PSP_REFERENCE_3);
     }
 
     @Test
