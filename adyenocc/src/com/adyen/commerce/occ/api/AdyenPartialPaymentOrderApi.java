@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.RequestBody;
 
 @Tag(name = "Adyen Partial Payment")
 public interface AdyenPartialPaymentOrderApi {
@@ -61,6 +62,6 @@ public interface AdyenPartialPaymentOrderApi {
             @Parameter(
                     description = "The partial payment order request containing amount and payment method details",
                     required = true
-            ) @org.springframework.web.bind.annotation.RequestBody final PartialPaymentOrderRequest request
+            ) @RequestBody final PartialPaymentOrderRequest request
     ) throws JsonProcessingException;
 }

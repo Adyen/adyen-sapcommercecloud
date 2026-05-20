@@ -28,6 +28,11 @@ public class AdyenGiftCardController extends GiftCardControllerBase implements A
     
     private static final Logger LOG = Logger.getLogger(AdyenGiftCardController.class);
     
+    private static final String ERROR_CARD_NUMBER_REQUIRED = "Gift card number is required";
+    private static final String ERROR_AMOUNT_REQUIRED = "Amount is required";
+    private static final String ERROR_TYPE_REQUIRED = "Gift card type is required";
+    private static final String ERROR_BRAND_REQUIRED = "Gift card brand is required";
+    
     protected static ObjectMapper objectMapper;
 
     static {
@@ -86,22 +91,22 @@ public class AdyenGiftCardController extends GiftCardControllerBase implements A
     protected String validateRequestOCC(GiftCardBalanceRequest request) {
         if (request.getCardNumber() == null || request.getCardNumber().trim().isEmpty()) {
             LOG.error("Gift card number is missing or empty");
-            return "Gift card number is required";
+            return ERROR_CARD_NUMBER_REQUIRED;
         }
         
         if (request.getAmount() == null) {
             LOG.error("Amount is missing");
-            return "Amount is required";
+            return ERROR_AMOUNT_REQUIRED;
         }
         
         if (request.getType() == null || request.getType().trim().isEmpty()) {
             LOG.error("Gift card type is missing");
-            return "Gift card type is required";
+            return ERROR_TYPE_REQUIRED;
         }
         
         if (request.getBrand() == null || request.getBrand().trim().isEmpty()) {
             LOG.error("Gift card brand is missing");
-            return "Gift card brand is required";
+            return ERROR_BRAND_REQUIRED;
         }
         
         return null; // No validation errors

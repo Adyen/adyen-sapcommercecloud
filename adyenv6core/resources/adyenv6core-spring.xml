@@ -308,6 +308,7 @@
         <property name="calculationService" ref="calculationService" />
         <property name="addressPopulator" ref="addressPopulator" />
         <property name="adyenBusinessProcessService" ref="adyenBusinessProcessService" />
+        <property name="threeDSAuthorizationService" ref="threeDSAuthorizationService"/>
         <property name="transactionTemplate">
             <bean class="org.springframework.transaction.support.TransactionTemplate">
                 <property name="transactionManager" ref="txManager"/>
