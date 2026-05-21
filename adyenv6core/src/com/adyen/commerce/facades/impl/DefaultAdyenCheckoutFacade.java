@@ -72,6 +72,7 @@ import de.hybris.platform.commercewebservicescommons.dto.order.PaymentDetailsWsD
 import de.hybris.platform.converters.Populator;
 import de.hybris.platform.core.enums.OrderStatus;
 import de.hybris.platform.core.model.c2l.CountryModel;
+import de.hybris.platform.core.model.order.AbstractOrderEntryModel;
 import de.hybris.platform.core.model.order.CartModel;
 import de.hybris.platform.core.model.order.OrderModel;
 import de.hybris.platform.core.model.order.payment.PaymentInfoModel;
@@ -104,6 +105,7 @@ import org.springframework.validation.Errors;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -505,6 +507,50 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         return checkoutConfigDTOBuilder.build();
     }
 
+    @Override
+    public PaymentLinkResponse generatePaymentLink(PaymentDetailsResponse detailsRequest) {
+        try {
+            CustomerModel currentUserForCheckout = getCheckoutCustomerStrategy().getCurrentUserForCheckout();
+            BaseStoreModel baseStore = baseStoreService.getCurrentBaseStore();
+            PaymentLinkRequest paymentLinkRequest = new PaymentLinkRequest();
+            Amount amount = detailsRequest.getAmount();
+            Locale localeForIsoCode = getCommonI18NService().getLocaleForIsoCode(currentUserForCheckout.getDefaultShipmentAddress().getCountry().getIsocode());
+
+            paymentLinkRequest.setReference(currentUserForCheckout.getOrders().stream().toList().getLast().getCode());
+            paymentLinkRequest.setAmount(amount);
+            paymentLinkRequest.setCountryCode(currentUserForCheckout.getDefaultShipmentAddress().getCountry().getIsocode());
+            paymentLinkRequest.setMerchantAccount(baseStore.getAdyenMerchantAccount());
+            paymentLinkRequest.setShopperReference(currentUserForCheckout.getCustomerID());
+            paymentLinkRequest.setShopperLocale(localeForIsoCode.toString());
+            paymentLinkRequest.setStorePaymentMethodMode(PaymentLinkRequest.StorePaymentMethodModeEnum.ASKFORCONSENT);
+            paymentLinkRequest.setRecurringProcessingModel(PaymentLinkRequest.RecurringProcessingModelEnum.CARDONFILE);
+            paymentLinkRequest.setRequiredShopperFields(List.of(PaymentLinkRequest.RequiredShopperFieldsEnum.BILLINGADDRESS, PaymentLinkRequest.RequiredShopperFieldsEnum.DELIVERYADDRESS, PaymentLinkRequest.RequiredShopperFieldsEnum.SHOPPEREMAIL));
+            paymentLinkRequest.setLineItems(convertEntriesToLineItems(currentUserForCheckout.getOrders().stream().toList().getLast().getEntries()));
+            paymentLinkRequest.setExpiresAt(OffsetDateTime.now().plusMinutes(10L));
+
+            AdyenCheckoutApiService adyenCheckoutApiService = getAdyenPaymentService();
+            return adyenCheckoutApiService.generatePaymentLink(paymentLinkRequest);
+        }
+        catch (IllegalStateException e) {
+            LOGGER.error("Failed to generate Payment Link {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private List<LineItem> convertEntriesToLineItems(List<AbstractOrderEntryModel> orders){
+        List<LineItem> lineItems = new ArrayList<>();
+        for(AbstractOrderEntryModel order : orders){
+            LineItem lineItem = new LineItem();
+            lineItem.setQuantity(order.getQuantity());
+            lineItem.setAmountExcludingTax(order.getBasePrice().longValue());
+            lineItem.setTaxPercentage((long) order.getTaxValues().stream().toList().getFirst().getValue());
+            lineItem.setDescription(order.getProduct().getDescription());
+            lineItem.setId(order.getProduct().getCode());
+            lineItem.setAmountIncludingTax(order.getTotalPrice().longValue());
+            lineItems.add(lineItem);
+        }
+        return lineItems;
+    }
     /**
      * Create order and authorized TX
      */

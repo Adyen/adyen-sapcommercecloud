@@ -12,6 +12,8 @@ import de.hybris.platform.acceleratorstorefrontcommons.forms.AddressForm;
 import de.hybris.platform.cms2.exceptions.CMSItemNotFoundException;
 import de.hybris.platform.cms2.model.pages.ContentPageModel;
 import de.hybris.platform.commercefacades.order.data.CartData;
+import de.hybris.platform.servicelayer.session.SessionService;
+import jakarta.annotation.Resource;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -20,6 +22,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import static com.adyen.commerce.constants.AdyenwebcommonsConstants.SESSION_PAYMENT_LINK;
+import static com.adyen.commerce.constants.AdyenwebcommonsConstants.SESSION_PAYMENT_LINK_CREATED_AT;
+import static com.adyen.commerce.constants.AdyenwebcommonsConstants.SESSION_PAYMENT_LINK_TTL_MILLIS;
 import static com.adyen.commerce.spa.constants.AdyencheckoutaddonspaWebConstants.ADYEN_CHECKOUT_ORDER_CONFIRMATION;
 import static com.adyen.commerce.spa.constants.AdyencheckoutaddonspaWebConstants.ADYEN_CHECKOUT_PAGE_PREFIX;
 
@@ -34,6 +39,9 @@ public class AdyenPageCheckoutStepController extends AbstractCheckoutStepControl
 
     @Autowired
     private AdyenCheckoutFacade adyenCheckoutFacade;
+
+    @Resource(name = "sessionService")
+    private SessionService sessionService;
 
     @GetMapping(value = "/adyen/**")
     @RequireHardLogIn
@@ -66,6 +74,13 @@ public class AdyenPageCheckoutStepController extends AbstractCheckoutStepControl
         final ContentPageModel multiCheckoutSummaryPage = getContentPageForLabelOrId(MULTI_CHECKOUT_SUMMARY_CMS_PAGE_LABEL);
         storeCmsPageInModel(model, multiCheckoutSummaryPage);
         setUpMetaDataForContentPage(model, multiCheckoutSummaryPage);
+
+            final String paymentLinkUrl = (String) sessionService.getCurrentSession().getAttribute(SESSION_PAYMENT_LINK);
+            if (StringUtils.isNotBlank(paymentLinkUrl) && !isPaymentLinkExpired()) {
+              model.addAttribute(SESSION_PAYMENT_LINK, paymentLinkUrl);
+            } else if (StringUtils.isNotBlank(paymentLinkUrl)) {
+              clearPaymentLinkSessionAttributes();
+            }
 
         return SPA_CHECKOUT_PAGE;
     }
@@ -110,4 +125,19 @@ public class AdyenPageCheckoutStepController extends AbstractCheckoutStepControl
     public String next(RedirectAttributes redirectAttributes) {
         return null;
     }
+
+      private boolean isPaymentLinkExpired() {
+        final Object createdAtAttr = sessionService.getCurrentSession().getAttribute(SESSION_PAYMENT_LINK_CREATED_AT);
+        if (!(createdAtAttr instanceof Number)) {
+          return true;
+        }
+
+        final long createdAt = ((Number) createdAtAttr).longValue();
+        return System.currentTimeMillis() - createdAt >= SESSION_PAYMENT_LINK_TTL_MILLIS;
+      }
+
+      private void clearPaymentLinkSessionAttributes() {
+        sessionService.getCurrentSession().removeAttribute(SESSION_PAYMENT_LINK);
+        sessionService.getCurrentSession().removeAttribute(SESSION_PAYMENT_LINK_CREATED_AT);
+      }
 }

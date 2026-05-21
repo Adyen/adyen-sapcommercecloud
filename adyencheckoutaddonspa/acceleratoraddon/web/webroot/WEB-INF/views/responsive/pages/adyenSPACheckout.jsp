@@ -20,7 +20,10 @@
 <template:page pageTitle="${pageTitle}" hideHeaderLinks="true">
 
     <div class="row">
-        <div id="root" context-path="${encodedContextPath}" csrf-token="${ycommerce:encodeJavaScript(CSRFToken.token)}"></div>
+        <div id="root"
+             context-path="${encodedContextPath}"
+             csrf-token="${ycommerce:encodeJavaScript(CSRFToken.token)}"
+             adyen-payment-link-url="${fn:escapeXml(adyenPaymentLinkUrl)}"></div>
 
         <div class="col-sm-12 col-lg-12">
             <cms:pageSlot position="SideContent" var="feature" element="div" class="checkout-help">

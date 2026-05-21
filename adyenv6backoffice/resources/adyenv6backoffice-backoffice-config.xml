@@ -95,6 +95,7 @@
 						<editorArea:attribute qualifier="adyenPaypalMerchantId"/>
 						<editorArea:attribute qualifier="l2L3ESDEnabled"/>
 						<editorArea:attribute qualifier="adyenSkipCvcForOneClick"/>
+						<editorArea:attribute qualifier="additionalPaymentRetry" />
 					</editorArea:section>
 				<editorArea:section name="hmc.adyen.installments">
 					<editorArea:attribute qualifier="adyenInstallmentConfigs"/>
