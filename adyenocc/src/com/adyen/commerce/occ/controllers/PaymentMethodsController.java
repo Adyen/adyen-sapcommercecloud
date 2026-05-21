@@ -4,10 +4,10 @@
 package com.adyen.commerce.occ.controllers;
 
 import com.adyen.commerce.constants.AdyenoccConstants;
-import com.adyen.commerce.occ.api.AdyenPaymentMethodsApi;
-import com.adyen.service.exception.ApiException;
 import com.adyen.commerce.facades.AdyenCheckoutFacade;
 import com.adyen.commerce.facades.AdyenExpressCheckoutFacade;
+import com.adyen.commerce.occ.api.AdyenPaymentMethodsApi;
+import com.adyen.service.exception.ApiException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -63,7 +63,7 @@ public class PaymentMethodsController implements AdyenPaymentMethodsApi
 
     @Override
     @GetMapping(value = AdyenoccConstants.ADYEN_USER_PREFIX + "/checkout-configuration")
-    public ResponseEntity<String> getConfiguration() throws JsonProcessingException {
+    public ResponseEntity<String> getConfigurationForDropInForZeroAuth() throws JsonProcessingException {
         return ResponseEntity.ok(objectMapper.writeValueAsString(adyenCheckoutFacade.getConfig()));
     }
 }
