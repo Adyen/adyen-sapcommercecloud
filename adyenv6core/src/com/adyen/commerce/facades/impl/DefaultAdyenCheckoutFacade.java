@@ -462,15 +462,17 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     public CheckoutConfigDTO getConfig() {
         CheckoutConfigDTOBuilder checkoutConfigDTOBuilder = new CheckoutConfigDTOBuilder();
         Amount zeroAuthAmount = new Amount();
+        BaseStoreModel baseStore = baseStoreService.getCurrentBaseStore();
+        String currency = baseStore.getDefaultCurrency().getIsocode();
         zeroAuthAmount.setValue(ZERO_AUTH_VALUE);
-        zeroAuthAmount.setCurrency(baseStoreService.getCurrentBaseStore().getDefaultCurrency().getIsocode());
+        zeroAuthAmount.setCurrency(currency);
         CustomerModel customerModel = getCheckoutCustomerStrategy().getCurrentUserForCheckout();
         List<PaymentMethod> paymentMethods = List.of();
-        BaseStoreModel baseStore = baseStoreService.getCurrentBaseStore();
+
         String countryCode = customerModel.getDefaultShipmentAddress() != null ? customerModel.getDefaultShipmentAddress().getCountry().getIsocode() : "";
 
         try {
-            paymentMethods = getAdyenPaymentService().getPaymentMethodsResponse(BigDecimal.ZERO, baseStore.getDefaultCurrency().getIsocode(), countryCode, getShopperLocale(), customerModel.getCustomerID(), "").getPaymentMethods();
+            paymentMethods = getAdyenPaymentService().getPaymentMethodsResponse(BigDecimal.ZERO, currency, countryCode, getShopperLocale(), customerModel.getCustomerID(), "").getPaymentMethods();
         } catch (IOException | ApiException e) {
             LOGGER.warn("Payment methods couldn't be fetched "  + e);
         }

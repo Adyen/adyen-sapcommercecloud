@@ -11,6 +11,7 @@ import jakarta.validation.Valid;
 import org.apache.log4j.Logger;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.annotation.Secured;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -31,6 +32,7 @@ public class AdyenZeroAuthController {
     @Resource(name = "adyenCheckoutApiFacade")
     private AdyenCheckoutApiFacade adyenCheckoutApiFacade;
 
+    @Secured({"ROLE_CUSTOMERGROUP", "ROLE_TRUSTED_CLIENT", "ROLE_CUSTOMERMANAGERGROUP"})
     @PostMapping(value = "/zero-auth", consumes = "application/json", produces = "application/json")
     public ResponseEntity<String> zeroAuth(@RequestBody @Valid ZeroAuthRequest request) {
         try {
