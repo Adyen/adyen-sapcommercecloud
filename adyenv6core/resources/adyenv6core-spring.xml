@@ -320,6 +320,7 @@
         <property name="configurationService" ref="configurationService"/>
         <property name="adyenPartialPaymentService" ref="adyenPartialPaymentService"/>
         <property name="adyenPartialPaymentOrderRepository" ref="adyenPartialPaymentOrderRepository" />
+        <property name="adyenPartialPaymentOrderFacade" ref="adyenPartialPaymentOrderFacade" />
     </bean>
 
     <alias name="defaultAdyenGiftCardFacade" alias="adyenGiftCardFacade" />
@@ -676,6 +677,7 @@
     </bean>
 
     <alias name="defaultAdyenOrderApiFacade" alias="adyenOrderApiFacade" />
+    <alias name="defaultAdyenOrderApiFacade" alias="adyenPartialPaymentOrderFacade" />
     <bean id="defaultAdyenOrderApiFacade" class="com.adyen.commerce.facades.impl.DefaultPartialPaymentOrderFacade">
         <property name="cartFacade" ref="cartFacade"/>
         <property name="baseStoreService" ref="baseStoreService"/>
