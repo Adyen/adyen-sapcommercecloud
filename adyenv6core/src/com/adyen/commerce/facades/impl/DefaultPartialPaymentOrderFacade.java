@@ -130,7 +130,7 @@ public class DefaultPartialPaymentOrderFacade implements AdyenPartialPaymentOrde
 
         if (pspReference == null || pspReference.trim().isEmpty()) {
             LOG.error("Cannot cancel partial payment order: PSP reference is null or empty");
-            return;
+            throw new IllegalArgumentException("PSP reference must not be null or empty");
         }
 
         try {

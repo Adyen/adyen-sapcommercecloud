@@ -94,16 +94,14 @@ public class DefaultPartialPaymentOrderFacadeTest {
         verify(modelServiceMock).save(partialPaymentOrderModelMock);
     }
 
-    @Test
-    public void cancelPartialPaymentOrder_shouldSkipWhenPspReferenceIsNull() {
+    @Test(expected = IllegalArgumentException.class)
+    public void cancelPartialPaymentOrder_shouldThrowWhenPspReferenceIsNull() {
         testObj.cancelPartialPaymentOrder(null);
-        verify(adyenPartialPaymentOrderRepositoryMock, never()).findPartialPaymentOrderByPspReference(any());
     }
 
-    @Test
-    public void cancelPartialPaymentOrder_shouldSkipWhenPspReferenceIsEmpty() {
+    @Test(expected = IllegalArgumentException.class)
+    public void cancelPartialPaymentOrder_shouldThrowWhenPspReferenceIsEmpty() {
         testObj.cancelPartialPaymentOrder("");
-        verify(adyenPartialPaymentOrderRepositoryMock, never()).findPartialPaymentOrderByPspReference(any());
     }
 
     @Test
