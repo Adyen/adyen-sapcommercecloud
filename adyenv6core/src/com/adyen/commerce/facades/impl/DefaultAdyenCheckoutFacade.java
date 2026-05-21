@@ -22,31 +22,34 @@ package com.adyen.commerce.facades.impl;
 
 
 import com.adyen.commerce.data.PaymentMethodsCartData;
+import com.adyen.commerce.facades.AdyenCheckoutFacade;
+import com.adyen.commerce.facades.AdyenExpressCheckoutFacade;
+import com.adyen.commerce.facades.AdyenOrderFacade;
+import com.adyen.commerce.factory.AdyenPaymentInfoFactory;
+import com.adyen.commerce.populators.AdyenCheckoutModelPopulator;
+import com.adyen.commerce.services.AdyenCartRestorationService;
 import com.adyen.commerce.services.AdyenPaymentMethodConfigService;
 import com.adyen.model.checkout.*;
 import com.adyen.model.recurring.Recurring;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.constants.StorefrontType;
 import com.adyen.v6.controllers.dtos.PaymentResultDTO;
-import com.adyen.v6.dto.*;
+import com.adyen.v6.converters.ExpressPaymentConfigConverter;
+import com.adyen.v6.dto.CheckoutConfigDTO;
+import com.adyen.v6.dto.CheckoutConfigDTOBuilder;
+import com.adyen.v6.dto.ExpressCheckoutConfigDTO;
+import com.adyen.v6.dto.ExpressCheckoutConfigDTOBuilder;
 import com.adyen.v6.enums.AdyenCardTypeEnum;
 import com.adyen.v6.enums.AdyenRegions;
 import com.adyen.v6.enums.RecurringContractMode;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
-import com.adyen.commerce.facades.AdyenCheckoutFacade;
-import com.adyen.commerce.facades.AdyenExpressCheckoutFacade;
-import com.adyen.commerce.facades.AdyenOrderFacade;
-import com.adyen.v6.converters.ExpressPaymentConfigConverter;
-import com.adyen.commerce.factory.AdyenPaymentInfoFactory;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
-import com.adyen.commerce.populators.AdyenCheckoutModelPopulator;
 import com.adyen.v6.forms.AddressForm;
 import com.adyen.v6.forms.AdyenPaymentForm;
 import com.adyen.v6.forms.validation.AdyenPaymentFormValidator;
 import com.adyen.v6.model.RequestInfo;
 import com.adyen.v6.repository.OrderRepository;
 import com.adyen.v6.service.*;
-import com.adyen.commerce.services.AdyenCartRestorationService;
 import com.adyen.v6.strategy.AdyenMerchantAccountStrategy;
 import com.adyen.v6.util.AmountUtil;
 import com.google.gson.Gson;
@@ -89,6 +92,7 @@ import de.hybris.platform.servicelayer.search.FlexibleSearchService;
 import de.hybris.platform.servicelayer.session.SessionService;
 import de.hybris.platform.store.BaseStoreModel;
 import de.hybris.platform.store.services.BaseStoreService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.configuration2.Configuration;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.LoggerFactory;
@@ -98,7 +102,6 @@ import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
 import org.springframework.validation.Errors;
 
-import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.*;
@@ -464,8 +467,10 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         CustomerModel customerModel = getCheckoutCustomerStrategy().getCurrentUserForCheckout();
         List<PaymentMethod> paymentMethods = List.of();
         BaseStoreModel baseStore = baseStoreService.getCurrentBaseStore();
+        String countryCode = customerModel.getDefaultShipmentAddress() != null ? customerModel.getDefaultShipmentAddress().getCountry().getIsocode() : "";
+
         try {
-            paymentMethods = getAdyenPaymentService().getPaymentMethodsResponse(BigDecimal.ZERO, baseStore.getDefaultCurrency().getIsocode(), customerModel.getDefaultShipmentAddress().getCountry().getIsocode(), getShopperLocale(), customerModel.getCustomerID(), "").getPaymentMethods();
+            paymentMethods = getAdyenPaymentService().getPaymentMethodsResponse(BigDecimal.ZERO, baseStore.getDefaultCurrency().getIsocode(), countryCode, getShopperLocale(), customerModel.getCustomerID(), "").getPaymentMethods();
         } catch (IOException | ApiException e) {
             LOGGER.warn("Payment methods couldn't be fetched "  + e);
         }
@@ -490,7 +495,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
                 .setAmount(zeroAuthAmount).setEnvironmentMode(getEnvironmentMode())
                 .setShopperLocale(getShopperLocale())
                 .setShowSocialSecurityNumber(showSocialSecurityNumber())
-                .setCountryCode(customerModel.getDefaultShipmentAddress() != null ? customerModel.getDefaultShipmentAddress().getCountry().getIsocode() : "")
+                .setCountryCode(countryCode)
                 .setCardHolderNameRequired(getHolderNameRequired())
                 .setAdyenPaypalMerchantId(baseStore.getAdyenPaypalMerchantId())
                 .setShopperEmail(customerModel.getContactEmail());
