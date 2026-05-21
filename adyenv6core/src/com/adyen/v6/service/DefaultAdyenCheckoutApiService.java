@@ -25,6 +25,7 @@ import com.adyen.commerce.services.AdyenRequestService;
 import com.adyen.commerce.services.PaymentMethodNameOverrideService;
 import com.adyen.model.RequestOptions;
 import com.adyen.model.checkout.*;
+import com.adyen.service.checkout.PaymentLinksApi;
 import com.adyen.service.checkout.RecurringApi;
 import com.adyen.service.checkout.PaymentsApi;
 import com.adyen.service.exception.ApiException;
@@ -395,5 +396,15 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
         DateFormat df = new SimpleDateFormat("yyyyMMdd");
         Date today = Calendar.getInstance().getTime();
         return "https://live.adyen.com/hpp/js/df.js?v=" + df.format(today);
+    }
+
+    @Override
+    public PaymentLinkResponse generatePaymentLink(PaymentLinkRequest paymentLinkRequest) {
+        PaymentLinksApi paymentLinksApi = new PaymentLinksApi(client);
+        try {
+           return paymentLinksApi.paymentLinks(paymentLinkRequest, null);
+        } catch (ApiException | IOException e) {
+            throw new IllegalStateException("There was an error generating the payment link.", e);
+        }
     }
 }

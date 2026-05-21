@@ -1,19 +1,21 @@
 package com.adyen.commerce.controllerbase;
 
+import com.adyen.commerce.facades.AdyenCheckoutFacade;
 import com.adyen.model.checkout.PaymentCompletionDetails;
 import com.adyen.model.checkout.PaymentDetailsRequest;
 import com.adyen.model.checkout.PaymentDetailsResponse;
+import com.adyen.model.checkout.PaymentLinkResponse;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
-import com.adyen.commerce.facades.AdyenCheckoutFacade;
 import de.hybris.platform.commercefacades.order.data.OrderData;
 import de.hybris.platform.order.InvalidCartException;
 import de.hybris.platform.order.exceptions.CalculationException;
+import de.hybris.platform.servicelayer.session.SessionService;
+import de.hybris.platform.store.services.BaseStoreService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.log4j.Logger;
 
-import jakarta.servlet.http.HttpServletRequest;
-
-import static com.adyen.commerce.constants.AdyenwebcommonsConstants.CHECKOUT_ERROR_AUTHORIZATION_FAILED;
+import static com.adyen.commerce.constants.AdyenwebcommonsConstants.*;
 import static com.adyen.commerce.util.ErrorMessageUtil.getErrorMessageByRefusalReason;
 import static com.adyen.model.checkout.PaymentDetailsResponse.ResultCodeEnum;
 import static com.adyen.model.checkout.PaymentDetailsResponse.ResultCodeEnum.REFUSED;
@@ -58,17 +60,17 @@ public abstract class RedirectControllerBase {
 
     private String authoriseRedirectPayment(final PaymentDetailsRequest details, final String productCode, final boolean isExpress) {
         LOGGER.info("Redirect payment authorization");
-
         try {
             OrderData orderData = getAdyenCheckoutFacade().handle3DSResponse(details);
 
             LOGGER.debug("Redirecting to confirmation");
-
             return getOrderConfirmationUrl(orderData);
 
         } catch (AdyenNonAuthorizedPaymentException e) {
             LOGGER.debug(NON_AUTHORIZED_ERROR);
             String errorMessage = CHECKOUT_ERROR_AUTHORIZATION_FAILED;
+            PaymentLinkResponse paymentLinkResponse = getAdyenCheckoutFacade().generatePaymentLink(e.getPaymentsDetailsResponse());
+            String paymentLinkUrl = paymentLinkResponse != null ? paymentLinkResponse.getUrl() : null;
             PaymentDetailsResponse response = e.getPaymentsDetailsResponse();
             if (response != null) {
                 if (REFUSED.equals(response.getResultCode())) {
@@ -80,12 +82,21 @@ public abstract class RedirectControllerBase {
                             + response.getRefusalReason());
                 }
             }
+            OrderData orderWithReference = new OrderData();
+            if (paymentLinkResponse != null) {
+                getSessionService().setAttribute(SESSION_PAYMENT_LINK, paymentLinkUrl);
+                getSessionService().setAttribute(SESSION_PAYMENT_LINK_CREATED_AT, System.currentTimeMillis());
+                orderWithReference.setCode(paymentLinkResponse.getReference());
+            }
 
             if (isExpress) {
                 return getExpressErrorRedirectUrl(errorMessage, productCode);
             }
-
-            return getErrorRedirectUrl(errorMessage);
+            if(getBaseStoreService().getCurrentBaseStore().getAdditionalPaymentRetry() && paymentLinkResponse != null) {
+                return getOrderConfirmationUrl(orderWithReference);
+            }
+            else
+                return getCartUrl();
         } catch (CalculationException | InvalidCartException e) {
             LOGGER.warn(e.getMessage(), e);
         } catch (Exception e) {
@@ -105,4 +116,8 @@ public abstract class RedirectControllerBase {
     public abstract String getCartUrl();
 
     public abstract AdyenCheckoutFacade getAdyenCheckoutFacade();
+
+    public abstract SessionService getSessionService();
+
+    public abstract BaseStoreService getBaseStoreService();
 }

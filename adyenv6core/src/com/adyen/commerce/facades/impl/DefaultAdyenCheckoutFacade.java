@@ -22,31 +22,34 @@ package com.adyen.commerce.facades.impl;
 
 
 import com.adyen.commerce.data.PaymentMethodsCartData;
+import com.adyen.commerce.facades.AdyenCheckoutFacade;
+import com.adyen.commerce.facades.AdyenExpressCheckoutFacade;
+import com.adyen.commerce.facades.AdyenOrderFacade;
+import com.adyen.commerce.factory.AdyenPaymentInfoFactory;
+import com.adyen.commerce.populators.AdyenCheckoutModelPopulator;
+import com.adyen.commerce.services.AdyenCartRestorationService;
 import com.adyen.commerce.services.AdyenPaymentMethodConfigService;
 import com.adyen.model.checkout.*;
 import com.adyen.model.recurring.Recurring;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.constants.StorefrontType;
 import com.adyen.v6.controllers.dtos.PaymentResultDTO;
-import com.adyen.v6.dto.*;
+import com.adyen.v6.converters.ExpressPaymentConfigConverter;
+import com.adyen.v6.dto.CheckoutConfigDTO;
+import com.adyen.v6.dto.CheckoutConfigDTOBuilder;
+import com.adyen.v6.dto.ExpressCheckoutConfigDTO;
+import com.adyen.v6.dto.ExpressCheckoutConfigDTOBuilder;
 import com.adyen.v6.enums.AdyenCardTypeEnum;
 import com.adyen.v6.enums.AdyenRegions;
 import com.adyen.v6.enums.RecurringContractMode;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
-import com.adyen.commerce.facades.AdyenCheckoutFacade;
-import com.adyen.commerce.facades.AdyenExpressCheckoutFacade;
-import com.adyen.commerce.facades.AdyenOrderFacade;
-import com.adyen.v6.converters.ExpressPaymentConfigConverter;
-import com.adyen.commerce.factory.AdyenPaymentInfoFactory;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
-import com.adyen.commerce.populators.AdyenCheckoutModelPopulator;
 import com.adyen.v6.forms.AddressForm;
 import com.adyen.v6.forms.AdyenPaymentForm;
 import com.adyen.v6.forms.validation.AdyenPaymentFormValidator;
 import com.adyen.v6.model.RequestInfo;
 import com.adyen.v6.repository.OrderRepository;
 import com.adyen.v6.service.*;
-import com.adyen.commerce.services.AdyenCartRestorationService;
 import com.adyen.v6.strategy.AdyenMerchantAccountStrategy;
 import com.adyen.v6.util.AmountUtil;
 import com.google.gson.Gson;
@@ -69,6 +72,7 @@ import de.hybris.platform.commercewebservicescommons.dto.order.PaymentDetailsWsD
 import de.hybris.platform.converters.Populator;
 import de.hybris.platform.core.enums.OrderStatus;
 import de.hybris.platform.core.model.c2l.CountryModel;
+import de.hybris.platform.core.model.order.AbstractOrderEntryModel;
 import de.hybris.platform.core.model.order.CartModel;
 import de.hybris.platform.core.model.order.OrderModel;
 import de.hybris.platform.core.model.order.payment.PaymentInfoModel;
@@ -89,6 +93,7 @@ import de.hybris.platform.servicelayer.search.FlexibleSearchService;
 import de.hybris.platform.servicelayer.session.SessionService;
 import de.hybris.platform.store.BaseStoreModel;
 import de.hybris.platform.store.services.BaseStoreService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.configuration2.Configuration;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.LoggerFactory;
@@ -98,9 +103,9 @@ import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
 import org.springframework.validation.Errors;
 
-import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -454,6 +459,50 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         return placePendingOrder(PaymentDetailsResponse.ResultCodeEnum.PENDING.getValue());
     }
 
+    @Override
+    public PaymentLinkResponse generatePaymentLink(PaymentDetailsResponse detailsRequest) {
+        try {
+            CustomerModel currentUserForCheckout = getCheckoutCustomerStrategy().getCurrentUserForCheckout();
+            BaseStoreModel baseStore = baseStoreService.getCurrentBaseStore();
+            PaymentLinkRequest paymentLinkRequest = new PaymentLinkRequest();
+            Amount amount = detailsRequest.getAmount();
+            Locale localeForIsoCode = getCommonI18NService().getLocaleForIsoCode(currentUserForCheckout.getDefaultShipmentAddress().getCountry().getIsocode());
+
+            paymentLinkRequest.setReference(currentUserForCheckout.getOrders().stream().toList().getLast().getCode());
+            paymentLinkRequest.setAmount(amount);
+            paymentLinkRequest.setCountryCode(currentUserForCheckout.getDefaultShipmentAddress().getCountry().getIsocode());
+            paymentLinkRequest.setMerchantAccount(baseStore.getAdyenMerchantAccount());
+            paymentLinkRequest.setShopperReference(currentUserForCheckout.getCustomerID());
+            paymentLinkRequest.setShopperLocale(localeForIsoCode.toString());
+            paymentLinkRequest.setStorePaymentMethodMode(PaymentLinkRequest.StorePaymentMethodModeEnum.ASKFORCONSENT);
+            paymentLinkRequest.setRecurringProcessingModel(PaymentLinkRequest.RecurringProcessingModelEnum.CARDONFILE);
+            paymentLinkRequest.setRequiredShopperFields(List.of(PaymentLinkRequest.RequiredShopperFieldsEnum.BILLINGADDRESS, PaymentLinkRequest.RequiredShopperFieldsEnum.DELIVERYADDRESS, PaymentLinkRequest.RequiredShopperFieldsEnum.SHOPPEREMAIL));
+            paymentLinkRequest.setLineItems(convertEntriesToLineItems(currentUserForCheckout.getOrders().stream().toList().getLast().getEntries()));
+            paymentLinkRequest.setExpiresAt(OffsetDateTime.now().plusMinutes(10L));
+
+            AdyenCheckoutApiService adyenCheckoutApiService = getAdyenPaymentService();
+            return adyenCheckoutApiService.generatePaymentLink(paymentLinkRequest);
+        }
+        catch (IllegalStateException e) {
+            LOGGER.error("Failed to generate Payment Link {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private List<LineItem> convertEntriesToLineItems(List<AbstractOrderEntryModel> orders){
+        List<LineItem> lineItems = new ArrayList<>();
+        for(AbstractOrderEntryModel order : orders){
+            LineItem lineItem = new LineItem();
+            lineItem.setQuantity(order.getQuantity());
+            lineItem.setAmountExcludingTax(order.getBasePrice().longValue());
+            lineItem.setTaxPercentage((long) order.getTaxValues().stream().toList().getFirst().getValue());
+            lineItem.setDescription(order.getProduct().getDescription());
+            lineItem.setId(order.getProduct().getCode());
+            lineItem.setAmountIncludingTax(order.getTotalPrice().longValue());
+            lineItems.add(lineItem);
+        }
+        return lineItems;
+    }
     /**
      * Create order and authorized TX
      */
