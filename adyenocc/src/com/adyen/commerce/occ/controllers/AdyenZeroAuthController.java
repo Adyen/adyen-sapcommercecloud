@@ -47,7 +47,7 @@ public class AdyenZeroAuthController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ZERO_AUTH_FAILED_MESSAGE);
         } catch (IOException e) {
             LOGGER.error("I/O error during zero-auth", e);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ZERO_AUTH_FAILED_MESSAGE);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ZERO_AUTH_FAILED_MESSAGE);
         } catch (Exception e) {
             LOGGER.error("Unexpected error during zero-auth", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(UNEXPECTED_ERROR_MESSAGE);

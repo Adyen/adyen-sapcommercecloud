@@ -42,6 +42,7 @@ import com.adyen.v6.dto.ExpressCheckoutConfigDTOBuilder;
 import com.adyen.v6.enums.AdyenCardTypeEnum;
 import com.adyen.v6.enums.AdyenRegions;
 import com.adyen.v6.enums.RecurringContractMode;
+import com.adyen.v6.exceptions.AdyenCheckoutConfigurationException;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
 import com.adyen.v6.forms.AddressForm;
@@ -461,7 +462,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     }
 
     @Override
-    public CheckoutConfigDTO getConfig() {
+    public CheckoutConfigDTO getConfig() throws AdyenCheckoutConfigurationException {
         CheckoutConfigDTOBuilder checkoutConfigDTOBuilder = new CheckoutConfigDTOBuilder();
         Amount zeroAuthAmount = new Amount();
         BaseStoreModel baseStore = baseStoreService.getCurrentBaseStore();
@@ -469,14 +470,15 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         zeroAuthAmount.setValue(ZERO_AUTH_VALUE);
         zeroAuthAmount.setCurrency(currency);
         CustomerModel customerModel = getCheckoutCustomerStrategy().getCurrentUserForCheckout();
-        List<PaymentMethod> paymentMethods = List.of();
+        List<PaymentMethod> paymentMethods;
 
-        String countryCode = customerModel.getDefaultShipmentAddress() != null ? customerModel.getDefaultShipmentAddress().getCountry().getIsocode() : "";
+        String countryCode = customerModel.getDefaultShipmentAddress() != null ? customerModel.getDefaultShipmentAddress().getCountry().getIsocode() : "US";
 
         try {
             paymentMethods = getAdyenPaymentService().getPaymentMethodsResponse(BigDecimal.ZERO, currency, countryCode, getShopperLocale(), customerModel.getCustomerID(), "").getPaymentMethods();
         } catch (IOException | ApiException e) {
-            LOGGER.warn("Payment methods couldn't be fetched "  + e);
+            LOGGER.warn("Payment methods couldn't be fetched ", e);
+            throw new AdyenCheckoutConfigurationException("Unable to load payment methods. Please try again");
         }
         PaymentMethod cardPaymentMethod = paymentMethods.stream().filter(paymentMethod -> PAYMENT_METHOD_SCHEME.equals(paymentMethod.getType())).findAny().orElse(null);
 
