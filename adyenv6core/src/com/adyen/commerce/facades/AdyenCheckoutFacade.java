@@ -20,13 +20,13 @@
  */
 package com.adyen.commerce.facades;
 
-import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.model.checkout.*;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.controllers.dtos.PaymentResultDTO;
-import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
 import com.adyen.v6.dto.CheckoutConfigDTO;
 import com.adyen.v6.dto.ExpressCheckoutConfigDTO;
+import com.adyen.v6.exceptions.AdyenCheckoutConfigurationException;
+import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
 import com.adyen.v6.forms.AdyenPaymentForm;
 import com.adyen.v6.service.AdyenCheckoutApiService;
 import de.hybris.platform.commercefacades.order.data.CartData;
@@ -212,6 +212,8 @@ public interface AdyenCheckoutFacade {
     AdyenCheckoutApiService getAdyenPaymentService();
 
     OrderData placePendingOrder() throws InvalidCartException;
+
+    CheckoutConfigDTO getConfig() throws AdyenCheckoutConfigurationException;
 
     PaymentLinkResponse generatePaymentLink(PaymentDetailsResponse detailsResponse);
 }

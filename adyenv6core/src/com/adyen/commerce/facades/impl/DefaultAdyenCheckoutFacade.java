@@ -42,6 +42,7 @@ import com.adyen.v6.dto.ExpressCheckoutConfigDTOBuilder;
 import com.adyen.v6.enums.AdyenCardTypeEnum;
 import com.adyen.v6.enums.AdyenRegions;
 import com.adyen.v6.enums.RecurringContractMode;
+import com.adyen.v6.exceptions.AdyenCheckoutConfigurationException;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
 import com.adyen.v6.forms.AddressForm;
@@ -184,6 +185,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     public static final String CHECKOUT_SHOPPER_HOST_TEST = "checkoutshopper-test.adyen.com";
     public static final String CHECKOUT_SHOPPER_HOST_LIVE = "checkoutshopper-live.adyen.com";
     public static final String CHECKOUT_SHOPPER_HOST_LIVE_IN = "checkoutshopper-live-in.adyen.com";
+    private static final Long ZERO_AUTH_VALUE = 0L;
 
     public DefaultAdyenCheckoutFacade() {
     }
@@ -457,6 +459,54 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
 
     public OrderData placePendingOrder() throws InvalidCartException {
         return placePendingOrder(PaymentDetailsResponse.ResultCodeEnum.PENDING.getValue());
+    }
+
+    @Override
+    public CheckoutConfigDTO getConfig() throws AdyenCheckoutConfigurationException {
+        CheckoutConfigDTOBuilder checkoutConfigDTOBuilder = new CheckoutConfigDTOBuilder();
+        Amount zeroAuthAmount = new Amount();
+        BaseStoreModel baseStore = baseStoreService.getCurrentBaseStore();
+        String currency = baseStore.getDefaultCurrency().getIsocode();
+        zeroAuthAmount.setValue(ZERO_AUTH_VALUE);
+        zeroAuthAmount.setCurrency(currency);
+        CustomerModel customerModel = getCheckoutCustomerStrategy().getCurrentUserForCheckout();
+        List<PaymentMethod> paymentMethods;
+
+        String countryCode = customerModel.getDefaultShipmentAddress() != null ? customerModel.getDefaultShipmentAddress().getCountry().getIsocode() : "US";
+
+        try {
+            paymentMethods = getAdyenPaymentService().getPaymentMethodsResponse(BigDecimal.ZERO, currency, countryCode, getShopperLocale(), customerModel.getCustomerID(), "").getPaymentMethods();
+        } catch (IOException | ApiException e) {
+            LOGGER.warn("Payment methods couldn't be fetched ", e);
+            throw new AdyenCheckoutConfigurationException("Unable to load payment methods. Please try again");
+        }
+        PaymentMethod cardPaymentMethod = paymentMethods.stream().filter(paymentMethod -> PAYMENT_METHOD_SCHEME.equals(paymentMethod.getType())).findAny().orElse(null);
+
+        if (cardPaymentMethod != null) {
+            List<String> allowedCards = baseStore.getAdyenAllowedCards().stream().map(AdyenCardTypeEnum::getCode).toList();
+
+            List<String> cardBrands = cardPaymentMethod.getBrands();
+
+            allowedCards = allowedCards.stream()
+                    .filter(cardBrands::contains)
+                    .toList();
+
+            cardPaymentMethod.setBrands(allowedCards);
+        } else
+            cardPaymentMethod = new PaymentMethod();
+
+        checkoutConfigDTOBuilder
+                .setPaymentMethods(List.of(cardPaymentMethod))
+                .setAdyenClientKey(baseStore.getAdyenClientKey())
+                .setAmount(zeroAuthAmount).setEnvironmentMode(getEnvironmentMode())
+                .setShopperLocale(getShopperLocale())
+                .setShowSocialSecurityNumber(showSocialSecurityNumber())
+                .setCountryCode(countryCode)
+                .setCardHolderNameRequired(getHolderNameRequired())
+                .setAdyenPaypalMerchantId(baseStore.getAdyenPaypalMerchantId())
+                .setShopperEmail(customerModel.getContactEmail());
+
+        return checkoutConfigDTOBuilder.build();
     }
 
     @Override
