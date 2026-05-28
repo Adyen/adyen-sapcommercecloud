@@ -14,10 +14,10 @@ import com.adyen.model.notification.NotificationRequest;
 import com.adyen.v6.security.AdyenNotificationAuthenticationProvider;
 import com.adyen.v6.service.AdyenNotificationService;
 import com.adyen.v6.service.AdyenNotificationV2Service;
-
+import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Logger;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Controller;
@@ -26,8 +26,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import jakarta.annotation.Resource;
-import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 
 
@@ -69,7 +67,7 @@ public class AdyenNotificationControllerV2 {
 			return RESPONSE_NOT_ACCEPTED;
 		}
 
-		LOG.debug("Received Adyen notification:" + requestString);
+		LOG.debug("Received Adyen notification:" + redactSensitiveData(requestString));
 		if (!adyenNotificationAuthenticationProvider.authenticate(request, notificationRequest, baseSiteId)) {
 			throw new AccessDeniedException("Request authentication failed");
 		}
@@ -78,4 +76,16 @@ public class AdyenNotificationControllerV2 {
 
 		return RESPONSE_ACCEPTED;
     }
+
+	private String redactSensitiveData(final String requestString) {
+		if (requestString == null || requestString.isEmpty()) {
+			return requestString;
+		}
+
+		String redacted = requestString;
+
+		redacted = redacted.replaceAll("\"additionalData\"\\s*:\\s*\\{[\\s\\S]*?\\}(\\s*,)?", "\"additionalData\":{}$1");
+
+		return redacted;
+	}
 }
