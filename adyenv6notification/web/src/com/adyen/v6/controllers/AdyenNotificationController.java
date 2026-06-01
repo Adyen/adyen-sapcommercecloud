@@ -61,7 +61,7 @@ public class AdyenNotificationController {
 			return RESPONSE_NOT_ACCEPTED;
 		}
 
-		LOG.debug("Received Adyen notification:" + requestString);
+		LOG.debug("Received Adyen notification:" + redactSensitiveData(requestString));
 		if (!adyenNotificationAuthenticationProvider.authenticate(request, notificationRequest, baseSiteId)) {
 			throw new AccessDeniedException("Request authentication failed");
 		}
@@ -69,4 +69,16 @@ public class AdyenNotificationController {
 
 		return RESPONSE_ACCEPTED;
     }
+
+	private String redactSensitiveData(final String requestString) {
+		if (requestString == null || requestString.isEmpty()) {
+			return requestString;
+		}
+
+		String redacted = requestString;
+
+		redacted = redacted.replaceAll("\"additionalData\"\\s*:\\s*\\{[\\s\\S]*?}(\\s*,)?", "\"additionalData\":{}$1");
+
+		return redacted;
+	}
 }

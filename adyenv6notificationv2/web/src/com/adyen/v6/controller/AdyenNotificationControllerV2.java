@@ -84,7 +84,7 @@ public class AdyenNotificationControllerV2 {
 
 		String redacted = requestString;
 
-		redacted = redacted.replaceAll("\"additionalData\"\\s*:\\s*\\{[\\s\\S]*?\\}(\\s*,)?", "\"additionalData\":{}$1");
+		redacted = redacted.replaceAll("\"additionalData\"\\s*:\\s*\\{[\\s\\S]*?}(\\s*,)?", "\"additionalData\":{}$1");
 
 		return redacted;
 	}
