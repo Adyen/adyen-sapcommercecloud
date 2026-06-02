@@ -78,6 +78,7 @@
 					<editorArea:attribute qualifier="adyenNotificationUsername"/>
 					<editorArea:attribute qualifier="adyenNotificationPassword" editor="com.hybris.cockpitng.editor.defaultpassword"/>
 					<editorArea:attribute qualifier="adyenNotificationHMACKey"/>
+					<editorArea:attribute qualifier="adyenAllowEmptyHMACKey"/>
 				</editorArea:section>
 				<editorArea:section name="hmc.adyen.expressPayments">
 					<editorArea:attribute qualifier="expressPaymentConfig" />

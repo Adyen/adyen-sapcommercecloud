@@ -137,8 +137,7 @@ public class AdyenNotificationAuthenticationProvider {
             }
             return true;
         }
-        LOG.warn("HMAC authentication not configured");
-        return true;
+        return allowEmptyHMACKey(baseStore);
     }
 
     protected boolean checkHMACFromHeader(final HttpServletRequest request, final String requestBody, BaseStoreModel baseStore) {
@@ -158,8 +157,16 @@ public class AdyenNotificationAuthenticationProvider {
             }
             return true;
         }
-        LOG.warn("HMAC authentication not configured");
-        return true;
+        return allowEmptyHMACKey(baseStore);
+    }
+
+    protected boolean allowEmptyHMACKey(BaseStoreModel baseStore) {
+        if (Boolean.TRUE.equals(baseStore.getAdyenAllowEmptyHMACKey())) {
+            LOG.warn("HMAC authentication not configured; accepting notification because empty HMAC key is explicitly allowed for this BaseStore");
+            return true;
+        }
+        LOG.error("HMAC authentication not configured and empty HMAC key is not allowed; rejecting notification");
+        return false;
     }
 
     public BaseStoreService getBaseStoreService() {
