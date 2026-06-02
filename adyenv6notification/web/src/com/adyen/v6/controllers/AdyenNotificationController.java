@@ -63,7 +63,7 @@ public class AdyenNotificationController {
 
 		LOG.debug("Received Adyen notification:" + requestString);
 		if (!adyenNotificationAuthenticationProvider.authenticate(request, notificationRequest, baseSiteId)) {
-			throw new AccessDeniedException("Request authentication failed");
+			return RESPONSE_NOT_ACCEPTED;
 		}
 		adyenNotificationService.saveNotifications(notificationRequest);
 
