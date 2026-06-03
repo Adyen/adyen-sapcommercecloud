@@ -17,6 +17,7 @@ import static com.adyen.v6.constants.Adyenv6coreConstants.*;
 public class ApplicationInfoService {
     private static final String PLATFORM_VERSION_PROPERTY = "build.version.api";
     private static final String ADYEN_POM_PROPERTIES = "META-INF/maven/com.adyen/adyen-java-api-library/pom.properties";
+    private static final String PROPERTY_NOT_FOUND = "unknown";
     private ConfigurationService configurationService;
 
 
@@ -44,21 +45,16 @@ public class ApplicationInfoService {
     }
 
     protected String getAdyenJavaApiLibraryVersion() {
-        String version = readVersionFromPomProperties();
-        return StringUtils.isNotBlank(version) ? version : "unknown";
-    }
-
-    protected String readVersionFromPomProperties() {
         try (InputStream inputStream = ApplicationInfo.class.getClassLoader().getResourceAsStream(ADYEN_POM_PROPERTIES)) {
             if (inputStream == null) {
-                return null;
+                return PROPERTY_NOT_FOUND;
             }
 
             Properties properties = new Properties();
             properties.load(inputStream);
-            return properties.getProperty("version");
+            return StringUtils.defaultIfBlank(properties.getProperty("version"), PROPERTY_NOT_FOUND);
         } catch (IOException e) {
-            return null;
+            return PROPERTY_NOT_FOUND;
         }
     }
 
