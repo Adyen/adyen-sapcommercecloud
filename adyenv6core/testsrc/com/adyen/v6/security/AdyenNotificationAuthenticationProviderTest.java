@@ -1,6 +1,5 @@
 package com.adyen.v6.security;
 
-import com.adyen.model.notification.Amount;
 import com.adyen.model.notification.NotificationRequest;
 import com.adyen.model.notification.NotificationRequestItem;
 import com.adyen.util.HMACValidator;
@@ -14,13 +13,15 @@ import org.mockito.junit.MockitoJUnitRunner;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.nio.charset.StandardCharsets;
+import java.security.SignatureException;
 import java.util.Base64;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -41,6 +42,9 @@ public class AdyenNotificationAuthenticationProviderTest {
     @Mock
     private BaseStoreModel baseStore;
 
+    @Mock
+    private HMACValidator hmacValidator;
+
     private AdyenNotificationAuthenticationProvider provider;
 
     @Before
@@ -50,6 +54,10 @@ public class AdyenNotificationAuthenticationProviderTest {
 
     private void givenBaseStoreResolves() {
         doReturn(baseStore).when(provider).getBaseStore(BASE_SITE_ID);
+    }
+
+    private void givenHmacValidator() {
+        doReturn(hmacValidator).when(provider).getHMACValidator();
     }
 
     private void givenConfiguredCredentials() {
@@ -63,23 +71,11 @@ public class AdyenNotificationAuthenticationProviderTest {
         when(request.getHeader("Authorization")).thenReturn("Basic " + encoded);
     }
 
-    private NotificationRequest signedNotificationRequest(String key) throws Exception {
+    private NotificationRequest notificationRequestWithOneItem() {
         NotificationRequestItem item = new NotificationRequestItem();
         item.setPspReference("pspRef");
-        item.setOriginalReference("");
-        item.setMerchantAccountCode("merchant");
-        item.setMerchantReference("merchantRef");
         item.setEventCode("AUTHORISATION");
         item.setSuccess(true);
-        Amount amount = new Amount();
-        amount.setValue(1000L);
-        amount.setCurrency("EUR");
-        item.setAmount(amount);
-
-        Map<String, String> additionalData = new HashMap<>();
-        additionalData.put("hmacSignature", new HMACValidator().calculateHMAC(item, key));
-        item.setAdditionalData(additionalData);
-
         NotificationRequest notificationRequest = new NotificationRequest();
         notificationRequest.setNotificationItems(Collections.singletonList(item));
         return notificationRequest;
@@ -130,35 +126,51 @@ public class AdyenNotificationAuthenticationProviderTest {
 
     @Test
     public void validSignatureIsAccepted_header() throws Exception {
+        givenHmacValidator();
         when(baseStore.getAdyenNotificationHMACKey()).thenReturn(HMAC_KEY);
-        String signature = new HMACValidator().calculateHMAC(REQUEST_BODY, HMAC_KEY);
-        when(request.getHeader("hmacsignature")).thenReturn(signature);
+        when(request.getHeader("hmacsignature")).thenReturn("some-signature");
+        when(hmacValidator.validateHMAC("some-signature", HMAC_KEY, REQUEST_BODY)).thenReturn(true);
 
         assertTrue(provider.checkHMACFromHeader(request, REQUEST_BODY, baseStore));
     }
 
     @Test
-    public void invalidSignatureIsRejected_header() {
+    public void invalidSignatureIsRejected_header() throws Exception {
+        givenHmacValidator();
         when(baseStore.getAdyenNotificationHMACKey()).thenReturn(HMAC_KEY);
-        when(request.getHeader("hmacsignature")).thenReturn("not-a-valid-signature");
+        when(request.getHeader("hmacsignature")).thenReturn("bad-signature");
+        when(hmacValidator.validateHMAC("bad-signature", HMAC_KEY, REQUEST_BODY)).thenReturn(false);
+
+        assertFalse(provider.checkHMACFromHeader(request, REQUEST_BODY, baseStore));
+    }
+
+    @Test
+    public void signatureExceptionIsRejected_header() throws Exception {
+        givenHmacValidator();
+        when(baseStore.getAdyenNotificationHMACKey()).thenReturn(HMAC_KEY);
+        when(request.getHeader("hmacsignature")).thenReturn("bad-signature");
+        when(hmacValidator.validateHMAC(anyString(), anyString(), anyString()))
+                .thenThrow(new SignatureException("boom"));
 
         assertFalse(provider.checkHMACFromHeader(request, REQUEST_BODY, baseStore));
     }
 
     @Test
     public void validSignatureIsAccepted_additionalData() throws Exception {
+        givenHmacValidator();
         when(baseStore.getAdyenNotificationHMACKey()).thenReturn(HMAC_KEY);
+        when(hmacValidator.validateHMAC(any(NotificationRequestItem.class), eq(HMAC_KEY))).thenReturn(true);
 
-        assertTrue(provider.checkHMACFromAdditionalData(signedNotificationRequest(HMAC_KEY), baseStore));
+        assertTrue(provider.checkHMACFromAdditionalData(notificationRequestWithOneItem(), baseStore));
     }
 
     @Test
     public void tamperedSignatureIsRejected_additionalData() throws Exception {
+        givenHmacValidator();
         when(baseStore.getAdyenNotificationHMACKey()).thenReturn(HMAC_KEY);
-        NotificationRequest tampered = signedNotificationRequest(HMAC_KEY);
-        tampered.getNotificationItems().get(0).setMerchantReference("attacker-changed-this");
+        when(hmacValidator.validateHMAC(any(NotificationRequestItem.class), eq(HMAC_KEY))).thenReturn(false);
 
-        assertFalse(provider.checkHMACFromAdditionalData(tampered, baseStore));
+        assertFalse(provider.checkHMACFromAdditionalData(notificationRequestWithOneItem(), baseStore));
     }
 
     // --- End-to-end authenticate(): basic auth AND hmac must both hold ---
@@ -196,9 +208,10 @@ public class AdyenNotificationAuthenticationProviderTest {
         givenBaseStoreResolves();
         givenConfiguredCredentials();
         givenBasicAuthHeader(USERNAME, PASSWORD);
+        givenHmacValidator();
         when(baseStore.getAdyenNotificationHMACKey()).thenReturn(HMAC_KEY);
-        String signature = new HMACValidator().calculateHMAC(REQUEST_BODY, HMAC_KEY);
-        when(request.getHeader("hmacsignature")).thenReturn(signature);
+        when(request.getHeader("hmacsignature")).thenReturn("some-signature");
+        when(hmacValidator.validateHMAC("some-signature", HMAC_KEY, REQUEST_BODY)).thenReturn(true);
 
         assertTrue(provider.authenticate(request, REQUEST_BODY, BASE_SITE_ID));
     }

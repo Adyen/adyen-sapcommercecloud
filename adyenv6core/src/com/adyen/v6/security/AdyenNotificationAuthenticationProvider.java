@@ -123,7 +123,7 @@ public class AdyenNotificationAuthenticationProvider {
         String hmacKey = baseStore.getAdyenNotificationHMACKey();
 
         if (StringUtils.isNotEmpty(hmacKey)) {
-            HMACValidator hmacValidator = new HMACValidator();
+            HMACValidator hmacValidator = getHMACValidator();
             try {
                 for (NotificationRequestItem notificationItem : notificationRequest.getNotificationItems()) {
                     if (!hmacValidator.validateHMAC(notificationItem, hmacKey)) {
@@ -145,7 +145,7 @@ public class AdyenNotificationAuthenticationProvider {
         String hmacKey = baseStore.getAdyenNotificationHMACKey();
 
         if (StringUtils.isNotEmpty(hmacKey)) {
-            HMACValidator hmacValidator = new HMACValidator();
+            HMACValidator hmacValidator = getHMACValidator();
             try {
                 if (!hmacValidator.validateHMAC(hmacSignature, hmacKey, requestBody)) {
                     LOG.error("Signature check failed");
@@ -158,6 +158,10 @@ public class AdyenNotificationAuthenticationProvider {
             return true;
         }
         return allowEmptyHMACKey(baseStore);
+    }
+
+    protected HMACValidator getHMACValidator() {
+        return new HMACValidator();
     }
 
     protected boolean allowEmptyHMACKey(BaseStoreModel baseStore) {
