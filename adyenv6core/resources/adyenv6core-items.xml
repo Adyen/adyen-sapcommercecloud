@@ -273,6 +273,12 @@
                     <description>Server Communication HMAC Key</description>
                     <persistence type="property"/>
                 </attribute>
+                <attribute qualifier="adyenAllowEmptyHMACKey" type="java.lang.boolean">
+                    <description>Accept webhook notifications even when no HMAC Key is configured. Insecure: leave disabled in production.</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false"/>
+                    <defaultvalue>Boolean.FALSE</defaultvalue>
+                </attribute>
                 <attribute qualifier="adyenMerchantAccount" type="java.lang.String">
                     <description>Merchant account name</description>
                     <persistence type="property"/>

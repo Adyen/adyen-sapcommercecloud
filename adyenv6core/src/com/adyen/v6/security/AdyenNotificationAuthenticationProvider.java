@@ -123,7 +123,7 @@ public class AdyenNotificationAuthenticationProvider {
         String hmacKey = baseStore.getAdyenNotificationHMACKey();
 
         if (StringUtils.isNotEmpty(hmacKey)) {
-            HMACValidator hmacValidator = new HMACValidator();
+            HMACValidator hmacValidator = getHMACValidator();
             try {
                 for (NotificationRequestItem notificationItem : notificationRequest.getNotificationItems()) {
                     if (!hmacValidator.validateHMAC(notificationItem, hmacKey)) {
@@ -137,8 +137,7 @@ public class AdyenNotificationAuthenticationProvider {
             }
             return true;
         }
-        LOG.warn("HMAC authentication not configured");
-        return true;
+        return allowEmptyHMACKey(baseStore);
     }
 
     protected boolean checkHMACFromHeader(final HttpServletRequest request, final String requestBody, BaseStoreModel baseStore) {
@@ -146,7 +145,7 @@ public class AdyenNotificationAuthenticationProvider {
         String hmacKey = baseStore.getAdyenNotificationHMACKey();
 
         if (StringUtils.isNotEmpty(hmacKey)) {
-            HMACValidator hmacValidator = new HMACValidator();
+            HMACValidator hmacValidator = getHMACValidator();
             try {
                 if (!hmacValidator.validateHMAC(hmacSignature, hmacKey, requestBody)) {
                     LOG.error("Signature check failed");
@@ -158,8 +157,20 @@ public class AdyenNotificationAuthenticationProvider {
             }
             return true;
         }
-        LOG.warn("HMAC authentication not configured");
-        return true;
+        return allowEmptyHMACKey(baseStore);
+    }
+
+    protected HMACValidator getHMACValidator() {
+        return new HMACValidator();
+    }
+
+    protected boolean allowEmptyHMACKey(BaseStoreModel baseStore) {
+        if (Boolean.TRUE.equals(baseStore.getAdyenAllowEmptyHMACKey())) {
+            LOG.warn("HMAC authentication not configured; accepting notification because empty HMAC key is explicitly allowed for this BaseStore");
+            return true;
+        }
+        LOG.error("HMAC authentication not configured and empty HMAC key is not allowed; rejecting notification");
+        return false;
     }
 
     public BaseStoreService getBaseStoreService() {
