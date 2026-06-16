@@ -1,0 +1,4 @@
+// Isolated OpenRewrite shim — NOT part of the Hybris/Ant build.
+// It exists only to give the rewrite plugin source sets + an attribution classpath
+// so `rewriteRun` can backport the JDK21/jakarta tree to JDK17/javax.
+rootProject.name = 'adyen-jdk17-backport'

@@ -1,0 +1,75 @@
+#
+# OpenRewrite recipe: backport the Adyen Hybris plugin from JDK21/Jakarta to JDK17/Javax.
+#
+# Source of truth is the JDK21 branch. This recipe reverses ONLY the JDK-forced
+# incompatibilities; everything else (feature work, DI cleanups, lazy-init, log4j,
+# JSP taglib URIs, .ts payloads) is version-agnostic and must flow through untouched.
+#
+# Derived from the real delta in the adyen plugin source (see openrewrite/README.md):
+#   - jakarta.servlet / .annotation / .validation / .ws.rs   (1:1 simple-name moves)
+#   - org.apache.commons.collections4 -> ...collections       (only CollectionUtils.is(Not)Empty)
+#   - Hybris *-beans.xml  <import type="jakarta.xml.bind..."/>
+#   - adyenv6core/external-dependencies.xml  JAX-RS API coordinate
+#
+# Runner note: OpenRewrite expects Maven/Gradle for type attribution; Hybris is Ant.
+# ChangePackage + FindAndReplace are import/text driven and run fine with partial
+# attribution. See README for the recommended Gradle-shim or `mod` CLI invocation.
+#
+type: specs.openrewrite.org/v1beta/recipe
+name: com.adyen.backport.Jdk21ToJdk17
+displayName: Backport Adyen Hybris plugin (JDK21/Jakarta -> JDK17/Javax)
+description: >
+  Reverses the JDK-forced incompatibilities introduced by the JDK21 migration so the
+  same source tree can be built against a JDK17 SAP Commerce platform. Mechanical and
+  deterministic; does not touch version-agnostic changes.
+recipeList:
+
+  # ---- Jakarta EE 9+ -> Java EE 8 (javax). All 1:1 simple-name package moves. ----
+  - org.openrewrite.java.ChangePackage:
+      oldPackageName: jakarta.servlet
+      newPackageName: javax.servlet
+      recursive: true
+  - org.openrewrite.java.ChangePackage:
+      oldPackageName: jakarta.annotation
+      newPackageName: javax.annotation
+      recursive: true
+  - org.openrewrite.java.ChangePackage:
+      oldPackageName: jakarta.validation
+      newPackageName: javax.validation
+      recursive: true
+  - org.openrewrite.java.ChangePackage:
+      oldPackageName: jakarta.ws.rs
+      newPackageName: javax.ws.rs
+      recursive: true
+
+  # ---- Apache Commons Collections 4 -> 3.x ----
+  # Only CollectionUtils.isEmpty / isNotEmpty are used; both signatures exist in 3.2.x.
+  - org.openrewrite.java.ChangePackage:
+      oldPackageName: org.apache.commons.collections4
+      newPackageName: org.apache.commons.collections
+      recursive: true
+
+  # ---- Hybris bean-generation XML: <import type="jakarta.xml.bind..."/> ----
+  # JAXB annotations on generated beans. ChangePackage is Java-only, so handle as text.
+  - org.openrewrite.text.FindAndReplace:
+      find: jakarta.xml.bind
+      replace: javax.xml.bind
+      filePattern: '**/*-beans.xml'
+
+  # ---- adyenv6core/external-dependencies.xml: JAX-RS API Maven coordinate ----
+  # jakarta.ws.rs:jakarta.ws.rs-api:3.1.0  ->  javax.ws.rs:javax.ws.rs-api:2.1.1
+  - org.openrewrite.text.FindAndReplace:
+      find: '<groupId>jakarta.ws.rs</groupId>'
+      replace: '<groupId>javax.ws.rs</groupId>'
+      filePattern: '**/external-dependencies.xml'
+  - org.openrewrite.text.FindAndReplace:
+      find: '<artifactId>jakarta.ws.rs-api</artifactId>'
+      replace: '<artifactId>javax.ws.rs-api</artifactId>'
+      filePattern: '**/external-dependencies.xml'
+  - org.openrewrite.text.FindAndReplace:
+      # Scoped to external-dependencies.xml where 3.1.0 is the ws.rs-api version only.
+      # If another dep ever uses 3.1.0 in this file, replace this with a regex anchored
+      # to the <artifactId>javax.ws.rs-api</artifactId> block instead.
+      find: '<version>3.1.0</version>'
+      replace: '<version>2.1.1</version>'
+      filePattern: '**/external-dependencies.xml'

@@ -1,0 +1,89 @@
+/*
+ * OpenRewrite shim for backporting the Adyen Hybris plugin JDK21/jakarta -> JDK17/javax.
+ *
+ * Hybris builds with Ant; OpenRewrite expects Maven/Gradle. This throwaway Gradle project
+ * does NOT compile Hybris — it only:
+ *   1. discovers every extension's Java source roots and exposes them as a source set,
+ *   2. puts the SAP Commerce platform jars on a compileOnly classpath for type attribution,
+ *   3. exposes the two Hybris XML descriptors we text-edit as plain-text resources,
+ *   4. runs the recipe in ../rewrite.yml via `rewriteRun`.
+ *
+ * Run with a JDK21 JVM (the running JVM decides the Java parser grammar; the sources are
+ * Java 21 / jakarta). Operates IN PLACE on the plugin tree — run it on a JDK21 checkout you
+ * are willing to mutate (CI), or use backport.sh --out <dir> to work on a copy.
+ */
+plugins {
+    id 'java'
+    // If resolution fails, bump to the latest 6.x from https://plugins.gradle.org/plugin/org.openrewrite.rewrite
+    id 'org.openrewrite.rewrite' version '6.27.0'
+}
+
+repositories {
+    mavenCentral()
+}
+
+java {
+    toolchain { languageVersion = JavaLanguageVersion.of(21) }
+}
+
+// This shim lives at <plugin>/openrewrite; the plugin tree is its parent.
+def pluginRoot = rootDir.parentFile
+// <plugin> = .../hybris/bin/custom/adyen-hybris  ->  hybrisRoot = .../hybris
+def hybrisRoot = pluginRoot.parentFile.parentFile.parentFile
+
+// ---- Discover Java source roots across all extensions (match longest shape first) ----
+def shapes = [
+        'acceleratoraddon/web/testsrc', 'acceleratoraddon/web/src',
+        'web/testsrc', 'web/src',
+        'backoffice/testsrc', 'backoffice/src',
+        'testsrc', 'src'
+]
+def javaDirs = new TreeSet<File>()
+fileTree(pluginRoot) {
+    include '**/*.java'
+    exclude '**/gensrc/**', '**/testsrc-gen/**', '**/build/**', '**/classes/**', '**/.git/**', '**/openrewrite/**'
+}.each { f ->
+    def rel = pluginRoot.toPath().relativize(f.toPath()).toString().replace('\\', '/')
+    for (sh in shapes) {
+        int idx = rel.indexOf(sh + '/')
+        if (idx >= 0) { javaDirs << new File(pluginRoot, rel.substring(0, idx + sh.length())); break }
+    }
+}
+logger.lifecycle("OpenRewrite shim: ${javaDirs.size()} Java source roots discovered under ${pluginRoot}")
+
+// ---- Best-effort attribution classpath from the SAP Commerce platform ----
+def attributionJars = files()
+[new File(hybrisRoot, 'bin/platform'), new File(hybrisRoot, 'bin/modules')].each { d ->
+    if (d.isDirectory()) attributionJars += fileTree(dir: d, include: '**/*.jar')
+}
+
+sourceSets {
+    main {
+        java {
+            srcDirs = javaDirs as List
+        }
+        resources {
+            // Only the two text-recipe targets; everything else is left alone.
+            srcDirs = [pluginRoot]
+            includes = ['**/*-beans.xml', '**/external-dependencies.xml']
+            exclude '**/build/**', '**/.git/**', '**/openrewrite/**'
+        }
+    }
+}
+
+dependencies {
+    compileOnly attributionJars
+}
+
+rewrite {
+    activeRecipe('com.adyen.backport.Jdk21ToJdk17')
+    configFile = file('rewrite.yml')
+    // Parse the Hybris XML descriptors as plain text so the text.FindAndReplace steps apply.
+    plainTextMasks = ['**/*-beans.xml', '**/external-dependencies.xml']
+    // Never touch generated or build output.
+    exclusion('**/gensrc/**', '**/testsrc-gen/**', '**/build/**', '**/classes/**')
+}
+
+// The shim must never try to compile Hybris — only rewriteRun/rewriteDryRun are meaningful.
+tasks.matching { it.name in ['compileJava', 'compileTestJava', 'classes', 'testClasses', 'jar', 'test', 'build', 'assemble'] }
+        .configureEach { enabled = false }
