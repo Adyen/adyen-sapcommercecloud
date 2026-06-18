@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { Dropin } from '@adyen/adyen-web/auto';
 import { PaymentService, PlaceOrderResponse } from '../service/paymentService';
 import { AddressModel } from '../reducers/types';
-import { SubmitActions, AdditionalDetailsActions } from '@adyen/adyen-web';
+import { SubmitActions, AdditionalDetailsActions, CheckoutAdvancedFlowResponse } from '@adyen/adyen-web';
 
 interface PaymentState {
     errorCode: string;
@@ -71,7 +71,7 @@ export const useAdyenPayment = (
 
     const handleResponse = useCallback(async (
         response: Promise<void | PlaceOrderResponse>,
-        actions: SubmitActions
+        actions: SubmitActions | AdditionalDetailsActions
     ) => {
         setPaymentState(prev => ({ ...prev, errorFieldCodes: [] }));
 
@@ -80,7 +80,11 @@ export const useAdyenPayment = (
             if (responseData.success) {
                 if (responseData.executeAction) {
                     if (responseData.paymentsAction) {
-                        dropIn?.handleAction(responseData.paymentsAction);
+                        const actionResponse: CheckoutAdvancedFlowResponse = {
+                            resultCode: responseData.paymentsResponse?.resultCode || 'Pending',
+                            action: responseData.paymentsAction
+                        };
+                        actions.resolve(actionResponse);
                     }
                 } else {
                     // Handle partial payment scenarios
@@ -126,9 +130,28 @@ export const useAdyenPayment = (
         }
     }, [dropIn]);
 
+    const normalizePaymentData = useCallback((data: any, element: any) => {
+        if (data?.paymentMethod) {
+            return data;
+        }
+
+        const paymentMethodType = data?.type || element?.props?.type || element?.type || element?.constructor?.type;
+        if (paymentMethodType === 'iris') {
+            return {
+                ...data,
+                paymentMethod: {
+                    type: 'iris'
+                }
+            };
+        }
+
+        return data;
+    }, []);
+
     const handlePayment = useCallback(async (data: any, element: any, actions: SubmitActions) => {
+        const paymentData = normalizePaymentData(data, element);
         const adyenPaymentForm = PaymentService.preparePlaceOrderRequest(
-            data,
+            paymentData,
             useDifferentBillingAddress,
             isSaveInAddressBook(),
             billingAddress,
@@ -136,7 +159,7 @@ export const useAdyenPayment = (
         );
 
         await handleResponse(PaymentService.placeOrder(adyenPaymentForm), actions);
-    }, [useDifferentBillingAddress, billingAddress, handleResponse, isSaveInAddressBook]);
+    }, [useDifferentBillingAddress, billingAddress, handleResponse, isSaveInAddressBook, normalizePaymentData]);
 
     const handleAdditionalDetails = useCallback(async (data: any, element: any, actions: AdditionalDetailsActions) => {
         await handleResponse(PaymentService.sendAdditionalDetails(data), actions);

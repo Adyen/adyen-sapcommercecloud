@@ -65,8 +65,11 @@
         }
         </c:when>
 
-        <c:when test="${selectedPaymentMethod eq 'pix'}">
-        paymentMethodConfigs['createPix'] = callbackConfig
+        <c:when test="${selectedPaymentMethod eq 'pix' || selectedPaymentMethod eq 'iris' || selectedPaymentMethod eq 'bcmc_mobile'}">
+        paymentMethodConfigs['createQrCodePayment'] = {
+            ...callbackConfig,
+            paymentType: "${selectedPaymentMethod}"
+        }
         </c:when>
 
         <c:when test="${selectedPaymentMethod eq 'googlepay'}">
@@ -85,10 +88,6 @@
 
         <c:when test="${selectedPaymentMethod eq 'upi'}">
         paymentMethodConfigs['createUPI'] = callbackConfig
-        </c:when>
-
-        <c:when test="${selectedPaymentMethod eq 'bcmc_mobile'}">
-        paymentMethodConfigs['createBcmcMobile'] = callbackConfig;
         </c:when>
 
         <c:when test="${selectedPaymentMethod eq 'giftcard'}">
