@@ -10,21 +10,24 @@
  */
 package com.adyen.v6.controllers;
 
-import java.io.IOException;
+import com.adyen.model.notification.NotificationRequest;
+import com.adyen.v6.security.AdyenNotificationAuthenticationProvider;
+import com.adyen.v6.service.AdyenNotificationService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
-
-import com.adyen.model.notification.NotificationRequest;
 import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Logger;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
-import com.adyen.v6.security.AdyenNotificationAuthenticationProvider;
-import com.adyen.v6.service.AdyenNotificationService;
+
+import java.io.IOException;
 
 
 @Controller
@@ -41,6 +44,9 @@ public class AdyenNotificationController {
 
 	private static final String RESPONSE_ACCEPTED = "[accepted]";
 	private static final String RESPONSE_NOT_ACCEPTED = "[not-accepted]";
+	private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+	private static final String ADDITIONAL_DATA = "additionalData";
+	private static final String REDACTION_FAILED = "[unable-to-redact-notification-payload]";
 
 	@RequestMapping(value = "/json", method = RequestMethod.POST)
 	@ResponseBody
@@ -61,10 +67,14 @@ public class AdyenNotificationController {
 			return RESPONSE_NOT_ACCEPTED;
 		}
 
-		LOG.debug("Received Adyen notification:" + redactSensitiveData(requestString));
 		if (!adyenNotificationAuthenticationProvider.authenticate(request, notificationRequest, baseSiteId)) {
 			return RESPONSE_NOT_ACCEPTED;
 		}
+
+		if (LOG.isDebugEnabled()) {
+			LOG.debug("Received Adyen notification:" + redactSensitiveData(requestString));
+		}
+
 		adyenNotificationService.saveNotifications(notificationRequest);
 
 		return RESPONSE_ACCEPTED;
@@ -75,10 +85,18 @@ public class AdyenNotificationController {
 			return requestString;
 		}
 
-		String redacted = requestString;
+		try {
+			final JsonNode root = OBJECT_MAPPER.readTree(requestString);
 
-		redacted = redacted.replaceAll("\"additionalData\"\\s*:\\s*\\{[\\s\\S]*?}(\\s*,)?", "\"additionalData\":{}$1");
+			root.findParents(ADDITIONAL_DATA).forEach(parent -> {
+				if (parent instanceof ObjectNode objectNode) {
+					objectNode.set(ADDITIONAL_DATA, OBJECT_MAPPER.createObjectNode());
+				}
+			});
 
-		return redacted;
+			return OBJECT_MAPPER.writeValueAsString(root);
+		} catch (final JsonProcessingException e) {
+			return REDACTION_FAILED;
+		}
 	}
 }
