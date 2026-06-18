@@ -560,11 +560,6 @@ class PaymentComponentFactory {
     }
 
     createRedirectPaymentMethod(paymentMethod) {
-        if (paymentMethod.paymentType === 'iris') {
-            this.createQrCodePayment(paymentMethod);
-            return;
-        }
-
         const buttonContainer = document.getElementById('adyen-component-button-container-' + paymentMethod.label);
         const componentContainer = document.getElementById('adyen-component-container-' + paymentMethod.label);
         const mountNode = buttonContainer || componentContainer;

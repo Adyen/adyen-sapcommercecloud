@@ -130,28 +130,9 @@ export const useAdyenPayment = (
         }
     }, [dropIn]);
 
-    const normalizePaymentData = useCallback((data: any, element: any) => {
-        if (data?.paymentMethod) {
-            return data;
-        }
-
-        const paymentMethodType = data?.type || element?.props?.type || element?.type || element?.constructor?.type;
-        if (paymentMethodType === 'iris') {
-            return {
-                ...data,
-                paymentMethod: {
-                    type: 'iris'
-                }
-            };
-        }
-
-        return data;
-    }, []);
-
     const handlePayment = useCallback(async (data: any, element: any, actions: SubmitActions) => {
-        const paymentData = normalizePaymentData(data, element);
         const adyenPaymentForm = PaymentService.preparePlaceOrderRequest(
-            paymentData,
+            data,
             useDifferentBillingAddress,
             isSaveInAddressBook(),
             billingAddress,
@@ -159,7 +140,7 @@ export const useAdyenPayment = (
         );
 
         await handleResponse(PaymentService.placeOrder(adyenPaymentForm), actions);
-    }, [useDifferentBillingAddress, billingAddress, handleResponse, isSaveInAddressBook, normalizePaymentData]);
+    }, [useDifferentBillingAddress, billingAddress, handleResponse, isSaveInAddressBook]);
 
     const handleAdditionalDetails = useCallback(async (data: any, element: any, actions: AdditionalDetailsActions) => {
         await handleResponse(PaymentService.sendAdditionalDetails(data), actions);
