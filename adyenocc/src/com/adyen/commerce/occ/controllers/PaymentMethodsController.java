@@ -14,6 +14,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import de.hybris.platform.commerceservices.request.mapping.annotation.ApiVersion;
 import de.hybris.platform.order.exceptions.CalculationException;
+import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.annotation.Secured;
@@ -25,6 +26,10 @@ import org.springframework.web.bind.annotation.RestController;
 @ApiVersion("v2")
 public class PaymentMethodsController implements AdyenPaymentMethodsApi
 {
+    private static final Logger LOG = Logger.getLogger(PaymentMethodsController.class);
+
+    private static final String ERROR_CHECKOUT_CONFIGURATION_FAILED = "Unable to retrieve checkout configuration";
+
     protected static ObjectMapper objectMapper;
 
     static {
@@ -69,7 +74,8 @@ public class PaymentMethodsController implements AdyenPaymentMethodsApi
         try {
             return ResponseEntity.ok(objectMapper.writeValueAsString(adyenCheckoutFacade.getConfig()));
         } catch (AdyenCheckoutConfigurationException e) {
-            return ResponseEntity.internalServerError().body(e.getMessage());
+            LOG.error("Error retrieving checkout configuration for zero auth drop-in", e);
+            return ResponseEntity.internalServerError().body(ERROR_CHECKOUT_CONFIGURATION_FAILED);
         }
     }
 }
