@@ -26,8 +26,6 @@
 		<y:actions xmlns:y="http://www.hybris.com/cockpit/config/hybris">
 			<y:group qualifier="common" merge-mode="merge">
 				<y:label>actiongroup.common</y:label>
-				<y:action action-id="de.hybris.ordermanagementbackoffice.actions.order.cancelorderaction"
-						  property="currentObject" merge-mode="remove"/>
 				<y:action action-id="com.adyen.v6.backoffice.widgets.actions.adyencancelorderaction"
 						  property="currentObject" merge-mode="append" position="1"/>
 			</y:group>
@@ -80,6 +78,7 @@
 					<editorArea:attribute qualifier="adyenNotificationUsername"/>
 					<editorArea:attribute qualifier="adyenNotificationPassword" editor="com.hybris.cockpitng.editor.defaultpassword"/>
 					<editorArea:attribute qualifier="adyenNotificationHMACKey"/>
+					<editorArea:attribute qualifier="adyenAllowEmptyHMACKey"/>
 				</editorArea:section>
 				<editorArea:section name="hmc.adyen.expressPayments">
 					<editorArea:attribute qualifier="expressPaymentConfig" />
@@ -97,6 +96,7 @@
 						<editorArea:attribute qualifier="adyenPaypalMerchantId"/>
 						<editorArea:attribute qualifier="l2L3ESDEnabled"/>
 						<editorArea:attribute qualifier="adyenSkipCvcForOneClick"/>
+						<editorArea:attribute qualifier="additionalPaymentRetry" />
 					</editorArea:section>
 				<editorArea:section name="hmc.adyen.installments">
 					<editorArea:attribute qualifier="adyenInstallmentConfigs"/>

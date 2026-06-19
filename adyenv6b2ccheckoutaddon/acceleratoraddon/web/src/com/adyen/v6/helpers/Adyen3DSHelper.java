@@ -25,7 +25,7 @@ import com.adyen.model.checkout.PaymentCompletionDetails;
 import com.adyen.model.checkout.PaymentDetailsRequest;
 import com.adyen.model.checkout.PaymentResponse;
 import com.adyen.model.checkout.PaymentResponseAction;
-import com.adyen.v6.facades.AdyenCheckoutFacade;
+import com.adyen.commerce.facades.AdyenCheckoutFacade;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import de.hybris.platform.commercefacades.order.data.CCPaymentInfoData;
 import de.hybris.platform.commercefacades.order.data.CartData;
@@ -34,15 +34,15 @@ import de.hybris.platform.commercefacades.user.data.CountryData;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.ui.Model;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.Optional;
 
 import static com.adyen.commerce.constants.AdyenwebcommonsConstants.PAYLOAD_PARAM;
 import static com.adyen.commerce.constants.AdyenwebcommonsConstants.REDIRECT_RESULT_PARAM;
 import static com.adyen.v6.constants.AdyenControllerConstants.Views.Pages.MultiStepCheckout.Validate3DSPaymentPage;
-import static com.adyen.v6.facades.impl.DefaultAdyenCheckoutFacade.MODEL_CHECKOUT_SHOPPER_HOST;
-import static com.adyen.v6.facades.impl.DefaultAdyenCheckoutFacade.MODEL_CLIENT_KEY;
-import static com.adyen.v6.facades.impl.DefaultAdyenCheckoutFacade.MODEL_ENVIRONMENT_MODE;
+import static com.adyen.commerce.facades.impl.DefaultAdyenCheckoutFacade.MODEL_CHECKOUT_SHOPPER_HOST;
+import static com.adyen.commerce.facades.impl.DefaultAdyenCheckoutFacade.MODEL_CLIENT_KEY;
+import static com.adyen.commerce.facades.impl.DefaultAdyenCheckoutFacade.MODEL_ENVIRONMENT_MODE;
 import static com.adyen.v6.constants.Adyenv6coreConstants.SHOPPER_LOCALE;
 
 /**

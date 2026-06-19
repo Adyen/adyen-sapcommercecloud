@@ -6,8 +6,8 @@ import com.adyen.model.checkout.PaymentMethodsResponse;
 import de.hybris.platform.core.model.c2l.LanguageModel;
 import de.hybris.platform.servicelayer.i18n.CommonI18NService;
 import de.hybris.platform.store.services.BaseStoreService;
-import org.apache.commons.collections.CollectionUtils;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.List;
 import java.util.Map;

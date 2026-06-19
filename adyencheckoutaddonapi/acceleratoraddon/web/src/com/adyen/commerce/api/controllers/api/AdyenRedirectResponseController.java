@@ -2,19 +2,21 @@ package com.adyen.commerce.api.controllers.api;
 
 import com.adyen.commerce.controllerbase.RedirectControllerBase;
 import com.adyen.model.checkout.PaymentDetailsRequest;
-import com.adyen.v6.facades.AdyenCheckoutFacade;
+import com.adyen.commerce.facades.AdyenCheckoutFacade;
 import de.hybris.platform.acceleratorstorefrontcommons.annotations.RequireHardLogIn;
 import de.hybris.platform.commercefacades.order.data.OrderData;
 import de.hybris.platform.commerceservices.strategies.CheckoutCustomerStrategy;
-import org.apache.commons.lang.NotImplementedException;
+import de.hybris.platform.servicelayer.session.SessionService;
+import de.hybris.platform.store.services.BaseStoreService;
+import org.apache.commons.lang3.NotImplementedException;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 
-import javax.annotation.Resource;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.Base64;
 
 import static com.adyen.commerce.constants.AdyencheckoutaddonapiWebConstants.*;
@@ -33,6 +35,12 @@ public class AdyenRedirectResponseController extends RedirectControllerBase {
 
     @Resource(name = "checkoutCustomerStrategy")
     private CheckoutCustomerStrategy checkoutCustomerStrategy;
+
+    @Resource(name = "sessionService")
+    private SessionService sessionService;
+
+    @Resource(name = "baseStoreService")
+    private BaseStoreService baseStoreService;
 
     @GetMapping(value = AUTHORISE_3D_SECURE_PAYMENT_URL)
     @RequireHardLogIn
@@ -73,6 +81,16 @@ public class AdyenRedirectResponseController extends RedirectControllerBase {
     @Override
     public AdyenCheckoutFacade getAdyenCheckoutFacade() {
         return adyenCheckoutFacade;
+    }
+
+    @Override
+    public SessionService getSessionService() {
+        return sessionService;
+    }
+
+    @Override
+    public BaseStoreService getBaseStoreService() {
+        return baseStoreService;
     }
 
 }

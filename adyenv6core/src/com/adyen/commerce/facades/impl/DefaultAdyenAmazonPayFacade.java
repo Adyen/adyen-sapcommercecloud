@@ -1,12 +1,12 @@
-package com.adyen.v6.facades.impl;
+package com.adyen.commerce.facades.impl;
 
-import com.adyen.v6.facades.AdyenAmazonPayFacade;
+import com.adyen.commerce.facades.AdyenAmazonPayFacade;
 import com.adyen.v6.service.AdyenAmazonPayIntegratorService;
 import de.hybris.platform.acceleratorservices.urlresolver.SiteBaseUrlResolutionService;
 import de.hybris.platform.site.BaseSiteService;
 
 /**
- * {@inheritDoc}
+ * Default implementation of {@link AdyenAmazonPayFacade}.
  */
 public class DefaultAdyenAmazonPayFacade implements AdyenAmazonPayFacade {
 

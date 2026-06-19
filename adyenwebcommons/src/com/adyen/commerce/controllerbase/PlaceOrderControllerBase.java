@@ -1,5 +1,6 @@
 package com.adyen.commerce.controllerbase;
 
+import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.commerce.dto.OrderPaymentResult;
 import com.adyen.commerce.exception.AdyenControllerException;
 import com.adyen.commerce.facades.AdyenCheckoutApiFacade;
@@ -9,15 +10,12 @@ import com.adyen.commerce.response.PlaceOrderResponse;
 import com.adyen.commerce.validators.PaymentRequestValidator;
 import com.adyen.model.checkout.PaymentDetailsRequest;
 import com.adyen.model.checkout.PaymentResponse;
-import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
-import com.adyen.v6.facades.AdyenCheckoutFacade;
-import com.adyen.v6.model.RequestInfo;
-import com.adyen.v6.service.AdyenShopperIpResolverService;
-import com.adyen.v6.model.AdyenPartialPaymentOrderModel;
-import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
-import com.adyen.v6.service.AdyenCheckoutApiService;
-import com.adyen.v6.service.AdyenPartialPaymentService;
 import com.adyen.v6.enums.AdyenPartialPaymentStatus;
+import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
+import com.adyen.commerce.facades.AdyenCheckoutFacade;
+import com.adyen.v6.model.RequestInfo;
+import com.adyen.v6.service.AdyenPartialPaymentService;
+import com.adyen.v6.service.AdyenShopperIpResolverService;
 import com.adyen.v6.util.RemainingAmountCalculator;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -30,14 +28,13 @@ import de.hybris.platform.commerceservices.strategies.CheckoutCustomerStrategy;
 import de.hybris.platform.order.InvalidCartException;
 import de.hybris.platform.order.exceptions.CalculationException;
 import de.hybris.platform.site.BaseSiteService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.log4j.Logger;
 import org.springframework.context.support.DefaultMessageSourceResolvable;
 import org.springframework.validation.BeanPropertyBindingResult;
 
-import javax.servlet.http.HttpServletRequest;
 import java.lang.reflect.InvocationTargetException;
-import java.math.BigDecimal;
 
 import static com.adyen.commerce.constants.AdyenwebcommonsConstants.CHECKOUT_ERROR_AUTHORIZATION_FAILED;
 import static com.adyen.commerce.constants.AdyenwebcommonsConstants.CHECKOUT_ERROR_FORM_ENTRY_INVALID;

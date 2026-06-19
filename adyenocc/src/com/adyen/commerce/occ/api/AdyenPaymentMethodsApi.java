@@ -83,4 +83,6 @@ public interface AdyenPaymentMethodsApi {
     )
     @ApiBaseSiteIdUserIdAndCartIdParam
     ResponseEntity<String> getExpressCartCheckoutConfiguration() throws ApiException, JsonProcessingException, CalculationException;
+
+    ResponseEntity<String> getConfigurationForDropInForZeroAuth() throws JsonProcessingException;
 }

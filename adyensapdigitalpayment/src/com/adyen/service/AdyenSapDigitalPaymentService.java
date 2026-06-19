@@ -3,7 +3,7 @@ package com.adyen.service;
 import de.hybris.platform.cissapdigitalpayment.model.SAPDigitalPaymentConfigurationModel;
 import de.hybris.platform.cissapdigitalpayment.service.CisSapDigitalPaymentService;
 
-import javax.ws.rs.PathParam;
+import jakarta.ws.rs.PathParam;
 
 import com.adyen.model.DigitalGetPaymentCardList;
 import com.adyen.model.DigitalPaymentGetAuthorizationList;

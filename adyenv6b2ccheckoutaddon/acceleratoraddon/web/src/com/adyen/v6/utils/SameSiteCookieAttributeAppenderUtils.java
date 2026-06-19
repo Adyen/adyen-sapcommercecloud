@@ -24,12 +24,12 @@ package com.adyen.v6.utils;
 import com.google.common.net.HttpHeaders;
 import de.hybris.platform.servicelayer.config.ConfigurationService;
 import org.apache.commons.collections4.CollectionUtils;
-import org.apache.commons.configuration.Configuration;
+import org.apache.commons.configuration2.Configuration;
 import org.apache.log4j.Logger;
 
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;

@@ -18,14 +18,15 @@
  *  This file is open source and available under the MIT license.
  *  See the LICENSE file for more info.
  */
-package com.adyen.v6.facades;
+package com.adyen.commerce.facades;
 
-import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.model.checkout.*;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.controllers.dtos.PaymentResultDTO;
 import com.adyen.v6.dto.CheckoutConfigDTO;
 import com.adyen.v6.dto.ExpressCheckoutConfigDTO;
+import com.adyen.v6.exceptions.AdyenCheckoutConfigurationException;
+import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
 import com.adyen.v6.forms.AdyenPaymentForm;
 import com.adyen.v6.service.AdyenCheckoutApiService;
 import de.hybris.platform.commercefacades.order.data.CartData;
@@ -35,36 +36,37 @@ import de.hybris.platform.core.model.order.CartModel;
 import de.hybris.platform.core.model.order.payment.PaymentInfoModel;
 import de.hybris.platform.order.InvalidCartException;
 import de.hybris.platform.order.exceptions.CalculationException;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.ui.Model;
 import org.springframework.validation.Errors;
 
-import javax.servlet.http.HttpServletRequest;
+import java.io.IOException;
 import java.util.Set;
 
 /**
- * Adyen Checkout Facade for initiating payments using CC or APM
+ * Adyen Checkout Facade for initiating payments using CC or APM.
  */
 public interface AdyenCheckoutFacade {
 
     String getShopperLocale();
 
     /**
-     * Retrieve the host of Secured Fields
+     * Retrieves the host of Secured Fields.
      */
     String getCheckoutShopperHost();
 
     /**
-     * Retrieve the environment is running in test mode or live mode
+     * Retrieves whether the environment is running in test mode or live mode.
      */
     String getEnvironmentMode();
 
     /**
-     * Removes cart from the session so that users can't update it while being in a payment page
+     * Removes the cart from the session so that users cannot update it while being on a payment page.
      */
     void lockSessionCart();
 
     /**
-     * Restores the sessionCart that has been previously locked
+     * Restores the sessionCart that has been previously locked.
      *
      * @return session cart
      * @throws InvalidCartException if cart cannot be retrieved
@@ -76,69 +78,71 @@ public interface AdyenCheckoutFacade {
     boolean getHolderNameRequired();
 
     /**
-     * Handles Adyen Redirect Response
-     * In case of authorized, it places an order from cart
+     * Handles an Adyen Redirect Response.
+     * In case of authorized, it places an order from the cart.
      *
-     * @param details consisting of parameters present in response query string
+     * @param details consisting of parameters present in the response query string
      * @return PaymentsResponse
      */
-    PaymentDetailsResponse handleRedirectPayload(PaymentCompletionDetails details) throws Exception;
+    PaymentDetailsResponse handleRedirectPayload(PaymentCompletionDetails details)
+            throws AdyenNonAuthorizedPaymentException, InvalidCartException, CalculationException;
 
     /**
-     * Authorizes a payment using Adyen API
-     * In case of authorized, it places an order from cart
+     * Authorizes a payment using the Adyen API.
+     * In case of authorized, it places an order from the cart.
      *
      * @param request  HTTP Request info
      * @param cartData cartData object
      * @return OrderData
-     * @throws Exception In case order failed to be created
+     * @throws Exception in case the order failed to be created
      */
-    OrderData authorisePayment(HttpServletRequest request, CartData cartData) throws Exception;
+    OrderData authorisePayment(HttpServletRequest request, CartData cartData)
+            throws AdyenNonAuthorizedPaymentException, InvalidCartException, ApiException, IOException;
 
-    OrderData handleResultcomponentPayment(PaymentResultDTO paymentResultDTO) throws Exception;
+    OrderData handleResultcomponentPayment(PaymentResultDTO paymentResultDTO) throws InvalidCartException;
 
     /**
-     * Creates a payment coming from an Adyen Checkout Component
-     * No session handling
+     * Creates a payment coming from an Adyen Checkout Component.
+     * No session handling.
      *
-     * @param request               HTTP Request info
-     * @param cartData              cartData object
+     * @param request        HTTP Request info
+     * @param cartData       cartData object
+     * @param paymentRequest the payment request
      * @return PaymentsResponse
-     * @throws Exception In case payment failed
+     * @throws Exception in case payment failed
      */
-    PaymentResponse componentPayment(HttpServletRequest request, CartData cartData, PaymentRequest paymentRequest) throws Exception;
+    PaymentResponse componentPayment(HttpServletRequest request, CartData cartData, PaymentRequest paymentRequest)
+            throws AdyenNonAuthorizedPaymentException, InvalidCartException, ApiException, IOException;
 
     /**
-     * Submit details from a payment made on an Adyen Checkout Component
-     * No session handling
+     * Submits details from a payment made on an Adyen Checkout Component.
+     * No session handling.
      *
-     * @param request               HTTP Request info
-     * @param details               details
-     * @param paymentData           paymentData
+     * @param detailsRequest the details request
      * @return PaymentsResponse
-     * @throws Exception In case request failed
+     * @throws Exception in case request failed
      */
-    PaymentDetailsResponse componentDetails(PaymentDetailsRequest detailsRequest) throws Exception;
+    PaymentDetailsResponse componentDetails(PaymentDetailsRequest detailsRequest)
+            throws ApiException, IOException, InvalidCartException;
 
     /**
-     * Add payment details to cart
+     * Adds payment details to the cart.
      */
     PaymentDetailsWsDTO addPaymentDetails(PaymentDetailsWsDTO paymentDetails);
 
-
     /**
-     * Handles an 3D response
-     * In case of authorized, it places an order from cart
+     * Handles a 3D response.
+     * In case of authorized, it places an order from the cart.
      *
-     * @param details HTTP Request object
+     * @param paymentDetailsRequest the payment details request
      * @return OrderData
-     * @throws Exception In case order failed to be created
+     * @throws Exception in case the order failed to be created
      */
-
-    OrderData handle3DSResponse(PaymentDetailsRequest paymentDetailsRequest) throws Exception;
+    OrderData handle3DSResponse(PaymentDetailsRequest paymentDetailsRequest)
+            throws AdyenNonAuthorizedPaymentException, InvalidCartException, CalculationException;
 
     /**
-     * Retrieve available payment methods
+     * Retrieves available payment methods and populates the model.
      */
     void initializeCheckoutData(Model model) throws ApiException;
 
@@ -153,47 +157,47 @@ public interface AdyenCheckoutFacade {
     ExpressCheckoutConfigDTO initializeExpressCheckoutPDPDataOCC(String productCode) throws ApiException;
 
     /**
-     * Returns whether Boleto should be shown as an available payment method on the checkout page
-     * Relevant for Brasil
+     * Returns whether Boleto should be shown as an available payment method on the checkout page.
+     * Relevant for Brazil.
      */
     boolean showBoleto();
 
     boolean showComboCard();
 
     /**
-     * Returns whether CC can be stored depending on the recurring contract settings
+     * Returns whether CC can be stored depending on the recurring contract settings.
      */
     boolean showRememberDetails();
 
     /**
-     * Returns whether Social Security Number should be shown on the checkout page
-     * Relevant for openinvoice methods
+     * Returns whether Social Security Number should be shown on the checkout page.
+     * Relevant for open-invoice methods.
      */
     boolean showSocialSecurityNumber();
 
     /**
-     * Creates PaymentInfoModel based on cart and form data
+     * Creates a PaymentInfoModel based on cart and form data.
      */
     PaymentInfoModel createPaymentInfo(CartModel cartModel, AdyenPaymentForm adyenPaymentForm);
 
     /**
-     * Handles payment form submission
-     * Validates the form and updates the cart based on form data
-     * Updates BindingResult
+     * Handles payment form submission.
+     * Validates the form and updates the cart based on form data.
+     * Updates BindingResult.
      */
     void handlePaymentForm(AdyenPaymentForm adyenPaymentForm, Errors errors);
 
-
     /**
-     * Returns whether payments have Immediate Capture or not
+     * Returns whether payments have Immediate Capture or not.
      */
     boolean isImmediateCapture();
 
     /**
-     * Handles payment result from component
-     * Validates the result and updates the cart based on it
+     * Handles payment result from component.
+     * Validates the result and updates the cart based on it.
      */
-    OrderData handleComponentResult(String resultCode,  String merchantReference) throws Exception;
+    OrderData handleComponentResult(String resultCode, String merchantReference)
+            throws AdyenNonAuthorizedPaymentException, InvalidCartException, CalculationException;
 
     void restoreCartFromOrderCodeInSession() throws InvalidCartException, CalculationException;
 
@@ -205,7 +209,11 @@ public interface AdyenCheckoutFacade {
 
     CheckoutConfigDTO getReactCheckoutConfig() throws ApiException;
 
-    AdyenCheckoutApiService  getAdyenPaymentService();
+    AdyenCheckoutApiService getAdyenPaymentService();
 
     OrderData placePendingOrder() throws InvalidCartException;
+
+    CheckoutConfigDTO getConfig() throws AdyenCheckoutConfigurationException;
+
+    PaymentLinkResponse generatePaymentLink(PaymentDetailsResponse detailsResponse);
 }

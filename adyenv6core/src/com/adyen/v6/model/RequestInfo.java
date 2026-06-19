@@ -21,8 +21,9 @@
 package com.adyen.v6.model;
 
 import com.adyen.v6.constants.StorefrontType;
+import jakarta.servlet.http.HttpServletRequest;
 
-import javax.servlet.http.HttpServletRequest;
+
 
 public class RequestInfo {
 

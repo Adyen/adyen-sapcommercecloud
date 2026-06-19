@@ -9,7 +9,6 @@
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <%@ taglib prefix="order" tagdir="/WEB-INF/tags/responsive/order" %>
 <%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
-<%@ taglib prefix="json" uri="http://www.atg.com/taglibs/json" %>
 <spring:url value="/checkout/multi/adyen/summary/component-result" var="handleComponentResult"/>
 
 <template:page pageTitle="${pageTitle}" hideHeaderLinks="true">
@@ -20,28 +19,21 @@
     />
 
     <script type="text/javascript">
-        <c:set var="initConfig">
-        <json:object escapeXml="false">
-        <json:property name="shopperLocale" value="${shopperLocale}"/>
-        <json:property name="environment" value="${environmentMode}"/>
-        <json:property name="clientKey" value="${clientKey}"/>
-        <json:property name="countryCode" value="${countryCode}"/>
-        </json:object>
-        </c:set>
-
-        <c:set var="callbackConfig">
-        <json:object escapeXml="false" name="callbackConfig">
-        <json:object escapeXml="false" name="amount">
-        <json:property name="value" value="${amount.value}"/>
-        <json:property name="currency" value="${amount.currency}"/>
-        </json:object>
-        <json:property name="merchantAccount" value="${merchantAccount}"/>
-        <json:array name="label" items="${['visible-xs', 'hidden-xs']}"/>
-        </json:object>
-        </c:set>
-
-        const initConfig = ${initConfig};
-        const callbackConfig = ${callbackConfig};
+        const initConfig = {
+            shopperLocale: "${shopperLocale}",
+            environment: "${environmentMode}",
+            clientKey: "${clientKey}",
+            countryCode: "${countryCode}"
+        };
+        
+        const callbackConfig = {
+            amount: {
+                value: ${amount.value},
+                currency: "${amount.currency}"
+            },
+            merchantAccount: "${merchantAccount}",
+            label: ["visible-xs", "hidden-xs"]
+        };
         const paymentMethodConfigs = {};
 
         const adyenCheckout = new AdyenCheckoutHelper();

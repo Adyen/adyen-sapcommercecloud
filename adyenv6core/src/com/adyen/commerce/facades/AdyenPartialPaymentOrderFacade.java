@@ -17,4 +17,14 @@ public interface AdyenPartialPaymentOrderFacade {
      * @throws RuntimeException if the operation fails
      */
     PartialPaymentOrderResponse createPartialPaymentOrder(PartialPaymentOrderRequest request);
+
+    /**
+     * Cancel a partial payment order on Adyen side via /orders/cancel endpoint.
+     * This releases the held amount back to the gift card when the secondary payment fails
+     * (e.g. 3DS challenge abandoned, credit card payment declined).
+     *
+     * @param pspReference The PSP reference of the partial payment order to cancel
+     * @throws RuntimeException if the operation fails
+     */
+    void cancelPartialPaymentOrder(String pspReference);
 }

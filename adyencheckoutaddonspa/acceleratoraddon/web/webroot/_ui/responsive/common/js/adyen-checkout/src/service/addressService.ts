@@ -32,9 +32,9 @@ export class AddressService {
     }
 
     static async selectDeliveryAddress(addressId: string) {
-        return adyenAxios.post(urlContextPath + '/api/checkout/delivery-address', addressId, {
+        return adyenAxios.post(urlContextPath + '/api/checkout/delivery-address', { addressId: addressId }, {
             headers: {
-                'Content-Type': 'text/plain',
+                'Content-Type': 'application/json',
                 'CSRFToken': CSRFToken
             }
         })

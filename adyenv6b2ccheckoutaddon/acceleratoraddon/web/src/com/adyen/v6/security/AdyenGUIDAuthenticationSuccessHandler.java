@@ -23,13 +23,12 @@ package com.adyen.v6.security;
 
 import com.adyen.v6.utils.SameSiteCookieAttributeAppenderUtils;
 import de.hybris.platform.acceleratorstorefrontcommons.security.GUIDCookieStrategy;
-import org.springframework.beans.factory.annotation.Required;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 /*
@@ -61,7 +60,6 @@ public class AdyenGUIDAuthenticationSuccessHandler implements AuthenticationSucc
 	/**
 	 * @param guidCookieStrategy the guidCookieStrategy to set
 	 */
-	@Required
 	public void setGuidCookieStrategy(final GUIDCookieStrategy guidCookieStrategy)
 	{
 		this.guidCookieStrategy = guidCookieStrategy;
@@ -75,7 +73,6 @@ public class AdyenGUIDAuthenticationSuccessHandler implements AuthenticationSucc
 	/**
 	 * @param authenticationSuccessHandler the authenticationSuccessHandler to set
 	 */
-	@Required
 	public void setAuthenticationSuccessHandler(final AuthenticationSuccessHandler authenticationSuccessHandler)
 	{
 		this.authenticationSuccessHandler = authenticationSuccessHandler;

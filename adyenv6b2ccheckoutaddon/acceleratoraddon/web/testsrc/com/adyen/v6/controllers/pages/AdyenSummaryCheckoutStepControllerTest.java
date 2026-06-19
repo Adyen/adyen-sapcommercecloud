@@ -5,7 +5,7 @@ import com.adyen.model.checkout.PaymentResponse;
 import com.adyen.model.terminal.TerminalAPIResponse;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.constants.AdyenControllerConstants;
-import com.adyen.v6.facades.AdyenCheckoutFacade;
+import com.adyen.commerce.facades.AdyenCheckoutFacade;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import de.hybris.bootstrap.annotations.UnitTest;
 import de.hybris.platform.acceleratorfacades.flow.CheckoutFlowFacade;
@@ -34,18 +34,18 @@ import de.hybris.platform.commerceservices.order.CommerceCartModificationExcepti
 import de.hybris.platform.commerceservices.strategies.CheckoutCustomerStrategy;
 import de.hybris.platform.servicelayer.config.ConfigurationService;
 import de.hybris.platform.site.BaseSiteService;
-import org.apache.commons.configuration.Configuration;
+import org.apache.commons.configuration2.Configuration;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
-import org.mockito.runners.MockitoJUnitRunner;
+import org.mockito.junit.MockitoJUnitRunner;
 import org.springframework.ui.Model;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -54,7 +54,8 @@ import java.util.Map;
 import static com.adyen.v6.constants.AdyenControllerConstants.CART_PREFIX;
 import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_PAYPAL;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Matchers.*;
+import static org.easymock.EasyMock.anyObject;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.when;
 
@@ -311,12 +312,9 @@ public class AdyenSummaryCheckoutStepControllerTest {
         when(checkoutFacadeMock.getCheckoutCart()).thenReturn(cartDataMock);
         when(checkoutFlowFacadeMock.getCheckoutCart()).thenReturn(cartDataMock);
         when(cartDataMock.getEntries()).thenReturn(null);
-        when(cmsPageServiceMock.getHomepage(anyObject())).thenReturn(contentPageModelMock);
         when(cmsSiteServiceMock.getCurrentSite()).thenReturn(cmsSiteModelMock);
         when(cmsSiteServiceMock.getStartPageLabelOrId(cmsSiteModelMock)).thenReturn(CONTENT_PAGE_MODEL_ID);
         when(cmsPreviewServiceMock.getPagePreviewCriteria()).thenReturn(pagePreviewCriteriaDataMock);
-        when(cmsPageServiceMock.getPageForLabelOrId(MULTI_CHECKOUT_SUMMARY_CMS_PAGE_LABEL_MOCK, pagePreviewCriteriaDataMock)).
-                thenReturn(contentPageModelMock);
         when(pageTitleResolverMock.resolveContentPageTitle(CONTENT_PAGE_MODEL_TITLE)).thenReturn(CONTENT_PAGE_MODEL_TITLE);
         when(resourceBreadcrumbBuilderMock.getBreadcrumbs(anyObject())).thenReturn(breadcrumbs);
         when(checkoutFacadeMock.getCheckoutFlowGroupForCheckout()).thenReturn(CHECKOUT_FLOW_GROUP_FOR_CHECKOUT_MOCK);

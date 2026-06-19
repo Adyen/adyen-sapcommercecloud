@@ -3,9 +3,10 @@ package com.adyen.commerce.facades.impl;
 import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.commerce.dto.OrderPaymentResult;
 import com.adyen.commerce.facades.AdyenCheckoutApiFacade;
+import com.adyen.commerce.facades.AdyenPartialPaymentOrderFacade;
 import com.adyen.model.checkout.*;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
-import com.adyen.v6.facades.impl.DefaultAdyenCheckoutFacade;
+import com.adyen.commerce.facades.impl.DefaultAdyenCheckoutFacade;
 import com.adyen.v6.forms.AddressForm;
 import com.adyen.v6.model.RequestInfo;
 import com.adyen.v6.model.AdyenPartialPaymentOrderModel;
@@ -22,9 +23,9 @@ import de.hybris.platform.core.model.order.OrderModel;
 import de.hybris.platform.core.model.order.payment.PaymentInfoModel;
 import de.hybris.platform.core.model.user.AddressModel;
 import de.hybris.platform.core.model.user.CustomerModel;
+import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.lang3.StringUtils;
 
-import javax.servlet.http.HttpServletRequest;
 import java.math.BigDecimal;
 
 public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade implements AdyenCheckoutApiFacade {
@@ -33,6 +34,7 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
 
     private AdyenPartialPaymentService adyenPartialPaymentService;
     private AdyenPartialPaymentOrderRepository adyenPartialPaymentOrderRepository;
+    private AdyenPartialPaymentOrderFacade adyenPartialPaymentOrderFacade;
 
     public void preHandlePlaceOrder(PaymentRequest paymentRequest, String adyenPaymentMethod,
                                     AddressForm billingAddress, Boolean useAdyenDeliveryAddress) {
@@ -125,7 +127,42 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
 
         }
 
+        // Payment failed — cancel any partial payment orders (gift card amounts) before throwing
+        cancelPartialPaymentOrdersOnFailure();
         throw new AdyenNonAuthorizedPaymentException(paymentResponse);
+    }
+
+    /**
+     * Cancel all partial payment orders associated with the current session cart.
+     * This is called when a payment fails after a gift card has already been redeemed,
+     * to release the held amount back to the gift card via Adyen /orders/cancel.
+     */
+    protected void cancelPartialPaymentOrdersOnFailure() {
+        if (getAdyenPartialPaymentOrderFacade() == null) {
+            LOGGER.warn("AdyenPartialPaymentOrderFacade not available — skipping partial payment order cancellation");
+            return;
+        }
+        try {
+            CartModel cartModel = getCartService().getSessionCart();
+            if (cartModel == null || cartModel.getAdyenPartialPaymentOrders() == null) {
+                return;
+            }
+            for (AdyenPartialPaymentOrderModel partialPayment : cartModel.getAdyenPartialPaymentOrders()) {
+                if (partialPayment.getPspReference() != null
+                        && !partialPayment.getPspReference().isEmpty()
+                        && (partialPayment.getStatus() == AdyenPartialPaymentStatus.CREATED
+                            || partialPayment.getStatus() == AdyenPartialPaymentStatus.AUTHORIZED)) {
+                    try {
+                        getAdyenPartialPaymentOrderFacade().cancelPartialPaymentOrder(partialPayment.getPspReference());
+                        LOGGER.info("Cancelled partial payment order on payment failure, PSP reference: " + partialPayment.getPspReference());
+                    } catch (Exception e) {
+                        LOGGER.error("Failed to cancel partial payment order with PSP reference: " + partialPayment.getPspReference(), e);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.error("Failed to cancel partial payment orders on payment failure", e);
+        }
     }
 
     @Override
@@ -175,6 +212,9 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
             return new OrderPaymentResult(getOrderConverter().convert(orderModel), paymentsDetailsResponse);
         }
 
+        // Payment additional details failed or unexpected result — cancel any partial payment
+        // orders (gift card amounts) before throwing
+        cancelPartialPaymentOrdersOnFailure();
         throw new AdyenNonAuthorizedPaymentException(paymentsDetailsResponse);
     }
 
@@ -295,5 +335,13 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
 
     public void setAdyenPartialPaymentOrderRepository(AdyenPartialPaymentOrderRepository adyenPartialPaymentOrderRepository) {
         this.adyenPartialPaymentOrderRepository = adyenPartialPaymentOrderRepository;
+    }
+
+    public AdyenPartialPaymentOrderFacade getAdyenPartialPaymentOrderFacade() {
+        return adyenPartialPaymentOrderFacade;
+    }
+
+    public void setAdyenPartialPaymentOrderFacade(AdyenPartialPaymentOrderFacade adyenPartialPaymentOrderFacade) {
+        this.adyenPartialPaymentOrderFacade = adyenPartialPaymentOrderFacade;
     }
 }
