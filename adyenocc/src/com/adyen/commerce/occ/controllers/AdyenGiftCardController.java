@@ -32,6 +32,7 @@ public class AdyenGiftCardController extends GiftCardControllerBase implements A
     private static final String ERROR_AMOUNT_REQUIRED = "Amount is required";
     private static final String ERROR_TYPE_REQUIRED = "Gift card type is required";
     private static final String ERROR_BRAND_REQUIRED = "Gift card brand is required";
+    private static final String ERROR_BALANCE_CHECK_FAILED = "Unable to process gift card balance request";
     
     protected static ObjectMapper objectMapper;
 
@@ -75,9 +76,10 @@ public class AdyenGiftCardController extends GiftCardControllerBase implements A
         } catch (RuntimeException e) {
             LOG.error("Error during gift card balance check", e);
             
-            // Determine appropriate HTTP status based on exception message
+            // Determine appropriate HTTP status based on exception message,
+            // but return a generic message to avoid exposing internal error details.
             HttpStatus status = determineHttpStatus(e.getMessage());
-            return ResponseEntity.status(status).body(e.getMessage());
+            return ResponseEntity.status(status).body(ERROR_BALANCE_CHECK_FAILED);
         } catch (Exception e) {
             LOG.error("Unexpected error during gift card balance check", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

@@ -27,6 +27,8 @@ import static com.adyen.v6.constants.Adyenv6coreConstants.*;
 public class AdyenPartialPaymentOrderController implements AdyenPartialPaymentOrderApi {
     
     private static final Logger LOG = Logger.getLogger(AdyenPartialPaymentOrderController.class);
+
+    private static final String ERROR_ORDER_CREATION_FAILED = "Unable to process partial payment order request";
     
     protected static ObjectMapper objectMapper;
 
@@ -62,9 +64,10 @@ public class AdyenPartialPaymentOrderController implements AdyenPartialPaymentOr
         } catch (RuntimeException e) {
             LOG.error("Error during partial payment order creation", e);
             
-            // Determine appropriate HTTP status based on exception message
+            // Determine appropriate HTTP status based on exception message,
+            // but return a generic message to avoid exposing internal error details.
             HttpStatus status = determineHttpStatus(e.getMessage());
-            return ResponseEntity.status(status).body(e.getMessage());
+            return ResponseEntity.status(status).body(ERROR_ORDER_CREATION_FAILED);
         } catch (Exception e) {
             LOG.error("Unexpected error during partial payment order creation", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
