@@ -1,5 +1,5 @@
 import React, { RefObject, useEffect, useRef, useCallback } from "react";
-import { AdyenCheckout, AdyenCheckoutError, Dropin } from '@adyen/adyen-web/auto';
+import { AdyenCheckout, AdyenCheckoutError, Dropin, PromptPay } from '@adyen/adyen-web/auto';
 import '@adyen/adyen-web/styles/adyen.css';
 import {
     AdditionalDetailsActions,
@@ -10,6 +10,12 @@ import {
 } from "@adyen/adyen-web";
 import { AdyenConfigData } from "../../types/adyenConfigData";
 import { AddressData } from "../../types/addressData";
+
+class IrisQrCodeElement extends PromptPay {}
+
+(IrisQrCodeElement as any).type = 'iris';
+(IrisQrCodeElement as any).txVariants = ['iris'];
+AdyenCheckout.register(IrisQrCodeElement as any);
 
 interface PaymentDropInProps {
     adyenConfig: AdyenConfigData;
@@ -161,6 +167,7 @@ export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
                         }
                     }
                 },
+                paymentMethodComponents: [IrisQrCodeElement as any],
                 showPayButton: true,
                 showRemovePaymentMethodButton: true,
                 isPartialPayment: true,

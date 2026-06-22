@@ -416,29 +416,49 @@ class PaymentComponentFactory {
         }
     }
 
-    createPix(params) {
+    createQrCodePayment(params) {
         const {label, issuers} = params;
-        $("#generateqr-" + label).click(() => {
+        const paymentType = params.paymentType || "pix";
+        const generateQrButton = $("#generateqr-" + label);
+        const placeOrderButton = $("#placeOrder-" + label);
+        const button = generateQrButton.length ? generateQrButton : placeOrderButton;
+        const qrContainerSelector = document.getElementById('qrcode-container-' + label)
+            ? '#qrcode-container-' + label
+            : '#adyen-component-container-' + label;
+
+        if (!button.length || !document.querySelector(qrContainerSelector)) {
+            return;
+        }
+
+        button.off('click.adyenQrCode').on('click.adyenQrCode', (event) => {
+            event.preventDefault();
             this.helper.showSpinner();
             if (!this.helper.isTermsAccepted(label)) {
                 this.helper.handleResult({resultCode: ErrorMessages.TermsNotAccepted}, true)
             } else {
-                $("#generateqr-" + label).hide();
+                button.hide();
                 $(".checkbox").hide();
                 var actionHandler = {
                     handleAction: (action) => {
-                        this.helper.checkout.createFromAction(action, { //TODO FXIME: check if this is correct
-                            issuers: issuers,
+                        this.helper.checkout.createFromAction(action, {
+                            ...(issuers && {issuers: issuers}),
                             onAdditionalDetails: (state) => {
                                 this.helper.hideSpinner();
                                 this.helper.submitDetails(state.data, this.helper.handleResult);
                             }
-                        }).mount('#qrcode-container-' + label);
+                        }).mount(qrContainerSelector);
                         this.helper.hideSpinner();
                     }
                 };
-                this.helper.makePayment({type: "pix"}, actionHandler, this.helper.handleResult);
+                this.helper.makePayment({paymentMethod: {type: paymentType}}, actionHandler, this.helper.handleResult);
             }
+        });
+    }
+
+    createPix(params) {
+        this.createQrCodePayment({
+            ...params,
+            paymentType: params.paymentType || "pix"
         });
     }
 
@@ -456,27 +476,9 @@ class PaymentComponentFactory {
     }
 
     createBcmcMobile(params) {
-        const {label} = params;
-        $("#generateqr-" + label).click(() => {
-            this.helper.showSpinner();
-            if (!this.helper.isTermsAccepted(label)) {
-                this.helper.handleResult({resultCode: ErrorMessages.TermsNotAccepted}, true)
-            } else {
-                $("#generateqr-" + label).hide();
-                $(".checkbox").hide();
-                var actionHandler = {
-                    handleAction: (action) => {
-                        this.helper.checkout.createFromAction(action, { //TODO FXIME: check if this is correct
-                            onAdditionalDetails: (state) => {
-                                this.helper.hideSpinner();
-                                this.helper.submitDetails(state.data, this.helper.handleResult);
-                            }
-                        }).mount('#qrcode-container-' + label);
-                        this.helper.hideSpinner();
-                    }
-                };
-                this.helper.makePayment({type: "bcmc_mobile"}, actionHandler, this.helper.handleResult);
-            }
+        this.createQrCodePayment({
+            ...params,
+            paymentType: "bcmc_mobile"
         });
     }
 
@@ -558,12 +560,21 @@ class PaymentComponentFactory {
     }
 
     createRedirectPaymentMethod(paymentMethod) {
+        const buttonContainer = document.getElementById('adyen-component-button-container-' + paymentMethod.label);
+        const componentContainer = document.getElementById('adyen-component-container-' + paymentMethod.label);
+        const mountNode = buttonContainer || componentContainer;
+
+        if (!mountNode) {
+            console.log('Could not mount redirect component: missing container for ' + paymentMethod.paymentType);
+            return;
+        }
+
         new AdyenWeb.Redirect(this.checkout, {
             type: paymentMethod.paymentType,
             onChange: this.handleOnChange,
             onSubmit: (state, component) => {
                 if (!state.isValid) {
-                    this.helper.enablePlaceOrder(label);
+                    this.helper.enablePlaceOrder(paymentMethod.label);
                     return;
                 }
                 this.helper.makePayment(state.data, component, this.helper.handleResult);
@@ -571,7 +582,7 @@ class PaymentComponentFactory {
             onAdditionalDetails: (state, component) => {
                 this.helper.submitDetails(state.data, this.helper.handleResult);
             },
-        }).mount('#adyen-component-button-container-' + paymentMethod.label);
+        }).mount(mountNode);
     }
 
     initiateWalletIN() {
