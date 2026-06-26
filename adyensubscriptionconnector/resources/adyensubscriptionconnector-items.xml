@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!--
+
+ Vendor-neutral type-system extensions for the agnostic subscription billing
+ connector. Nothing here references a concrete platform; the BillingPlatform
+ enum simply enumerates the supported adapters. Persisted external references
+ let a single shopper carry credentials/subscriptions for more than one
+ platform simultaneously (useful for migration / A-B).
+-->
+<items xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="items.xsd">
+
+    <enumtypes>
+        <!-- One value per supported connector adapter. ADYEN_NATIVE represents the
+             built-in, no-external-platform billing path (existing adyenv6subscription). -->
+        <enumtype code="BillingPlatform" generate="true" autocreate="true" dynamic="true">
+            <description>External subscription billing platform driven through a connector adapter.</description>
+            <value code="RECURLY"/>
+            <value code="CHARGEBEE"/>
+            <value code="ZUORA"/>
+            <value code="ADYEN_NATIVE"/>
+        </enumtype>
+    </enumtypes>
+
+    <relations>
+        <!-- A shopper can hold one external customer reference per platform. -->
+        <relation code="Customer2BillingCustomerRef" localized="false" generate="true" autocreate="true">
+            <sourceElement type="Customer" qualifier="customer" cardinality="one">
+                <modifiers read="true" write="true" search="true" optional="true"/>
+            </sourceElement>
+            <targetElement type="BillingCustomerRef" qualifier="billingCustomerRefs" cardinality="many">
+                <modifiers read="true" write="true" search="true" optional="true" partof="true"/>
+            </targetElement>
+        </relation>
+
+        <!-- A stored payment method can be imported into one or more platforms. -->
+        <relation code="PaymentInfo2BillingPaymentMethodRef" localized="false" generate="true" autocreate="true">
+            <sourceElement type="PaymentInfo" qualifier="paymentInfo" cardinality="one">
+                <modifiers read="true" write="true" search="true" optional="true"/>
+            </sourceElement>
+            <targetElement type="BillingPaymentMethodRef" qualifier="billingPaymentMethodRefs" cardinality="many">
+                <modifiers read="true" write="true" search="true" optional="true" partof="true"/>
+            </targetElement>
+        </relation>
+    </relations>
+
+    <itemtypes>
+
+        <!-- BaseStore: which connector is active for this store. -->
+        <itemtype code="BaseStore" autocreate="false" generate="false">
+            <attributes>
+                <attribute qualifier="activeBillingPlatform" type="BillingPlatform">
+                    <description>Active subscription billing connector for this store (one active connector per BaseStore).</description>
+                    <persistence type="property"/>
+                    <modifiers optional="true"/>
+                </attribute>
+            </attributes>
+        </itemtype>
+
+        <!-- Opaque external customer reference {platform, externalId}. -->
+        <itemtype code="BillingCustomerRef" extends="GenericItem" autocreate="true" generate="true">
+            <deployment table="BillingCustomerRef" typecode="22944"/>
+            <attributes>
+                <attribute qualifier="platform" type="BillingPlatform">
+                    <description>The billing platform this reference belongs to.</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false" initial="true"/>
+                </attribute>
+                <attribute qualifier="externalId" type="java.lang.String">
+                    <description>The customer/account id on the external platform.</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false"/>
+                </attribute>
+            </attributes>
+        </itemtype>
+
+        <!-- Opaque external payment-method reference {platform, externalId}. -->
+        <itemtype code="BillingPaymentMethodRef" extends="GenericItem" autocreate="true" generate="true">
+            <deployment table="BillingPaymtMethodRef" typecode="22945"/>
+            <attributes>
+                <attribute qualifier="platform" type="BillingPlatform">
+                    <description>The billing platform this reference belongs to.</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false" initial="true"/>
+                </attribute>
+                <attribute qualifier="externalId" type="java.lang.String">
+                    <description>The payment-source/billing-info id on the external platform.</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false"/>
+                </attribute>
+            </attributes>
+        </itemtype>
+
+        <!-- Persisted record of an external subscription created via a connector.
+             Kept connector-owned and lightweight so the core does not hard-depend on
+             SAP subscriptionservices (D2 may later wire SAP Subscription reuse). -->
+        <itemtype code="BillingSubscriptionRef" extends="GenericItem" autocreate="true" generate="true">
+            <deployment table="BillingSubscriptionRef" typecode="22946"/>
+            <attributes>
+                <attribute qualifier="platform" type="BillingPlatform">
+                    <description>The billing platform this subscription runs on.</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false" initial="true"/>
+                </attribute>
+                <attribute qualifier="externalSubscriptionId" type="java.lang.String">
+                    <description>The subscription id on the external platform.</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false"/>
+                </attribute>
+                <attribute qualifier="externalCustomerId" type="java.lang.String">
+                    <description>The external customer id this subscription belongs to.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="externalPaymentMethodId" type="java.lang.String">
+                    <description>The external payment-method id charged for this subscription.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="status" type="java.lang.String">
+                    <description>Normalized subscription status as last synced from the platform.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="planCode" type="java.lang.String">
+                    <description>Resolved platform plan/price code.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="quantity" type="java.lang.Integer">
+                    <description>Subscribed quantity.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="currencyIsoCode" type="java.lang.String">
+                    <description>ISO currency code of the subscription.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="currentPeriodStart" type="java.util.Date">
+                    <description>Start of the current billing period (from platform).</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="currentPeriodEnd" type="java.util.Date">
+                    <description>End of the current billing period (from platform).</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="idempotencyKey" type="java.lang.String">
+                    <description>Idempotency key used when this subscription was activated.</description>
+                    <persistence type="property"/>
+                    <modifiers initial="true"/>
+                </attribute>
+                <attribute qualifier="order" type="AbstractOrder">
+                    <description>The SAP order this subscription was activated from.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="customer" type="Customer">
+                    <description>The SAP shopper that owns this subscription.</description>
+                    <persistence type="property"/>
+                </attribute>
+            </attributes>
+            <indexes>
+                <index name="idx_billingSubRef_extId">
+                    <key attribute="platform"/>
+                    <key attribute="externalSubscriptionId"/>
+                </index>
+            </indexes>
+        </itemtype>
+
+    </itemtypes>
+
+</items>
