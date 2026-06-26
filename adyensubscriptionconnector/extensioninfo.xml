@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!--
+
+ adyensubscriptionconnector - agnostic subscription billing connector core.
+ Defines the SubscriptionBillingConnector SPI (port), the vendor-neutral domain
+ model, the orchestration service and the SAP type-system extensions. Concrete
+ platform adapters (recurly/chargebee/zuora) live in their own extensions and
+ implement the SPI defined here.
+-->
+<extensioninfo xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="extensioninfo.xsd">
+
+    <extension abstractclassprefix="Generated" classprefix="Adyensubscriptionconnector" jaloLogicFree="true"
+               managername="AdyensubscriptionconnectorManager"
+               managersuperclass="de.hybris.platform.jalo.extension.Extension"
+               name="adyensubscriptionconnector" usemaven="false">
+
+        <!-- The connector core consumes the Adyen token captured by adyenv6core
+             (PaymentInfo.adyenSelectedReference, BaseStore.adyenMerchantAccount,
+             AdyenMerchantAccountStrategy) and the standard commerce services. -->
+        <requires-extension name="adyenv6core"/>
+        <requires-extension name="commerceservices"/>
+
+        <coremodule generated="true" manager="com.adyen.commerce.connector.jalo.AdyensubscriptionconnectorManager"
+                    packageroot="com.adyen.commerce.connector"/>
+    </extension>
+
+</extensioninfo>
