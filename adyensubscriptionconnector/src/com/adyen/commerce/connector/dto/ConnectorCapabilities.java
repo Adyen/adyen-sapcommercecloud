@@ -38,4 +38,8 @@ public record ConnectorCapabilities(boolean requiresNetworkTransactionId,
                                     boolean liveTokenValidationOnImport,
                                     TokenImportStyle tokenImportStyle)
 {
+	public ConnectorCapabilities
+	{
+		Dtos.requireValue(tokenImportStyle, "tokenImportStyle");
+	}
 }

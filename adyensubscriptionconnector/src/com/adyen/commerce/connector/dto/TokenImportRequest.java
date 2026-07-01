@@ -27,4 +27,10 @@ public record TokenImportRequest(BillingCustomerRef customer,
                                  AdyenTokenHandle token,
                                  RecurringProcessingModel model)
 {
+	public TokenImportRequest
+	{
+		Dtos.requireValue(customer, "customer");
+		Dtos.requireValue(token, "token");
+		Dtos.requireValue(model, "model");
+	}
 }

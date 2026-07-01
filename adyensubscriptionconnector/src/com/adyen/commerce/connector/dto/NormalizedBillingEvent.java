@@ -36,4 +36,10 @@ public record NormalizedBillingEvent(BillingPlatform platform,
                                      Instant occurredAt,
                                      Map<String, String> attributes)
 {
+	public NormalizedBillingEvent
+	{
+		Dtos.requireValue(platform, "platform");
+		Dtos.requireValue(type, "type");
+		attributes = Dtos.immutableCopy(attributes);
+	}
 }

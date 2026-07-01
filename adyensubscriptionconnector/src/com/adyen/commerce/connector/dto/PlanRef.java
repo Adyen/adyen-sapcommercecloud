@@ -26,4 +26,8 @@ package com.adyen.commerce.connector.dto;
  */
 public record PlanRef(String planId, String priceId)
 {
+	public PlanRef
+	{
+		Dtos.requireText(planId, "planId");
+	}
 }

@@ -33,4 +33,9 @@ public record SubscriptionUpdateRequest(BillingSubscriptionRef subscription,
                                         Map<String, String> metadata,
                                         String idempotencyKey)
 {
+	public SubscriptionUpdateRequest
+	{
+		Dtos.requireValue(subscription, "subscription");
+		metadata = Dtos.immutableCopy(metadata);
+	}
 }

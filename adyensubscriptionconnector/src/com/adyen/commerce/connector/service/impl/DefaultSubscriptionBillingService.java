@@ -64,6 +64,7 @@ import de.hybris.platform.servicelayer.event.EventService;
 import de.hybris.platform.servicelayer.model.ModelService;
 import de.hybris.platform.servicelayer.search.FlexibleSearchQuery;
 import de.hybris.platform.servicelayer.search.FlexibleSearchService;
+import de.hybris.platform.store.BaseStoreModel;
 
 /**
  * Default orchestration. Holds no per-platform logic: every platform difference is delegated to the
@@ -89,10 +90,14 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 	public BillingSubscriptionRefModel activateSubscription(final AbstractOrderModel order, final ProductModel subProduct)
 			throws BillingException
 	{
-		final SubscriptionBillingConnector connector = connectorRegistry.getActiveConnector(order.getStore());
+		validateActivationInputs(order, subProduct);
+		final BaseStoreModel store = order.getStore();
+		final CustomerModel customer = asCustomer(order);
+
+		final SubscriptionBillingConnector connector = connectorRegistry.getActiveConnector(store);
 
 		// Design R2: the connector's Adyen account must match the store's, else the token is uncharged.
-		merchantAccountValidator.validate(connector, order.getStore());
+		merchantAccountValidator.validate(connector, store);
 
 		// Idempotency (seed for design P4.4): never create a second subscription for the same order/platform.
 		final Optional<BillingSubscriptionRefModel> existing = findSubscriptionRef(order, connector.platform());
@@ -113,7 +118,6 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 					+ " requires a network transaction id (NTID) but the captured Adyen token has none");
 		}
 
-		final CustomerModel customer = (CustomerModel) order.getUser();
 		final String idempotencyKey = order.getCode();
 
 		final BillingCustomerRef customerRef = connector.ensureCustomer(buildCustomerSyncRequest(customer));
@@ -126,9 +130,10 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 		final PlanRef plan = connector.resolvePlan(new PlanResolutionRequest(subProduct.getCode(), Map.of()));
 
 		final Instant startDate = caps.supportsImmediateStart() ? clock.instant() : null;
+		final String currencyIsoCode = order.getCurrency() == null ? null : order.getCurrency().getIsocode();
 
 		final SubscriptionCreateRequest createRequest = new SubscriptionCreateRequest(customerRef, paymentMethodRef, plan,
-				1, null, null, startDate, buildMetadata(order, subProduct), idempotencyKey);
+				1, null, currencyIsoCode, null, startDate, buildMetadata(order, subProduct), idempotencyKey);
 
 		final BillingSubscriptionRef subscriptionRef = connector.createSubscription(createRequest);
 
@@ -136,18 +141,54 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 				paymentMethodRef, plan, idempotencyKey);
 
 		publishActivated(model);
+		LOG.info("Activated subscription {} for order '{}' on platform {}", subscriptionRef.externalId(),
+				order.getCode(), connector.platform());
 		return model;
 	}
 
 	@Override
 	public void cancel(final BillingSubscriptionRefModel subscription, final CancelReason reason) throws BillingException
 	{
+		if (subscription == null)
+		{
+			throw new PreconditionFailedException("Cannot cancel a null subscription reference");
+		}
+		final CancelReason effectiveReason = reason == null ? CancelReason.OTHER : reason;
 		final SubscriptionBillingConnector connector = connectorRegistry.getConnector(subscription.getPlatform());
 		final BillingSubscriptionRef ref = new BillingSubscriptionRef(subscription.getPlatform(),
 				subscription.getExternalSubscriptionId());
-		connector.cancelSubscription(new SubscriptionCancelRequest(ref, reason, false, subscription.getIdempotencyKey()));
+		connector.cancelSubscription(
+				new SubscriptionCancelRequest(ref, effectiveReason, false, subscription.getIdempotencyKey()));
 		subscription.setStatus(STATUS_CANCELLED);
 		modelService.save(subscription);
+	}
+
+	protected void validateActivationInputs(final AbstractOrderModel order, final ProductModel subProduct)
+			throws PreconditionFailedException
+	{
+		if (order == null)
+		{
+			throw new PreconditionFailedException("Cannot activate a subscription without an order");
+		}
+		if (subProduct == null)
+		{
+			throw new PreconditionFailedException("Cannot activate a subscription without a subscription product");
+		}
+		if (order.getStore() == null)
+		{
+			throw new PreconditionFailedException(
+					"Order '" + order.getCode() + "' has no base store; cannot resolve a billing connector");
+		}
+	}
+
+	protected CustomerModel asCustomer(final AbstractOrderModel order) throws PreconditionFailedException
+	{
+		if (order.getUser() instanceof CustomerModel customer)
+		{
+			return customer;
+		}
+		throw new PreconditionFailedException("Order '" + order.getCode()
+				+ "' is not owned by a customer; a subscription requires a Customer for the shopperReference");
 	}
 
 	protected CustomerSyncRequest buildCustomerSyncRequest(final CustomerModel customer)

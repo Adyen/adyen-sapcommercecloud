@@ -26,4 +26,9 @@ package com.adyen.commerce.connector.dto;
  */
 public record BillingCycle(BillingInterval interval, int intervalCount)
 {
+	public BillingCycle
+	{
+		Dtos.requireValue(interval, "interval");
+		Dtos.requirePositive(intervalCount, "intervalCount");
+	}
 }

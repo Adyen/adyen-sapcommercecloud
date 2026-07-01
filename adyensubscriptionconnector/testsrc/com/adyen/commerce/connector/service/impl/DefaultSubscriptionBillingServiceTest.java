@@ -46,6 +46,7 @@ import com.adyen.commerce.connector.dto.AdyenTokenHandle;
 import com.adyen.commerce.connector.dto.BillingCustomerRef;
 import com.adyen.commerce.connector.dto.BillingPaymentMethodRef;
 import com.adyen.commerce.connector.dto.BillingSubscriptionRef;
+import com.adyen.commerce.connector.dto.CancelReason;
 import com.adyen.commerce.connector.dto.ConnectorCapabilities;
 import com.adyen.commerce.connector.dto.PlanRef;
 import com.adyen.commerce.connector.dto.TokenImportStyle;
@@ -66,6 +67,7 @@ import de.hybris.platform.core.model.order.AbstractOrderModel;
 import de.hybris.platform.core.model.order.payment.PaymentInfoModel;
 import de.hybris.platform.core.model.product.ProductModel;
 import de.hybris.platform.core.model.user.CustomerModel;
+import de.hybris.platform.core.model.user.UserModel;
 import de.hybris.platform.servicelayer.event.EventService;
 import de.hybris.platform.servicelayer.model.ModelService;
 import de.hybris.platform.servicelayer.search.FlexibleSearchQuery;
@@ -199,6 +201,26 @@ public class DefaultSubscriptionBillingServiceTest
 		assertSame(existing, result);
 		verify(connector, never()).ensureCustomer(any());
 		verify(connector, never()).createSubscription(any());
+	}
+
+	@Test
+	public void shouldRejectActivationWhenOrderNotOwnedByCustomer()
+	{
+		when(order.getUser()).thenReturn(mock(UserModel.class));
+
+		assertThrows(PreconditionFailedException.class, () -> service.activateSubscription(order, subProduct));
+	}
+
+	@Test
+	public void shouldRejectActivationWithNullOrder()
+	{
+		assertThrows(PreconditionFailedException.class, () -> service.activateSubscription(null, subProduct));
+	}
+
+	@Test
+	public void shouldRejectCancelOfNullSubscription()
+	{
+		assertThrows(PreconditionFailedException.class, () -> service.cancel(null, CancelReason.OTHER));
 	}
 
 	private static ConnectorCapabilities noNtidCaps()

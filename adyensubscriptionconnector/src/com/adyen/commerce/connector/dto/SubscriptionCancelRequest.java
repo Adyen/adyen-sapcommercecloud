@@ -29,4 +29,9 @@ public record SubscriptionCancelRequest(BillingSubscriptionRef subscription,
                                         boolean atPeriodEnd,
                                         String idempotencyKey)
 {
+	public SubscriptionCancelRequest
+	{
+		Dtos.requireValue(subscription, "subscription");
+		Dtos.requireValue(reason, "reason");
+	}
 }

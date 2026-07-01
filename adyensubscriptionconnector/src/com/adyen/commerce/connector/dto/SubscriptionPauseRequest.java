@@ -30,4 +30,8 @@ public record SubscriptionPauseRequest(BillingSubscriptionRef subscription,
                                        Instant resumeAt,
                                        String idempotencyKey)
 {
+	public SubscriptionPauseRequest
+	{
+		Dtos.requireValue(subscription, "subscription");
+	}
 }

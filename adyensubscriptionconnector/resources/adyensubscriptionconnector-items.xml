@@ -72,6 +72,13 @@
                     <modifiers optional="false"/>
                 </attribute>
             </attributes>
+            <indexes>
+                <!-- At most one external customer reference per shopper per platform. -->
+                <index name="idx_billingCustRef_owner" unique="true">
+                    <key attribute="customer"/>
+                    <key attribute="platform"/>
+                </index>
+            </indexes>
         </itemtype>
 
         <!-- Opaque external payment-method reference {platform, externalId}. -->
@@ -89,6 +96,13 @@
                     <modifiers optional="false"/>
                 </attribute>
             </attributes>
+            <indexes>
+                <!-- At most one payment-method reference per stored payment info per platform. -->
+                <index name="idx_billingPmRef_owner" unique="true">
+                    <key attribute="paymentInfo"/>
+                    <key attribute="platform"/>
+                </index>
+            </indexes>
         </itemtype>
 
         <!-- Persisted record of an external subscription created via a connector.
@@ -154,9 +168,14 @@
                 </attribute>
             </attributes>
             <indexes>
-                <index name="idx_billingSubRef_extId">
+                <!-- An external subscription id is unique within a platform (backs findByExternalId). -->
+                <index name="idx_billingSubRef_extId" unique="true">
                     <key attribute="platform"/>
                     <key attribute="externalSubscriptionId"/>
+                </index>
+                <!-- Supports the per-order idempotency lookup findSubscriptionRef(order, platform). -->
+                <index name="idx_billingSubRef_order">
+                    <key attribute="order"/>
                 </index>
             </indexes>
         </itemtype>

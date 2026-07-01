@@ -28,4 +28,9 @@ import java.math.BigDecimal;
  */
 public record Money(BigDecimal amount, String currencyIsoCode)
 {
+	public Money
+	{
+		Dtos.requireValue(amount, "amount");
+		Dtos.requireText(currencyIsoCode, "currencyIsoCode");
+	}
 }
