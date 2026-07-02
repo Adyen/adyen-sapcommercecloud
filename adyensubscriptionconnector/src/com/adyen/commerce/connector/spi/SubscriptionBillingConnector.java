@@ -36,6 +36,7 @@ import com.adyen.commerce.connector.dto.SubscriptionUpdateRequest;
 import com.adyen.commerce.connector.dto.TokenImportRequest;
 import com.adyen.commerce.connector.enums.BillingPlatform;
 import com.adyen.commerce.connector.exception.BillingException;
+import com.adyen.commerce.connector.exception.CapabilityUnsupportedException;
 
 /**
  * The port (SPI) of the agnostic subscription billing connector. One implementation per billing
@@ -68,24 +69,37 @@ public interface SubscriptionBillingConnector
 
 	/**
 	 * The Adyen merchant account this connector's gateway is configured against, used by the core to
-	 * enforce that it equals {@code BaseStore.adyenMerchantAccount} (design R2). Return {@code null}
-	 * when not applicable (e.g. the Adyen-native connector, which has no external gateway binding).
+	 * enforce that it equals {@code BaseStore.adyenMerchantAccount} (design R2).
 	 *
-	 * @return the configured Adyen merchant account, or {@code null}
+	 * <p><b>External connectors must return their real gateway merchant account</b> — returning
+	 * {@code null} disables the R2 safety check for this connector. Only return {@code null} when there
+	 * is genuinely no external gateway binding (e.g. the Adyen-native connector).</p>
+	 *
+	 * @return the configured Adyen merchant account, or {@code null} when not applicable
 	 */
 	String configuredAdyenMerchantAccount();
 
 	// --- Customer lifecycle ---
 
 	/**
-	 * Create-or-find the customer on the platform.
+	 * Create-or-find the customer on the platform. Idempotent: repeated calls for the same customer must
+	 * return the same reference rather than create duplicates.
+	 *
+	 * @param request the normalized customer data ({@code customerId} == Adyen {@code shopperReference})
+	 * @return the external customer reference
+	 * @throws BillingException if the platform call fails (retryable or terminal)
 	 */
 	BillingCustomerRef ensureCustomer(CustomerSyncRequest request) throws BillingException;
 
 	// --- Payment method: import the Adyen token ---
 
 	/**
-	 * Import the Adyen-vaulted token as a stored payment method on the platform.
+	 * Import the Adyen-vaulted token as a stored payment method on the platform. The platform must be
+	 * connected to the same Adyen merchant account the token was minted under.
+	 *
+	 * @param request the customer reference plus the {@code AdyenTokenHandle} and processing model
+	 * @return the external payment-method reference
+	 * @throws BillingException if the import or token validation fails
 	 */
 	BillingPaymentMethodRef importAdyenToken(TokenImportRequest request) throws BillingException;
 
@@ -100,18 +114,41 @@ public interface SubscriptionBillingConnector
 
 	// --- Subscription lifecycle ---
 
+	/**
+	 * Create a subscription on the platform. Idempotent on {@code request.idempotencyKey()}.
+	 *
+	 * @param request the customer/payment-method/plan references plus cycle, start date and metadata
+	 * @return the external subscription reference
+	 * @throws BillingException if creation fails
+	 */
 	BillingSubscriptionRef createSubscription(SubscriptionCreateRequest request) throws BillingException;
 
+	/**
+	 * Update an existing subscription (plan, quantity, price). Null request fields are left unchanged.
+	 *
+	 * @throws BillingException if the update fails
+	 */
 	void updateSubscription(SubscriptionUpdateRequest request) throws BillingException;
 
+	/**
+	 * Cancel a subscription, immediately or at the end of the current period per the request.
+	 *
+	 * @throws BillingException if cancellation fails
+	 */
 	void cancelSubscription(SubscriptionCancelRequest request) throws BillingException;
 
 	/**
-	 * Pause a subscription. Capability-gated: only callable when {@code capabilities().supportsPause()}.
+	 * Pause a subscription. Capability-gated: only meaningful when {@code capabilities().supportsPause()}.
+	 * The default implementation rejects pause with {@link CapabilityUnsupportedException}; connectors on
+	 * platforms that support pausing must override this <em>and</em> advertise {@code supportsPause() == true}.
 	 *
-	 * @throws com.adyen.commerce.connector.exception.CapabilityUnsupportedException if pause is unsupported
+	 * @throws CapabilityUnsupportedException if the platform does not support pausing (the default behavior)
+	 * @throws BillingException               if the platform call fails
 	 */
-	void pauseSubscription(SubscriptionPauseRequest request) throws BillingException;
+	default void pauseSubscription(final SubscriptionPauseRequest request) throws BillingException
+	{
+		throw new CapabilityUnsupportedException("Connector " + platform() + " does not support pausing subscriptions");
+	}
 
 	// --- Inbound sync ---
 
