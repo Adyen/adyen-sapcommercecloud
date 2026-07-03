@@ -28,4 +28,9 @@ import java.util.Map;
  */
 public record RawWebhook(Map<String, String> headers, String payload, String signature)
 {
+	public RawWebhook
+	{
+		Dtos.requireValue(payload, "payload");
+		headers = Dtos.immutableCopy(headers);
+	}
 }

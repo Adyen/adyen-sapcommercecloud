@@ -30,7 +30,8 @@ import java.util.Map;
  * @param paymentMethod  resolved external payment-method reference (the imported Adyen token)
  * @param plan           resolved platform plan/price reference
  * @param quantity       subscribed quantity
- * @param unitPrice      optional price override; {@code null} uses the plan price
+ * @param unitPrice       optional price override; {@code null} uses the plan price
+ * @param currencyIsoCode optional ISO currency code; {@code null} uses the plan currency
  * @param cycle          optional billing cycle override; {@code null} uses the plan cycle
  * @param startDate      subscription start; honored as future-dated where the connector requires it
  * @param metadata       free-form metadata (e.g. SAP order code, cart id)
@@ -41,9 +42,18 @@ public record SubscriptionCreateRequest(BillingCustomerRef customer,
                                         PlanRef plan,
                                         int quantity,
                                         Money unitPrice,
+                                        String currencyIsoCode,
                                         BillingCycle cycle,
                                         Instant startDate,
                                         Map<String, String> metadata,
                                         String idempotencyKey)
 {
+	public SubscriptionCreateRequest
+	{
+		Dtos.requireValue(customer, "customer");
+		Dtos.requireValue(paymentMethod, "paymentMethod");
+		Dtos.requireValue(plan, "plan");
+		Dtos.requirePositive(quantity, "quantity");
+		metadata = Dtos.immutableCopy(metadata);
+	}
 }

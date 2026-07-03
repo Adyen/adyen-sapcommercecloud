@@ -28,4 +28,9 @@ import com.adyen.commerce.connector.enums.BillingPlatform;
  */
 public record BillingPaymentMethodRef(BillingPlatform platform, String externalId)
 {
+	public BillingPaymentMethodRef
+	{
+		Dtos.requireValue(platform, "platform");
+		Dtos.requireText(externalId, "externalId");
+	}
 }

@@ -32,4 +32,9 @@ public record CustomerSyncRequest(String customerId,
                                   String lastName,
                                   Map<String, String> metadata)
 {
+	public CustomerSyncRequest
+	{
+		Dtos.requireText(customerId, "customerId");
+		metadata = Dtos.immutableCopy(metadata);
+	}
 }

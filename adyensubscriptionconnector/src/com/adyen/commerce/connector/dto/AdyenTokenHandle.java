@@ -35,6 +35,13 @@ public record AdyenTokenHandle(String merchantAccount,
                                String networkTransactionId,
                                CardMetadata cardMetadata)
 {
+	public AdyenTokenHandle
+	{
+		Dtos.requireText(merchantAccount, "merchantAccount");
+		Dtos.requireText(shopperReference, "shopperReference");
+		Dtos.requireText(storedPaymentMethodId, "storedPaymentMethodId");
+	}
+
 	/**
 	 * @return {@code true} if a non-blank network transaction id is present.
 	 */

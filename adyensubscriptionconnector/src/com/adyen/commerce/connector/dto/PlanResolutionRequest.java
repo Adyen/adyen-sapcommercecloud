@@ -28,4 +28,9 @@ import java.util.Map;
  */
 public record PlanResolutionRequest(String productCode, Map<String, String> context)
 {
+	public PlanResolutionRequest
+	{
+		Dtos.requireText(productCode, "productCode");
+		context = Dtos.immutableCopy(context);
+	}
 }

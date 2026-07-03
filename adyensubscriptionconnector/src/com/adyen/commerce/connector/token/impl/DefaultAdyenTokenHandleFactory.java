@@ -90,6 +90,11 @@ public class DefaultAdyenTokenHandleFactory implements AdyenTokenHandleFactory
 		}
 
 		final String merchantAccount = adyenMerchantAccountStrategy.getWebMerchantAccount(order.getStore());
+		if (StringUtils.isBlank(merchantAccount))
+		{
+			throw new TokenContractException(
+					"Base store of order '" + order.getCode() + "' has no Adyen merchant account configured");
+		}
 
 		return new AdyenTokenHandle(merchantAccount, shopperReference, storedPaymentMethodId, null,
 				buildCardMetadata(paymentInfo));
