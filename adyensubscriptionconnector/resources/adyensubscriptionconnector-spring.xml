@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:util="http://www.springframework.org/schema/util"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans.xsd
+           http://www.springframework.org/schema/util
+           http://www.springframework.org/schema/util/spring-util.xsd">
+
+    <!-- ============================================================= -->
+    <!-- Connector registry                                            -->
+    <!-- Each platform adapter extension contributes its connector to  -->
+    <!-- this list (Spring list-merge), e.g. in chargebeeconnector:     -->
+    <!--   <util:list id="subscriptionBillingConnectorList" merge="true"> -->
+    <!--       <ref bean="chargebeeSubscriptionBillingConnector"/>     -->
+    <!--   </util:list>                                                 -->
+    <!-- ============================================================= -->
+    <util:list id="subscriptionBillingConnectorList"
+               value-type="com.adyen.commerce.connector.spi.SubscriptionBillingConnector">
+        <!-- populated by adapter extensions -->
+    </util:list>
+
+    <alias name="defaultSubscriptionBillingConnectorRegistry" alias="subscriptionBillingConnectorRegistry"/>
+    <bean id="defaultSubscriptionBillingConnectorRegistry"
+          class="com.adyen.commerce.connector.registry.impl.DefaultSubscriptionBillingConnectorRegistry">
+        <property name="connectors" ref="subscriptionBillingConnectorList"/>
+    </bean>
+
+    <!-- ============================================================= -->
+    <!-- Startup / pre-activation validation (design R2)               -->
+    <!-- connector's Adyen merchant account must equal the store's.    -->
+    <!-- adyenMerchantStrategy is provided by adyenv6core.             -->
+    <!-- ============================================================= -->
+    <alias name="defaultConnectorMerchantAccountValidator" alias="connectorMerchantAccountValidator"/>
+    <bean id="defaultConnectorMerchantAccountValidator"
+          class="com.adyen.commerce.connector.validation.impl.DefaultConnectorMerchantAccountValidator">
+        <property name="adyenMerchantAccountStrategy" ref="adyenMerchantStrategy"/>
+    </bean>
+
+    <!-- ============================================================= -->
+    <!-- AdyenTokenHandle factory (design P1.8)                        -->
+    <!-- builds the uniform token contract from the existing Adyen flow -->
+    <!-- ============================================================= -->
+    <alias name="defaultAdyenTokenHandleFactory" alias="adyenTokenHandleFactory"/>
+    <bean id="defaultAdyenTokenHandleFactory"
+          class="com.adyen.commerce.connector.token.impl.DefaultAdyenTokenHandleFactory">
+        <property name="adyenMerchantAccountStrategy" ref="adyenMerchantStrategy"/>
+    </bean>
+
+    <!-- ============================================================= -->
+    <!-- Orchestration service (the single entry point / facade)       -->
+    <!-- ============================================================= -->
+    <alias name="defaultSubscriptionBillingService" alias="subscriptionBillingService"/>
+    <bean id="defaultSubscriptionBillingService"
+          class="com.adyen.commerce.connector.service.impl.DefaultSubscriptionBillingService">
+        <property name="connectorRegistry" ref="subscriptionBillingConnectorRegistry"/>
+        <property name="merchantAccountValidator" ref="connectorMerchantAccountValidator"/>
+        <property name="tokenHandleFactory" ref="adyenTokenHandleFactory"/>
+        <property name="modelService" ref="modelService"/>
+        <property name="flexibleSearchService" ref="flexibleSearchService"/>
+        <property name="eventService" ref="eventService"/>
+    </bean>
+
+    <!-- ============================================================= -->
+    <!-- Webhook dispatcher (design P1.10)                             -->
+    <!-- normalizes inbound platform webhooks and reconciles SAP state -->
+    <!-- ============================================================= -->
+    <alias name="defaultSubscriptionBillingWebhookDispatcher" alias="subscriptionBillingWebhookDispatcher"/>
+    <bean id="defaultSubscriptionBillingWebhookDispatcher"
+          class="com.adyen.commerce.connector.webhook.impl.DefaultSubscriptionBillingWebhookDispatcher">
+        <property name="connectorRegistry" ref="subscriptionBillingConnectorRegistry"/>
+        <property name="flexibleSearchService" ref="flexibleSearchService"/>
+        <property name="modelService" ref="modelService"/>
+    </bean>
+
+</beans>
