@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright (c) 2026 Adyen B.V. - MIT license. -->
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:util="http://www.springframework.org/schema/util"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans.xsd
+           http://www.springframework.org/schema/util
+           http://www.springframework.org/schema/util/spring-util.xsd">
+
+    <alias name="defaultChargebeeConfigService" alias="chargebeeConfigService"/>
+    <bean id="defaultChargebeeConfigService"
+          class="com.adyen.commerce.connector.chargebee.config.impl.DefaultChargebeeConfigService">
+        <property name="configurationService" ref="configurationService"/>
+    </bean>
+
+    <alias name="defaultChargebeeHttpClient" alias="chargebeeHttpClient"/>
+    <bean id="defaultChargebeeHttpClient"
+          class="com.adyen.commerce.connector.chargebee.http.impl.DefaultChargebeeHttpClient"/>
+
+    <alias name="defaultChargebeeApiClient" alias="chargebeeApiClient"/>
+    <bean id="defaultChargebeeApiClient"
+          class="com.adyen.commerce.connector.chargebee.client.impl.DefaultChargebeeApiClient">
+        <property name="httpClient" ref="chargebeeHttpClient"/>
+        <property name="configService" ref="chargebeeConfigService"/>
+    </bean>
+
+    <alias name="defaultChargebeePlanResolver" alias="chargebeePlanResolver"/>
+    <bean id="defaultChargebeePlanResolver"
+          class="com.adyen.commerce.connector.chargebee.plan.impl.DefaultChargebeePlanResolver">
+        <property name="flexibleSearchService" ref="flexibleSearchService"/>
+    </bean>
+
+    <!-- The SPI adapter. Auto-discovered by the core registry (no list wiring needed). -->
+    <bean id="chargebeeSubscriptionBillingConnector"
+          class="com.adyen.commerce.connector.chargebee.ChargebeeSubscriptionBillingConnector">
+        <property name="apiClient" ref="chargebeeApiClient"/>
+        <property name="configService" ref="chargebeeConfigService"/>
+        <property name="planResolver" ref="chargebeePlanResolver"/>
+    </bean>
+
+</beans>
