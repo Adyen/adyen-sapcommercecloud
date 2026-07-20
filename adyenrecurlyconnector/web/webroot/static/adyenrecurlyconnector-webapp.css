@@ -1,0 +1,27 @@
+html {
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+body {
+    line-height: 1.4;
+    background: white;
+}
+
+body {
+    font-size: 75%;
+    color: #222;
+    background: #fff;
+    font-family: "Helvetica Neue", Arial, Helvetica, sans-serif;
+}
+
+fieldset {
+    padding: 0 1.3em 1.3em 1.3em;
+    margin: 0 0 1.4em 0;
+    border: 1px solid #ccc;
+}
+
+label {
+    font-weight: bold;
+}
