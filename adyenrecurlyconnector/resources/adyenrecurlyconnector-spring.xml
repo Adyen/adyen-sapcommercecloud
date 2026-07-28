@@ -61,11 +61,4 @@
         <property name="connector" ref="recurlySubscriptionBillingConnector"/>
     </bean>
 
-    <alias name="defaultRecurlyConnectionService" alias="recurlyConnectionService"/>
-    <bean id="defaultRecurlyConnectionService"
-          class="com.adyen.commerce.connector.recurly.DefaultRecurlyConnectionService">
-        <property name="recurlyHttpClient" ref="recurlyHttpClient"/>
-        <property name="recurlyConfigService" ref="recurlyConfigService"/>
-    </bean>
-
 </beans>
