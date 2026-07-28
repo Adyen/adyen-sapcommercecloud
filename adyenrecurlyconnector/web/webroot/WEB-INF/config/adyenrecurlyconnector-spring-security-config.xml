@@ -14,6 +14,8 @@
     <http pattern="/WEB-INF/views/500.jsp" security="none" />
     <http pattern="/WEB-INF/views/404.jsp" security="none" />
     <http pattern="/static/**" security="none" />
+    <!-- Authenticity is enforced by RecurlyWebhookParser's HMAC verification. -->
+    <http pattern="/webhooks/recurly" security="none" />
 
     <http access-decision-manager-ref="accessDecisionManager" use-expressions="false" use-authorization-manager="false">
         <session-management session-authentication-strategy-ref="fixation"/>

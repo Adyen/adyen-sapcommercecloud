@@ -1,19 +1,20 @@
 package com.adyen.commerce.connector.recurly.client;
 
-import com.adyen.commerce.connector.exception.ConnectorNotConfiguredException;
-import com.adyen.commerce.connector.exception.RetryableBillingException;
-import com.adyen.commerce.connector.recurly.dto.RecurlyAccountCreateRequest;
-import com.adyen.commerce.connector.recurly.dto.RecurlyAccountResponse;
-import com.adyen.commerce.connector.recurly.dto.RecurlySubscriptionCreateRequest;
-import com.adyen.commerce.connector.recurly.dto.RecurlySubscriptionResponse;
+import com.adyen.commerce.connector.dto.BillingAddress;
+import com.adyen.commerce.connector.dto.CardMetadata;
+import com.adyen.commerce.connector.exception.BillingException;
 
 public interface RecurlyApiClient
 {
-    RecurlyAccountResponse createAccount(
-            RecurlyAccountCreateRequest request,
-            String idempotencyKey) throws RetryableBillingException, ConnectorNotConfiguredException;
+    String ensureCustomer(String customerId, String email, String firstName, String lastName) throws BillingException;
 
-    RecurlySubscriptionResponse createSubscription(
-            RecurlySubscriptionCreateRequest request,
-            String idempotencyKey) throws RetryableBillingException, ConnectorNotConfiguredException;
+    String importAdyenToken(String accountId, String shopperReference, String storedPaymentMethodId, CardMetadata card,
+                            BillingAddress billingAddress) throws BillingException;
+
+    String createSubscription(RecurlySubscriptionParams params) throws BillingException;
+
+    void updateSubscription(String subscriptionId, String planCode, Integer quantity, String idempotencyKey)
+            throws BillingException;
+
+    void cancelSubscription(String subscriptionId, boolean atPeriodEnd, String idempotencyKey) throws BillingException;
 }

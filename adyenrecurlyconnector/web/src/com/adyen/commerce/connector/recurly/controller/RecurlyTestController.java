@@ -16,7 +16,12 @@ import com.adyen.commerce.connector.recurly.RecurlyConnectionService;
 @RequestMapping("/test")
 public class RecurlyTestController
 {
-    private RecurlyConnectionService recurlyConnectionService;
+    private final RecurlyConnectionService recurlyConnectionService;
+
+    public RecurlyTestController(final RecurlyConnectionService recurlyConnectionService)
+    {
+        this.recurlyConnectionService = recurlyConnectionService;
+    }
 
     @GetMapping("/connection")
     @ResponseBody
@@ -45,9 +50,4 @@ public class RecurlyTestController
         }
     }
 
-    public void setRecurlyConnectionService(
-            final RecurlyConnectionService recurlyConnectionService)
-    {
-        this.recurlyConnectionService = recurlyConnectionService;
-    }
 }

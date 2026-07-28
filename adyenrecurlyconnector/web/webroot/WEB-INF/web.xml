@@ -16,31 +16,6 @@
 
     <!-- Error pages -->
 
-    <error-page>
-        <error-code>500</error-code>
-        <location>/WEB-INF/views/500.jsp</location>
-    </error-page>
-
-    <error-page>
-        <error-code>404</error-code>
-        <location>/WEB-INF/views/404.jsp</location>
-    </error-page>
-
-    <error-page>
-        <error-code>405</error-code>
-        <location>/WEB-INF/views/405.jsp</location>
-    </error-page>
-
-    <error-page>
-        <error-code>403</error-code>
-        <location>/WEB-INF/views/login.jsp?login_error=1</location>
-    </error-page>
-
-    <error-page>
-        <error-code>401</error-code>
-        <location>/WEB-INF/views/login.jsp?login_error=1</location>
-    </error-page>
-
     <filter>
         <filter-name>XSSFilter</filter-name>
         <filter-class>de.hybris.platform.servicelayer.web.XSSFilter</filter-class>
@@ -64,11 +39,10 @@
         <filter-class>org.springframework.web.filter.DelegatingFilterProxy</filter-class>
     </filter>
 
-    <!-- Spring Security Filter - uncomment it if you want to secure your application -->
-    <!--<filter>
+    <filter>
         <filter-name>springSecurityFilterChain</filter-name>
         <filter-class>org.springframework.web.filter.DelegatingFilterProxy</filter-class>
-    </filter>-->
+    </filter>
 
     <!-- Filter mappings -->
     <filter-mapping>
@@ -86,11 +60,10 @@
         <url-pattern>/*</url-pattern>
     </filter-mapping>
 
-    <!-- Spring Security Filter mapping - uncomment it if you want to secure your application -->
-    <!--<filter-mapping>
+    <filter-mapping>
         <filter-name>springSecurityFilterChain</filter-name>
         <url-pattern>/*</url-pattern>
-    </filter-mapping>-->
+    </filter-mapping>
 
     <!--
         Enabling a Spring web application context with 'session' and 'request' scope.

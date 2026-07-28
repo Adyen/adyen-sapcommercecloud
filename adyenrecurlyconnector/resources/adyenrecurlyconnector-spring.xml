@@ -1,94 +1,71 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--
- Copyright (c) 2021 SAP SE or an SAP affiliate company. All rights reserved.
--->
+<!-- Copyright (c) 2026 Adyen B.V. - MIT license. -->
 <beans xmlns="http://www.springframework.org/schema/beans"
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xmlns:aop="http://www.springframework.org/schema/aop"
-	xsi:schemaLocation="http://www.springframework.org/schema/beans
-           https://www.springframework.org/schema/beans/spring-beans.xsd
-           http://www.springframework.org/schema/aop
-           https://www.springframework.org/schema/aop/spring-aop.xsd">
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans.xsd">
 
-	<!--
-	The hybris platform provides one single Spring application context for beans located at the jalo layer.
-	Each extension can add beans to this context by specifying them at this configuration file.
-	 
-	You can use and/or redefine beans defined at configuration files of other extensions as well as
-	adding new one.
-		
-	If you want to locate this file at a different location or want to use several files for better,
-	structuring, please use the '<yourextension>.application-context' property at your project.properties file.
-	There you can specify a comma separated list of files where first is tried to find a file per classpath and
-	then per file system.
-
-	
-	If you want to configure beans for your web module please have a look at
-	your web/webroot/WEB-INF/<extname>-web-spring.xml.
-	-->
-	
-	<!--  Example how to override a manager -->
-	<!--
-	<bean id="core.productManager"   class="com.adyen.commerce.connector.recurly.jalo.AdyenrecurlyconnectorProductManager" 	init-method="init"	destroy-method="destroy" />
-	-->
-	
-	
- 	<!--  Example how to configure the class to use for jalo session creation -->
-	<!--
-	<bean id="jalosession"   class="de.hybris.platform.jalo.JaloSessionFactory">
-		<property name="targetClassName" value="com.adyen.commerce.connector.recurly.jalo.AdyenrecurlyconnectorJaloSession"/>
-	</bean>
-	-->
-
-	
-	<!--  Example how to override an item  -->
-	<!-- 
-	<bean id="de.hybris.platform.jalo.product.Product" class="com.adyen.commerce.connector.recurly.jalo.AdyenrecurlyconnectorProduct" scope="prototype" />		
- 	-->
-
-	<!--  
-	 Example how to register and use an AOP aspect 
-     Also see http://static.springframework.org/spring/docs/2.5.x/reference/aop.html	
-     -->
-	
-	<!-- 
-	<bean id="adyenrecurlyconnectorProfBean" class="com.adyen.commerce.connector.recurly.aop.AdyenrecurlyconnectorProfilingAspect"/>
-	<aop:config proxy-target-class="true">
-  		<aop:aspect id="adyenrecurlyconnectorProfAspect" ref="adyenrecurlyconnectorProfBean" >
-    	  <aop:pointcut id="profiledMethods" 
-	      	expression="execution(* getModificationTime(..))" />  	            
-	   		<aop:around pointcut-ref="profiledMethods" method="profile" />
-  		</aop:aspect>
-	</aop:config>
-	 -->
-
-	
-	<!-- some other examples of a pointcut that matches everything:
-
-    	  <aop:pointcut id="profiledMethods" 
-	      	expression="bean(de.hybris.platform.jalo.user.Customer) &amp;&amp; 
-	      	            !execution(* getPK(..))" />  	            
-	       <aop:pointcut id="profiledMethods" expression="execution(* *(..))" />	
-	  -->
-    <bean id="recurlyApiClient"
-          class="com.adyen.commerce.connector.recurly.client.impl.DefaultRecurlyApiClient">
-        <property name="recurlyHttpClient" ref="recurlyHttpClient"/>
-    </bean>
-
-    <bean id="recurlyConfigService"
+    <alias name="defaultRecurlyConfigService" alias="recurlyConfigService"/>
+    <bean id="defaultRecurlyConfigService"
           class="com.adyen.commerce.connector.recurly.config.impl.DefaultRecurlyConfigService">
         <property name="configurationService" ref="configurationService"/>
     </bean>
 
-    <bean id="recurlyHttpClient"
-          class="com.adyen.commerce.connector.recurly.http.impl.DefaultRecurlyHttpClient"
-          destroy-method="close">
-        <property name="recurlyConfigService" ref="recurlyConfigService"/>
+    <alias name="defaultRecurlyHttpClient" alias="recurlyHttpClient"/>
+    <bean id="defaultRecurlyHttpClient"
+          class="com.adyen.commerce.connector.recurly.http.impl.DefaultRecurlyHttpClient">
+        <property name="configService" ref="recurlyConfigService"/>
     </bean>
 
-    <bean id="recurlyConnectionService"
+    <alias name="defaultRecurlyApiClient" alias="recurlyApiClient"/>
+    <bean id="defaultRecurlyApiClient"
+          class="com.adyen.commerce.connector.recurly.client.impl.DefaultRecurlyApiClient">
+        <property name="httpClient" ref="recurlyHttpClient"/>
+        <property name="configService" ref="recurlyConfigService"/>
+    </bean>
+
+    <alias name="defaultRecurlyPlanResolver" alias="recurlyPlanResolver"/>
+    <bean id="defaultRecurlyPlanResolver"
+          class="com.adyen.commerce.connector.recurly.plan.impl.DefaultRecurlyPlanResolver">
+        <property name="flexibleSearchService" ref="flexibleSearchService"/>
+    </bean>
+
+    <alias name="defaultRecurlyWebhookParser" alias="recurlyWebhookParser"/>
+    <bean id="defaultRecurlyWebhookParser"
+          class="com.adyen.commerce.connector.recurly.webhook.DefaultRecurlyWebhookParser">
+        <property name="configService" ref="recurlyConfigService"/>
+    </bean>
+
+    <bean id="recurlySubscriptionBillingWebhookDispatcher"
+          class="com.adyen.commerce.connector.recurly.webhook.RecurlySubscriptionBillingWebhookDispatcher">
+        <property name="connectorRegistry" ref="subscriptionBillingConnectorRegistry"/>
+        <property name="flexibleSearchService" ref="flexibleSearchService"/>
+        <property name="modelService" ref="modelService"/>
+        <property name="typeService" ref="typeService"/>
+    </bean>
+
+    <!-- The SPI adapter. -->
+    <bean id="recurlySubscriptionBillingConnector"
+          class="com.adyen.commerce.connector.recurly.RecurlySubscriptionBillingConnector">
+        <property name="apiClient" ref="recurlyApiClient"/>
+        <property name="configService" ref="recurlyConfigService"/>
+        <property name="planResolver" ref="recurlyPlanResolver"/>
+        <property name="webhookParser" ref="recurlyWebhookParser"/>
+    </bean>
+
+    <!-- Contribute this adapter to the registry-owned plain list without changing the core extension. -->
+    <bean id="recurlySubscriptionBillingConnectorRegistrar"
+          class="com.adyen.commerce.connector.recurly.registry.RecurlyConnectorRegistrar"
+          lazy-init="false">
+        <property name="connectors" ref="subscriptionBillingConnectorList"/>
+        <property name="connector" ref="recurlySubscriptionBillingConnector"/>
+    </bean>
+
+    <alias name="defaultRecurlyConnectionService" alias="recurlyConnectionService"/>
+    <bean id="defaultRecurlyConnectionService"
           class="com.adyen.commerce.connector.recurly.DefaultRecurlyConnectionService">
         <property name="recurlyHttpClient" ref="recurlyHttpClient"/>
+        <property name="recurlyConfigService" ref="recurlyConfigService"/>
     </bean>
 
 </beans>
