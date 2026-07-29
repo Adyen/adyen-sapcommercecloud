@@ -169,7 +169,6 @@ export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
                 },
                 paymentMethodComponents: [IrisQrCodeElement as any],
                 showPayButton: true,
-                showRemovePaymentMethodButton: true,
                 isPartialPayment: true,
                 showRemainingAmount: true
             }).mount(paymentRef.current);
