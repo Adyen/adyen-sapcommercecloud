@@ -147,6 +147,15 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 			throw new PreconditionFailedException(
 					"updateSubscription called with nothing to change for subscription '" + subscriptionId + "'");
 		}
+		// Chargebee's update_for_items is item-based: subscription_items[quantity][0] is meaningless without
+		// subscription_items[item_price_id][0] to say WHICH item's quantity changes. Sending quantity alone
+		// yields "subscription_items[item_price_id][0] : cannot be blank" (HTTP 400). Fail fast with a clear
+		// precondition so callers pass the (unchanged) item price alongside a quantity change.
+		if (quantity != null && StringUtils.isBlank(itemPriceId))
+		{
+			throw new PreconditionFailedException("Chargebee update_for_items requires an item price id when changing "
+					+ "quantity for subscription '" + subscriptionId + "'");
+		}
 
 		final Map<String, String> form = new LinkedHashMap<>();
 		if (StringUtils.isNotBlank(itemPriceId))

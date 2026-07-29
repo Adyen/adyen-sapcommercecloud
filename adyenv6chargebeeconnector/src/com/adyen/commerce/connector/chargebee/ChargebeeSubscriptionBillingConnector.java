@@ -20,6 +20,14 @@
  */
 package com.adyen.commerce.connector.chargebee;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.Instant;
+import java.util.Base64;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 import org.apache.commons.lang3.StringUtils;
 
 import com.adyen.commerce.connector.chargebee.client.ChargebeeApiClient;
@@ -28,6 +36,7 @@ import com.adyen.commerce.connector.chargebee.config.ChargebeeConfigService;
 import com.adyen.commerce.connector.chargebee.plan.ChargebeePlanResolver;
 import com.adyen.commerce.connector.dto.AdyenTokenHandle;
 import com.adyen.commerce.connector.dto.BillingCustomerRef;
+import com.adyen.commerce.connector.dto.BillingEventType;
 import com.adyen.commerce.connector.dto.BillingPaymentMethodRef;
 import com.adyen.commerce.connector.dto.BillingSubscriptionRef;
 import com.adyen.commerce.connector.dto.ConnectorCapabilities;
@@ -46,14 +55,16 @@ import com.adyen.commerce.connector.exception.BillingException;
 import com.adyen.commerce.connector.exception.PreconditionFailedException;
 import com.adyen.commerce.connector.exception.TerminalBillingException;
 import com.adyen.commerce.connector.spi.SubscriptionBillingConnector;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * Chargebee adapter of the {@link SubscriptionBillingConnector} SPI (ADR-001 Option A: Adyen keeps
  * processing recurring payments; Chargebee only orchestrates billing).
  *
  * <p>This first cut covers the outbound lifecycle (customer, token import, plan resolution,
- * subscription create/update/cancel). Pause is not supported ({@code supportsPause=false}, SPI default
- * rejects it) and inbound webhook handling is deferred (see {@link #parseWebhook}, task P2.4).</p>
+ * subscription create/update/cancel) plus inbound webhook verification/normalization (task P2.4).
+ * Pause is not supported ({@code supportsPause=false}, SPI default rejects it).</p>
  */
 public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillingConnector
 {
@@ -64,6 +75,11 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 			true,  // requiresPreConfiguredPlan — the item price must already exist in the Chargebee catalog
 			true,  // liveTokenValidationOnImport — create_using_permanent_token makes a live retrieval call to Adyen
 			TokenImportStyle.SLASH_JOINED); // reference_id = shopperReference/recurringDetailReference
+
+	private static final String AUTHORIZATION_HEADER = "Authorization";
+	private static final String BASIC_PREFIX = "Basic ";
+
+	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	private ChargebeeApiClient apiClient;
 	private ChargebeeConfigService configService;
@@ -141,7 +157,157 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 	@Override
 	public NormalizedBillingEvent parseWebhook(final RawWebhook raw) throws BillingException
 	{
-		throw new TerminalBillingException("Chargebee webhook handling is not yet implemented (planned in task P2.4)");
+		verifyWebhookAuth(raw);
+
+		final JsonNode root;
+		try
+		{
+			root = objectMapper.readTree(raw.payload());
+		}
+		catch (final IOException e)
+		{
+			throw new TerminalBillingException("Chargebee webhook payload is not valid JSON", e);
+		}
+
+		final String chargebeeEventType = root.path("event_type").asText(null);
+		final BillingEventType type = mapEventType(chargebeeEventType);
+		if (type == null)
+		{
+			// Chargebee fires many event types we don't act on (invoice_generated, customer_changed, ...).
+			// Acknowledge without erroring: the dispatcher no-ops on a null event.
+			return null;
+		}
+
+		final JsonNode content = root.path("content");
+		final String externalSubscriptionId = firstNonBlank(
+				content.path("subscription").path("id").asText(null),
+				content.path("transaction").path("subscription_id").asText(null),
+				content.path("invoice").path("subscription_id").asText(null));
+		final String externalCustomerId = firstNonBlank(
+				content.path("customer").path("id").asText(null),
+				content.path("subscription").path("customer_id").asText(null),
+				content.path("transaction").path("customer_id").asText(null),
+				content.path("invoice").path("customer_id").asText(null));
+
+		final long occurredAtEpochSeconds = root.path("occurred_at").asLong(0L);
+		final Instant occurredAt = occurredAtEpochSeconds > 0 ? Instant.ofEpochSecond(occurredAtEpochSeconds) : Instant.now();
+
+		final Map<String, String> attributes = new LinkedHashMap<>();
+		putIfNotBlank(attributes, "eventId", root.path("id").asText(null));
+		putIfNotBlank(attributes, "chargebeeEventType", chargebeeEventType);
+
+		return new NormalizedBillingEvent(platform(), type, externalSubscriptionId, externalCustomerId, occurredAt,
+				attributes);
+	}
+
+	/**
+	 * Chargebee webhooks have no HMAC/signature scheme — Basic Auth on the receiving endpoint is the
+	 * entire verification mechanism (credentials configured in Chargebee: Settings &gt; Webhooks &gt;
+	 * "protected by basic authentication"). Fails closed: missing config, missing/malformed header, or a
+	 * credential mismatch are all rejected, never silently accepted.
+	 */
+	protected void verifyWebhookAuth(final RawWebhook raw) throws BillingException
+	{
+		final String expectedUsername = configService.getWebhookUsername();
+		final String expectedPassword = configService.getWebhookPassword();
+		if (StringUtils.isBlank(expectedUsername) || StringUtils.isBlank(expectedPassword))
+		{
+			throw new PreconditionFailedException("Chargebee webhook Basic Auth credentials "
+					+ "(chargebee.webhookUsername/chargebee.webhookPassword) are not configured");
+		}
+
+		final String authorizationHeader = findHeaderIgnoreCase(raw.headers(), AUTHORIZATION_HEADER);
+		if (StringUtils.isBlank(authorizationHeader) || !authorizationHeader.startsWith(BASIC_PREFIX))
+		{
+			throw new TerminalBillingException("Chargebee webhook is missing a valid Basic Authorization header");
+		}
+
+		final String decoded;
+		try
+		{
+			decoded = new String(Base64.getDecoder().decode(authorizationHeader.substring(BASIC_PREFIX.length())),
+					StandardCharsets.UTF_8);
+		}
+		catch (final IllegalArgumentException e)
+		{
+			throw new TerminalBillingException("Chargebee webhook Authorization header is not valid Base64", e);
+		}
+
+		final int colonIndex = decoded.indexOf(':');
+		final String actualUsername = colonIndex >= 0 ? decoded.substring(0, colonIndex) : decoded;
+		final String actualPassword = colonIndex >= 0 ? decoded.substring(colonIndex + 1) : "";
+
+		if (!constantTimeEquals(expectedUsername, actualUsername) || !constantTimeEquals(expectedPassword, actualPassword))
+		{
+			throw new TerminalBillingException("Chargebee webhook Basic Auth credentials do not match");
+		}
+	}
+
+	/**
+	 * Maps a Chargebee {@code event_type} to the normalized vocabulary. Unrecognized types return
+	 * {@code null} (see {@link #parseWebhook}) rather than throwing, since Chargebee sends many event
+	 * types this connector doesn't act on.
+	 */
+	protected BillingEventType mapEventType(final String chargebeeEventType)
+	{
+		if (chargebeeEventType == null)
+		{
+			return null;
+		}
+		switch (chargebeeEventType)
+		{
+			case "subscription_activated":
+				return BillingEventType.SUBSCRIPTION_ACTIVATED;
+			case "subscription_cancelled":
+				return BillingEventType.SUBSCRIPTION_CANCELLED;
+			case "payment_succeeded":
+				return BillingEventType.INVOICE_PAID;
+			case "payment_failed":
+				return BillingEventType.INVOICE_PAYMENT_FAILED;
+			default:
+				return null;
+		}
+	}
+
+	private static String firstNonBlank(final String... values)
+	{
+		for (final String value : values)
+		{
+			if (StringUtils.isNotBlank(value))
+			{
+				return value;
+			}
+		}
+		return null;
+	}
+
+	private static void putIfNotBlank(final Map<String, String> map, final String key, final String value)
+	{
+		if (StringUtils.isNotBlank(value))
+		{
+			map.put(key, value);
+		}
+	}
+
+	private static String findHeaderIgnoreCase(final Map<String, String> headers, final String name)
+	{
+		if (headers == null)
+		{
+			return null;
+		}
+		for (final Map.Entry<String, String> entry : headers.entrySet())
+		{
+			if (name.equalsIgnoreCase(entry.getKey()))
+			{
+				return entry.getValue();
+			}
+		}
+		return null;
+	}
+
+	private static boolean constantTimeEquals(final String a, final String b)
+	{
+		return MessageDigest.isEqual(a.getBytes(StandardCharsets.UTF_8), b.getBytes(StandardCharsets.UTF_8));
 	}
 
 	/**
