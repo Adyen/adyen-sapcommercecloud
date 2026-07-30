@@ -28,7 +28,12 @@ public class DefaultRecurlyConfigService implements RecurlyConfigService
     static final int DEFAULT_RESPONSE_TIMEOUT_MILLIS = 30000;
     static final int DEFAULT_WEBHOOK_TOLERANCE_SECONDS = 300;
 
-    private ConfigurationService configurationService;
+    private final ConfigurationService configurationService;
+
+    public DefaultRecurlyConfigService(final ConfigurationService configurationService)
+    {
+        this.configurationService = configurationService;
+    }
 
     @Override
     public String getApiKey() throws ConnectorNotConfiguredException
@@ -109,10 +114,5 @@ public class DefaultRecurlyConfigService implements RecurlyConfigService
     {
         final int value = configurationService.getConfiguration().getInt(key, defaultValue);
         return value > 0 ? value : defaultValue;
-    }
-
-    public void setConfigurationService(final ConfigurationService configurationService)
-    {
-        this.configurationService = configurationService;
     }
 }

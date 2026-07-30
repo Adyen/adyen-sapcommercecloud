@@ -45,11 +45,32 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
             false, // liveTokenValidationOnImport — token validation happens when Recurly/gateway uses the reference
             TokenImportStyle.SEPARATE_FIELDS);
 
-    private RecurlyApiClient apiClient;
-    private RecurlyConfigService configService;
-    private RecurlyPlanResolver planResolver;
-    private RecurlyWebhookParser webhookParser;
-    private Clock clock = Clock.systemUTC();
+    private final RecurlyApiClient apiClient;
+    private final RecurlyConfigService configService;
+    private final RecurlyPlanResolver planResolver;
+    private final RecurlyWebhookParser webhookParser;
+    private final Clock clock;
+
+    public RecurlySubscriptionBillingConnector(final RecurlyApiClient apiClient,
+                                               final RecurlyConfigService configService,
+                                               final RecurlyPlanResolver planResolver,
+                                               final RecurlyWebhookParser webhookParser)
+    {
+        this(apiClient, configService, planResolver, webhookParser, Clock.systemUTC());
+    }
+
+    RecurlySubscriptionBillingConnector(final RecurlyApiClient apiClient,
+                                        final RecurlyConfigService configService,
+                                        final RecurlyPlanResolver planResolver,
+                                        final RecurlyWebhookParser webhookParser,
+                                        final Clock clock)
+    {
+        this.apiClient = apiClient;
+        this.configService = configService;
+        this.planResolver = planResolver;
+        this.webhookParser = webhookParser;
+        this.clock = clock;
+    }
 
     @Override
     public BillingPlatform platform()
@@ -85,7 +106,8 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
         verifyNetworkTransactionId(token);
 
         final String billingInfoId = apiClient.importAdyenToken(request.customer().externalId(),
-                token.shopperReference(), token.storedPaymentMethodId(), token.cardMetadata(), request.billingAddress());
+                token.shopperReference(), token.storedPaymentMethodId(), token.cardMetadata(),
+                request.billingAddress());
         return new BillingPaymentMethodRef(BillingPlatform.RECURLY,
                 RecurlyPaymentMethodReference.encode(billingInfoId, token.networkTransactionId()));
     }
@@ -105,7 +127,8 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
                 : request.startDate();
         if (!startDate.isAfter(now))
         {
-            throw new PreconditionFailedException("Recurly subscription creation requires startDate to be in the future");
+            throw new PreconditionFailedException(
+                    "Recurly subscription creation requires startDate to be in the future");
         }
 
         final RecurlyPaymentMethodReference paymentMethod =
@@ -129,7 +152,8 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
     @Override
     public void cancelSubscription(final SubscriptionCancelRequest request) throws BillingException
     {
-        apiClient.cancelSubscription(request.subscription().externalId(), request.atPeriodEnd(), request.idempotencyKey());
+        apiClient.cancelSubscription(request.subscription().externalId(), request.atPeriodEnd(),
+                request.idempotencyKey());
     }
 
     @Override
@@ -164,30 +188,5 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
     protected String planCode(final PlanRef plan)
     {
         return plan.planId();
-    }
-
-    public void setApiClient(final RecurlyApiClient apiClient)
-    {
-        this.apiClient = apiClient;
-    }
-
-    public void setConfigService(final RecurlyConfigService configService)
-    {
-        this.configService = configService;
-    }
-
-    public void setPlanResolver(final RecurlyPlanResolver planResolver)
-    {
-        this.planResolver = planResolver;
-    }
-
-    public void setWebhookParser(final RecurlyWebhookParser webhookParser)
-    {
-        this.webhookParser = webhookParser;
-    }
-
-    public void setClock(final Clock clock)
-    {
-        this.clock = clock;
     }
 }

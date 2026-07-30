@@ -6,6 +6,11 @@ import com.adyen.commerce.connector.exception.BillingException;
 
 public interface RecurlyApiClient
 {
+    /**
+     * Resolves the stable Recurly account identifier. Creation of a missing account is deferred until
+     * {@link #importAdyenToken(String, String, String, CardMetadata, BillingAddress)} so external
+     * gateway references can be included in the account-creation request.
+     */
     String ensureCustomer(String customerId, String email, String firstName, String lastName) throws BillingException;
 
     String importAdyenToken(String accountId, String shopperReference, String storedPaymentMethodId, CardMetadata card,

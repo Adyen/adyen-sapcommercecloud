@@ -3,7 +3,8 @@ package com.adyen.commerce.connector.recurly.http;
 import com.adyen.commerce.connector.exception.RetryableBillingException;
 
 public interface RecurlyHttpClient {
-    RecurlyHttpResponse get(String url, String authorizationHeader, String acceptHeader) throws RetryableBillingException;
+    RecurlyHttpResponse get(String url, String authorizationHeader, String acceptHeader)
+            throws RetryableBillingException;
 
     RecurlyHttpResponse post(String url, String authorizationHeader, String acceptHeader, String jsonBody,
                              String idempotencyKey) throws RetryableBillingException;

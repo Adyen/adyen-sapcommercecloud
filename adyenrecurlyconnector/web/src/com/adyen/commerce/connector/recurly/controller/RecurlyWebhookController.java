@@ -2,7 +2,6 @@ package com.adyen.commerce.connector.recurly.controller;
 
 import java.util.Map;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -25,7 +24,14 @@ import com.adyen.commerce.connector.webhook.SubscriptionBillingWebhookDispatcher
 @RequestMapping("/webhooks/recurly")
 public class RecurlyWebhookController
 {
-    private SubscriptionBillingWebhookDispatcher webhookDispatcher;
+    private final SubscriptionBillingWebhookDispatcher webhookDispatcher;
+
+    public RecurlyWebhookController(
+            @Qualifier("recurlySubscriptionBillingWebhookDispatcher")
+            final SubscriptionBillingWebhookDispatcher webhookDispatcher)
+    {
+        this.webhookDispatcher = webhookDispatcher;
+    }
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Void> receive(@RequestHeader final HttpHeaders headers, @RequestBody final String payload)
@@ -45,12 +51,5 @@ public class RecurlyWebhookController
         {
             return ResponseEntity.badRequest().build();
         }
-    }
-
-    @Autowired
-    @Qualifier("recurlySubscriptionBillingWebhookDispatcher")
-    public void setWebhookDispatcher(final SubscriptionBillingWebhookDispatcher webhookDispatcher)
-    {
-        this.webhookDispatcher = webhookDispatcher;
     }
 }

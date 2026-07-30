@@ -1,5 +1,11 @@
 package com.adyen.commerce.connector.recurly.client.impl;
 
+import static java.net.HttpURLConnection.HTTP_CLIENT_TIMEOUT;
+import static java.net.HttpURLConnection.HTTP_CONFLICT;
+import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
+import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
+import static java.net.HttpURLConnection.HTTP_OK;
+
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -8,8 +14,8 @@ import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
 
-import com.adyen.commerce.connector.dto.CardMetadata;
 import com.adyen.commerce.connector.dto.BillingAddress;
+import com.adyen.commerce.connector.dto.CardMetadata;
 import com.adyen.commerce.connector.exception.BillingException;
 import com.adyen.commerce.connector.exception.PreconditionFailedException;
 import com.adyen.commerce.connector.exception.RetryableBillingException;
@@ -19,8 +25,8 @@ import com.adyen.commerce.connector.recurly.client.RecurlySubscriptionParams;
 import com.adyen.commerce.connector.recurly.config.RecurlyConfigService;
 import com.adyen.commerce.connector.recurly.http.RecurlyHttpClient;
 import com.adyen.commerce.connector.recurly.http.RecurlyHttpResponse;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -31,10 +37,17 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
  */
 public class DefaultRecurlyApiClient implements RecurlyApiClient
 {
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private static final int HTTP_TOO_MANY_REQUESTS = 429;
 
-    private RecurlyHttpClient httpClient;
-    private RecurlyConfigService configService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final RecurlyHttpClient httpClient;
+    private final RecurlyConfigService configService;
+
+    public DefaultRecurlyApiClient(final RecurlyHttpClient httpClient, final RecurlyConfigService configService)
+    {
+        this.httpClient = httpClient;
+        this.configService = configService;
+    }
 
     @Override
     public String ensureCustomer(final String customerId, final String email, final String firstName,
@@ -43,24 +56,15 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient
         final String accountId = accountCodeId(customerId);
         final RecurlyHttpResponse existing = httpClient.get(url("/accounts/" + pathSegment(accountId)), authHeader(),
                 acceptHeader());
-        if (existing.statusCode() == 200)
+        if (existing.statusCode() == HTTP_OK)
         {
             return accountId;
         }
-        if (existing.statusCode() != 404)
+        if (existing.statusCode() != HTTP_NOT_FOUND)
         {
             throw toBillingException(existing, "retrieve account");
         }
 
-        final ObjectNode request = objectMapper.createObjectNode();
-        putIfNotBlank(request, "code", customerId);
-        putIfNotBlank(request, "email", email);
-        putIfNotBlank(request, "first_name", firstName);
-        putIfNotBlank(request, "last_name", lastName);
-
-        final RecurlyHttpResponse response = httpClient.post(url("/accounts"), authHeader(), acceptHeader(),
-                writeJson(request), customerId);
-        requireSuccess(response, "create account");
         return accountId;
     }
 
@@ -69,28 +73,31 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient
                                    final String storedPaymentMethodId, final CardMetadata card,
                                    final BillingAddress billingAddress) throws BillingException
     {
-        final ObjectNode request = objectMapper.createObjectNode();
-        putIfNotBlank(request, "gateway_code", configService.getGatewayCode());
-
-        final ObjectNode gatewayAttributes = request.putObject("gateway_attributes");
-        putIfNotBlank(gatewayAttributes, "account_reference", shopperReference);
-
-        final ArrayNode references = request.putArray("payment_gateway_references");
-        final ObjectNode reference = references.addObject();
-        putIfNotBlank(reference, "token", storedPaymentMethodId);
-
-        if (card != null)
+        final RecurlyHttpResponse account = httpClient.get(
+                url("/accounts/" + pathSegment(accountId)), authHeader(), acceptHeader());
+        if (account.statusCode() == HTTP_OK)
         {
-            putIfNotBlank(request, "last_four", card.last4());
-            addExpiry(request, card.expiry());
+            return retrievePrimaryBillingInfoId(accountId);
         }
-        addBillingAddress(request, billingAddress);
+        if (account.statusCode() != HTTP_NOT_FOUND)
+        {
+            throw toBillingException(account, "retrieve account before importing Adyen token");
+        }
 
-        final RecurlyHttpResponse response = httpClient.put(
-                url("/accounts/" + pathSegment(accountId) + "/billing_info"), authHeader(), acceptHeader(),
-                writeJson(request), shopperReference + "/" + storedPaymentMethodId);
-        requireSuccess(response, "import Adyen token as primary billing info");
-        return readId(response.body());
+        final ObjectNode request = objectMapper.createObjectNode();
+        putIfNotBlank(request, "code", accountCode(accountId));
+        if (billingAddress != null)
+        {
+            putIfNotBlank(request, "first_name", billingAddress.firstName());
+            putIfNotBlank(request, "last_name", billingAddress.lastName());
+        }
+        request.set("billing_info",
+                buildAdyenBillingInfo(shopperReference, storedPaymentMethodId, card, billingAddress));
+
+        final RecurlyHttpResponse response = httpClient.post(url("/accounts"), authHeader(), acceptHeader(),
+                writeJson(request), accountId + "/billing-info");
+        requireSuccess(response, "create account with Adyen billing info");
+        return retrievePrimaryBillingInfoId(accountId);
     }
 
     @Override
@@ -202,8 +209,9 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient
         final String detail = extractError(response.body());
         final String message = "Recurly " + action + " failed (HTTP " + response.statusCode() + ")"
                 + (detail == null ? "" : ": " + detail);
-        if (response.statusCode() == 408 || response.statusCode() == 409 || response.statusCode() == 429
-                || response.statusCode() >= 500 || StringUtils.containsIgnoreCase(detail, "simultaneous_request"))
+        if (response.statusCode() == HTTP_CLIENT_TIMEOUT || response.statusCode() == HTTP_CONFLICT
+                || response.statusCode() == HTTP_TOO_MANY_REQUESTS || response.statusCode() >= HTTP_INTERNAL_ERROR
+                || StringUtils.containsIgnoreCase(detail, "simultaneous_request"))
         {
             return new RetryableBillingException(message);
         }
@@ -322,6 +330,43 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient
         putIfNotBlank(address, "phone", billingAddress.phone());
     }
 
+    protected ObjectNode buildAdyenBillingInfo(final String shopperReference, final String storedPaymentMethodId,
+                                               final CardMetadata card, final BillingAddress billingAddress)
+            throws BillingException
+    {
+        final ObjectNode billingInfo = objectMapper.createObjectNode();
+        putIfNotBlank(billingInfo, "gateway_code", configService.getGatewayCode());
+
+        final ObjectNode gatewayAttributes = billingInfo.putObject("gateway_attributes");
+        putIfNotBlank(gatewayAttributes, "account_reference", shopperReference);
+
+        final ArrayNode references = billingInfo.putArray("payment_gateway_references");
+        final ObjectNode reference = references.addObject();
+        putIfNotBlank(reference, "token", storedPaymentMethodId);
+
+        if (card != null)
+        {
+            putIfNotBlank(billingInfo, "last_four", card.last4());
+            addExpiry(billingInfo, card.expiry());
+        }
+        addBillingAddress(billingInfo, billingAddress);
+        return billingInfo;
+    }
+
+    protected String retrievePrimaryBillingInfoId(final String accountId) throws BillingException
+    {
+        final RecurlyHttpResponse response = httpClient.get(
+                url("/accounts/" + pathSegment(accountId) + "/billing_info"), authHeader(), acceptHeader());
+        if (response.statusCode() == HTTP_NOT_FOUND)
+        {
+            throw new TerminalBillingException("Recurly account '" + accountId
+                    + "' exists without primary billing info; payment_gateway_references must be supplied when "
+                    + "creating a fresh account");
+        }
+        requireSuccess(response, "retrieve primary billing info");
+        return readId(response.body());
+    }
+
     protected static void putIfNotBlank(final ObjectNode node, final String key, final String value)
     {
         if (StringUtils.isNotBlank(value))
@@ -335,18 +380,14 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient
         return "code-" + customerId;
     }
 
+    protected static String accountCode(final String accountId)
+    {
+        return StringUtils.removeStart(accountId, "code-");
+    }
+
     protected static String pathSegment(final String value)
     {
         return URLEncoder.encode(StringUtils.defaultString(value), StandardCharsets.UTF_8).replace("+", "%20");
     }
 
-    public void setHttpClient(final RecurlyHttpClient httpClient)
-    {
-        this.httpClient = httpClient;
-    }
-
-    public void setConfigService(final RecurlyConfigService configService)
-    {
-        this.configService = configService;
-    }
 }

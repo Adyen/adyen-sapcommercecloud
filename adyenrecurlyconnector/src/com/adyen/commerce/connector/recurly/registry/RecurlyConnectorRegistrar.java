@@ -9,8 +9,15 @@ import com.adyen.commerce.connector.spi.SubscriptionBillingConnector;
 /** Adds the Recurly adapter to the mutable list owned by the connector registry. */
 public class RecurlyConnectorRegistrar implements InitializingBean
 {
-    private List<SubscriptionBillingConnector> connectors;
-    private SubscriptionBillingConnector connector;
+    private final List<SubscriptionBillingConnector> connectors;
+    private final SubscriptionBillingConnector connector;
+
+    public RecurlyConnectorRegistrar(final List<SubscriptionBillingConnector> connectors,
+                                     final SubscriptionBillingConnector connector)
+    {
+        this.connectors = connectors;
+        this.connector = connector;
+    }
 
     @Override
     public void afterPropertiesSet()
@@ -19,15 +26,5 @@ public class RecurlyConnectorRegistrar implements InitializingBean
         {
             connectors.add(connector);
         }
-    }
-
-    public void setConnectors(final List<SubscriptionBillingConnector> connectors)
-    {
-        this.connectors = connectors;
-    }
-
-    public void setConnector(final SubscriptionBillingConnector connector)
-    {
-        this.connector = connector;
     }
 }

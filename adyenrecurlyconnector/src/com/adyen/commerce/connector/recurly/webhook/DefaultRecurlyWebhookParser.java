@@ -35,8 +35,19 @@ public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser
     private static final String HMAC_SHA_256 = "HmacSHA256";
 
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private Clock clock = Clock.systemUTC();
-    private RecurlyConfigService configService;
+    private final Clock clock;
+    private final RecurlyConfigService configService;
+
+    public DefaultRecurlyWebhookParser(final RecurlyConfigService configService)
+    {
+        this(configService, Clock.systemUTC());
+    }
+
+    DefaultRecurlyWebhookParser(final RecurlyConfigService configService, final Clock clock)
+    {
+        this.configService = configService;
+        this.clock = clock;
+    }
 
     @Override
     public NormalizedBillingEvent parse(final RawWebhook raw) throws BillingException
@@ -97,7 +108,8 @@ public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser
         try
         {
             final Mac mac = Mac.getInstance(HMAC_SHA_256);
-            mac.init(new SecretKeySpec(configService.getWebhookSigningKey().getBytes(StandardCharsets.UTF_8), HMAC_SHA_256));
+            mac.init(new SecretKeySpec(configService.getWebhookSigningKey().getBytes(StandardCharsets.UTF_8),
+                    HMAC_SHA_256));
             final byte[] expected = mac.doFinal((parts[0] + "." + payload).getBytes(StandardCharsets.UTF_8));
             for (int index = 1; index < parts.length; index++)
             {
@@ -172,15 +184,5 @@ public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser
         {
             values.put(key, value);
         }
-    }
-
-    public void setConfigService(final RecurlyConfigService configService)
-    {
-        this.configService = configService;
-    }
-
-    public void setClock(final Clock clock)
-    {
-        this.clock = clock;
     }
 }

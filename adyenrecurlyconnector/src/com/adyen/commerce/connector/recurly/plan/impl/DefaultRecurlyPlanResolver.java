@@ -17,7 +17,12 @@ import de.hybris.platform.servicelayer.search.FlexibleSearchService;
  */
 public class DefaultRecurlyPlanResolver implements RecurlyPlanResolver
 {
-    private FlexibleSearchService flexibleSearchService;
+    private final FlexibleSearchService flexibleSearchService;
+
+    public DefaultRecurlyPlanResolver(final FlexibleSearchService flexibleSearchService)
+    {
+        this.flexibleSearchService = flexibleSearchService;
+    }
 
     @Override
     public PlanRef resolve(final PlanResolutionRequest request) throws BillingException
@@ -36,10 +41,5 @@ public class DefaultRecurlyPlanResolver implements RecurlyPlanResolver
 
         final RecurlyPlanMappingModel mapping = result.get(0);
         return new PlanRef(mapping.getPlanCode(), mapping.getPriceId());
-    }
-
-    public void setFlexibleSearchService(final FlexibleSearchService flexibleSearchService)
-    {
-        this.flexibleSearchService = flexibleSearchService;
     }
 }

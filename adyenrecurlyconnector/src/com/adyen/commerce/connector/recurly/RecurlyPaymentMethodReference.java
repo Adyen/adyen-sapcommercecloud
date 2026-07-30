@@ -33,7 +33,8 @@ final class RecurlyPaymentMethodReference
         final int separator = value.indexOf(SEPARATOR);
         if (separator <= 0 || separator + SEPARATOR.length() >= value.length())
         {
-            throw new PreconditionFailedException("Recurly payment method reference is missing billing info id or NTID");
+            throw new PreconditionFailedException(
+                    "Recurly payment method reference is missing billing info id or NTID");
         }
         return new RecurlyPaymentMethodReference(value.substring(0, separator),
                 value.substring(separator + SEPARATOR.length()));
