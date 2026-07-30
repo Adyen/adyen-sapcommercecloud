@@ -22,9 +22,9 @@
 <%@ attribute name="dfUrl" required="false" type="java.lang.String"%>
 <%@ attribute name="showDefaultCss" required="false" type="java.lang.Boolean"%>
 
-<c:set var="VERSION" value="6.25.1"/>
-<c:set var="jsHashVersion" value="sha384-baZefgr0+MsmvaL/UdoKcOym2+Snxf0GBCwopMGahl/M9hHul1ty2f3fIb2SG2/5"/>
-<c:set var="cssHashVersion" value="sha384-TqsUArVcaNhMj9GdL9EJx9QTEcuL6ozA/hqIDJqoj/qDT/FZqjnUWbvMYPVuebMl"/>
+<c:set var="VERSION" value="6.40.1"/>
+<c:set var="jsHashVersion" value="sha384-DSWsEqnnD+jomUFfNHEGA302VKHKB/aMOWJm312FYhNVcFutrbEgrLHuU3vLwwBe"/>
+<c:set var="cssHashVersion" value="sha384-QCE3u3lliHH3SEx30M8NEuDhvEGmFCtZl62YVSVWw84cYNt2NYYbVwd/KPaaaIQ9"/>
 
 <c:if test="${not empty(dfUrl)}">
     <script type="text/javascript" src="${dfUrl}"></script>

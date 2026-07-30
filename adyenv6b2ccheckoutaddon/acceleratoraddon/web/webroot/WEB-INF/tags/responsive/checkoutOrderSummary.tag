@@ -11,7 +11,7 @@
 <spring:url value="/checkout/multi/termsAndConditions" var="getTermsAndConditionsUrl"/>
 
 <c:set var="componentsWithPayButton"
-       value="[amazonpay],[applepay],[paypal],[paywithgoogle],[googlepay],[pix],[bcmc_mobile],[upi],[paysafecard],[klarna],[klarna_account],[klarna_paynow],[klarna_b2b],[ideal],[trustly],[swish],[twint],[paypo],[paybybank],[paybybank_AIS_DD],[vipps],[mobilepay],[ebanking_FI],[onlineBanking_PL],[multibanco]"/>
+       value="[amazonpay],[applepay],[paypal],[paywithgoogle],[googlepay],[pix],[iris],[bcmc_mobile],[upi],[paysafecard],[klarna],[klarna_account],[klarna_paynow],[klarna_b2b],[ideal],[trustly],[swish],[twint],[paypo],[paybybank],[paybybank_AIS_DD],[vipps],[mobilepay],[ebanking_FI],[onlineBanking_PL],[multibanco]"/>
 <c:set var="componentPaymentMethod" value="[${selectedPaymentMethod}]" />
 
 <%-- Components --%>
@@ -30,7 +30,7 @@
     </c:if>
     </div>
     <c:choose>
-        <c:when test="${componentPaymentMethod eq '[pix]' || componentPaymentMethod eq '[bcmc_mobile]'}">
+        <c:when test="${componentPaymentMethod eq '[pix]' || componentPaymentMethod eq '[iris]' || componentPaymentMethod eq '[bcmc_mobile]'}">
             <%-- Render QR code --%>
             <button id="generateqr-${label}" type="submit" class="btn btn-primary btn-block">
                 <spring:theme code="checkout.summary.component.generateqr" text="Generate QR Code" />
@@ -87,4 +87,3 @@
         <spring:theme code="checkout.summary.placeOrder" text="Place Order" />
     </button>
 </c:if>
-
