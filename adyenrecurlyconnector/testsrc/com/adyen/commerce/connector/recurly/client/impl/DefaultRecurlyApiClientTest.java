@@ -4,6 +4,7 @@ import static java.net.HttpURLConnection.HTTP_CREATED;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -14,6 +15,7 @@ import static org.mockito.Mockito.when;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Map;
+import java.util.UUID;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -53,12 +55,14 @@ public class DefaultRecurlyApiClientTest
         when(configService.getApiBaseUrl()).thenReturn(BASE);
         when(configService.getApiKey()).thenReturn("recurly-key");
         when(configService.getApiVersion()).thenReturn("v2021-02-25");
+        when(configService.isWalletEnabled()).thenReturn(true);
         auth = "Basic " + Base64.getEncoder().encodeToString("recurly-key:".getBytes(StandardCharsets.UTF_8));
     }
 
     @Test
-    public void ensureCustomerDefersMissingAccountUntilTokenImport() throws Exception
+    public void ensureCustomerDefersMissingAccountWithoutWallet() throws Exception
     {
+        when(configService.isWalletEnabled()).thenReturn(false);
         when(httpClient.get(BASE + "/accounts/code-customer", auth, ACCEPT))
                 .thenReturn(new RecurlyHttpResponse(HTTP_NOT_FOUND, ""));
 
@@ -68,16 +72,50 @@ public class DefaultRecurlyApiClientTest
     }
 
     @Test
-    public void importAdyenTokenCreatesAccountWithNestedBillingInfo() throws Exception
+    public void ensureCustomerCreatesMissingAccountWithProfile() throws Exception
     {
-        when(configService.getGatewayCode()).thenReturn("adyen-gateway");
         when(httpClient.get(BASE + "/accounts/code-customer", auth, ACCEPT))
                 .thenReturn(new RecurlyHttpResponse(HTTP_NOT_FOUND, ""));
-        when(httpClient.post(eq(BASE + "/accounts"), eq(auth), eq(ACCEPT), any(),
-                eq("code-customer/billing-info")))
+        when(httpClient.post(eq(BASE + "/accounts"), eq(auth), eq(ACCEPT), any(), eq("code-customer")))
                 .thenReturn(new RecurlyHttpResponse(HTTP_CREATED, "{\"id\":\"account-1\"}"));
+
+        assertEquals("code-customer", client.ensureCustomer("customer", "customer@example.com", "Ada", "Lovelace"));
+
+        final ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
+        verify(httpClient).post(eq(BASE + "/accounts"), eq(auth), eq(ACCEPT), body.capture(), eq("code-customer"));
+        assertTrue(body.getValue().contains("\"code\":\"customer\""));
+        assertTrue(body.getValue().contains("\"email\":\"customer@example.com\""));
+        assertTrue(body.getValue().contains("\"first_name\":\"Ada\""));
+        assertTrue(body.getValue().contains("\"last_name\":\"Lovelace\""));
+    }
+
+    @Test
+    public void ensureCustomerSynchronizesChangedProfile() throws Exception
+    {
+        when(httpClient.get(BASE + "/accounts/code-customer", auth, ACCEPT)).thenReturn(new RecurlyHttpResponse(
+                HTTP_OK, "{\"email\":\"old@example.com\",\"first_name\":\"Ada\",\"last_name\":\"Lovelace\"}"));
+        when(httpClient.put(eq(BASE + "/accounts/code-customer"), eq(auth), eq(ACCEPT), any(),
+                any())).thenReturn(new RecurlyHttpResponse(HTTP_OK, "{}"));
+
+        client.ensureCustomer("customer", "new@example.com", "Ada", "Lovelace");
+
+        final ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
+        final ArgumentCaptor<String> key = ArgumentCaptor.forClass(String.class);
+        verify(httpClient).put(eq(BASE + "/accounts/code-customer"), eq(auth), eq(ACCEPT), body.capture(),
+                key.capture());
+        assertEquals("{\"email\":\"new@example.com\"}", body.getValue());
+        assertEquals("code-customer/profile/" + fingerprint(body.getValue()), key.getValue());
+    }
+
+    @Test
+    public void importAdyenTokenAddsPrimaryBillingInfo() throws Exception
+    {
+        when(configService.getGatewayCode()).thenReturn("adyen-gateway");
         when(httpClient.get(BASE + "/accounts/code-customer/billing_info", auth, ACCEPT))
-                .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"id\":\"billing-1\"}"));
+                .thenReturn(new RecurlyHttpResponse(HTTP_NOT_FOUND, ""));
+        when(httpClient.post(eq(BASE + "/accounts/code-customer/billing_infos"), eq(auth), eq(ACCEPT), any(),
+                any()))
+                .thenReturn(new RecurlyHttpResponse(HTTP_CREATED, "{\"id\":\"billing-1\"}"));
 
         final String billingInfoId = client.importAdyenToken("code-customer", "shopper-1", "token-1",
                 new CardMetadata("visa", "1111", null, "03/2030", "credit"),
@@ -86,10 +124,10 @@ public class DefaultRecurlyApiClientTest
 
         assertEquals("billing-1", billingInfoId);
         final ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
-        verify(httpClient).post(eq(BASE + "/accounts"), eq(auth), eq(ACCEPT), body.capture(),
-                eq("code-customer/billing-info"));
-        assertTrue(body.getValue().contains("\"code\":\"customer\""));
-        assertTrue(body.getValue().contains("\"billing_info\":"));
+        final ArgumentCaptor<String> key = ArgumentCaptor.forClass(String.class);
+        verify(httpClient).post(eq(BASE + "/accounts/code-customer/billing_infos"), eq(auth), eq(ACCEPT),
+                body.capture(), key.capture());
+        assertEquals("code-customer/adyen/" + fingerprint("token-1"), key.getValue());
         assertTrue(body.getValue().contains("\"gateway_code\":\"adyen-gateway\""));
         assertTrue(body.getValue().contains("\"account_reference\":\"shopper-1\""));
         assertTrue(body.getValue().contains("\"token\":\"token-1\""));
@@ -102,15 +140,64 @@ public class DefaultRecurlyApiClientTest
         assertTrue(body.getValue().contains("\"city\":\"Warsaw\""));
         assertTrue(body.getValue().contains("\"postal_code\":\"00-001\""));
         assertTrue(body.getValue().contains("\"country\":\"PL\""));
+        assertTrue(body.getValue().contains("\"primary_payment_method\":true"));
     }
 
     @Test
-    public void importAdyenTokenReusesExistingPrimaryBillingInfo() throws Exception
+    public void importAdyenTokenCreatesAccountWithPrimaryBillingInfoWithoutWallet() throws Exception
     {
+        when(configService.isWalletEnabled()).thenReturn(false);
+        when(configService.getGatewayCode()).thenReturn("adyen-gateway");
+        when(httpClient.get(BASE + "/accounts/code-customer", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_NOT_FOUND, ""));
+        when(httpClient.post(eq(BASE + "/accounts"), eq(auth), eq(ACCEPT), any(), any()))
+                .thenReturn(new RecurlyHttpResponse(HTTP_CREATED, "{\"id\":\"account-1\"}"));
+        when(httpClient.get(BASE + "/accounts/code-customer/billing_info", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"id\":\"billing-1\"}"));
+
+        assertEquals("billing-1", client.importAdyenToken("code-customer", "shopper-1", "token-1", null,
+                new BillingAddress("Ada", "Lovelace", "1 Main St", null, "Warsaw", null, "00-001", "PL", null)));
+
+        final ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
+        verify(httpClient).post(eq(BASE + "/accounts"), eq(auth), eq(ACCEPT), body.capture(),
+                eq("code-customer/primary-adyen/" + fingerprint("token-1")));
+        assertTrue(body.getValue().contains("\"code\":\"customer\""));
+        assertTrue(body.getValue().contains("\"billing_info\":"));
+        assertTrue(body.getValue().contains("\"gateway_code\":\"adyen-gateway\""));
+        assertTrue(body.getValue().contains("\"account_reference\":\"shopper-1\""));
+        assertTrue(body.getValue().contains("\"token\":\"token-1\""));
+        assertFalse(body.getValue().contains("\"primary_payment_method\""));
+    }
+
+    @Test
+    public void importAdyenTokenSetsMissingPrimaryBillingInfoWithoutWallet() throws Exception
+    {
+        when(configService.isWalletEnabled()).thenReturn(false);
+        when(configService.getGatewayCode()).thenReturn("adyen-gateway");
         when(httpClient.get(BASE + "/accounts/code-customer", auth, ACCEPT))
                 .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"id\":\"account-1\"}"));
         when(httpClient.get(BASE + "/accounts/code-customer/billing_info", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_NOT_FOUND, ""))
                 .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"id\":\"billing-1\"}"));
+        when(httpClient.put(eq(BASE + "/accounts/code-customer"), eq(auth), eq(ACCEPT), any(), any()))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{}"));
+
+        assertEquals("billing-1",
+                client.importAdyenToken("code-customer", "shopper-1", "token-1", null, null));
+
+        final ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
+        verify(httpClient).put(eq(BASE + "/accounts/code-customer"), eq(auth), eq(ACCEPT), body.capture(),
+                eq("code-customer/primary-adyen/" + fingerprint("token-1")));
+        assertTrue(body.getValue().contains("\"billing_info\":"));
+    }
+
+    @Test
+    public void importAdyenTokenReusesOnlyMatchingPrimaryBillingInfo() throws Exception
+    {
+        when(httpClient.get(BASE + "/accounts/code-customer/billing_info", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"id\":\"billing-1\","
+                        + "\"gateway_attributes\":{\"account_reference\":\"shopper-1\"},"
+                        + "\"payment_gateway_references\":[{\"token\":\"token-1\"}]}"));
 
         assertEquals("billing-1",
                 client.importAdyenToken("code-customer", "shopper-1", "token-1", null, null));
@@ -119,15 +206,20 @@ public class DefaultRecurlyApiClientTest
         verify(httpClient, never()).post(any(), any(), any(), any(), any());
     }
 
-    @Test(expected = TerminalBillingException.class)
-    public void importAdyenTokenRejectsExistingAccountWithoutPrimaryBillingInfo() throws Exception
+    @Test
+    public void importAdyenTokenAddsNewBillingInfoWhenExistingTokenDoesNotMatch() throws Exception
     {
-        when(httpClient.get(BASE + "/accounts/code-customer", auth, ACCEPT))
-                .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"id\":\"account-1\"}"));
+        when(configService.getGatewayCode()).thenReturn("adyen-gateway");
         when(httpClient.get(BASE + "/accounts/code-customer/billing_info", auth, ACCEPT))
-                .thenReturn(new RecurlyHttpResponse(HTTP_NOT_FOUND, ""));
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"id\":\"billing-old\","
+                        + "\"gateway_attributes\":{\"account_reference\":\"shopper-1\"},"
+                        + "\"payment_gateway_references\":[{\"token\":\"token-old\"}]}"));
+        when(httpClient.post(eq(BASE + "/accounts/code-customer/billing_infos"), eq(auth), eq(ACCEPT), any(),
+                any()))
+                .thenReturn(new RecurlyHttpResponse(HTTP_CREATED, "{\"id\":\"billing-new\"}"));
 
-        client.importAdyenToken("code-customer", "shopper-1", "token-1", null, null);
+        assertEquals("billing-new",
+                client.importAdyenToken("code-customer", "shopper-1", "token-1", null, null));
     }
 
     @Test
@@ -144,6 +236,23 @@ public class DefaultRecurlyApiClientTest
         final ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
         verify(httpClient).post(eq(BASE + "/subscriptions"), eq(auth), eq(ACCEPT), body.capture(), eq("ORDER-1"));
         assertTrue(body.getValue().contains("\"billing_info_id\":\"billing-1\""));
+        assertTrue(body.getValue().contains("\"network_transaction_id\":\"ntid-1\""));
+        assertTrue(body.getValue().contains("\"starts_at\":\"2030-01-01T00:00:00Z\""));
+    }
+
+    @Test
+    public void createSubscriptionUsesAccountPrimaryBillingInfoWithoutWallet() throws Exception
+    {
+        when(configService.isWalletEnabled()).thenReturn(false);
+        when(httpClient.post(eq(BASE + "/subscriptions"), eq(auth), eq(ACCEPT), any(), eq("ORDER-1")))
+                .thenReturn(new RecurlyHttpResponse(HTTP_CREATED, "{\"uuid\":\"subscription-1\"}"));
+
+        client.createSubscription(new RecurlySubscriptionParams("code-customer", "billing-1", "monthly", 1,
+                "USD", "2030-01-01T00:00:00Z", "ntid-1", "ORDER-1", Map.of()));
+
+        final ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
+        verify(httpClient).post(eq(BASE + "/subscriptions"), eq(auth), eq(ACCEPT), body.capture(), eq("ORDER-1"));
+        assertFalse(body.getValue().contains("\"billing_info_id\""));
         assertTrue(body.getValue().contains("\"network_transaction_id\":\"ntid-1\""));
         assertTrue(body.getValue().contains("\"starts_at\":\"2030-01-01T00:00:00Z\""));
     }
@@ -171,5 +280,32 @@ public class DefaultRecurlyApiClientTest
         client.cancelSubscription("uuid-123", false, "key");
 
         verify(httpClient).delete(BASE + "/subscriptions/uuid-123", auth, ACCEPT, "key");
+    }
+
+    @Test
+    public void resolvesInvoiceSubscriptionIdsFromInvoiceNumber() throws Exception
+    {
+        when(httpClient.get(BASE + "/invoices/number-1031", auth, ACCEPT)).thenReturn(new RecurlyHttpResponse(
+                HTTP_OK, "{\"subscription_ids\":[\"first\",\"uuid-second\"],\"state\":\"paid\"}"));
+
+        assertEquals(java.util.List.of("uuid-first", "uuid-second"),
+                client.resolveWebhookSubscriptionIds("charge_invoice", "number-1031"));
+    }
+
+    @Test
+    public void resolvesPaymentThroughItsInvoice() throws Exception
+    {
+        when(httpClient.get(BASE + "/transactions/uuid-payment", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"invoice\":{\"id\":\"invoice-1\"}}"));
+        when(httpClient.get(BASE + "/invoices/invoice-1", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"subscription_ids\":[\"subscription-1\"]}"));
+
+        assertEquals(java.util.List.of("uuid-subscription-1"),
+                client.resolveWebhookSubscriptionIds("payment", "uuid-payment"));
+    }
+
+    private static UUID fingerprint(final String value)
+    {
+        return UUID.nameUUIDFromBytes(value.getBytes(StandardCharsets.UTF_8));
     }
 }

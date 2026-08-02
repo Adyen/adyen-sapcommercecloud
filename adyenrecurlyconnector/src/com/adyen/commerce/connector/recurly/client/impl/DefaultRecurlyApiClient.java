@@ -9,8 +9,13 @@ import static java.net.HttpURLConnection.HTTP_OK;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -58,6 +63,7 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient
                 acceptHeader());
         if (existing.statusCode() == HTTP_OK)
         {
+            synchronizeAccountProfile(accountId, existing.body(), email, firstName, lastName);
             return accountId;
         }
         if (existing.statusCode() != HTTP_NOT_FOUND)
@@ -65,6 +71,21 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient
             throw toBillingException(existing, "retrieve account");
         }
 
+        // Without Subscriber Wallet, create the account and its single primary billing info together
+        // during token import. This is the shape documented for Recurly's external-token/NTID flow.
+        if (!configService.isWalletEnabled())
+        {
+            return accountId;
+        }
+
+        final ObjectNode request = objectMapper.createObjectNode();
+        putIfNotBlank(request, "code", customerId);
+        putIfNotBlank(request, "email", email);
+        putIfNotBlank(request, "first_name", firstName);
+        putIfNotBlank(request, "last_name", lastName);
+        final RecurlyHttpResponse response = httpClient.post(url("/accounts"), authHeader(), acceptHeader(),
+                writeJson(request), accountId);
+        requireSuccess(response, "create account");
         return accountId;
     }
 
@@ -73,31 +94,30 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient
                                    final String storedPaymentMethodId, final CardMetadata card,
                                    final BillingAddress billingAddress) throws BillingException
     {
-        final RecurlyHttpResponse account = httpClient.get(
-                url("/accounts/" + pathSegment(accountId)), authHeader(), acceptHeader());
-        if (account.statusCode() == HTTP_OK)
+        if (!configService.isWalletEnabled())
         {
-            return retrievePrimaryBillingInfoId(accountId);
-        }
-        if (account.statusCode() != HTTP_NOT_FOUND)
-        {
-            throw toBillingException(account, "retrieve account before importing Adyen token");
+            return importPrimaryAdyenToken(accountId, shopperReference, storedPaymentMethodId, card, billingAddress);
         }
 
-        final ObjectNode request = objectMapper.createObjectNode();
-        putIfNotBlank(request, "code", accountCode(accountId));
-        if (billingAddress != null)
+        final String billingInfoPath = "/accounts/" + pathSegment(accountId) + "/billing_info";
+        final RecurlyHttpResponse existing = httpClient.get(url(billingInfoPath), authHeader(), acceptHeader());
+        if (existing.statusCode() == HTTP_OK && billingInfoMatches(existing.body(), shopperReference,
+                storedPaymentMethodId))
         {
-            putIfNotBlank(request, "first_name", billingAddress.firstName());
-            putIfNotBlank(request, "last_name", billingAddress.lastName());
+            return readId(existing.body());
         }
-        request.set("billing_info",
-                buildAdyenBillingInfo(shopperReference, storedPaymentMethodId, card, billingAddress));
+        if (existing.statusCode() != HTTP_OK && existing.statusCode() != HTTP_NOT_FOUND)
+        {
+            throw toBillingException(existing, "retrieve primary billing info");
+        }
 
-        final RecurlyHttpResponse response = httpClient.post(url("/accounts"), authHeader(), acceptHeader(),
-                writeJson(request), accountId + "/billing-info");
-        requireSuccess(response, "create account with Adyen billing info");
-        return retrievePrimaryBillingInfoId(accountId);
+        final ObjectNode request = buildAdyenBillingInfo(shopperReference, storedPaymentMethodId, card, billingAddress);
+        request.put("primary_payment_method", true);
+        final RecurlyHttpResponse response = httpClient.post(
+                url("/accounts/" + pathSegment(accountId) + "/billing_infos"), authHeader(), acceptHeader(),
+                writeJson(request), fingerprintedKey(accountId + "/adyen", storedPaymentMethodId));
+        requireSuccess(response, "add Adyen billing info");
+        return readId(response.body());
     }
 
     @Override
@@ -108,7 +128,12 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient
         final ObjectNode account = request.putObject("account");
         putIfNotBlank(account, "id", params.accountId());
 
-        putIfNotBlank(request, "billing_info_id", params.billingInfoId());
+        // A subscription-level billing_info_id pins a Wallet payment method. Without Wallet, omitting
+        // it deliberately makes Recurly use the account's single primary billing info.
+        if (configService.isWalletEnabled())
+        {
+            putIfNotBlank(request, "billing_info_id", params.billingInfoId());
+        }
         putIfNotBlank(request, "plan_code", params.planCode());
         request.put("quantity", Math.max(1, params.quantity()));
         putIfNotBlank(request, "currency", params.currencyIsoCode());
@@ -133,6 +158,56 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient
                 writeJson(request), params.subscriptionId());
         requireSuccess(response, "create subscription");
         return readSubscriptionId(response.body());
+    }
+
+    protected String importPrimaryAdyenToken(final String accountId, final String shopperReference,
+                                             final String storedPaymentMethodId, final CardMetadata card,
+                                             final BillingAddress billingAddress) throws BillingException
+    {
+        final String accountPath = "/accounts/" + pathSegment(accountId);
+        final RecurlyHttpResponse account = httpClient.get(url(accountPath), authHeader(), acceptHeader());
+        if (account.statusCode() == HTTP_NOT_FOUND)
+        {
+            final ObjectNode request = objectMapper.createObjectNode();
+            putIfNotBlank(request, "code", accountCode(accountId));
+            if (billingAddress != null)
+            {
+                putIfNotBlank(request, "first_name", billingAddress.firstName());
+                putIfNotBlank(request, "last_name", billingAddress.lastName());
+            }
+            request.set("billing_info",
+                    buildAdyenBillingInfo(shopperReference, storedPaymentMethodId, card, billingAddress));
+
+            final RecurlyHttpResponse response = httpClient.post(url("/accounts"), authHeader(), acceptHeader(),
+                    writeJson(request), fingerprintedKey(accountId + "/primary-adyen", storedPaymentMethodId));
+            requireSuccess(response, "create account with primary Adyen billing info");
+            return retrievePrimaryBillingInfoId(accountId);
+        }
+        if (account.statusCode() != HTTP_OK)
+        {
+            throw toBillingException(account, "retrieve account before importing primary Adyen token");
+        }
+
+        final String billingInfoPath = accountPath + "/billing_info";
+        final RecurlyHttpResponse existing = httpClient.get(url(billingInfoPath), authHeader(), acceptHeader());
+        if (existing.statusCode() == HTTP_OK
+                && billingInfoMatches(existing.body(), shopperReference, storedPaymentMethodId))
+        {
+            return readId(existing.body());
+        }
+        if (existing.statusCode() != HTTP_OK && existing.statusCode() != HTTP_NOT_FOUND)
+        {
+            throw toBillingException(existing, "retrieve primary billing info");
+        }
+
+        // This also repairs accounts created by an earlier interrupted attempt before billing info was added.
+        final ObjectNode update = objectMapper.createObjectNode();
+        update.set("billing_info",
+                buildAdyenBillingInfo(shopperReference, storedPaymentMethodId, card, billingAddress));
+        final RecurlyHttpResponse response = httpClient.put(url(accountPath), authHeader(), acceptHeader(),
+                writeJson(update), fingerprintedKey(accountId + "/primary-adyen", storedPaymentMethodId));
+        requireSuccess(response, "set primary Adyen billing info");
+        return retrievePrimaryBillingInfoId(accountId);
     }
 
     @Override
@@ -177,6 +252,47 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient
                     idempotencyKey);
             requireSuccess(response, "terminate subscription");
         }
+    }
+
+    @Override
+    public List<String> resolveWebhookSubscriptionIds(final String resourceType, final String resourceId)
+            throws BillingException
+    {
+        if (StringUtils.isAnyBlank(resourceType, resourceId))
+        {
+            return List.of();
+        }
+
+        final String path;
+        if ("payment".equals(resourceType))
+        {
+            path = "/transactions/" + pathSegment(resourceId);
+        }
+        else if ("invoice".equals(resourceType) || "charge_invoice".equals(resourceType))
+        {
+            path = "/invoices/" + pathSegment(resourceId);
+        }
+        else
+        {
+            return List.of();
+        }
+
+        final RecurlyHttpResponse response = httpClient.get(url(path), authHeader(), acceptHeader());
+        requireSuccess(response, "resolve webhook " + resourceType);
+        final JsonNode resource = readJson(response.body(), "webhook " + resourceType);
+        final Set<String> subscriptionIds = new LinkedHashSet<>();
+        collectSubscriptionIds(resource, subscriptionIds);
+        collectSubscriptionIds(resource.path("invoice"), subscriptionIds);
+
+        if (subscriptionIds.isEmpty() && "payment".equals(resourceType))
+        {
+            final String invoiceId = resource.path("invoice").path("id").asText(null);
+            if (StringUtils.isNotBlank(invoiceId))
+            {
+                return resolveWebhookSubscriptionIds("invoice", invoiceId);
+            }
+        }
+        return new ArrayList<>(subscriptionIds);
     }
 
     protected String authHeader() throws BillingException
@@ -243,19 +359,12 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient
 
     protected String readId(final String body) throws BillingException
     {
-        try
+        final JsonNode id = readJson(body, "response").path("id");
+        if (id.isMissingNode() || StringUtils.isBlank(id.asText(null)))
         {
-            final JsonNode id = objectMapper.readTree(body).path("id");
-            if (id.isMissingNode() || StringUtils.isBlank(id.asText(null)))
-            {
-                throw new TerminalBillingException("Recurly response missing id");
-            }
-            return id.asText();
+            throw new TerminalBillingException("Recurly response missing id");
         }
-        catch (final IOException e)
-        {
-            throw new TerminalBillingException("Malformed Recurly response: " + e.getMessage());
-        }
+        return id.asText();
     }
 
     /**
@@ -353,6 +462,43 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient
         return billingInfo;
     }
 
+    protected void synchronizeAccountProfile(final String accountId, final String responseBody, final String email,
+                                             final String firstName, final String lastName) throws BillingException
+    {
+        final JsonNode account = readJson(responseBody, "account");
+        final ObjectNode update = objectMapper.createObjectNode();
+        putIfDifferent(update, account, "email", email);
+        putIfDifferent(update, account, "first_name", firstName);
+        putIfDifferent(update, account, "last_name", lastName);
+        if (update.isEmpty())
+        {
+            return;
+        }
+        final String body = writeJson(update);
+        final RecurlyHttpResponse response = httpClient.put(url("/accounts/" + pathSegment(accountId)), authHeader(),
+                acceptHeader(), body, fingerprintedKey(accountId + "/profile", body));
+        requireSuccess(response, "synchronize account");
+    }
+
+    protected boolean billingInfoMatches(final String responseBody, final String shopperReference,
+                                         final String storedPaymentMethodId) throws BillingException
+    {
+        final JsonNode billingInfo = readJson(responseBody, "billing info");
+        if (!StringUtils.equals(shopperReference,
+                billingInfo.path("gateway_attributes").path("account_reference").asText(null)))
+        {
+            return false;
+        }
+        for (final JsonNode reference : billingInfo.path("payment_gateway_references"))
+        {
+            if (StringUtils.equals(storedPaymentMethodId, reference.path("token").asText(null)))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     protected String retrievePrimaryBillingInfoId(final String accountId) throws BillingException
     {
         final RecurlyHttpResponse response = httpClient.get(
@@ -360,11 +506,53 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient
         if (response.statusCode() == HTTP_NOT_FOUND)
         {
             throw new TerminalBillingException("Recurly account '" + accountId
-                    + "' exists without primary billing info; payment_gateway_references must be supplied when "
-                    + "creating a fresh account");
+                    + "' has no primary billing info after importing the Adyen token");
         }
         requireSuccess(response, "retrieve primary billing info");
         return readId(response.body());
+    }
+
+    protected JsonNode readJson(final String body, final String resource) throws TerminalBillingException
+    {
+        try
+        {
+            return objectMapper.readTree(body);
+        }
+        catch (final IOException e)
+        {
+            throw new TerminalBillingException("Malformed Recurly " + resource + " response: " + e.getMessage());
+        }
+    }
+
+    protected static void collectSubscriptionIds(final JsonNode resource, final Set<String> values)
+    {
+        if (resource == null || resource.isMissingNode())
+        {
+            return;
+        }
+        final JsonNode ids = resource.path("subscription_ids");
+        if (ids.isArray())
+        {
+            ids.forEach(id -> addSubscriptionId(values, id.asText(null)));
+        }
+        addSubscriptionId(values, resource.path("subscription_id").asText(null));
+    }
+
+    protected static void addSubscriptionId(final Set<String> values, final String value)
+    {
+        if (StringUtils.isNotBlank(value))
+        {
+            values.add(StringUtils.startsWith(value, "uuid-") ? value : "uuid-" + value);
+        }
+    }
+
+    protected static void putIfDifferent(final ObjectNode update, final JsonNode existing, final String field,
+                                         final String requested)
+    {
+        if (StringUtils.isNotBlank(requested) && !StringUtils.equals(requested, existing.path(field).asText(null)))
+        {
+            update.put(field, requested);
+        }
     }
 
     protected static void putIfNotBlank(final ObjectNode node, final String key, final String value)
@@ -388,6 +576,15 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient
     protected static String pathSegment(final String value)
     {
         return URLEncoder.encode(StringUtils.defaultString(value), StandardCharsets.UTF_8).replace("+", "%20");
+    }
+
+    /**
+     * Recurly idempotency keys can be retained in operational logs, so never embed an Adyen token or customer data.
+     */
+    protected static String fingerprintedKey(final String prefix, final String sensitiveValue)
+    {
+        return prefix + "/" + UUID.nameUUIDFromBytes(
+                StringUtils.defaultString(sensitiveValue).getBytes(StandardCharsets.UTF_8));
     }
 
 }

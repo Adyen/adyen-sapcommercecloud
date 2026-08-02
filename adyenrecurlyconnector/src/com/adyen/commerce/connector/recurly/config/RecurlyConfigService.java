@@ -23,4 +23,8 @@ public interface RecurlyConfigService
     String getWebhookSigningKey() throws ConnectorNotConfiguredException;
 
     int getWebhookToleranceSeconds();
+
+    boolean isExternalNtidFeatureEnabled();
+
+    boolean isWalletEnabled();
 }

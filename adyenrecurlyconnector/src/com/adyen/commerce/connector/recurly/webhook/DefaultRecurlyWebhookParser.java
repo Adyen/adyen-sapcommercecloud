@@ -67,6 +67,7 @@ public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser
             final String eventType = text(payload, "event_type");
             final String uuid = text(payload, "uuid");
             final Instant occurredAt = Instant.parse(text(payload, "event_time"));
+            final String resourceId = resourceId(payload, objectType, uuid);
 
             final Map<String, String> attributes = new HashMap<>();
             putIfNotBlank(attributes, "eventType", eventType);
@@ -74,12 +75,14 @@ public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser
             putIfNotBlank(attributes, "siteId", text(payload, "site_id"));
             putIfNotBlank(attributes, "notificationId", StringUtils.defaultIfBlank(
                     header(raw.headers(), NOTIFICATION_ID_HEADER), text(payload, "id")));
+            putIfNotBlank(attributes, "resourceType", objectType);
+            putIfNotBlank(attributes, "resourceId", resourceId);
 
             final String subscriptionId = "subscription".equals(objectType) && StringUtils.isNotBlank(uuid)
                     ? "uuid-" + uuid
                     : null;
             return new NormalizedBillingEvent(BillingPlatform.RECURLY, mapEvent(objectType, eventType),
-                    subscriptionId, null, occurredAt, attributes);
+                    subscriptionId, text(payload, "account_code"), occurredAt, attributes);
         }
         catch (final JsonProcessingException | DateTimeException e)
         {
@@ -148,6 +151,28 @@ public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser
 
     protected BillingEventType mapEvent(final String objectType, final String eventType)
     {
+        if ("payment".equals(objectType))
+        {
+            return switch (StringUtils.defaultString(eventType))
+            {
+                case "succeeded" -> BillingEventType.INVOICE_PAID;
+                case "failed" -> BillingEventType.INVOICE_PAYMENT_FAILED;
+                default -> BillingEventType.UNKNOWN;
+            };
+        }
+        if ("charge_invoice".equals(objectType))
+        {
+            return switch (StringUtils.defaultString(eventType))
+            {
+                case "paid" -> BillingEventType.INVOICE_PAID;
+                case "failed", "past_due" -> BillingEventType.INVOICE_PAYMENT_FAILED;
+                default -> BillingEventType.UNKNOWN;
+            };
+        }
+        if ("invoice".equals(objectType) && "past_due".equals(eventType))
+        {
+            return BillingEventType.INVOICE_PAYMENT_FAILED;
+        }
         if (!"subscription".equals(objectType))
         {
             return BillingEventType.UNKNOWN;
@@ -161,6 +186,20 @@ public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser
             case "resumed", "reactivated" -> BillingEventType.SUBSCRIPTION_RESUMED;
             default -> BillingEventType.UNKNOWN;
         };
+    }
+
+    protected String resourceId(final JsonNode payload, final String objectType, final String uuid)
+    {
+        if ("payment".equals(objectType) && StringUtils.isNotBlank(uuid))
+        {
+            return StringUtils.prependIfMissing(uuid, "uuid-");
+        }
+        if ("invoice".equals(objectType) || "charge_invoice".equals(objectType))
+        {
+            final String invoiceNumber = text(payload, "invoice_number");
+            return StringUtils.isBlank(invoiceNumber) ? null : StringUtils.prependIfMissing(invoiceNumber, "number-");
+        }
+        return null;
     }
 
     protected static String header(final Map<String, String> headers, final String name)

@@ -22,6 +22,8 @@ public class DefaultRecurlyConfigService implements RecurlyConfigService
     static final String P_RESPONSE_TIMEOUT_MILLIS = "recurly.http.responseTimeoutMillis";
     static final String P_WEBHOOK_SIGNING_KEY = "recurly.webhookSigningKey";
     static final String P_WEBHOOK_TOLERANCE_SECONDS = "recurly.webhookToleranceSeconds";
+    static final String P_EXTERNAL_NTID_FEATURE_ENABLED = "recurly.externalNtidFeatureEnabled";
+    static final String P_WALLET_ENABLED = "recurly.walletEnabled";
     static final String DEFAULT_API_VERSION = "v2021-02-25";
     static final int DEFAULT_MINIMUM_START_DELAY_SECONDS = 300;
     static final int DEFAULT_CONNECT_TIMEOUT_MILLIS = 5000;
@@ -93,6 +95,18 @@ public class DefaultRecurlyConfigService implements RecurlyConfigService
     public int getWebhookToleranceSeconds()
     {
         return positiveInt(P_WEBHOOK_TOLERANCE_SECONDS, DEFAULT_WEBHOOK_TOLERANCE_SECONDS);
+    }
+
+    @Override
+    public boolean isExternalNtidFeatureEnabled()
+    {
+        return configurationService.getConfiguration().getBoolean(P_EXTERNAL_NTID_FEATURE_ENABLED, false);
+    }
+
+    @Override
+    public boolean isWalletEnabled()
+    {
+        return configurationService.getConfiguration().getBoolean(P_WALLET_ENABLED, false);
     }
 
     protected String required(final String key) throws ConnectorNotConfiguredException

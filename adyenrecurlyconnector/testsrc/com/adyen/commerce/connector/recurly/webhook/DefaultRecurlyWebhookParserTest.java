@@ -1,6 +1,7 @@
 package com.adyen.commerce.connector.recurly.webhook;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.when;
 
@@ -83,6 +84,45 @@ public class DefaultRecurlyWebhookParserTest
 
         assertThrows(TerminalBillingException.class,
                 () -> parser.parse(new RawWebhook(Map.of(), PAYLOAD, signature)));
+    }
+
+    @Test
+    public void successfulPaymentIsNormalizedForApiEnrichment() throws Exception
+    {
+        final String payload = "{\"id\":\"notice-2\",\"object_type\":\"payment\",\"event_type\":\"succeeded\","
+                + "\"event_time\":\"2026-07-21T10:00:00Z\",\"uuid\":\"payment-uuid\"}";
+        final NormalizedBillingEvent event = parse(payload);
+
+        assertEquals(BillingEventType.INVOICE_PAID, event.type());
+        assertNull(event.externalSubscriptionId());
+        assertEquals("payment", event.attributes().get("resourceType"));
+        assertEquals("uuid-payment-uuid", event.attributes().get("resourceId"));
+    }
+
+    @Test
+    public void failedChargeInvoiceIsNormalizedForApiEnrichment() throws Exception
+    {
+        final String payload = "{\"id\":\"notice-3\",\"object_type\":\"charge_invoice\",\"event_type\":\"past_due\","
+                + "\"event_time\":\"2026-07-21T10:00:00Z\",\"invoice_number\":1031}";
+        final NormalizedBillingEvent event = parse(payload);
+
+        assertEquals(BillingEventType.INVOICE_PAYMENT_FAILED, event.type());
+        assertEquals("charge_invoice", event.attributes().get("resourceType"));
+        assertEquals("number-1031", event.attributes().get("resourceId"));
+    }
+
+    @Test
+    public void unknownEventRemainsAcknowledgable() throws Exception
+    {
+        final String payload = "{\"id\":\"notice-4\",\"object_type\":\"account\",\"event_type\":\"updated\","
+                + "\"event_time\":\"2026-07-21T10:00:00Z\"}";
+        assertEquals(BillingEventType.UNKNOWN, parse(payload).type());
+    }
+
+    private NormalizedBillingEvent parse(final String payload) throws Exception
+    {
+        final String timestamp = Long.toString(NOW.getEpochSecond());
+        return parser.parse(new RawWebhook(Map.of(), payload, timestamp + "," + sign(timestamp, payload)));
     }
 
     private String sign(final String timestamp, final String payload) throws Exception

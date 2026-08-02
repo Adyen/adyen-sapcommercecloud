@@ -42,6 +42,7 @@
         <constructor-arg name="flexibleSearchService" ref="flexibleSearchService"/>
         <constructor-arg name="modelService" ref="modelService"/>
         <constructor-arg name="typeService" ref="typeService"/>
+        <constructor-arg name="apiClient" ref="recurlyApiClient"/>
     </bean>
 
     <!-- The SPI adapter. -->

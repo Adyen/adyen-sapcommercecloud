@@ -22,9 +22,12 @@ public class RecurlyConnectorRegistrar implements InitializingBean
     @Override
     public void afterPropertiesSet()
     {
-        if (connectors.stream().noneMatch(existing -> existing.platform().equals(connector.platform())))
+        synchronized (connectors)
         {
-            connectors.add(connector);
+            if (connectors.stream().noneMatch(existing -> existing.platform().equals(connector.platform())))
+            {
+                connectors.add(connector);
+            }
         }
     }
 }

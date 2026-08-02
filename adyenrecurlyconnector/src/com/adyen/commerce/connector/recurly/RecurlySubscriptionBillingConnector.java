@@ -102,6 +102,7 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
     public BillingPaymentMethodRef importAdyenToken(final TokenImportRequest request) throws BillingException
     {
         final AdyenTokenHandle token = request.token();
+        verifyExternalNtidSupport();
         verifyMerchantAccount(token);
         verifyNetworkTransactionId(token);
 
@@ -182,6 +183,16 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
         if (!token.hasNetworkTransactionId())
         {
             throw new PreconditionFailedException("Recurly requires a network transaction id for Adyen token import");
+        }
+    }
+
+    protected void verifyExternalNtidSupport() throws PreconditionFailedException
+    {
+        if (!configService.isExternalNtidFeatureEnabled())
+        {
+            throw new PreconditionFailedException("Recurly external-NTID support is not confirmed. Enable "
+                    + "'Allow NTIDs in APIs' and 'Enables Backfilling External Tokens', then set "
+                    + "recurly.externalNtidFeatureEnabled=true");
         }
     }
 
