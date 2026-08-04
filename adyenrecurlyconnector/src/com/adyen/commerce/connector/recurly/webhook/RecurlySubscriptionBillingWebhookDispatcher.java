@@ -28,8 +28,7 @@ import de.hybris.platform.servicelayer.type.TypeService;
  * Recurly-specific dispatcher that translates the generated {@link BillingPlatform} value to its
  * persisted SAP Commerce enumeration model before executing FlexibleSearch.
  */
-public class RecurlySubscriptionBillingWebhookDispatcher extends DefaultSubscriptionBillingWebhookDispatcher
-{
+public class RecurlySubscriptionBillingWebhookDispatcher extends DefaultSubscriptionBillingWebhookDispatcher {
     private final FlexibleSearchService flexibleSearchService;
     private final ModelService modelService;
     private final TypeService typeService;
@@ -41,8 +40,7 @@ public class RecurlySubscriptionBillingWebhookDispatcher extends DefaultSubscrip
             final FlexibleSearchService flexibleSearchService,
             final ModelService modelService,
             final TypeService typeService,
-            final RecurlyApiClient apiClient)
-    {
+            final RecurlyApiClient apiClient) {
         super.setConnectorRegistry(connectorRegistry);
         super.setFlexibleSearchService(flexibleSearchService);
         super.setModelService(modelService);
@@ -54,59 +52,47 @@ public class RecurlySubscriptionBillingWebhookDispatcher extends DefaultSubscrip
     }
 
     @Override
-    public NormalizedBillingEvent dispatch(final BillingPlatform platform, final RawWebhook raw) throws BillingException
-    {
+    public NormalizedBillingEvent dispatch(final BillingPlatform platform, final RawWebhook raw) throws BillingException {
         final SubscriptionBillingConnector connector = connectorRegistry.getConnector(platform);
         final NormalizedBillingEvent parsed = connector.parseWebhook(raw);
-        if (parsed == null)
-        {
+        if (parsed == null) {
             return null;
         }
 
         final List<String> subscriptionIds;
-        if (StringUtils.isNotBlank(parsed.externalSubscriptionId()))
-        {
+        if (StringUtils.isNotBlank(parsed.externalSubscriptionId())) {
             subscriptionIds = List.of(parsed.externalSubscriptionId());
-        }
-        else
-        {
+        } else {
             final Map<String, String> attributes = parsed.attributes();
             subscriptionIds = apiClient.resolveWebhookSubscriptionIds(attributes.get("resourceType"),
                     attributes.get("resourceId"));
         }
 
-        for (final String subscriptionId : subscriptionIds)
-        {
+        for (final String subscriptionId : subscriptionIds) {
             reconcile(parsed, subscriptionId);
         }
-        if (subscriptionIds.isEmpty())
-        {
+        if (subscriptionIds.isEmpty()) {
             return parsed;
         }
         return withSubscriptionId(parsed, subscriptionIds.get(0));
     }
 
-    protected void reconcile(final NormalizedBillingEvent event, final String externalSubscriptionId)
-    {
+    protected void reconcile(final NormalizedBillingEvent event, final String externalSubscriptionId) {
         final String notificationId = StringUtils.defaultIfBlank(event.attributes().get("notificationId"),
                 event.type() + "@" + event.occurredAt());
         final String notificationKey = notificationId + "|" + externalSubscriptionId;
-        if (receiptExists(notificationKey))
-        {
+        if (receiptExists(notificationKey)) {
             return;
         }
 
         final Optional<BillingSubscriptionRefModel> ref = findByExternalId(event.platform(), externalSubscriptionId);
-        if (ref.isEmpty())
-        {
+        if (ref.isEmpty()) {
             return;
         }
 
-        if (!newerReceiptExists(externalSubscriptionId, event.occurredAt()))
-        {
+        if (!newerReceiptExists(externalSubscriptionId, event.occurredAt())) {
             final String status = mapStatus(event.type());
-            if (status != null)
-            {
+            if (status != null) {
                 ref.get().setStatus(status);
                 modelService.save(ref.get());
             }
@@ -114,8 +100,7 @@ public class RecurlySubscriptionBillingWebhookDispatcher extends DefaultSubscrip
         saveReceipt(notificationKey, notificationId, externalSubscriptionId, event);
     }
 
-    protected boolean receiptExists(final String notificationKey)
-    {
+    protected boolean receiptExists(final String notificationKey) {
         final FlexibleSearchQuery query = new FlexibleSearchQuery(
                 "SELECT {pk} FROM {RecurlyWebhookReceipt} WHERE {notificationKey} = ?notificationKey");
         query.addQueryParameter("notificationKey", notificationKey);
@@ -123,8 +108,7 @@ public class RecurlySubscriptionBillingWebhookDispatcher extends DefaultSubscrip
         return !flexibleSearchService.search(query).getResult().isEmpty();
     }
 
-    protected boolean newerReceiptExists(final String externalSubscriptionId, final java.time.Instant occurredAt)
-    {
+    protected boolean newerReceiptExists(final String externalSubscriptionId, final java.time.Instant occurredAt) {
         final FlexibleSearchQuery query = new FlexibleSearchQuery("SELECT {pk} FROM {RecurlyWebhookReceipt} "
                 + "WHERE {externalSubscriptionId} = ?externalSubscriptionId AND {eventTime} > ?eventTime");
         query.addQueryParameter("externalSubscriptionId", externalSubscriptionId);
@@ -134,8 +118,7 @@ public class RecurlySubscriptionBillingWebhookDispatcher extends DefaultSubscrip
     }
 
     protected void saveReceipt(final String notificationKey, final String notificationId,
-                               final String externalSubscriptionId, final NormalizedBillingEvent event)
-    {
+                               final String externalSubscriptionId, final NormalizedBillingEvent event) {
         final RecurlyWebhookReceiptModel receipt = modelService.create(RecurlyWebhookReceiptModel.class);
         receipt.setNotificationKey(notificationKey);
         receipt.setNotificationId(notificationId);
@@ -146,16 +129,14 @@ public class RecurlySubscriptionBillingWebhookDispatcher extends DefaultSubscrip
     }
 
     protected NormalizedBillingEvent withSubscriptionId(final NormalizedBillingEvent event,
-                                                        final String externalSubscriptionId)
-    {
+                                                        final String externalSubscriptionId) {
         return new NormalizedBillingEvent(event.platform(), event.type(), externalSubscriptionId,
                 event.externalCustomerId(), event.occurredAt(), event.attributes());
     }
 
     @Override
     protected Optional<BillingSubscriptionRefModel> findByExternalId(final BillingPlatform platform,
-                                                                     final String externalSubscriptionId)
-    {
+                                                                     final String externalSubscriptionId) {
         final FlexibleSearchQuery query = new FlexibleSearchQuery("SELECT {pk} FROM {BillingSubscriptionRef} "
                 + "WHERE {platform} = ?platform AND {externalSubscriptionId} = ?externalSubscriptionId");
         final EnumerationValueModel platformValue = typeService.getEnumerationValue(platform.getType(),
@@ -163,7 +144,7 @@ public class RecurlySubscriptionBillingWebhookDispatcher extends DefaultSubscrip
         query.addQueryParameter("platform", platformValue);
         query.addQueryParameter("externalSubscriptionId", externalSubscriptionId);
         final List<BillingSubscriptionRefModel> result = flexibleSearchService
-                .<BillingSubscriptionRefModel> search(query).getResult();
+                .<BillingSubscriptionRefModel>search(query).getResult();
         return result.isEmpty() ? Optional.empty() : Optional.of(result.get(0));
     }
 }

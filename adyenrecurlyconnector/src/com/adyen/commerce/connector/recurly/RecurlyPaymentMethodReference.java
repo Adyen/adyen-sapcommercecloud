@@ -9,30 +9,25 @@ import com.adyen.commerce.connector.exception.PreconditionFailedException;
  * created. The current vendor-neutral SPI only carries NTID through token import, so the Recurly adapter
  * keeps the two Recurly-specific values together in the payment-method external id.
  */
-final class RecurlyPaymentMethodReference
-{
+final class RecurlyPaymentMethodReference {
     private static final String SEPARATOR = "::ntid::";
 
     private final String billingInfoId;
     private final String networkTransactionId;
 
-    private RecurlyPaymentMethodReference(final String billingInfoId, final String networkTransactionId)
-    {
+    private RecurlyPaymentMethodReference(final String billingInfoId, final String networkTransactionId) {
         this.billingInfoId = billingInfoId;
         this.networkTransactionId = networkTransactionId;
     }
 
-    static String encode(final String billingInfoId, final String networkTransactionId)
-    {
+    static String encode(final String billingInfoId, final String networkTransactionId) {
         return billingInfoId + SEPARATOR + networkTransactionId;
     }
 
-    static RecurlyPaymentMethodReference parse(final String externalId) throws PreconditionFailedException
-    {
+    static RecurlyPaymentMethodReference parse(final String externalId) throws PreconditionFailedException {
         final String value = StringUtils.defaultString(externalId);
         final int separator = value.indexOf(SEPARATOR);
-        if (separator <= 0 || separator + SEPARATOR.length() >= value.length())
-        {
+        if (separator <= 0 || separator + SEPARATOR.length() >= value.length()) {
             throw new PreconditionFailedException(
                     "Recurly payment method reference is missing billing info id or NTID");
         }
@@ -40,13 +35,11 @@ final class RecurlyPaymentMethodReference
                 value.substring(separator + SEPARATOR.length()));
     }
 
-    String billingInfoId()
-    {
+    String billingInfoId() {
         return billingInfoId;
     }
 
-    String networkTransactionId()
-    {
+    String networkTransactionId() {
         return networkTransactionId;
     }
 }

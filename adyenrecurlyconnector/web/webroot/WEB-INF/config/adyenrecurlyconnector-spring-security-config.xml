@@ -16,6 +16,8 @@
     <http pattern="/static/**" security="none" />
     <!-- Authenticity is enforced by RecurlyWebhookParser's HMAC verification. -->
     <http pattern="/webhooks/recurly" security="none" />
+    <!-- Test-only activation endpoint. Remove before deploying this extension to production. -->
+    <http pattern="/test/subscriptions" security="none" />
 
     <http access-decision-manager-ref="accessDecisionManager" use-expressions="false" use-authorization-manager="false">
         <session-management session-authentication-strategy-ref="fixation"/>

@@ -6,11 +6,10 @@ import com.adyen.commerce.connector.dto.BillingAddress;
 import com.adyen.commerce.connector.dto.CardMetadata;
 import com.adyen.commerce.connector.exception.BillingException;
 
-public interface RecurlyApiClient
-{
+public interface RecurlyApiClient {
     /**
-     * Resolves the stable Recurly account id. Wallet mode creates a missing account immediately; primary-billing-info
-     * mode defers creation until token import so the account and its external Adyen token can be created atomically.
+     * Creates or resolves the stable Recurly account id and synchronizes the customer profile. Account creation is
+     * performed before token import in both Wallet and primary-billing-info modes so customer data is not lost.
      */
     String ensureCustomer(String customerId, String email, String firstName, String lastName) throws BillingException;
 

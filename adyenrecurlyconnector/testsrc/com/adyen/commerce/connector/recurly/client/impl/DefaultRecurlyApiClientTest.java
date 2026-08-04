@@ -177,18 +177,18 @@ public class DefaultRecurlyApiClientTest
         when(httpClient.get(BASE + "/accounts/code-customer", auth, ACCEPT))
                 .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"id\":\"account-1\"}"));
         when(httpClient.get(BASE + "/accounts/code-customer/billing_info", auth, ACCEPT))
-                .thenReturn(new RecurlyHttpResponse(HTTP_NOT_FOUND, ""))
+                .thenReturn(new RecurlyHttpResponse(HTTP_NOT_FOUND, ""));
+        when(httpClient.put(eq(BASE + "/accounts/code-customer/billing_info"), eq(auth), eq(ACCEPT), any(), any()))
                 .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"id\":\"billing-1\"}"));
-        when(httpClient.put(eq(BASE + "/accounts/code-customer"), eq(auth), eq(ACCEPT), any(), any()))
-                .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{}"));
 
         assertEquals("billing-1",
                 client.importAdyenToken("code-customer", "shopper-1", "token-1", null, null));
 
         final ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
-        verify(httpClient).put(eq(BASE + "/accounts/code-customer"), eq(auth), eq(ACCEPT), body.capture(),
+        verify(httpClient).put(eq(BASE + "/accounts/code-customer/billing_info"), eq(auth), eq(ACCEPT), body.capture(),
                 eq("code-customer/primary-adyen/" + fingerprint("token-1")));
-        assertTrue(body.getValue().contains("\"billing_info\":"));
+        assertTrue(body.getValue().contains("\"gateway_code\":\"adyen-gateway\""));
+        assertFalse(body.getValue().contains("\"billing_info\":"));
     }
 
     @Test
@@ -235,6 +235,8 @@ public class DefaultRecurlyApiClientTest
         assertEquals("uuid-63ab531e1d5b1d47eaf1ef44eeb853c3", id);
         final ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
         verify(httpClient).post(eq(BASE + "/subscriptions"), eq(auth), eq(ACCEPT), body.capture(), eq("ORDER-1"));
+        assertTrue(body.getValue().contains("\"account\":{\"code\":\"customer\"}"));
+        assertFalse(body.getValue().contains("\"account\":{\"id\":\"code-customer\"}"));
         assertTrue(body.getValue().contains("\"billing_info_id\":\"billing-1\""));
         assertTrue(body.getValue().contains("\"network_transaction_id\":\"ntid-1\""));
         assertTrue(body.getValue().contains("\"starts_at\":\"2030-01-01T00:00:00Z\""));

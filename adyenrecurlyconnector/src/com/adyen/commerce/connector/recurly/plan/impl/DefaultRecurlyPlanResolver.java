@@ -15,26 +15,22 @@ import de.hybris.platform.servicelayer.search.FlexibleSearchService;
 /**
  * Looks up the {@code RecurlyPlanMapping} row for a SAP product code and returns its Recurly plan code.
  */
-public class DefaultRecurlyPlanResolver implements RecurlyPlanResolver
-{
+public class DefaultRecurlyPlanResolver implements RecurlyPlanResolver {
     private final FlexibleSearchService flexibleSearchService;
 
-    public DefaultRecurlyPlanResolver(final FlexibleSearchService flexibleSearchService)
-    {
+    public DefaultRecurlyPlanResolver(final FlexibleSearchService flexibleSearchService) {
         this.flexibleSearchService = flexibleSearchService;
     }
 
     @Override
-    public PlanRef resolve(final PlanResolutionRequest request) throws BillingException
-    {
+    public PlanRef resolve(final PlanResolutionRequest request) throws BillingException {
         final FlexibleSearchQuery query = new FlexibleSearchQuery(
                 "SELECT {pk} FROM {RecurlyPlanMapping} WHERE {productCode} = ?productCode");
         query.addQueryParameter("productCode", request.productCode());
 
         final List<RecurlyPlanMappingModel> result = flexibleSearchService
-                .<RecurlyPlanMappingModel> search(query).getResult();
-        if (result.isEmpty())
-        {
+                .<RecurlyPlanMappingModel>search(query).getResult();
+        if (result.isEmpty()) {
             throw new PlanNotMappedException(
                     "No Recurly plan mapped for SAP product code '" + request.productCode() + "'");
         }

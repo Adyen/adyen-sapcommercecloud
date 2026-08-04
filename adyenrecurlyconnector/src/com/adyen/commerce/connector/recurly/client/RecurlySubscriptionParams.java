@@ -15,6 +15,5 @@ public record RecurlySubscriptionParams(String accountId,
                                         String startsAt,
                                         String networkTransactionId,
                                         String subscriptionId,
-                                        Map<String, String> metadata)
-{
+                                        Map<String, String> metadata) {
 }

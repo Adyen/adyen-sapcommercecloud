@@ -10,8 +10,7 @@ import de.hybris.platform.servicelayer.config.ConfigurationService;
 /**
  * Reads Recurly configuration from the platform {@link ConfigurationService} (project/local.properties).
  */
-public class DefaultRecurlyConfigService implements RecurlyConfigService
-{
+public class DefaultRecurlyConfigService implements RecurlyConfigService {
     static final String P_API_KEY = "recurly.apiKey";
     static final String P_BASE_URL = "recurly.baseUrl";
     static final String P_API_VERSION = "recurly.apiVersion";
@@ -32,100 +31,83 @@ public class DefaultRecurlyConfigService implements RecurlyConfigService
 
     private final ConfigurationService configurationService;
 
-    public DefaultRecurlyConfigService(final ConfigurationService configurationService)
-    {
+    public DefaultRecurlyConfigService(final ConfigurationService configurationService) {
         this.configurationService = configurationService;
     }
 
     @Override
-    public String getApiKey() throws ConnectorNotConfiguredException
-    {
+    public String getApiKey() throws ConnectorNotConfiguredException {
         return required(P_API_KEY);
     }
 
     @Override
-    public String getApiBaseUrl() throws ConnectorNotConfiguredException
-    {
+    public String getApiBaseUrl() throws ConnectorNotConfiguredException {
         return StringUtils.removeEnd(required(P_BASE_URL), "/");
     }
 
     @Override
-    public String getApiVersion()
-    {
+    public String getApiVersion() {
         return StringUtils.defaultIfBlank(optional(P_API_VERSION), DEFAULT_API_VERSION);
     }
 
     @Override
-    public String getGatewayCode() throws ConnectorNotConfiguredException
-    {
+    public String getGatewayCode() throws ConnectorNotConfiguredException {
         return required(P_GATEWAY_CODE);
     }
 
     @Override
-    public String getConfiguredAdyenMerchantAccount()
-    {
+    public String getConfiguredAdyenMerchantAccount() {
         return optional(P_MERCHANT);
     }
 
     @Override
-    public int getMinimumStartDelaySeconds()
-    {
+    public int getMinimumStartDelaySeconds() {
         return positiveInt(P_MINIMUM_START_DELAY_SECONDS, DEFAULT_MINIMUM_START_DELAY_SECONDS);
     }
 
     @Override
-    public int getConnectTimeoutMillis()
-    {
+    public int getConnectTimeoutMillis() {
         return positiveInt(P_CONNECT_TIMEOUT_MILLIS, DEFAULT_CONNECT_TIMEOUT_MILLIS);
     }
 
     @Override
-    public int getResponseTimeoutMillis()
-    {
+    public int getResponseTimeoutMillis() {
         return positiveInt(P_RESPONSE_TIMEOUT_MILLIS, DEFAULT_RESPONSE_TIMEOUT_MILLIS);
     }
 
     @Override
-    public String getWebhookSigningKey() throws ConnectorNotConfiguredException
-    {
+    public String getWebhookSigningKey() throws ConnectorNotConfiguredException {
         return required(P_WEBHOOK_SIGNING_KEY);
     }
 
     @Override
-    public int getWebhookToleranceSeconds()
-    {
+    public int getWebhookToleranceSeconds() {
         return positiveInt(P_WEBHOOK_TOLERANCE_SECONDS, DEFAULT_WEBHOOK_TOLERANCE_SECONDS);
     }
 
     @Override
-    public boolean isExternalNtidFeatureEnabled()
-    {
+    public boolean isExternalNtidFeatureEnabled() {
         return configurationService.getConfiguration().getBoolean(P_EXTERNAL_NTID_FEATURE_ENABLED, false);
     }
 
     @Override
-    public boolean isWalletEnabled()
-    {
+    public boolean isWalletEnabled() {
         return configurationService.getConfiguration().getBoolean(P_WALLET_ENABLED, false);
     }
 
-    protected String required(final String key) throws ConnectorNotConfiguredException
-    {
+    protected String required(final String key) throws ConnectorNotConfiguredException {
         final String value = optional(key);
-        if (value == null)
-        {
+        if (value == null) {
             throw new ConnectorNotConfiguredException("Missing Recurly configuration property '" + key + "'");
         }
         return value;
     }
 
-    protected String optional(final String key)
-    {
+    protected String optional(final String key) {
         return StringUtils.trimToNull(configurationService.getConfiguration().getString(key, null));
     }
 
-    protected int positiveInt(final String key, final int defaultValue)
-    {
+    protected int positiveInt(final String key, final int defaultValue) {
         final int value = configurationService.getConfiguration().getInt(key, defaultValue);
         return value > 0 ? value : defaultValue;
     }

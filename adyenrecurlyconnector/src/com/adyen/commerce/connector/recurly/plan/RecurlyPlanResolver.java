@@ -4,7 +4,6 @@ import com.adyen.commerce.connector.dto.PlanRef;
 import com.adyen.commerce.connector.dto.PlanResolutionRequest;
 import com.adyen.commerce.connector.exception.BillingException;
 
-public interface RecurlyPlanResolver
-{
+public interface RecurlyPlanResolver {
     PlanRef resolve(PlanResolutionRequest request) throws BillingException;
 }

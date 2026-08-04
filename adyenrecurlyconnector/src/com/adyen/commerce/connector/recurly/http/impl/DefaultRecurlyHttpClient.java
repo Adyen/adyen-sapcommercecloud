@@ -28,8 +28,7 @@ import com.adyen.commerce.connector.recurly.http.RecurlyHttpResponse;
  * httpclient5-based transport. IOExceptions are treated as transient and surfaced as
  * {@link RetryableBillingException}.
  */
-public class DefaultRecurlyHttpClient implements RecurlyHttpClient
-{
+public class DefaultRecurlyHttpClient implements RecurlyHttpClient {
     private static final String IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
 
     private volatile CloseableHttpClient httpClient;
@@ -37,23 +36,20 @@ public class DefaultRecurlyHttpClient implements RecurlyHttpClient
 
     private static final ContentType JSON_UTF8 = ContentType.create("application/json", StandardCharsets.UTF_8);
 
-    public DefaultRecurlyHttpClient(final RecurlyConfigService configService)
-    {
+    public DefaultRecurlyHttpClient(final RecurlyConfigService configService) {
         this.configService = configService;
     }
 
     @Override
     public RecurlyHttpResponse get(final String url, final String authorizationHeader, final String acceptHeader)
-            throws RetryableBillingException
-    {
+            throws RetryableBillingException {
         return execute(new HttpGet(url), url, authorizationHeader, acceptHeader, null);
     }
 
     @Override
     public RecurlyHttpResponse post(final String url, final String authorizationHeader, final String acceptHeader,
                                     final String jsonBody, final String idempotencyKey)
-            throws RetryableBillingException
-    {
+            throws RetryableBillingException {
         final HttpPost request = new HttpPost(url);
         request.setEntity(new StringEntity(jsonBody == null ? "{}" : jsonBody, JSON_UTF8));
         return execute(request, url, authorizationHeader, acceptHeader, idempotencyKey);
@@ -62,8 +58,7 @@ public class DefaultRecurlyHttpClient implements RecurlyHttpClient
     @Override
     public RecurlyHttpResponse patch(final String url, final String authorizationHeader, final String acceptHeader,
                                      final String jsonBody, final String idempotencyKey)
-            throws RetryableBillingException
-    {
+            throws RetryableBillingException {
         final HttpPatch request = new HttpPatch(url);
         request.setEntity(new StringEntity(jsonBody == null ? "{}" : jsonBody, JSON_UTF8));
         return execute(request, url, authorizationHeader, acceptHeader, idempotencyKey);
@@ -72,8 +67,7 @@ public class DefaultRecurlyHttpClient implements RecurlyHttpClient
     @Override
     public RecurlyHttpResponse put(final String url, final String authorizationHeader, final String acceptHeader,
                                    final String jsonBody, final String idempotencyKey)
-            throws RetryableBillingException
-    {
+            throws RetryableBillingException {
         final HttpPut request = new HttpPut(url);
         request.setEntity(new StringEntity(jsonBody == null ? "{}" : jsonBody, JSON_UTF8));
         return execute(request, url, authorizationHeader, acceptHeader, idempotencyKey);
@@ -81,24 +75,20 @@ public class DefaultRecurlyHttpClient implements RecurlyHttpClient
 
     @Override
     public RecurlyHttpResponse delete(final String url, final String authorizationHeader, final String acceptHeader,
-                                      final String idempotencyKey) throws RetryableBillingException
-    {
+                                      final String idempotencyKey) throws RetryableBillingException {
         return execute(new HttpDelete(url), url, authorizationHeader, acceptHeader, idempotencyKey);
     }
 
     protected RecurlyHttpResponse execute(final HttpUriRequestBase request, final String url,
                                           final String authorizationHeader, final String acceptHeader,
-                                          final String idempotencyKey) throws RetryableBillingException
-    {
+                                          final String idempotencyKey) throws RetryableBillingException {
         request.setHeader(HttpHeaders.AUTHORIZATION, authorizationHeader);
         request.setHeader(HttpHeaders.ACCEPT, acceptHeader);
         request.setHeader(HttpHeaders.CONTENT_TYPE, "application/json");
-        if (StringUtils.isNotBlank(idempotencyKey))
-        {
+        if (StringUtils.isNotBlank(idempotencyKey)) {
             request.setHeader(IDEMPOTENCY_KEY_HEADER, idempotencyKey);
         }
-        try
-        {
+        try {
             return getHttpClient().execute(request, response ->
             {
                 final String body = response.getEntity() == null
@@ -106,23 +96,17 @@ public class DefaultRecurlyHttpClient implements RecurlyHttpClient
                         : EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
                 return new RecurlyHttpResponse(response.getCode(), body);
             });
-        }
-        catch (final IOException e)
-        {
+        } catch (final IOException e) {
             throw new RetryableBillingException("Recurly HTTP call to " + url + " failed: " + e.getMessage(), e);
         }
     }
 
-    protected CloseableHttpClient getHttpClient()
-    {
+    protected CloseableHttpClient getHttpClient() {
         CloseableHttpClient client = httpClient;
-        if (client == null)
-        {
-            synchronized (this)
-            {
+        if (client == null) {
+            synchronized (this) {
                 client = httpClient;
-                if (client == null)
-                {
+                if (client == null) {
                     final RequestConfig requestConfig = RequestConfig.custom()
                             .setConnectTimeout(Timeout.ofMilliseconds(configService.getConnectTimeoutMillis()))
                             .setResponseTimeout(Timeout.ofMilliseconds(configService.getResponseTimeoutMillis()))

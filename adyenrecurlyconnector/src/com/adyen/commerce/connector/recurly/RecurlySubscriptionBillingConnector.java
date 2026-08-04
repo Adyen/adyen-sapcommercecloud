@@ -15,6 +15,7 @@ import com.adyen.commerce.connector.dto.NormalizedBillingEvent;
 import com.adyen.commerce.connector.dto.PlanRef;
 import com.adyen.commerce.connector.dto.PlanResolutionRequest;
 import com.adyen.commerce.connector.dto.RawWebhook;
+import com.adyen.commerce.connector.dto.RecurringProcessingModel;
 import com.adyen.commerce.connector.dto.SubscriptionCancelRequest;
 import com.adyen.commerce.connector.dto.SubscriptionCreateRequest;
 import com.adyen.commerce.connector.dto.SubscriptionUpdateRequest;
@@ -35,14 +36,13 @@ import com.adyen.commerce.connector.spi.SubscriptionBillingConnector;
  * extension-local architecture as the Chargebee connector: config service, HTTP transport, API client,
  * plan resolver, and one SPI bean.
  */
-public class RecurlySubscriptionBillingConnector implements SubscriptionBillingConnector
-{
+public class RecurlySubscriptionBillingConnector implements SubscriptionBillingConnector {
     private static final ConnectorCapabilities CAPABILITIES = new ConnectorCapabilities(
-            true,  // requiresNetworkTransactionId
-            false, // supportsImmediateStart — Adyen gateway-token import is future-dated
-            false, // supportsPause — can be added once the SPI pause request maps cleanly to Recurly cycles
-            true,  // requiresPreConfiguredPlan
-            false, // liveTokenValidationOnImport — token validation happens when Recurly/gateway uses the reference
+            true,
+            false,
+            false,
+            true,
+            false,
             TokenImportStyle.SEPARATE_FIELDS);
 
     private final RecurlyApiClient apiClient;
@@ -54,8 +54,7 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
     public RecurlySubscriptionBillingConnector(final RecurlyApiClient apiClient,
                                                final RecurlyConfigService configService,
                                                final RecurlyPlanResolver planResolver,
-                                               final RecurlyWebhookParser webhookParser)
-    {
+                                               final RecurlyWebhookParser webhookParser) {
         this(apiClient, configService, planResolver, webhookParser, Clock.systemUTC());
     }
 
@@ -63,8 +62,7 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
                                         final RecurlyConfigService configService,
                                         final RecurlyPlanResolver planResolver,
                                         final RecurlyWebhookParser webhookParser,
-                                        final Clock clock)
-    {
+                                        final Clock clock) {
         this.apiClient = apiClient;
         this.configService = configService;
         this.planResolver = planResolver;
@@ -73,35 +71,33 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
     }
 
     @Override
-    public BillingPlatform platform()
-    {
+    public BillingPlatform platform() {
         return BillingPlatform.RECURLY;
     }
 
     @Override
-    public ConnectorCapabilities capabilities()
-    {
+    public ConnectorCapabilities capabilities() {
         return CAPABILITIES;
     }
 
     @Override
-    public String configuredAdyenMerchantAccount()
-    {
+    public String configuredAdyenMerchantAccount() {
         return configService.getConfiguredAdyenMerchantAccount();
     }
 
     @Override
-    public BillingCustomerRef ensureCustomer(final CustomerSyncRequest request) throws BillingException
-    {
+    public BillingCustomerRef ensureCustomer(final CustomerSyncRequest request) throws BillingException {
         final String accountId = apiClient.ensureCustomer(request.customerId(), request.email(), request.firstName(),
                 request.lastName());
         return new BillingCustomerRef(BillingPlatform.RECURLY, accountId);
     }
 
     @Override
-    public BillingPaymentMethodRef importAdyenToken(final TokenImportRequest request) throws BillingException
-    {
+    public BillingPaymentMethodRef importAdyenToken(final TokenImportRequest request) throws BillingException {
         final AdyenTokenHandle token = request.token();
+        verifyRecurlyCustomer(request.customer());
+        verifySubscriptionModel(request.model());
+        verifyTokenOwnership(request.customer(), token);
         verifyExternalNtidSupport();
         verifyMerchantAccount(token);
         verifyNetworkTransactionId(token);
@@ -114,20 +110,17 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
     }
 
     @Override
-    public PlanRef resolvePlan(final PlanResolutionRequest request) throws BillingException
-    {
+    public PlanRef resolvePlan(final PlanResolutionRequest request) throws BillingException {
         return planResolver.resolve(request);
     }
 
     @Override
-    public BillingSubscriptionRef createSubscription(final SubscriptionCreateRequest request) throws BillingException
-    {
+    public BillingSubscriptionRef createSubscription(final SubscriptionCreateRequest request) throws BillingException {
         final Instant now = clock.instant();
         final Instant startDate = request.startDate() == null
                 ? now.plusSeconds(configService.getMinimumStartDelaySeconds())
                 : request.startDate();
-        if (!startDate.isAfter(now))
-        {
+        if (!startDate.isAfter(now)) {
             throw new PreconditionFailedException(
                     "Recurly subscription creation requires startDate to be in the future");
         }
@@ -143,61 +136,77 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
     }
 
     @Override
-    public void updateSubscription(final SubscriptionUpdateRequest request) throws BillingException
-    {
+    public void updateSubscription(final SubscriptionUpdateRequest request) throws BillingException {
         final String planCode = request.plan() == null ? null : planCode(request.plan());
         apiClient.updateSubscription(request.subscription().externalId(), planCode, request.quantity(),
                 request.idempotencyKey());
     }
 
     @Override
-    public void cancelSubscription(final SubscriptionCancelRequest request) throws BillingException
-    {
+    public void cancelSubscription(final SubscriptionCancelRequest request) throws BillingException {
         apiClient.cancelSubscription(request.subscription().externalId(), request.atPeriodEnd(),
                 request.idempotencyKey());
     }
 
     @Override
-    public NormalizedBillingEvent parseWebhook(final RawWebhook raw) throws BillingException
-    {
+    public NormalizedBillingEvent parseWebhook(final RawWebhook raw) throws BillingException {
         return webhookParser.parse(raw);
     }
 
-    protected void verifyMerchantAccount(final AdyenTokenHandle token) throws PreconditionFailedException
-    {
+    protected void verifyMerchantAccount(final AdyenTokenHandle token) throws PreconditionFailedException {
         final String configured = configService.getConfiguredAdyenMerchantAccount();
-        if (StringUtils.isBlank(configured))
-        {
+        if (StringUtils.isBlank(configured)) {
             throw new PreconditionFailedException("Recurly connector has no configured Adyen merchant account "
                     + "(recurly.adyenMerchantAccount); refusing to import a token without the R2 guarantee");
         }
-        if (!configured.equals(token.merchantAccount()))
-        {
+        if (!configured.equals(token.merchantAccount())) {
             throw new PreconditionFailedException("Recurly connector is bound to Adyen merchant account '" + configured
                     + "' but the token was minted under '" + token.merchantAccount() + "'");
         }
     }
 
-    protected void verifyNetworkTransactionId(final AdyenTokenHandle token) throws PreconditionFailedException
-    {
-        if (!token.hasNetworkTransactionId())
-        {
+    protected void verifyRecurlyCustomer(final BillingCustomerRef customer) throws PreconditionFailedException {
+        if (customer.platform() != BillingPlatform.RECURLY) {
+            throw new PreconditionFailedException("Cannot import an Adyen token into a " + customer.platform()
+                    + " customer reference using the Recurly connector");
+        }
+    }
+
+    protected void verifySubscriptionModel(final RecurringProcessingModel model) throws PreconditionFailedException {
+        if (model != RecurringProcessingModel.SUBSCRIPTION) {
+            throw new PreconditionFailedException("Recurly token import supports only SUBSCRIPTION recurring "
+                    + "processing, but received " + model);
+        }
+    }
+
+    protected void verifyTokenOwnership(final BillingCustomerRef customer, final AdyenTokenHandle token)
+            throws PreconditionFailedException {
+        final String expectedShopperReference = accountCode(customer.externalId());
+        if (!StringUtils.equals(expectedShopperReference, token.shopperReference())) {
+            throw new PreconditionFailedException("Adyen token shopperReference does not match the Recurly customer "
+                    + "reference; refusing to attach a payment method belonging to another customer");
+        }
+    }
+
+    protected void verifyNetworkTransactionId(final AdyenTokenHandle token) throws PreconditionFailedException {
+        if (!token.hasNetworkTransactionId()) {
             throw new PreconditionFailedException("Recurly requires a network transaction id for Adyen token import");
         }
     }
 
-    protected void verifyExternalNtidSupport() throws PreconditionFailedException
-    {
-        if (!configService.isExternalNtidFeatureEnabled())
-        {
+    protected void verifyExternalNtidSupport() throws PreconditionFailedException {
+        if (!configService.isExternalNtidFeatureEnabled()) {
             throw new PreconditionFailedException("Recurly external-NTID support is not confirmed. Enable "
                     + "'Allow NTIDs in APIs' and 'Enables Backfilling External Tokens', then set "
                     + "recurly.externalNtidFeatureEnabled=true");
         }
     }
 
-    protected String planCode(final PlanRef plan)
-    {
+    protected String planCode(final PlanRef plan) {
         return plan.planId();
+    }
+
+    protected String accountCode(final String accountId) {
+        return StringUtils.removeStart(accountId, "code-");
     }
 }
