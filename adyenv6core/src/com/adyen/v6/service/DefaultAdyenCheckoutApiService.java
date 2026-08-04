@@ -77,11 +77,7 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
 
         RequestOptions requestOptions = new RequestOptions();
         requestOptions.setIdempotencyKey(UUID.randomUUID().toString());
-        paymentsRequest.setShopperInteraction(
-                PaymentRequest.ShopperInteractionEnum.ECOMMERCE);
-        paymentsRequest.setRecurringProcessingModel(
-                PaymentRequest.RecurringProcessingModelEnum.SUBSCRIPTION);
-        paymentsRequest.setShopperReference(customerModel.getCustomerID());
+
         try {
             return adyenCustomerInteractionRetryTemplate.execute(context -> {
                 LOG.debug(paymentsRequest);
