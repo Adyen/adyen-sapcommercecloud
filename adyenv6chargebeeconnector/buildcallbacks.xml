@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Copyright (c) 2026 Adyen B.V. - MIT license. -->
+<project name="adyenv6chargebeeconnector_buildcallbacks">
+    <macrodef name="adyenv6chargebeeconnector_before_ear">
+        <sequential>
+            <!-- you can do anything before the EAR file is being packed -->
+        </sequential>
+    </macrodef>
+</project>
