@@ -25,7 +25,6 @@ import org.mockito.MockitoAnnotations;
 
 import com.adyen.commerce.connector.dto.BillingAddress;
 import com.adyen.commerce.connector.dto.CardMetadata;
-import com.adyen.commerce.connector.exception.TerminalBillingException;
 import com.adyen.commerce.connector.recurly.client.RecurlySubscriptionParams;
 import com.adyen.commerce.connector.recurly.config.RecurlyConfigService;
 import com.adyen.commerce.connector.recurly.http.RecurlyHttpClient;
@@ -108,11 +107,11 @@ public class DefaultRecurlyApiClientTest
     }
 
     @Test
-    public void importAdyenTokenAddsPrimaryBillingInfo() throws Exception
+    public void importAdyenTokenAddsFirstWalletBillingInfo() throws Exception
     {
         when(configService.getGatewayCode()).thenReturn("adyen-gateway");
-        when(httpClient.get(BASE + "/accounts/code-customer/billing_info", auth, ACCEPT))
-                .thenReturn(new RecurlyHttpResponse(HTTP_NOT_FOUND, ""));
+        when(httpClient.get(BASE + "/accounts/code-customer/billing_infos", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, "[]"));
         when(httpClient.post(eq(BASE + "/accounts/code-customer/billing_infos"), eq(auth), eq(ACCEPT), any(),
                 any()))
                 .thenReturn(new RecurlyHttpResponse(HTTP_CREATED, "{\"id\":\"billing-1\"}"));
@@ -131,7 +130,7 @@ public class DefaultRecurlyApiClientTest
         assertTrue(body.getValue().contains("\"gateway_code\":\"adyen-gateway\""));
         assertTrue(body.getValue().contains("\"account_reference\":\"shopper-1\""));
         assertTrue(body.getValue().contains("\"token\":\"token-1\""));
-        assertTrue(body.getValue().contains("\"last_four\":\"1111\""));
+        assertFalse(body.getValue().contains("\"last_four\""));
         assertTrue(body.getValue().contains("\"month\":\"3\""));
         assertTrue(body.getValue().contains("\"year\":\"2030\""));
         assertTrue(body.getValue().contains("\"first_name\":\"Ada\""));
@@ -140,7 +139,7 @@ public class DefaultRecurlyApiClientTest
         assertTrue(body.getValue().contains("\"city\":\"Warsaw\""));
         assertTrue(body.getValue().contains("\"postal_code\":\"00-001\""));
         assertTrue(body.getValue().contains("\"country\":\"PL\""));
-        assertTrue(body.getValue().contains("\"primary_payment_method\":true"));
+        assertFalse(body.getValue().contains("\"primary_payment_method\""));
     }
 
     @Test
@@ -194,6 +193,9 @@ public class DefaultRecurlyApiClientTest
     @Test
     public void importAdyenTokenReusesOnlyMatchingPrimaryBillingInfo() throws Exception
     {
+        when(configService.isWalletEnabled()).thenReturn(false);
+        when(httpClient.get(BASE + "/accounts/code-customer", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"id\":\"account-1\"}"));
         when(httpClient.get(BASE + "/accounts/code-customer/billing_info", auth, ACCEPT))
                 .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"id\":\"billing-1\","
                         + "\"gateway_attributes\":{\"account_reference\":\"shopper-1\"},"
@@ -210,16 +212,21 @@ public class DefaultRecurlyApiClientTest
     public void importAdyenTokenAddsNewBillingInfoWhenExistingTokenDoesNotMatch() throws Exception
     {
         when(configService.getGatewayCode()).thenReturn("adyen-gateway");
-        when(httpClient.get(BASE + "/accounts/code-customer/billing_info", auth, ACCEPT))
-                .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"id\":\"billing-old\","
+        when(httpClient.get(BASE + "/accounts/code-customer/billing_infos", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, "[{\"id\":\"billing-old\","
                         + "\"gateway_attributes\":{\"account_reference\":\"shopper-1\"},"
-                        + "\"payment_gateway_references\":[{\"token\":\"token-old\"}]}"));
+                        + "\"payment_gateway_references\":[{\"token\":\"token-old\"}]}]"));
         when(httpClient.post(eq(BASE + "/accounts/code-customer/billing_infos"), eq(auth), eq(ACCEPT), any(),
                 any()))
                 .thenReturn(new RecurlyHttpResponse(HTTP_CREATED, "{\"id\":\"billing-new\"}"));
 
         assertEquals("billing-new",
                 client.importAdyenToken("code-customer", "shopper-1", "token-1", null, null));
+
+        final ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
+        verify(httpClient).post(eq(BASE + "/accounts/code-customer/billing_infos"), eq(auth), eq(ACCEPT),
+                body.capture(), any());
+        assertTrue(body.getValue().contains("\"primary_payment_method\":false"));
     }
 
     @Test
