@@ -97,6 +97,16 @@
 						<editorArea:attribute qualifier="l2L3ESDEnabled"/>
 						<editorArea:attribute qualifier="adyenSkipCvcForOneClick"/>
 						<editorArea:attribute qualifier="additionalPaymentRetry" />
+						<editorArea:attribute qualifier="chargebeeAPIKey" />
+						<editorArea:attribute qualifier="zuoraAPIKey" />
+						<editorArea:attribute qualifier="recurlyAPIKey" />
+						<editorArea:attribute qualifier="chargebeeGatewayAccountId" />
+						<editorArea:attribute qualifier="zuoraGatewayAccountId" />
+						<editorArea:attribute qualifier="recurlyGatewayAccountId" />
+						<editorArea:attribute qualifier="chargebeeSiteId" />
+						<editorArea:attribute qualifier="zuoraSiteId" />
+						<editorArea:attribute qualifier="recurlySiteId" />
+						<editorArea:attribute qualifier="adyenSubscriptionPlatform"  />
 					</editorArea:section>
 				<editorArea:section name="hmc.adyen.installments">
 					<editorArea:attribute qualifier="adyenInstallmentConfigs"/>

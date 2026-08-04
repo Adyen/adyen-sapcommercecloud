@@ -54,6 +54,11 @@
             <value code="PAYMENT_PENDING"/>
             <value code="CHARGEBACK"/>
         </enumtype>
+        <enumtype code="AdyenSubscriptionPlatform" autocreate="true" generate="true" dynamic="true">
+            <value code="CHARGEBEE"/>
+            <value code="ZUORA"/>
+            <value code="RECURLY"/>
+        </enumtype>
         <enumtype code="AdyenRegions" dynamic="true">
             <value code="EU"/>
             <value code="US"/>
@@ -387,6 +392,88 @@
                     <persistence type="property" />
                     <modifiers optional="true" />
                     <defaultvalue>Boolean.FALSE</defaultvalue>
+                </attribute>
+                <attribute qualifier="chargebeeAPIKey" type="java.lang.String">
+                    <description>Chargebee API Key</description>
+                    <persistence type="property">
+                        <columntype>
+                            <value>varchar(1024)</value>
+                        </columntype>
+                    </persistence>
+                    <modifiers encrypted="true"/>
+                </attribute>
+                <attribute qualifier="zuoraAPIKey" type="java.lang.String">
+                    <description>Zuora API Key</description>
+                    <persistence type="property">
+                        <columntype>
+                            <value>varchar(1024)</value>
+                        </columntype>
+                    </persistence>
+                    <modifiers encrypted="true"/>
+                </attribute>
+                <attribute qualifier="recurlyAPIKey" type="java.lang.String">
+                    <description>Recurly API Key</description>
+                    <persistence type="property">
+                        <columntype>
+                            <value>varchar(1024)</value>
+                        </columntype>
+                    </persistence>
+                    <modifiers encrypted="true"/>
+                </attribute>
+                <attribute qualifier="chargebeeSiteId" type="java.lang.String">
+                    <description>Chargebee Site ID</description>
+                    <persistence type="property">
+                        <columntype>
+                            <value>varchar(1024)</value>
+                        </columntype>
+                    </persistence>
+                </attribute>
+                <attribute qualifier="zuoraSiteId" type="java.lang.String">
+                    <description>Zuora Site ID</description>
+                    <persistence type="property">
+                        <columntype>
+                            <value>varchar(1024)</value>
+                        </columntype>
+                    </persistence>
+                </attribute>
+                <attribute qualifier="recurlySiteId" type="java.lang.String">
+                    <description>Recurly Site ID</description>
+                    <persistence type="property">
+                        <columntype>
+                            <value>varchar(1024)</value>
+                        </columntype>
+                    </persistence>
+                </attribute>
+                <attribute qualifier="chargebeeGatewayAccountId" type="java.lang.String">
+                    <description>Chargebee Gateway Account ID</description>
+                    <persistence type="property">
+                        <columntype>
+                            <value>varchar(1024)</value>
+                        </columntype>
+                    </persistence>
+                </attribute>
+                <attribute qualifier="zuoraGatewayAccountId" type="java.lang.String">
+                    <description>Zuora Gateway Account ID</description>
+                    <persistence type="property">
+                        <columntype>
+                            <value>varchar(1024)</value>
+                        </columntype>
+                    </persistence>
+                </attribute>
+                <attribute qualifier="recurlyGatewayAccountId" type="java.lang.String">
+                    <description>Recurly Gateway Account ID</description>
+                    <persistence type="property">
+                        <columntype>
+                            <value>varchar(1024)</value>
+                        </columntype>
+                    </persistence>
+                </attribute>
+                <attribute type="AdyenSubscriptionPlatform" qualifier="adyenSubscriptionPlatform"
+                           generate="true" autocreate="true">
+                    <persistence type="property"/>
+                    <modifiers optional="false"/>
+                    <defaultvalue>em().getEnumerationValue("AdyenSubscriptionPlatform","CHARGEBEE")</defaultvalue>
+                    <description>Which subscription platform is being used</description>
                 </attribute>
             </attributes>
         </itemtype>

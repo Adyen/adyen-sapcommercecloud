@@ -20,6 +20,9 @@
  */
 package com.adyen.commerce.connector.chargebee.config.impl;
 
+import de.hybris.platform.store.BaseStore;
+import de.hybris.platform.store.BaseStoreModel;
+import de.hybris.platform.store.services.impl.DefaultBaseStoreService;
 import org.apache.commons.lang3.StringUtils;
 
 import com.adyen.commerce.connector.chargebee.config.ChargebeeConfigService;
@@ -32,23 +35,25 @@ import de.hybris.platform.servicelayer.config.ConfigurationService;
  */
 public class DefaultChargebeeConfigService implements ChargebeeConfigService
 {
-	static final String P_SITE = "chargebee.site";
-	static final String P_API_KEY = "chargebee.apiKey";
-	static final String P_GATEWAY = "chargebee.gatewayAccountId";
-	static final String P_MERCHANT = "chargebee.adyenMerchantAccount";
 
-	private ConfigurationService configurationService;
+	private DefaultBaseStoreService baseStoreService;
+
+	 private final BaseStoreModel baseStore = baseStoreService.getCurrentBaseStore();
+	 final String siteId = baseStore.getChargebeeSiteId();
+	 final String apiKey = baseStore.getChargebeeAPIKey();
+	 final String gatewayAccountId = baseStore.getChargebeeGatewayAccountId();
+	 final String adyenMerchantAccount = baseStore.getAdyenMerchantAccount();
 
 	@Override
 	public String getApiKey() throws ConnectorNotConfiguredException
 	{
-		return required(P_API_KEY);
+		return required(apiKey);
 	}
 
 	@Override
 	public String getSiteName() throws ConnectorNotConfiguredException
 	{
-		return required(P_SITE);
+		return required(siteId);
 	}
 
 	@Override
@@ -60,13 +65,13 @@ public class DefaultChargebeeConfigService implements ChargebeeConfigService
 	@Override
 	public String getGatewayAccountId()
 	{
-		return optional(P_GATEWAY);
+		return optional(gatewayAccountId);
 	}
 
 	@Override
 	public String getConfiguredAdyenMerchantAccount()
 	{
-		return optional(P_MERCHANT);
+		return optional(adyenMerchantAccount);
 	}
 
 	protected String required(final String key) throws ConnectorNotConfiguredException
@@ -81,11 +86,11 @@ public class DefaultChargebeeConfigService implements ChargebeeConfigService
 
 	protected String optional(final String key)
 	{
-		return StringUtils.trimToNull(configurationService.getConfiguration().getString(key, null));
+		return StringUtils.trimToEmpty(key);
 	}
 
-	public void setConfigurationService(final ConfigurationService configurationService)
+	public void setBaseStoreService(final DefaultBaseStoreService baseStoreService)
 	{
-		this.configurationService = configurationService;
+		this.baseStoreService = baseStoreService;
 	}
 }

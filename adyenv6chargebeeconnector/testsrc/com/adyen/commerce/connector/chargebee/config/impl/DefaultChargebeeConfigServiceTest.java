@@ -55,7 +55,7 @@ public class DefaultChargebeeConfigServiceTest
 	{
 		MockitoAnnotations.openMocks(this);
 		service = new DefaultChargebeeConfigService();
-		service.setConfigurationService(configurationService);
+//		service.setConfigurationService(configurationService);
 		when(configurationService.getConfiguration()).thenReturn(configuration);
 	}
 
