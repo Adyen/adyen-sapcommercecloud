@@ -20,6 +20,7 @@
  */
 package com.adyen.commerce.connector.service.impl;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThrows;
@@ -39,6 +40,7 @@ import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.InOrder;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
@@ -50,6 +52,7 @@ import com.adyen.commerce.connector.dto.CancelReason;
 import com.adyen.commerce.connector.dto.ConnectorCapabilities;
 import com.adyen.commerce.connector.dto.PlanRef;
 import com.adyen.commerce.connector.dto.TokenImportStyle;
+import com.adyen.commerce.connector.dto.TokenImportRequest;
 import com.adyen.commerce.connector.enums.BillingPlatform;
 import com.adyen.commerce.connector.event.SubscriptionActivatedEvent;
 import com.adyen.commerce.connector.exception.PreconditionFailedException;
@@ -63,10 +66,13 @@ import com.adyen.commerce.connector.validation.ConnectorMerchantAccountValidator
 
 import de.hybris.bootstrap.annotations.UnitTest;
 import de.hybris.platform.core.model.c2l.CurrencyModel;
+import de.hybris.platform.core.model.c2l.CountryModel;
+import de.hybris.platform.core.model.c2l.RegionModel;
 import de.hybris.platform.core.model.order.AbstractOrderModel;
 import de.hybris.platform.core.model.order.payment.PaymentInfoModel;
 import de.hybris.platform.core.model.product.ProductModel;
 import de.hybris.platform.core.model.user.CustomerModel;
+import de.hybris.platform.core.model.user.AddressModel;
 import de.hybris.platform.core.model.user.UserModel;
 import de.hybris.platform.servicelayer.event.EventService;
 import de.hybris.platform.servicelayer.model.ModelService;
@@ -179,6 +185,35 @@ public class DefaultSubscriptionBillingServiceTest
 		verify(result).setExternalSubscriptionId("sub-ext");
 		verify(modelService).save(result);
 		verify(eventService).publishEvent(any(SubscriptionActivatedEvent.class));
+	}
+
+	@Test
+	public void shouldPassOrderPaymentAddressToTokenImport() throws Exception
+	{
+		final AddressModel address = mock(AddressModel.class);
+		final CountryModel country = mock(CountryModel.class);
+		final RegionModel region = mock(RegionModel.class);
+		when(order.getPaymentAddress()).thenReturn(address);
+		when(address.getFirstname()).thenReturn("Ada");
+		when(address.getLastname()).thenReturn("Lovelace");
+		when(address.getStreetname()).thenReturn("Main Street");
+		when(address.getStreetnumber()).thenReturn("1");
+		when(address.getTown()).thenReturn("Warsaw");
+		when(address.getPostalcode()).thenReturn("00-001");
+		when(address.getCountry()).thenReturn(country);
+		when(country.getIsocode()).thenReturn("PL");
+		when(address.getRegion()).thenReturn(region);
+		when(region.getIsocodeShort()).thenReturn("MZ");
+
+		service.activateSubscription(order, subProduct);
+
+		final ArgumentCaptor<TokenImportRequest> request = ArgumentCaptor.forClass(TokenImportRequest.class);
+		verify(connector).importAdyenToken(request.capture());
+		assertEquals("Ada", request.getValue().billingAddress().firstName());
+		assertEquals("Main Street 1", request.getValue().billingAddress().street1());
+		assertEquals("Warsaw", request.getValue().billingAddress().city());
+		assertEquals("00-001", request.getValue().billingAddress().postalCode());
+		assertEquals("PL", request.getValue().billingAddress().country());
 	}
 
 	@Test

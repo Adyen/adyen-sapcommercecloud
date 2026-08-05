@@ -25,8 +25,16 @@ package com.adyen.commerce.connector.dto;
  */
 public record TokenImportRequest(BillingCustomerRef customer,
                                  AdyenTokenHandle token,
-                                 RecurringProcessingModel model)
+                                 RecurringProcessingModel model,
+                                 BillingAddress billingAddress)
 {
+	public TokenImportRequest(final BillingCustomerRef customer,
+	                          final AdyenTokenHandle token,
+	                          final RecurringProcessingModel model)
+	{
+		this(customer, token, model, null);
+	}
+
 	public TokenImportRequest
 	{
 		Dtos.requireValue(customer, "customer");
