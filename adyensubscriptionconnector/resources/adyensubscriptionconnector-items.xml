@@ -153,6 +153,18 @@
                     <description>End of the current billing period (from platform).</description>
                     <persistence type="property"/>
                 </attribute>
+                <attribute qualifier="cancelAtPeriodEnd" type="java.lang.Boolean">
+                    <description>Whether the platform will stop renewing this subscription at period end.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="platformUpdatedAt" type="java.util.Date">
+                    <description>Last modification timestamp reported by the billing platform.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="lastReconciledAt" type="java.util.Date">
+                    <description>Time of the last successful authoritative platform read.</description>
+                    <persistence type="property"/>
+                </attribute>
                 <attribute qualifier="idempotencyKey" type="java.lang.String">
                     <description>Idempotency key used when this subscription was activated.</description>
                     <persistence type="property"/>
@@ -176,6 +188,10 @@
                 <!-- Supports the per-order idempotency lookup findSubscriptionRef(order, platform). -->
                 <index name="idx_billingSubRef_order">
                     <key attribute="order"/>
+                </index>
+                <index name="idx_billingSubRef_reconcile">
+                    <key attribute="status"/>
+                    <key attribute="lastReconciledAt"/>
                 </index>
             </indexes>
         </itemtype>

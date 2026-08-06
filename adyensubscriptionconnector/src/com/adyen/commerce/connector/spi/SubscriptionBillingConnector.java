@@ -26,6 +26,7 @@ import com.adyen.commerce.connector.dto.BillingSubscriptionRef;
 import com.adyen.commerce.connector.dto.ConnectorCapabilities;
 import com.adyen.commerce.connector.dto.CustomerSyncRequest;
 import com.adyen.commerce.connector.dto.NormalizedBillingEvent;
+import com.adyen.commerce.connector.dto.NormalizedSubscription;
 import com.adyen.commerce.connector.dto.PlanRef;
 import com.adyen.commerce.connector.dto.PlanResolutionRequest;
 import com.adyen.commerce.connector.dto.RawWebhook;
@@ -122,6 +123,15 @@ public interface SubscriptionBillingConnector
 	 * @throws BillingException if creation fails
 	 */
 	BillingSubscriptionRef createSubscription(SubscriptionCreateRequest request) throws BillingException;
+
+	/**
+	 * Fetch the platform's current authoritative subscription state.
+	 *
+	 * @param subscription opaque platform subscription reference
+	 * @return a normalized live snapshot
+	 * @throws BillingException if the platform cannot be read
+	 */
+	NormalizedSubscription fetchSubscription(BillingSubscriptionRef subscription) throws BillingException;
 
 	/**
 	 * Update an existing subscription (plan, quantity, price). Null request fields are left unchanged.

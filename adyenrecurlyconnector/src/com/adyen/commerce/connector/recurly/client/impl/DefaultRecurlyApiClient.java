@@ -9,6 +9,8 @@ import static java.net.HttpURLConnection.HTTP_OK;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.LinkedHashSet;
@@ -17,10 +19,14 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import com.adyen.commerce.connector.dto.NormalizedSubscription;
+import com.adyen.commerce.connector.dto.NormalizedSubscriptionStatus;
 import org.apache.commons.lang3.StringUtils;
 
 import com.adyen.commerce.connector.dto.BillingAddress;
+import com.adyen.commerce.connector.dto.BillingSubscriptionRef;
 import com.adyen.commerce.connector.dto.CardMetadata;
+import com.adyen.commerce.connector.enums.BillingPlatform;
 import com.adyen.commerce.connector.exception.BillingException;
 import com.adyen.commerce.connector.exception.PreconditionFailedException;
 import com.adyen.commerce.connector.exception.RetryableBillingException;
@@ -257,6 +263,115 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
             }
         }
         return new ArrayList<>(subscriptionIds);
+    }
+
+    @Override
+    public NormalizedSubscription fetchSubscription(final String subscriptionId)
+            throws BillingException
+    {
+        final RecurlyHttpResponse response = httpClient.get(
+                url("/subscriptions/" + pathSegment(subscriptionId)),
+                authHeader(),
+                acceptHeader());
+
+        requireSuccess(response, "retrieve subscription");
+        return mapSubscription(response.body(), subscriptionId);
+    }
+
+    protected NormalizedSubscription mapSubscription(final String body, final String requestedSubscriptionId)
+            throws BillingException {
+        final JsonNode subscription = readJson(body, "subscription");
+        final String subscriptionId = readSubscriptionId(body);
+        final NormalizedSubscriptionStatus lifecycleStatus = mapStatus(subscription.path("state").asText(null));
+        final NormalizedSubscriptionStatus status = isPastDueEligible(lifecycleStatus)
+                && hasPastDueInvoice(subscription, requestedSubscriptionId, subscriptionId)
+                ? NormalizedSubscriptionStatus.PAST_DUE
+                : lifecycleStatus;
+
+        return new NormalizedSubscription(
+                new BillingSubscriptionRef(BillingPlatform.RECURLY, subscriptionId),
+                status,
+                subscription.path("plan").path("code").asText(null),
+                subscription.path("quantity").asInt(1),
+                parseInstant(subscription.path("current_period_started_at")),
+                parseInstant(subscription.path("current_period_ends_at")),
+                !subscription.path("auto_renew").asBoolean(true),
+                parseInstant(subscription.path("updated_at")));
+    }
+
+    protected boolean hasPastDueInvoice(final JsonNode subscription, final String requestedSubscriptionId,
+                                        final String normalizedSubscriptionId) throws BillingException {
+        final String accountId = subscription.path("account").path("id").asText(null);
+        final String accountCode = subscription.path("account").path("code").asText(null);
+        final String accountReference = StringUtils.isNotBlank(accountId)
+                ? accountId
+                : StringUtils.isNotBlank(accountCode) ? "code-" + accountCode : null;
+        if (StringUtils.isBlank(accountReference)) {
+            throw new TerminalBillingException("Recurly subscription response missing account id and code");
+        }
+
+        String nextUrl = url("/accounts/" + pathSegment(accountReference) + "/invoices?state=past_due&limit=200");
+        while (StringUtils.isNotBlank(nextUrl)) {
+            validateRecurlyPageUrl(nextUrl);
+            final RecurlyHttpResponse response = httpClient.get(nextUrl, authHeader(), acceptHeader());
+            requireSuccess(response, "list past-due account invoices");
+            final JsonNode page = readJson(response.body(), "past-due invoices");
+            for (final JsonNode invoice : page.path("data")) {
+                final Set<String> invoiceSubscriptions = new LinkedHashSet<>();
+                collectSubscriptionIds(invoice, invoiceSubscriptions);
+                if (containsSubscription(invoiceSubscriptions, requestedSubscriptionId, normalizedSubscriptionId)) {
+                    return true;
+                }
+            }
+            nextUrl = page.path("has_more").asBoolean(false) ? page.path("next").asText(null) : null;
+        }
+        return false;
+    }
+
+    protected void validateRecurlyPageUrl(final String pageUrl) throws BillingException {
+        final String baseUrl = configService.getApiBaseUrl();
+        if (!StringUtils.startsWith(pageUrl, baseUrl + "/")) {
+            throw new TerminalBillingException("Recurly invoice pagination returned an unexpected URL");
+        }
+    }
+
+    protected boolean containsSubscription(final Set<String> invoiceSubscriptions, final String requestedId,
+                                           final String normalizedId) {
+        final Set<String> expected = new LinkedHashSet<>();
+        addSubscriptionId(expected, requestedId);
+        addSubscriptionId(expected, normalizedId);
+        return invoiceSubscriptions.stream().anyMatch(expected::contains);
+    }
+
+    protected boolean isPastDueEligible(final NormalizedSubscriptionStatus status) {
+        return status == NormalizedSubscriptionStatus.ACTIVE || status == NormalizedSubscriptionStatus.PAUSED;
+    }
+
+    protected NormalizedSubscriptionStatus mapStatus(final String recurlyState) {
+        if (StringUtils.isBlank(recurlyState)) {
+            return NormalizedSubscriptionStatus.UNKNOWN;
+        }
+        return switch (recurlyState.toLowerCase(java.util.Locale.ROOT)) {
+            case "active" -> NormalizedSubscriptionStatus.ACTIVE;
+            case "future" -> NormalizedSubscriptionStatus.PENDING;
+            case "paused" -> NormalizedSubscriptionStatus.PAUSED;
+            case "canceled" -> NormalizedSubscriptionStatus.CANCELLED;
+            case "expired" -> NormalizedSubscriptionStatus.EXPIRED;
+            case "failed" -> NormalizedSubscriptionStatus.FAILED;
+            default -> NormalizedSubscriptionStatus.UNKNOWN;
+        };
+    }
+
+    protected Instant parseInstant(final JsonNode node) throws TerminalBillingException {
+        if (node == null || node.isMissingNode() || node.isNull() || StringUtils.isBlank(node.asText(null))) {
+            return null;
+        }
+        try {
+            return Instant.parse(node.asText());
+        } catch (final DateTimeParseException exception) {
+            throw new TerminalBillingException("Malformed Recurly subscription timestamp '" + node.asText() + "'",
+                    exception);
+        }
     }
 
     protected String authHeader() throws BillingException {

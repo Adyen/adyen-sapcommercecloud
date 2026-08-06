@@ -12,6 +12,7 @@ import com.adyen.commerce.connector.dto.BillingSubscriptionRef;
 import com.adyen.commerce.connector.dto.ConnectorCapabilities;
 import com.adyen.commerce.connector.dto.CustomerSyncRequest;
 import com.adyen.commerce.connector.dto.NormalizedBillingEvent;
+import com.adyen.commerce.connector.dto.NormalizedSubscription;
 import com.adyen.commerce.connector.dto.PlanRef;
 import com.adyen.commerce.connector.dto.PlanResolutionRequest;
 import com.adyen.commerce.connector.dto.RawWebhook;
@@ -136,6 +137,13 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
     }
 
     @Override
+    public NormalizedSubscription fetchSubscription(final BillingSubscriptionRef subscription)
+            throws BillingException {
+        verifyRecurlySubscription(subscription);
+        return apiClient.fetchSubscription(subscription.externalId());
+    }
+
+    @Override
     public void updateSubscription(final SubscriptionUpdateRequest request) throws BillingException {
         final String planCode = request.plan() == null ? null : planCode(request.plan());
         apiClient.updateSubscription(request.subscription().externalId(), planCode, request.quantity(),
@@ -169,6 +177,17 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
         if (customer.platform() != BillingPlatform.RECURLY) {
             throw new PreconditionFailedException("Cannot import an Adyen token into a " + customer.platform()
                     + " customer reference using the Recurly connector");
+        }
+    }
+
+    protected void verifyRecurlySubscription(final BillingSubscriptionRef subscription)
+            throws PreconditionFailedException {
+        if (subscription == null) {
+            throw new PreconditionFailedException("Cannot fetch a null subscription reference");
+        }
+        if (subscription.platform() != BillingPlatform.RECURLY) {
+            throw new PreconditionFailedException("Cannot fetch a " + subscription.platform()
+                    + " subscription reference using the Recurly connector");
         }
     }
 

@@ -43,6 +43,7 @@
         <constructor-arg name="modelService" ref="modelService"/>
         <constructor-arg name="typeService" ref="typeService"/>
         <constructor-arg name="apiClient" ref="recurlyApiClient"/>
+        <property name="reconciliationService" ref="subscriptionReconciliationService"/>
     </bean>
 
     <!-- The SPI adapter. -->

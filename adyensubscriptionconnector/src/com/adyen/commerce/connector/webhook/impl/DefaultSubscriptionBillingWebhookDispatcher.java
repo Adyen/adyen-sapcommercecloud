@@ -33,6 +33,7 @@ import com.adyen.commerce.connector.enums.BillingPlatform;
 import com.adyen.commerce.connector.exception.BillingException;
 import com.adyen.commerce.connector.model.BillingSubscriptionRefModel;
 import com.adyen.commerce.connector.registry.SubscriptionBillingConnectorRegistry;
+import com.adyen.commerce.connector.reconciliation.SubscriptionReconciliationService;
 import com.adyen.commerce.connector.spi.SubscriptionBillingConnector;
 import com.adyen.commerce.connector.webhook.SubscriptionBillingWebhookDispatcher;
 
@@ -41,9 +42,9 @@ import de.hybris.platform.servicelayer.search.FlexibleSearchQuery;
 import de.hybris.platform.servicelayer.search.FlexibleSearchService;
 
 /**
- * Default dispatcher. Verifies/normalizes via the connector, then applies a minimal status
- * reconciliation to the local {@code BillingSubscriptionRef}. Full reconciliation / source-of-truth
- * handling (out-of-order, duplicate, replay) is design P4.1.
+ * Default webhook dispatcher. The webhook is treated as a reconciliation trigger.
+ * The current authoritative subscription state is retrieved from the billing platform
+ * through {@link SubscriptionReconciliationService}.
  */
 public class DefaultSubscriptionBillingWebhookDispatcher implements SubscriptionBillingWebhookDispatcher
 {
@@ -52,6 +53,7 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 	private SubscriptionBillingConnectorRegistry connectorRegistry;
 	private FlexibleSearchService flexibleSearchService;
 	private ModelService modelService;
+	private SubscriptionReconciliationService reconciliationService;
 
 	@Override
 	public NormalizedBillingEvent dispatch(final BillingPlatform platform, final RawWebhook raw) throws BillingException
@@ -62,7 +64,7 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 		return event;
 	}
 
-	protected void reconcile(final NormalizedBillingEvent event)
+	protected void reconcile(final NormalizedBillingEvent event) throws BillingException
 	{
 		if (event == null || event.externalSubscriptionId() == null)
 		{
@@ -75,13 +77,12 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 					event.externalSubscriptionId(), event.platform());
 			return;
 		}
-		final String newStatus = mapStatus(event.type());
-		if (newStatus != null)
-		{
-			final BillingSubscriptionRefModel model = ref.get();
-			model.setStatus(newStatus);
-			modelService.save(model);
-		}
+		reconcileAuthoritatively(ref.get());
+	}
+
+	protected void reconcileAuthoritatively(final BillingSubscriptionRefModel subscription) throws BillingException
+	{
+		reconciliationService.reconcile(subscription);
 	}
 
 	protected String mapStatus(final BillingEventType type)
@@ -133,5 +134,10 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 	public void setModelService(final ModelService modelService)
 	{
 		this.modelService = modelService;
+	}
+
+	public void setReconciliationService(final SubscriptionReconciliationService reconciliationService)
+	{
+		this.reconciliationService = reconciliationService;
 	}
 }

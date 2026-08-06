@@ -27,6 +27,7 @@ import com.adyen.commerce.connector.dto.RawWebhook;
 import com.adyen.commerce.connector.enums.BillingPlatform;
 import com.adyen.commerce.connector.model.BillingSubscriptionRefModel;
 import com.adyen.commerce.connector.recurly.client.RecurlyApiClient;
+import com.adyen.commerce.connector.reconciliation.SubscriptionReconciliationService;
 import com.adyen.commerce.connector.registry.SubscriptionBillingConnectorRegistry;
 import com.adyen.commerce.connector.spi.SubscriptionBillingConnector;
 
@@ -58,6 +59,8 @@ public class RecurlySubscriptionBillingWebhookDispatcherTest
     @Mock
     private SubscriptionBillingConnector connector;
     @Mock
+    private SubscriptionReconciliationService reconciliationService;
+    @Mock
     private BillingSubscriptionRefModel subscriptionRef;
 
     private RecurlySubscriptionBillingWebhookDispatcher dispatcher;
@@ -68,6 +71,7 @@ public class RecurlySubscriptionBillingWebhookDispatcherTest
         MockitoAnnotations.openMocks(this);
         dispatcher = new RecurlySubscriptionBillingWebhookDispatcher(connectorRegistry, flexibleSearchService,
                 modelService, typeService, apiClient);
+        dispatcher.setReconciliationService(reconciliationService);
     }
 
     @Test
@@ -107,7 +111,7 @@ public class RecurlySubscriptionBillingWebhookDispatcherTest
     }
 
     @Test
-    public void duplicateNotificationDoesNotTouchSubscription()
+    public void duplicateNotificationDoesNotTouchSubscription() throws Exception
     {
         final ControlledDispatcher controlled = new ControlledDispatcher();
         controlled.duplicate = true;
@@ -115,12 +119,12 @@ public class RecurlySubscriptionBillingWebhookDispatcherTest
         controlled.reconcile(event("uuid-sub", BillingEventType.SUBSCRIPTION_CANCELLED,
                 Map.of("notificationId", "notification-1")), "uuid-sub");
 
-        verify(modelService, never()).save(any());
+        verify(reconciliationService, never()).reconcile(any());
         assertTrue(!controlled.receiptSaved);
     }
 
     @Test
-    public void olderNotificationIsRecordedWithoutRegressingStatus()
+    public void olderNotificationRefetchesInsteadOfGuessing() throws Exception
     {
         final ControlledDispatcher controlled = new ControlledDispatcher();
         controlled.newerReceipt = true;
@@ -128,21 +132,19 @@ public class RecurlySubscriptionBillingWebhookDispatcherTest
         controlled.reconcile(event("uuid-sub", BillingEventType.INVOICE_PAYMENT_FAILED,
                 Map.of("notificationId", "notification-2")), "uuid-sub");
 
-        verify(subscriptionRef, never()).setStatus(any());
-        verify(modelService, never()).save(subscriptionRef);
+        verify(reconciliationService).reconcile(subscriptionRef);
         assertTrue(controlled.receiptSaved);
     }
 
     @Test
-    public void currentNotificationUpdatesStatusAndStoresReceipt()
+    public void currentNotificationRefetchesAndStoresReceipt() throws Exception
     {
         final ControlledDispatcher controlled = new ControlledDispatcher();
 
         controlled.reconcile(event("uuid-sub", BillingEventType.INVOICE_PAYMENT_FAILED,
                 Map.of("notificationId", "notification-3")), "uuid-sub");
 
-        verify(subscriptionRef).setStatus("PAST_DUE");
-        verify(modelService).save(subscriptionRef);
+        verify(reconciliationService).reconcile(subscriptionRef);
         assertTrue(controlled.receiptSaved);
     }
 
@@ -160,6 +162,7 @@ public class RecurlySubscriptionBillingWebhookDispatcherTest
         RecordingDispatcher()
         {
             super(connectorRegistry, flexibleSearchService, modelService, typeService, apiClient);
+            setReconciliationService(reconciliationService);
         }
 
         @Override
@@ -178,6 +181,7 @@ public class RecurlySubscriptionBillingWebhookDispatcherTest
         ControlledDispatcher()
         {
             super(connectorRegistry, flexibleSearchService, modelService, typeService, apiClient);
+            setReconciliationService(reconciliationService);
         }
 
         @Override

@@ -28,6 +28,8 @@ import com.adyen.commerce.connector.dto.CancelReason;
 import com.adyen.commerce.connector.dto.ConnectorCapabilities;
 import com.adyen.commerce.connector.dto.CustomerSyncRequest;
 import com.adyen.commerce.connector.dto.NormalizedBillingEvent;
+import com.adyen.commerce.connector.dto.NormalizedSubscription;
+import com.adyen.commerce.connector.dto.NormalizedSubscriptionStatus;
 import com.adyen.commerce.connector.dto.PlanRef;
 import com.adyen.commerce.connector.dto.PlanResolutionRequest;
 import com.adyen.commerce.connector.dto.RawWebhook;
@@ -125,14 +127,14 @@ public class RecurlySubscriptionBillingConnectorTest
     {
         when(configService.getConfiguredAdyenMerchantAccount()).thenReturn("MERCHANT");
         when(apiClient.importAdyenToken(any(), any(), any(), any(), any())).thenReturn("billing-1");
-        final AdyenTokenHandle token = new AdyenTokenHandle("MERCHANT", "shopper", "token", "ntid", null);
+        final AdyenTokenHandle token = new AdyenTokenHandle("MERCHANT", "customer", "token", "ntid", null);
 
         final BillingPaymentMethodRef result = connector.importAdyenToken(new TokenImportRequest(
                 new BillingCustomerRef(BillingPlatform.RECURLY, "code-customer"), token,
                 RecurringProcessingModel.SUBSCRIPTION));
 
         assertEquals("billing-1::ntid::ntid", result.externalId());
-        verify(apiClient).importAdyenToken("code-customer", "shopper", "token", null, null);
+        verify(apiClient).importAdyenToken("code-customer", "customer", "token", null, null);
     }
 
     @Test
@@ -141,7 +143,7 @@ public class RecurlySubscriptionBillingConnectorTest
         when(configService.isWalletEnabled()).thenReturn(false);
         when(configService.getConfiguredAdyenMerchantAccount()).thenReturn("MERCHANT");
         when(apiClient.importAdyenToken(any(), any(), any(), any(), any())).thenReturn("billing-1");
-        final AdyenTokenHandle token = new AdyenTokenHandle("MERCHANT", "shopper", "token", "ntid", null);
+        final AdyenTokenHandle token = new AdyenTokenHandle("MERCHANT", "customer", "token", "ntid", null);
 
         final BillingPaymentMethodRef result = connector.importAdyenToken(new TokenImportRequest(
                 new BillingCustomerRef(BillingPlatform.RECURLY, "code-customer"), token,
@@ -205,6 +207,24 @@ public class RecurlySubscriptionBillingConnectorTest
         when(webhookParser.parse(raw)).thenReturn(event);
 
         assertSame(event, connector.parseWebhook(raw));
+    }
+
+    @Test
+    public void fetchSubscriptionDelegatesToApiClient() throws Exception
+    {
+        final BillingSubscriptionRef ref = new BillingSubscriptionRef(BillingPlatform.RECURLY, "uuid-sub");
+        final NormalizedSubscription snapshot = new NormalizedSubscription(ref,
+                NormalizedSubscriptionStatus.ACTIVE, "monthly", 1, null, null, false, NOW);
+        when(apiClient.fetchSubscription("uuid-sub")).thenReturn(snapshot);
+
+        assertSame(snapshot, connector.fetchSubscription(ref));
+    }
+
+    @Test
+    public void fetchSubscriptionRejectsAnotherPlatform()
+    {
+        assertThrows(PreconditionFailedException.class, () -> connector.fetchSubscription(
+                new BillingSubscriptionRef(BillingPlatform.CHARGEBEE, "sub")));
     }
 
     private SubscriptionCreateRequest request(final Instant startsAt)

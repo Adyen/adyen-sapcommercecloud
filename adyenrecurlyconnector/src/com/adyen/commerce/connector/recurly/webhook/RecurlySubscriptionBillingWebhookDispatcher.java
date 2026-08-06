@@ -77,7 +77,8 @@ public class RecurlySubscriptionBillingWebhookDispatcher extends DefaultSubscrip
         return withSubscriptionId(parsed, subscriptionIds.get(0));
     }
 
-    protected void reconcile(final NormalizedBillingEvent event, final String externalSubscriptionId) {
+    protected void reconcile(final NormalizedBillingEvent event, final String externalSubscriptionId)
+            throws BillingException {
         final String notificationId = StringUtils.defaultIfBlank(event.attributes().get("notificationId"),
                 event.type() + "@" + event.occurredAt());
         final String notificationKey = notificationId + "|" + externalSubscriptionId;
@@ -90,13 +91,7 @@ public class RecurlySubscriptionBillingWebhookDispatcher extends DefaultSubscrip
             return;
         }
 
-        if (!newerReceiptExists(externalSubscriptionId, event.occurredAt())) {
-            final String status = mapStatus(event.type());
-            if (status != null) {
-                ref.get().setStatus(status);
-                modelService.save(ref.get());
-            }
-        }
+        reconcileAuthoritatively(ref.get());
         saveReceipt(notificationKey, notificationId, externalSubscriptionId, event);
     }
 

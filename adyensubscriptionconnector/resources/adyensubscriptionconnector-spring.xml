@@ -62,6 +62,21 @@
         <property name="eventService" ref="eventService"/>
     </bean>
 
+    <alias name="defaultSubscriptionReconciliationService" alias="subscriptionReconciliationService"/>
+    <bean id="defaultSubscriptionReconciliationService"
+          class="com.adyen.commerce.connector.reconciliation.impl.DefaultSubscriptionReconciliationService">
+        <property name="connectorRegistry" ref="subscriptionBillingConnectorRegistry"/>
+        <property name="modelService" ref="modelService"/>
+    </bean>
+
+    <bean id="subscriptionReconciliationJob"
+          class="com.adyen.commerce.connector.job.SubscriptionReconciliationJob"
+          parent="abstractJobPerformable">
+        <property name="flexibleSearchService" ref="flexibleSearchService"/>
+        <property name="reconciliationService" ref="subscriptionReconciliationService"/>
+        <property name="configurationService" ref="configurationService"/>
+    </bean>
+
     <!-- ============================================================= -->
     <!-- Webhook dispatcher (design P1.10)                             -->
     <!-- normalizes inbound platform webhooks and reconciles SAP state -->
@@ -72,6 +87,7 @@
         <property name="connectorRegistry" ref="subscriptionBillingConnectorRegistry"/>
         <property name="flexibleSearchService" ref="flexibleSearchService"/>
         <property name="modelService" ref="modelService"/>
+        <property name="reconciliationService" ref="subscriptionReconciliationService"/>
     </bean>
 
 </beans>
