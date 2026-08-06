@@ -851,7 +851,23 @@
                 <attribute qualifier="orderData" type="java.lang.String">
                     <description>Order data returned from Adyen /orders endpoint, required for /orders/cancel</description>
                     <modifiers optional="true"/>
-                    <persistence type="property"/>
+                    <persistence type="property">
+                        <columntype database="oracle">
+                            <value>CLOB</value>
+                        </columntype>
+                        <columntype database="sap">
+                            <value>NCLOB</value>
+                        </columntype>
+                        <columntype database="mysql">
+                            <value>TEXT</value>
+                        </columntype>
+                        <columntype database="sqlserver">
+                            <value>TEXT</value>
+                        </columntype>
+                        <columntype>
+                            <value>HYBRIS.LONG_STRING</value>
+                        </columntype>
+                    </persistence>
                 </attribute>
 
                 <!-- Request Information -->

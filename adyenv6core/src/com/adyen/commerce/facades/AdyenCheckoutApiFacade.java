@@ -32,7 +32,7 @@ public interface AdyenCheckoutApiFacade extends AdyenCheckoutFacade {
      * @param status The new status
      * @param remainingAmount The remaining amount after partial payment
      */
-    void updatePartialPaymentAfterAuthorization(String pspReference, String newPspReference, AdyenPartialPaymentStatus status, BigDecimal remainingAmount);
+    void updatePartialPaymentAfterAuthorization(String pspReference, AdyenPartialPaymentStatus status, BigDecimal remainingAmount);
 
     /**
      * Update partial payment order status
