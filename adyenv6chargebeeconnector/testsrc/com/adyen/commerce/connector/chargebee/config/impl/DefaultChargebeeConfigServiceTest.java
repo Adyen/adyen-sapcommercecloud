@@ -86,4 +86,24 @@ public class DefaultChargebeeConfigServiceTest
 		when(configuration.getString("chargebee.adyenMerchantAccount", null)).thenReturn(null);
 		assertNull(service.getConfiguredAdyenMerchantAccount());
 	}
+
+	@Test
+	public void webhookCredentialsReadFromConfig()
+	{
+		when(configuration.getString("chargebee.webhookUsername", null)).thenReturn("cb-user");
+		when(configuration.getString("chargebee.webhookPassword", null)).thenReturn("cb-pass");
+
+		assertEquals("cb-user", service.getWebhookUsername());
+		assertEquals("cb-pass", service.getWebhookPassword());
+	}
+
+	@Test
+	public void webhookCredentialsAreNullWhenUnset()
+	{
+		when(configuration.getString("chargebee.webhookUsername", null)).thenReturn(null);
+		when(configuration.getString("chargebee.webhookPassword", null)).thenReturn(null);
+
+		assertNull(service.getWebhookUsername());
+		assertNull(service.getWebhookPassword());
+	}
 }

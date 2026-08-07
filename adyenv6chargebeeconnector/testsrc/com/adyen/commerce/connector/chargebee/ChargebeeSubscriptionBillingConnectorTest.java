@@ -22,6 +22,7 @@ package com.adyen.commerce.connector.chargebee;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
@@ -30,6 +31,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.Base64;
 import java.util.Map;
 
 import org.junit.Before;
@@ -44,11 +48,13 @@ import com.adyen.commerce.connector.chargebee.config.ChargebeeConfigService;
 import com.adyen.commerce.connector.chargebee.plan.ChargebeePlanResolver;
 import com.adyen.commerce.connector.dto.AdyenTokenHandle;
 import com.adyen.commerce.connector.dto.BillingCustomerRef;
+import com.adyen.commerce.connector.dto.BillingEventType;
 import com.adyen.commerce.connector.dto.BillingPaymentMethodRef;
 import com.adyen.commerce.connector.dto.BillingSubscriptionRef;
 import com.adyen.commerce.connector.dto.CancelReason;
 import com.adyen.commerce.connector.dto.ConnectorCapabilities;
 import com.adyen.commerce.connector.dto.CustomerSyncRequest;
+import com.adyen.commerce.connector.dto.NormalizedBillingEvent;
 import com.adyen.commerce.connector.dto.PlanRef;
 import com.adyen.commerce.connector.dto.PlanResolutionRequest;
 import com.adyen.commerce.connector.dto.RawWebhook;
@@ -221,9 +227,145 @@ public class ChargebeeSubscriptionBillingConnectorTest
 	}
 
 	@Test
-	public void parseWebhookNotYetImplemented()
+	public void parseWebhookRejectsWhenCredentialsNotConfigured()
 	{
-		assertThrows(TerminalBillingException.class, () -> connector.parseWebhook(new RawWebhook(Map.of(), "{}", null)));
+		when(configService.getWebhookUsername()).thenReturn(null);
+
+		assertThrows(PreconditionFailedException.class,
+				() -> connector.parseWebhook(new RawWebhook(Map.of(AUTHORIZATION, basicAuth("u", "p")), "{}", null)));
+	}
+
+	@Test
+	public void parseWebhookRejectsMissingAuthorizationHeader()
+	{
+		stubWebhookCredentials("cb-user", "cb-pass");
+
+		assertThrows(TerminalBillingException.class,
+				() -> connector.parseWebhook(new RawWebhook(Map.of(), "{}", null)));
+	}
+
+	@Test
+	public void parseWebhookRejectsWrongCredentials()
+	{
+		stubWebhookCredentials("cb-user", "cb-pass");
+
+		assertThrows(TerminalBillingException.class, () -> connector
+				.parseWebhook(new RawWebhook(Map.of(AUTHORIZATION, basicAuth("cb-user", "wrong")), "{}", null)));
+	}
+
+	@Test
+	public void parseWebhookAcceptsAuthorizationHeaderRegardlessOfCase() throws Exception
+	{
+		stubWebhookCredentials("cb-user", "cb-pass");
+
+		final NormalizedBillingEvent event = connector.parseWebhook(new RawWebhook(
+				Map.of("authorization", basicAuth("cb-user", "cb-pass")), unrecognizedEventPayload(), null));
+
+		assertNull(event);
+	}
+
+	@Test
+	public void parseWebhookRejectsMalformedJson()
+	{
+		stubWebhookCredentials("cb-user", "cb-pass");
+
+		assertThrows(TerminalBillingException.class, () -> connector.parseWebhook(
+				new RawWebhook(Map.of(AUTHORIZATION, basicAuth("cb-user", "cb-pass")), "not json", null)));
+	}
+
+	@Test
+	public void parseWebhookReturnsNullForUnrecognizedEventType() throws Exception
+	{
+		stubWebhookCredentials("cb-user", "cb-pass");
+
+		final NormalizedBillingEvent event = connector.parseWebhook(new RawWebhook(
+				Map.of(AUTHORIZATION, basicAuth("cb-user", "cb-pass")), unrecognizedEventPayload(), null));
+
+		assertNull(event);
+	}
+
+	@Test
+	public void parseWebhookNormalizesSubscriptionActivated() throws Exception
+	{
+		stubWebhookCredentials("cb-user", "cb-pass");
+		final String payload = "{"
+				+ "\"id\":\"ev_1\",\"occurred_at\":1784628635,\"event_type\":\"subscription_activated\","
+				+ "\"content\":{\"subscription\":{\"id\":\"sub-1\",\"customer_id\":\"cust-1\"}}}";
+
+		final NormalizedBillingEvent event = connector
+				.parseWebhook(new RawWebhook(Map.of(AUTHORIZATION, basicAuth("cb-user", "cb-pass")), payload, null));
+
+		assertEquals(BillingPlatform.CHARGEBEE, event.platform());
+		assertEquals(BillingEventType.SUBSCRIPTION_ACTIVATED, event.type());
+		assertEquals("sub-1", event.externalSubscriptionId());
+		assertEquals("cust-1", event.externalCustomerId());
+		assertEquals(Instant.ofEpochSecond(1784628635L), event.occurredAt());
+		assertEquals("ev_1", event.attributes().get("eventId"));
+	}
+
+	@Test
+	public void parseWebhookNormalizesPaymentSucceededAsInvoicePaid() throws Exception
+	{
+		stubWebhookCredentials("cb-user", "cb-pass");
+		final String payload = "{"
+				+ "\"id\":\"ev_2\",\"occurred_at\":1784628700,\"event_type\":\"payment_succeeded\","
+				+ "\"content\":{\"transaction\":{\"subscription_id\":\"sub-2\",\"customer_id\":\"cust-2\"}}}";
+
+		final NormalizedBillingEvent event = connector
+				.parseWebhook(new RawWebhook(Map.of(AUTHORIZATION, basicAuth("cb-user", "cb-pass")), payload, null));
+
+		assertEquals(BillingEventType.INVOICE_PAID, event.type());
+		assertEquals("sub-2", event.externalSubscriptionId());
+		assertEquals("cust-2", event.externalCustomerId());
+	}
+
+	@Test
+	public void parseWebhookNormalizesPaymentFailedAsInvoicePaymentFailed() throws Exception
+	{
+		stubWebhookCredentials("cb-user", "cb-pass");
+		final String payload = "{"
+				+ "\"id\":\"ev_3\",\"occurred_at\":1784628800,\"event_type\":\"payment_failed\","
+				+ "\"content\":{\"transaction\":{\"subscription_id\":\"sub-3\",\"customer_id\":\"cust-3\"}}}";
+
+		final NormalizedBillingEvent event = connector
+				.parseWebhook(new RawWebhook(Map.of(AUTHORIZATION, basicAuth("cb-user", "cb-pass")), payload, null));
+
+		assertEquals(BillingEventType.INVOICE_PAYMENT_FAILED, event.type());
+		assertEquals("sub-3", event.externalSubscriptionId());
+	}
+
+	@Test
+	public void parseWebhookNormalizesSubscriptionCancelled() throws Exception
+	{
+		stubWebhookCredentials("cb-user", "cb-pass");
+		final String payload = "{"
+				+ "\"id\":\"ev_4\",\"occurred_at\":1784628900,\"event_type\":\"subscription_cancelled\","
+				+ "\"content\":{\"subscription\":{\"id\":\"sub-4\",\"customer_id\":\"cust-4\"}}}";
+
+		final NormalizedBillingEvent event = connector
+				.parseWebhook(new RawWebhook(Map.of(AUTHORIZATION, basicAuth("cb-user", "cb-pass")), payload, null));
+
+		assertEquals(BillingEventType.SUBSCRIPTION_CANCELLED, event.type());
+		assertEquals("sub-4", event.externalSubscriptionId());
+	}
+
+	private static final String AUTHORIZATION = "Authorization";
+
+	private void stubWebhookCredentials(final String username, final String password)
+	{
+		when(configService.getWebhookUsername()).thenReturn(username);
+		when(configService.getWebhookPassword()).thenReturn(password);
+	}
+
+	private static String basicAuth(final String username, final String password)
+	{
+		return "Basic " + Base64.getEncoder()
+				.encodeToString((username + ":" + password).getBytes(StandardCharsets.UTF_8));
+	}
+
+	private static String unrecognizedEventPayload()
+	{
+		return "{\"id\":\"ev_x\",\"occurred_at\":1784628600,\"event_type\":\"invoice_generated\",\"content\":{}}";
 	}
 
 	private void verifyNoTokenImport() throws Exception

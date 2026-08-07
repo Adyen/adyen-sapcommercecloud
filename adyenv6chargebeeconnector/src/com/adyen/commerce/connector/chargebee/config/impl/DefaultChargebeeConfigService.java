@@ -20,9 +20,6 @@
  */
 package com.adyen.commerce.connector.chargebee.config.impl;
 
-import de.hybris.platform.store.BaseStore;
-import de.hybris.platform.store.BaseStoreModel;
-import de.hybris.platform.store.services.impl.DefaultBaseStoreService;
 import org.apache.commons.lang3.StringUtils;
 
 import com.adyen.commerce.connector.chargebee.config.ChargebeeConfigService;
@@ -35,25 +32,25 @@ import de.hybris.platform.servicelayer.config.ConfigurationService;
  */
 public class DefaultChargebeeConfigService implements ChargebeeConfigService
 {
+	static final String P_SITE = "chargebee.site";
+	static final String P_API_KEY = "chargebee.apiKey";
+	static final String P_GATEWAY = "chargebee.gatewayAccountId";
+	static final String P_MERCHANT = "chargebee.adyenMerchantAccount";
+	static final String P_WEBHOOK_USERNAME = "chargebee.webhookUsername";
+	static final String P_WEBHOOK_PASSWORD = "chargebee.webhookPassword";
 
-	private DefaultBaseStoreService baseStoreService;
-
-	 private final BaseStoreModel baseStore = baseStoreService.getCurrentBaseStore();
-	 final String siteId = baseStore.getChargebeeSiteId();
-	 final String apiKey = baseStore.getChargebeeAPIKey();
-	 final String gatewayAccountId = baseStore.getChargebeeGatewayAccountId();
-	 final String adyenMerchantAccount = baseStore.getAdyenMerchantAccount();
+	private ConfigurationService configurationService;
 
 	@Override
 	public String getApiKey() throws ConnectorNotConfiguredException
 	{
-		return required(apiKey);
+		return required(P_API_KEY);
 	}
 
 	@Override
 	public String getSiteName() throws ConnectorNotConfiguredException
 	{
-		return required(siteId);
+		return required(P_SITE);
 	}
 
 	@Override
@@ -65,13 +62,25 @@ public class DefaultChargebeeConfigService implements ChargebeeConfigService
 	@Override
 	public String getGatewayAccountId()
 	{
-		return optional(gatewayAccountId);
+		return optional(P_GATEWAY);
 	}
 
 	@Override
 	public String getConfiguredAdyenMerchantAccount()
 	{
-		return optional(adyenMerchantAccount);
+		return optional(P_MERCHANT);
+	}
+
+	@Override
+	public String getWebhookUsername()
+	{
+		return optional(P_WEBHOOK_USERNAME);
+	}
+
+	@Override
+	public String getWebhookPassword()
+	{
+		return optional(P_WEBHOOK_PASSWORD);
 	}
 
 	protected String required(final String key) throws ConnectorNotConfiguredException
@@ -86,11 +95,11 @@ public class DefaultChargebeeConfigService implements ChargebeeConfigService
 
 	protected String optional(final String key)
 	{
-		return StringUtils.trimToEmpty(key);
+		return StringUtils.trimToNull(configurationService.getConfiguration().getString(key, null));
 	}
 
-	public void setBaseStoreService(final DefaultBaseStoreService baseStoreService)
+	public void setConfigurationService(final ConfigurationService configurationService)
 	{
-		this.baseStoreService = baseStoreService;
+		this.configurationService = configurationService;
 	}
 }
