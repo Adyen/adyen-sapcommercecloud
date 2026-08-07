@@ -23,10 +23,10 @@ public class SchemePaymentHandler implements PaymentMethodHandler {
                                    RecurringContractMode recurringContractMode,
                                    CustomerModel customerModel, Boolean is3DS2Allowed,
                                    Boolean guestUserTokenizationEnabled) {
-        
+
         // For scheme payments, we need the original payment request to copy settings
         // This handler assumes the original payment request data is already set
-        paymentRequest.setRecurringProcessingModel(PaymentRequest.RecurringProcessingModelEnum.CARDONFILE);
+        RecurringContractHelper.applyRecurringContract(paymentRequest, cartData, recurringContractMode);
 
         if (Boolean.TRUE.equals(is3DS2Allowed)) {
             ThreeDSEnhancer.enhance3DS2(paymentRequest, cartData);

@@ -10,22 +10,13 @@
 
     <!-- ============================================================= -->
     <!-- Connector registry                                            -->
-    <!-- Each platform adapter extension contributes its connector to  -->
-    <!-- this list (Spring list-merge), e.g. in chargebeeconnector:     -->
-    <!--   <util:list id="subscriptionBillingConnectorList" merge="true"> -->
-    <!--       <ref bean="chargebeeSubscriptionBillingConnector"/>     -->
-    <!--   </util:list>                                                 -->
+    <!-- The registry auto-discovers every SubscriptionBillingConnector -->
+    <!-- bean from the application context (ApplicationContextAware), so -->
+    <!-- an adapter extension only needs to declare its connector bean.  -->
     <!-- ============================================================= -->
-    <util:list id="subscriptionBillingConnectorList"
-               value-type="com.adyen.commerce.connector.spi.SubscriptionBillingConnector">
-        <!-- populated by adapter extensions -->
-    </util:list>
-
     <alias name="defaultSubscriptionBillingConnectorRegistry" alias="subscriptionBillingConnectorRegistry"/>
     <bean id="defaultSubscriptionBillingConnectorRegistry"
-          class="com.adyen.commerce.connector.registry.impl.DefaultSubscriptionBillingConnectorRegistry">
-        <property name="connectors" ref="subscriptionBillingConnectorList"/>
-    </bean>
+          class="com.adyen.commerce.connector.registry.impl.DefaultSubscriptionBillingConnectorRegistry"/>
 
     <!-- ============================================================= -->
     <!-- Startup / pre-activation validation (design R2)               -->

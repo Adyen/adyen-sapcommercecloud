@@ -1,7 +1,9 @@
 package com.adyen.commerce.services.impl;
 
+import com.adyen.model.checkout.PaymentRequest;
 import com.adyen.model.recurring.Recurring;
 import com.adyen.v6.enums.RecurringContractMode;
+import de.hybris.platform.commercefacades.order.data.CartData;
 
 /**
  * Helper class for recurring contract operations
@@ -50,5 +52,31 @@ public class RecurringContractHelper {
         }
 
         return null;
+    }
+
+    /**
+     * Resolves the store's configured recurring contract and, if it calls for token storage,
+     * sets recurringProcessingModel/enableRecurring/enableOneClick on the payment request accordingly.
+     * Mirrors {@code CreditCardPaymentHandler.handleRecurringContract}; shared here so handlers for a
+     * freshly-entered card (as opposed to a reused stored token) don't have to duplicate it.
+     */
+    public static void applyRecurringContract(PaymentRequest paymentRequest, CartData cartData,
+                                               RecurringContractMode recurringContractMode) {
+        Recurring recurringContract = getRecurringContractType(recurringContractMode);
+
+        if (recurringContract == null) {
+            return;
+        }
+
+        if (Recurring.ContractEnum.RECURRING.equals(recurringContract.getContract())) {
+            paymentRequest.setRecurringProcessingModel(PaymentRequest.RecurringProcessingModelEnum.CARDONFILE);
+            paymentRequest.setEnableRecurring(true);
+            if (Boolean.TRUE.equals(cartData.getAdyenRememberTheseDetails())) {
+                paymentRequest.setEnableOneClick(true);
+            }
+        } else if (Recurring.ContractEnum.ONECLICK.equals(recurringContract.getContract()) &&
+                   Boolean.TRUE.equals(cartData.getAdyenRememberTheseDetails())) {
+            paymentRequest.setEnableOneClick(true);
+        }
     }
 }

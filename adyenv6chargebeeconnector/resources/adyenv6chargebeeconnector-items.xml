@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!--
+ Copyright (c) 2026 Adyen B.V. - MIT license.
+
+ Chargebee-specific type-system: an admin-editable mapping from a SAP subscription
+ product code to a Chargebee Product-Catalog-2.0 item price id (resolvePlan). The
+ vendor-neutral BillingPlatform enum + reference types live in adyensubscriptionconnector.
+-->
+<items xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="items.xsd">
+
+    <itemtypes>
+        <itemtype code="ChargebeePlanMapping" extends="GenericItem" autocreate="true" generate="true">
+            <deployment table="ChargebeePlanMapping" typecode="22947"/>
+            <attributes>
+                <attribute qualifier="productCode" type="java.lang.String">
+                    <description>SAP subscription product code (unique key of the mapping).</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false" unique="true"/>
+                </attribute>
+                <attribute qualifier="itemPriceId" type="java.lang.String">
+                    <description>Chargebee Product Catalog 2.0 item price id used on subscription creation.</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false"/>
+                </attribute>
+                <attribute qualifier="priceId" type="java.lang.String">
+                    <description>Optional separate price id (usually null; Chargebee prices live on the item price).</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="baseStore" type="BaseStore">
+                    <description>Optional store scope for per-site catalogs (informational in this cut).</description>
+                    <persistence type="property"/>
+                </attribute>
+            </attributes>
+        </itemtype>
+    </itemtypes>
+
+</items>
