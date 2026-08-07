@@ -16,25 +16,22 @@
     <http pattern="/static/**" security="none" />
     <!-- Authenticity is enforced by RecurlyWebhookParser's HMAC verification. -->
     <http pattern="/webhooks/recurly" security="none" />
-    <!-- Test-only activation endpoint. Remove before deploying this extension to production. -->
-    <http pattern="/test/subscriptions" security="none" />
+
+    <!--
+      There is deliberately no permit-all rule for a test endpoint here. One used to exist for
+      /test/subscriptions, carrying its own "remove before production" note, and it outlived the
+      controller it was written for. Because the MVC config component-scans the whole connector package,
+      a later handler mapped to such a path would have gone live unauthenticated, with no CSRF and no
+      HMAC — and the security config would have shown no diff for a reviewer to catch.
+    -->
 
     <http access-decision-manager-ref="accessDecisionManager" use-expressions="false" use-authorization-manager="false">
         <session-management session-authentication-strategy-ref="fixation"/>
-        <intercept-url pattern="/login" access="PERMIT_ALL"/>
-        <intercept-url pattern="/" access="PERMIT_ALL"/>
+        <!-- Everything that is not the webhook is denied. This webapp has no UI: the form-login,
+             remember-me and logout blocks that the extension template ships with pointed at a /login page
+             and an "adminweb" remember-me key that do not exist here. -->
         <intercept-url pattern="/**" access="HYBRIS_NOT_INITIALIZED,ROLE_CUSTOMERGROUP"/>
         <http-basic />
-        <form-login 
-        	always-use-default-target="false" 
-        	login-page="/login"
-        	username-parameter="j_username"
-			password-parameter="j_password"
-			login-processing-url="/j_spring_security_check"
-        	authentication-failure-url="/login?login_error=1"
-        />
-        <remember-me services-ref="rememberMeServices" key="adminweb"/>
-        <logout logout-url="/j_spring_security_logout" logout-success-url="/login"/>
         <csrf request-handler-ref="csrfTokenRequestAttributeHandler"/>
         <headers>
             <frame-options disabled="true"/>
@@ -54,12 +51,6 @@
                 <beans:bean id="authenticatedVoter" class="org.springframework.security.access.vote.AuthenticatedVoter" />
             </beans:list>
         </beans:constructor-arg>
-    </beans:bean>
-
-    <beans:bean id="rememberMeServices" class="de.hybris.platform.spring.security.CoreRememberMeService">
-        <beans:property name="key" value="adminweb" />
-        <beans:property name="cookieName" value="LoginToken" />
-        <beans:lookup-method name="lookupUserDetailsService" bean="coreUserDetailsService" />
     </beans:bean>
 
     <authentication-manager>

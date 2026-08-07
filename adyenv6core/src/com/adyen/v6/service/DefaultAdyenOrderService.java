@@ -144,6 +144,10 @@ public class DefaultAdyenOrderService implements AdyenOrderService {
         updatePaymentInfo(paymentInfo, additionalData, "threeDOffered", (info, value) -> info.setAdyenThreeDOffered(Boolean.valueOf(value)));
         updatePaymentInfo(paymentInfo, additionalData, "threeDAuthenticated", (info, value) -> info.setAdyenThreeDAuthenticated(Boolean.valueOf(value)));
         updatePaymentInfo(paymentInfo, additionalData, "tokenization.storedPaymentMethodId", PaymentInfoModel::setAdyenSelectedReference);
+        // Captured alongside the stored token because a billing platform that imports the token charges it
+        // as a merchant-initiated transaction, and the scheme expects that to reference the original
+        // authorisation. Without it such an import is refused.
+        updatePaymentInfo(paymentInfo, additionalData, "networkTxReference", PaymentInfoModel::setAdyenNetworkTxReference);
 
         modelService.save(paymentInfo);
     }

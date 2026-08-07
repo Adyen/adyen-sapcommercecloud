@@ -24,6 +24,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
@@ -82,6 +83,7 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 {
 	private static final Instant T1 = Instant.parse("2026-08-06T10:00:00Z");
 	private static final Instant T2 = Instant.parse("2026-08-06T10:05:00Z");
+	private static final Instant T3 = Instant.parse("2026-08-06T10:10:00Z");
 	private static final Instant NOW = Instant.parse("2026-08-06T12:00:00Z");
 
 	@Mock
@@ -190,8 +192,12 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 		final BillingSubscriptionRefModel ref = givenSubscription("sub-1");
 		when(connector.parseWebhook(raw))
 				.thenReturn(eventOf(BillingEventType.SUBSCRIPTION_ACTIVATED, "ev-1", "sub-1", T1));
-		// Stands in for the unique index rejecting the second concurrent insert of the same event id.
-		doThrow(new IllegalStateException("unique index violation")).when(modelService).save(any());
+		// Stands in for the unique index rejecting the second concurrent insert of the same event id: our
+		// save loses, and what is visible afterwards is the winning delivery's row.
+		doAnswer(i -> {
+			eventStore.put(((BillingWebhookEventModel) i.getArgument(0)).getEventId(), i.getArgument(0));
+			throw new IllegalStateException("unique index violation");
+		}).when(modelService).save(any());
 
 		dispatcher.dispatch(BillingPlatform.CHARGEBEE, raw);
 
@@ -254,6 +260,157 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 		assertEquals("SKIPPED_AMBIGUOUS", eventStore.get("ev-b").getProcessingStatus());
 	}
 
+	// ---------------------------------------------------------------- subscription resolution
+
+	@Test
+	public void eventThatNamesNoSubscriptionIsResolvedThroughTheConnector() throws Exception
+	{
+		final BillingSubscriptionRefModel ref = givenSubscription("sub-9");
+		when(connector.resolveSubscriptionIds(any())).thenReturn(List.of("sub-9"));
+
+		dispatch(eventOf(BillingEventType.INVOICE_PAID, "ev-1", null, T1));
+
+		assertEquals("ACTIVE", ref.getStatus());
+		assertEquals("APPLIED", eventStore.get("ev-1").getProcessingStatus());
+	}
+
+	@Test
+	public void resolutionIsNotRepeatedOnARedeliveryBecauseTheEventIdIsClaimedFirst() throws Exception
+	{
+		givenSubscription("sub-9");
+		when(connector.resolveSubscriptionIds(any())).thenReturn(List.of("sub-9"));
+		final NormalizedBillingEvent event = eventOf(BillingEventType.INVOICE_PAID, "ev-1", null, T1);
+
+		dispatch(event);
+		dispatch(event);
+
+		// Resolution is a live call to the platform; a redelivery must not pay for it a second time.
+		verify(connector, times(1)).resolveSubscriptionIds(any());
+	}
+
+	@Test
+	public void oneEventAppliesToEverySubscriptionItResolvesTo() throws Exception
+	{
+		// An invoice can cover more than one subscription, and the event applies to all of them.
+		final BillingSubscriptionRefModel first = givenSubscription("sub-a");
+		final BillingSubscriptionRefModel second = givenSubscription("sub-b");
+		when(connector.resolveSubscriptionIds(any())).thenReturn(List.of("sub-a", "sub-b"));
+
+		dispatch(eventOf(BillingEventType.INVOICE_PAYMENT_FAILED, "ev-1", null, T1));
+
+		assertEquals("PAST_DUE", first.getStatus());
+		assertEquals("PAST_DUE", second.getStatus());
+		assertEquals("APPLIED", eventStore.get("ev-1").getProcessingStatus());
+	}
+
+	@Test
+	public void eventThatResolvesToNothingIsRecordedRatherThanRetriedForever() throws Exception
+	{
+		when(connector.resolveSubscriptionIds(any())).thenReturn(List.of());
+
+		dispatch(eventOf(BillingEventType.INVOICE_PAID, "ev-1", null, T1));
+
+		assertEquals("SKIPPED_UNKNOWN_SUBSCRIPTION", eventStore.get("ev-1").getProcessingStatus());
+	}
+
+	@Test
+	public void connectorIsNotAskedToResolveAnEventThatAlreadyNamesItsSubscription() throws Exception
+	{
+		givenSubscription("sub-1");
+
+		dispatch(eventOf(BillingEventType.SUBSCRIPTION_ACTIVATED, "ev-1", "sub-1", T1));
+
+		verify(connector, never()).resolveSubscriptionIds(any());
+	}
+
+	@Test
+	public void theDedupKeyIsClaimedBeforeTheConnectorIsAskedToResolve() throws Exception
+	{
+		givenSubscription("sub-9");
+		when(connector.resolveSubscriptionIds(any())).thenAnswer(i -> {
+			// The whole point of the ordering: by the time the remote lookup runs, the row that suppresses
+			// a redelivery must already be persisted.
+			assertNotNull("event id must already be claimed", eventStore.get("ev-1"));
+			return List.of("sub-9");
+		});
+
+		dispatch(eventOf(BillingEventType.INVOICE_PAID, "ev-1", null, T1));
+
+		verify(connector).resolveSubscriptionIds(any());
+	}
+
+	@Test
+	public void aPartlyAppliedMultiSubscriptionEventIsRecordedAsApplied() throws Exception
+	{
+		final BillingSubscriptionRefModel fresh = givenSubscription("sub-a");
+		final BillingSubscriptionRefModel ahead = givenSubscription("sub-b");
+		// sub-b has already seen something newer, so the event is stale for it but not for sub-a.
+		seedNewerEventFor("sub-b");
+		when(connector.resolveSubscriptionIds(any())).thenReturn(List.of("sub-a", "sub-b"));
+
+		dispatch(eventOf(BillingEventType.INVOICE_PAYMENT_FAILED, "ev-2", null, T1));
+
+		assertEquals("PAST_DUE", fresh.getStatus());
+		assertEquals("ACTIVE", ahead.getStatus());
+		// One row, one status: applied somewhere outranks skipped somewhere else.
+		assertEquals("APPLIED", eventStore.get("ev-2").getProcessingStatus());
+	}
+
+	@Test
+	public void anEventThatIsStaleForEverySubscriptionIsRecordedAsStale() throws Exception
+	{
+		final BillingSubscriptionRefModel ahead = givenSubscription("sub-b");
+		seedNewerEventFor("sub-b");
+		when(connector.resolveSubscriptionIds(any())).thenReturn(List.of("sub-b"));
+
+		dispatch(eventOf(BillingEventType.INVOICE_PAYMENT_FAILED, "ev-2", null, T1));
+
+		assertEquals("ACTIVE", ahead.getStatus());
+		assertEquals("SKIPPED_STALE", eventStore.get("ev-2").getProcessingStatus());
+	}
+
+	@Test
+	public void twoDeliveriesWithNoEventIdAreToldApartByTheirPayload() throws Exception
+	{
+		final BillingSubscriptionRefModel first = givenSubscription("sub-a");
+		final BillingSubscriptionRefModel second = givenSubscription("sub-b");
+		when(connector.resolveSubscriptionIds(any())).thenReturn(List.of("sub-a"), List.of("sub-b"));
+
+		// Same type, same second, no platform event id, different bodies: two real events, not a replay.
+		dispatchRaw(eventOf(BillingEventType.INVOICE_PAID, null, null, T1), "{\"invoice\":\"one\"}");
+		dispatchRaw(eventOf(BillingEventType.INVOICE_PAID, null, null, T1), "{\"invoice\":\"two\"}");
+
+		assertEquals("ACTIVE", first.getStatus());
+		assertEquals("ACTIVE", second.getStatus());
+		assertEquals(2, eventStore.size());
+	}
+
+	@Test
+	public void anIdenticalRedeliveryWithNoEventIdIsStillSuppressed() throws Exception
+	{
+		final BillingSubscriptionRefModel ref = givenSubscription("sub-a");
+		when(connector.resolveSubscriptionIds(any())).thenReturn(List.of("sub-a"));
+
+		dispatchRaw(eventOf(BillingEventType.INVOICE_PAID, null, null, T1), "{\"invoice\":\"one\"}");
+		dispatchRaw(eventOf(BillingEventType.INVOICE_PAID, null, null, T1), "{\"invoice\":\"one\"}");
+
+		verify(ref, times(1)).setStatus("ACTIVE");
+		assertEquals(1, eventStore.size());
+	}
+
+	@Test
+	public void aSaveFailureThatIsNotADuplicateFailsLoudlySoThePlatformRedelivers() throws Exception
+	{
+		givenSubscription("sub-1");
+		when(connector.parseWebhook(raw))
+				.thenReturn(eventOf(BillingEventType.SUBSCRIPTION_ACTIVATED, "ev-1", "sub-1", T1));
+		doThrow(new IllegalStateException("lock timeout")).when(modelService).save(any());
+
+		// Swallowing this would ACK the webhook, so the platform would never send it again and no row
+		// would exist to show anything was lost.
+		assertThrows(IllegalStateException.class, () -> dispatcher.dispatch(BillingPlatform.CHARGEBEE, raw));
+	}
+
 	// ---------------------------------------------------------------- projection
 
 	@Test
@@ -271,15 +428,44 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 	}
 
 	@Test
-	public void unmappedEventTypeAdvancesTheWatermarkWithoutChangingStatus() throws Exception
+	public void unmappedEventTypeLeavesTheReferenceCompletelyAlone() throws Exception
 	{
 		final BillingSubscriptionRefModel ref = givenSubscription("sub-1");
 		dispatch(eventOf(BillingEventType.PAYMENT_METHOD_UPDATED, "ev-1", "sub-1", T1));
 
 		verify(ref, never()).setStatus(any());
-		// The watermark still moves: the event proves platform state at T1, so anything older is stale.
-		assertEquals(Date.from(T1), ref.getLastAppliedEventAt());
+		// The watermark tracks status claims, and this event makes none, so it must not move it.
+		assertNull(ref.getLastAppliedEventAt());
+		assertNull(ref.getEventVersion());
 		assertEquals("APPLIED", eventStore.get("ev-1").getProcessingStatus());
+	}
+
+	@Test
+	public void statuslessEventDoesNotMakeARealStatusEventInTheSameSecondLookAmbiguous() throws Exception
+	{
+		final BillingSubscriptionRefModel ref = givenSubscription("sub-1");
+
+		// Platforms with whole-second timestamps routinely emit both at once — Recurly sends
+		// subscription/updated alongside subscription/canceled. If the status-less one moved the watermark,
+		// the cancellation would look like an unresolvable tie and be dropped for good.
+		dispatch(eventOf(BillingEventType.PAYMENT_METHOD_UPDATED, "ev-a", "sub-1", T1));
+		dispatch(eventOf(BillingEventType.SUBSCRIPTION_CANCELLED, "ev-b", "sub-1", T1));
+
+		assertEquals("CANCELLED", ref.getStatus());
+		assertEquals("APPLIED", eventStore.get("ev-b").getProcessingStatus());
+	}
+
+	@Test
+	public void statuslessEventDoesNotMakeALaterStatusChangeLookStale() throws Exception
+	{
+		final BillingSubscriptionRefModel ref = givenSubscription("sub-1");
+		dispatch(eventOf(BillingEventType.SUBSCRIPTION_ACTIVATED, "ev-a", "sub-1", T1));
+		dispatch(eventOf(BillingEventType.PAYMENT_METHOD_UPDATED, "ev-b", "sub-1", T3));
+
+		// T2 is older than the payment-method change but newer than the last real status claim.
+		dispatch(eventOf(BillingEventType.SUBSCRIPTION_CANCELLED, "ev-c", "sub-1", T2));
+
+		assertEquals("CANCELLED", ref.getStatus());
 	}
 
 	@Test
@@ -412,6 +598,20 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 		dispatcher.dispatch(BillingPlatform.CHARGEBEE, raw);
 	}
 
+	/** Dispatches with a specific body, so the payload-digest dedup key can be exercised. */
+	private void dispatchRaw(final NormalizedBillingEvent event, final String payload) throws Exception
+	{
+		final RawWebhook body = new RawWebhook(Map.of(), payload, null);
+		when(connector.parseWebhook(body)).thenReturn(event);
+		dispatcher.dispatch(BillingPlatform.CHARGEBEE, body);
+	}
+
+	/** Puts a subscription's watermark at T2, so a later T1 event is stale for it. */
+	private void seedNewerEventFor(final String subscriptionId) throws Exception
+	{
+		dispatch(eventOf(BillingEventType.SUBSCRIPTION_ACTIVATED, "seed-" + subscriptionId, subscriptionId, T2));
+	}
+
 	private BillingSubscriptionRefModel givenSubscription(final String externalSubscriptionId)
 	{
 		final BillingSubscriptionRefModel ref = statefulRef();
@@ -439,7 +639,9 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 		}
 		else
 		{
-			rows.addAll(refs);
+			final Object wanted = query.getQueryParameters().get("externalSubscriptionId");
+			refs.stream().filter(ref -> wanted == null || wanted.equals(ref.getExternalSubscriptionId()))
+					.forEach(rows::add);
 		}
 		@SuppressWarnings("unchecked")
 		final SearchResult<Object> result = mock(SearchResult.class);
