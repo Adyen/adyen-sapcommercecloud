@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Copyright (c) 2026 Adyen B.V. - MIT license. -->
+<extensioninfo xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="extensioninfo.xsd">
+
+    <extension abstractclassprefix="Generated" classprefix="Adyenrecurlyconnector" jaloLogicFree="true"
+               managername="AdyenrecurlyconnectorManager"
+               managersuperclass="de.hybris.platform.jalo.extension.Extension"
+               name="adyenrecurlyconnector" usemaven="false">
+
+        <!-- The SPI + normalized model come from the core; httpclient5 + jackson come
+             transitively from adyenv6core (usemaven=false: no own maven deps needed). -->
+        <requires-extension name="adyensubscriptionconnector"/>
+        <requires-extension name="adyenv6core"/>
+
+        <coremodule generated="true"
+                    manager="com.adyen.commerce.connector.recurly.jalo.AdyenrecurlyconnectorManager"
+                    packageroot="com.adyen.commerce.connector.recurly"/>
+
+        <webmodule jspcompile="false" webroot="/adyenrecurlyconnector"/>
+    </extension>
+
+</extensioninfo>

@@ -31,6 +31,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.adyen.commerce.connector.dto.AdyenTokenHandle;
+import com.adyen.commerce.connector.dto.BillingAddress;
 import com.adyen.commerce.connector.dto.BillingCustomerRef;
 import com.adyen.commerce.connector.dto.BillingPaymentMethodRef;
 import com.adyen.commerce.connector.dto.BillingSubscriptionRef;
@@ -59,6 +60,7 @@ import com.adyen.commerce.connector.validation.ConnectorMerchantAccountValidator
 import de.hybris.platform.core.model.order.AbstractOrderModel;
 import de.hybris.platform.core.model.order.payment.PaymentInfoModel;
 import de.hybris.platform.core.model.product.ProductModel;
+import de.hybris.platform.core.model.user.AddressModel;
 import de.hybris.platform.core.model.user.CustomerModel;
 import de.hybris.platform.servicelayer.event.EventService;
 import de.hybris.platform.servicelayer.model.ModelService;
@@ -124,7 +126,8 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 		persistCustomerRef(customer, customerRef);
 
 		final BillingPaymentMethodRef paymentMethodRef = connector
-				.importAdyenToken(new TokenImportRequest(customerRef, token, RecurringProcessingModel.SUBSCRIPTION));
+				.importAdyenToken(new TokenImportRequest(customerRef, token, RecurringProcessingModel.SUBSCRIPTION,
+						buildBillingAddress(order)));
 		persistPaymentMethodRef(order.getPaymentInfo(), paymentMethodRef);
 
 		final PlanRef plan = connector.resolvePlan(new PlanResolutionRequest(subProduct.getCode(), Map.of()));
@@ -194,6 +197,36 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 	protected CustomerSyncRequest buildCustomerSyncRequest(final CustomerModel customer)
 	{
 		return new CustomerSyncRequest(customer.getCustomerID(), customer.getUid(), customer.getName(), null, Map.of());
+	}
+
+	protected BillingAddress buildBillingAddress(final AbstractOrderModel order)
+	{
+		final AddressModel address = order.getPaymentAddress() != null
+				? order.getPaymentAddress()
+				: order.getDeliveryAddress();
+		if (address == null)
+		{
+			return null;
+		}
+
+		final String country = address.getCountry() == null ? null : address.getCountry().getIsocode();
+		final String region = address.getRegion() == null ? null : address.getRegion().getIsocodeShort();
+		return new BillingAddress(address.getFirstname(), address.getLastname(),
+				joinStreet(address.getStreetname(), address.getStreetnumber()), null, address.getTown(), region,
+				address.getPostalcode(), country, address.getPhone1());
+	}
+
+	protected String joinStreet(final String streetName, final String streetNumber)
+	{
+		if (streetName == null || streetName.isBlank())
+		{
+			return streetNumber;
+		}
+		if (streetNumber == null || streetNumber.isBlank())
+		{
+			return streetName;
+		}
+		return streetName + " " + streetNumber;
 	}
 
 	protected Map<String, String> buildMetadata(final AbstractOrderModel order, final ProductModel subProduct)

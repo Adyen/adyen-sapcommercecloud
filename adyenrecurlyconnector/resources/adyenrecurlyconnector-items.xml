@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!--
+ Copyright (c) 2026 Adyen B.V. - MIT license.
+
+ Recurly-specific type-system: an admin-editable mapping from a SAP subscription
+ product code to a Recurly plan code (resolvePlan). The vendor-neutral
+ BillingPlatform enum + reference types live in adyensubscriptionconnector.
+-->
+<items xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="items.xsd">
+
+    <itemtypes>
+        <itemtype code="RecurlyPlanMapping" extends="GenericItem" autocreate="true" generate="true">
+            <deployment table="RecurlyPlanMapping" typecode="22948"/>
+            <attributes>
+                <attribute qualifier="productCode" type="java.lang.String">
+                    <description>SAP subscription product code (unique key of the mapping).</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false" unique="true"/>
+                </attribute>
+                <attribute qualifier="planCode" type="java.lang.String">
+                    <description>Recurly plan code used on subscription creation.</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false"/>
+                </attribute>
+                <attribute qualifier="priceId" type="java.lang.String">
+                    <description>Optional Recurly price/currency reference for future catalog variants.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="baseStore" type="BaseStore">
+                    <description>Optional store scope for per-site catalogs (informational in this cut).</description>
+                    <persistence type="property"/>
+                </attribute>
+            </attributes>
+        </itemtype>
+
+        <itemtype code="RecurlyWebhookReceipt" extends="GenericItem" autocreate="true" generate="true">
+            <deployment table="RecurlyWebhookReceipt" typecode="22949"/>
+            <attributes>
+                <attribute qualifier="notificationKey" type="java.lang.String">
+                    <description>Unique Recurly notification/subscription key used for deduplication.</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false" unique="true"/>
+                </attribute>
+                <attribute qualifier="notificationId" type="java.lang.String">
+                    <description>Recurly-Notification-Id supplied with the webhook.</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false"/>
+                </attribute>
+                <attribute qualifier="externalSubscriptionId" type="java.lang.String">
+                    <description>Normalized uuid-prefixed Recurly subscription identifier.</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false"/>
+                </attribute>
+                <attribute qualifier="eventType" type="java.lang.String">
+                    <description>Normalized billing event type.</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false"/>
+                </attribute>
+                <attribute qualifier="eventTime" type="java.util.Date">
+                    <description>Time at which Recurly says the event occurred.</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false"/>
+                </attribute>
+            </attributes>
+            <indexes>
+                <index name="RecurlyReceiptSubTime">
+                    <key attribute="externalSubscriptionId"/>
+                    <key attribute="eventTime"/>
+                </index>
+            </indexes>
+        </itemtype>
+    </itemtypes>
+
+</items>
