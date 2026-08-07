@@ -192,12 +192,15 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 		final long occurredAtEpochSeconds = root.path("occurred_at").asLong(0L);
 		final Instant occurredAt = occurredAtEpochSeconds > 0 ? Instant.ofEpochSecond(occurredAtEpochSeconds) : Instant.now();
 
+		// Chargebee's own docs recommend deduplicating on the event id; the core does exactly that, so it
+		// travels as a first-class field rather than an attribute.
+		final String eventId = root.path("id").asText(null);
+
 		final Map<String, String> attributes = new LinkedHashMap<>();
-		putIfNotBlank(attributes, "eventId", root.path("id").asText(null));
 		putIfNotBlank(attributes, "chargebeeEventType", chargebeeEventType);
 
-		return new NormalizedBillingEvent(platform(), type, externalSubscriptionId, externalCustomerId, occurredAt,
-				attributes);
+		return new NormalizedBillingEvent(platform(), type, eventId, externalSubscriptionId, externalCustomerId,
+				occurredAt, attributes);
 	}
 
 	/**
