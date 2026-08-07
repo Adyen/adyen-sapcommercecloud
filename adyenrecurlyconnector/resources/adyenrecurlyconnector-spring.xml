@@ -54,14 +54,6 @@
         <constructor-arg name="webhookParser" ref="recurlyWebhookParser"/>
     </bean>
 
-    <bean id="recurlySubscriptionActivationService"
-          class="com.adyen.commerce.connector.recurly.activation.impl.DefaultRecurlySubscriptionActivationService">
-        <constructor-arg name="connector" ref="recurlySubscriptionBillingConnector"/>
-        <constructor-arg name="flexibleSearchService" ref="flexibleSearchService"/>
-        <constructor-arg name="modelService" ref="modelService"/>
-        <constructor-arg name="merchantAccountStrategy" ref="adyenMerchantStrategy"/>
-    </bean>
-
     <!-- Contribute this adapter to the registry-owned plain list without changing the core extension. -->
     <bean id="recurlySubscriptionBillingConnectorRegistrar"
           class="com.adyen.commerce.connector.recurly.registry.RecurlyConnectorRegistrar"

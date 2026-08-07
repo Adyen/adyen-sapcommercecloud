@@ -125,14 +125,14 @@ public class RecurlySubscriptionBillingConnectorTest
     {
         when(configService.getConfiguredAdyenMerchantAccount()).thenReturn("MERCHANT");
         when(apiClient.importAdyenToken(any(), any(), any(), any(), any())).thenReturn("billing-1");
-        final AdyenTokenHandle token = new AdyenTokenHandle("MERCHANT", "shopper", "token", "ntid", null);
+        final AdyenTokenHandle token = new AdyenTokenHandle("MERCHANT", "customer", "token", "ntid", null);
 
         final BillingPaymentMethodRef result = connector.importAdyenToken(new TokenImportRequest(
                 new BillingCustomerRef(BillingPlatform.RECURLY, "code-customer"), token,
                 RecurringProcessingModel.SUBSCRIPTION));
 
         assertEquals("billing-1::ntid::ntid", result.externalId());
-        verify(apiClient).importAdyenToken("code-customer", "shopper", "token", null, null);
+        verify(apiClient).importAdyenToken("code-customer", "customer", "token", null, null);
     }
 
     @Test
@@ -141,7 +141,7 @@ public class RecurlySubscriptionBillingConnectorTest
         when(configService.isWalletEnabled()).thenReturn(false);
         when(configService.getConfiguredAdyenMerchantAccount()).thenReturn("MERCHANT");
         when(apiClient.importAdyenToken(any(), any(), any(), any(), any())).thenReturn("billing-1");
-        final AdyenTokenHandle token = new AdyenTokenHandle("MERCHANT", "shopper", "token", "ntid", null);
+        final AdyenTokenHandle token = new AdyenTokenHandle("MERCHANT", "customer", "token", "ntid", null);
 
         final BillingPaymentMethodRef result = connector.importAdyenToken(new TokenImportRequest(
                 new BillingCustomerRef(BillingPlatform.RECURLY, "code-customer"), token,
@@ -162,7 +162,7 @@ public class RecurlySubscriptionBillingConnectorTest
     }
 
     @Test
-    public void rejectsTokenWithoutNtid() throws Exception
+    public void rejectsTokenWithoutNtid()
     {
         when(configService.getConfiguredAdyenMerchantAccount()).thenReturn("MERCHANT");
         final AdyenTokenHandle token = new AdyenTokenHandle("MERCHANT", "shopper", "token", null, null);
