@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright (c) 2026 Adyen B.V. - MIT license. -->
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+    <alias name="defaultRecurlyConfigService" alias="recurlyConfigService"/>
+    <bean id="defaultRecurlyConfigService"
+          class="com.adyen.commerce.connector.recurly.config.impl.DefaultRecurlyConfigService">
+        <constructor-arg name="configurationService" ref="configurationService"/>
+    </bean>
+
+    <alias name="defaultRecurlyHttpClient" alias="recurlyHttpClient"/>
+    <bean id="defaultRecurlyHttpClient"
+          class="com.adyen.commerce.connector.recurly.http.impl.DefaultRecurlyHttpClient">
+        <constructor-arg name="configService" ref="recurlyConfigService"/>
+    </bean>
+
+    <alias name="defaultRecurlyApiClient" alias="recurlyApiClient"/>
+    <bean id="defaultRecurlyApiClient"
+          class="com.adyen.commerce.connector.recurly.client.impl.DefaultRecurlyApiClient">
+        <constructor-arg name="httpClient" ref="recurlyHttpClient"/>
+        <constructor-arg name="configService" ref="recurlyConfigService"/>
+    </bean>
+
+    <alias name="defaultRecurlyPlanResolver" alias="recurlyPlanResolver"/>
+    <bean id="defaultRecurlyPlanResolver"
+          class="com.adyen.commerce.connector.recurly.plan.impl.DefaultRecurlyPlanResolver">
+        <constructor-arg name="flexibleSearchService" ref="flexibleSearchService"/>
+    </bean>
+
+    <alias name="defaultRecurlyWebhookParser" alias="recurlyWebhookParser"/>
+    <bean id="defaultRecurlyWebhookParser"
+          class="com.adyen.commerce.connector.recurly.webhook.DefaultRecurlyWebhookParser">
+        <constructor-arg name="configService" ref="recurlyConfigService"/>
+    </bean>
+
+    <bean id="recurlySubscriptionBillingWebhookDispatcher"
+          class="com.adyen.commerce.connector.recurly.webhook.RecurlySubscriptionBillingWebhookDispatcher">
+        <constructor-arg name="connectorRegistry" ref="subscriptionBillingConnectorRegistry"/>
+        <constructor-arg name="flexibleSearchService" ref="flexibleSearchService"/>
+        <constructor-arg name="modelService" ref="modelService"/>
+        <constructor-arg name="typeService" ref="typeService"/>
+        <constructor-arg name="apiClient" ref="recurlyApiClient"/>
+    </bean>
+
+    <!-- The SPI adapter. -->
+    <bean id="recurlySubscriptionBillingConnector"
+          class="com.adyen.commerce.connector.recurly.RecurlySubscriptionBillingConnector">
+        <constructor-arg name="apiClient" ref="recurlyApiClient"/>
+        <constructor-arg name="configService" ref="recurlyConfigService"/>
+        <constructor-arg name="planResolver" ref="recurlyPlanResolver"/>
+        <constructor-arg name="webhookParser" ref="recurlyWebhookParser"/>
+    </bean>
+
+    <!-- Contribute this adapter to the registry-owned plain list without changing the core extension. -->
+    <bean id="recurlySubscriptionBillingConnectorRegistrar"
+          class="com.adyen.commerce.connector.recurly.registry.RecurlyConnectorRegistrar"
+          lazy-init="false">
+        <constructor-arg name="connectors" ref="subscriptionBillingConnectorList"/>
+        <constructor-arg name="connector" ref="recurlySubscriptionBillingConnector"/>
+    </bean>
+
+</beans>
