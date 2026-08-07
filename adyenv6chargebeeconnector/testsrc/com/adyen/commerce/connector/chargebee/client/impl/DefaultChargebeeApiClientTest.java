@@ -204,4 +204,13 @@ public class DefaultChargebeeApiClientTest
 	{
 		assertThrows(PreconditionFailedException.class, () -> client.updateSubscription("sub-1", null, null));
 	}
+
+	@Test
+	public void updateSubscriptionRejectsQuantityWithoutItemPrice()
+	{
+		// Chargebee's update_for_items needs subscription_items[item_price_id][0] to anchor a quantity change;
+		// a quantity-only call would 400 at the API ("item_price_id[0]: cannot be blank"). Surfaced by the live
+		// P2.3 integration test — the guard turns that opaque remote 400 into a clear local precondition.
+		assertThrows(PreconditionFailedException.class, () -> client.updateSubscription("sub-1", null, 2));
+	}
 }

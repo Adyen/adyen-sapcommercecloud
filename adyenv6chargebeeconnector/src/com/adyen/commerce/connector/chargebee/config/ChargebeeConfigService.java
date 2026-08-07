@@ -54,4 +54,15 @@ public interface ChargebeeConfigService
 	 * @return the Adyen merchant account the Chargebee gateway is bound to (for the R2 check), or {@code null}
 	 */
 	String getConfiguredAdyenMerchantAccount();
+
+	/**
+	 * @return the Basic Auth username configured on the Chargebee-side webhook (Settings &gt; Webhooks &gt;
+	 *         "protected by basic authentication"), or {@code null} if unset
+	 */
+	String getWebhookUsername();
+
+	/**
+	 * @return the Basic Auth password configured on the Chargebee-side webhook, or {@code null} if unset
+	 */
+	String getWebhookPassword();
 }

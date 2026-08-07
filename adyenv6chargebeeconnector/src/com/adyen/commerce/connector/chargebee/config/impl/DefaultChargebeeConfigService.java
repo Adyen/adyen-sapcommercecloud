@@ -36,6 +36,8 @@ public class DefaultChargebeeConfigService implements ChargebeeConfigService
 	static final String P_API_KEY = "chargebee.apiKey";
 	static final String P_GATEWAY = "chargebee.gatewayAccountId";
 	static final String P_MERCHANT = "chargebee.adyenMerchantAccount";
+	static final String P_WEBHOOK_USERNAME = "chargebee.webhookUsername";
+	static final String P_WEBHOOK_PASSWORD = "chargebee.webhookPassword";
 
 	private ConfigurationService configurationService;
 
@@ -67,6 +69,18 @@ public class DefaultChargebeeConfigService implements ChargebeeConfigService
 	public String getConfiguredAdyenMerchantAccount()
 	{
 		return optional(P_MERCHANT);
+	}
+
+	@Override
+	public String getWebhookUsername()
+	{
+		return optional(P_WEBHOOK_USERNAME);
+	}
+
+	@Override
+	public String getWebhookPassword()
+	{
+		return optional(P_WEBHOOK_PASSWORD);
 	}
 
 	protected String required(final String key) throws ConnectorNotConfiguredException
