@@ -19,6 +19,12 @@ public interface RecurlyConfigService {
 
     int getResponseTimeoutMillis();
 
+    /** How long a caller may wait for a free pooled connection before failing. */
+    int getConnectionRequestTimeoutMillis();
+
+    /** Size of the connection pool, total and per route — every call goes to the one Recurly host. */
+    int getMaxConnections();
+
     String getWebhookSigningKey() throws ConnectorNotConfiguredException;
 
     int getWebhookToleranceSeconds();

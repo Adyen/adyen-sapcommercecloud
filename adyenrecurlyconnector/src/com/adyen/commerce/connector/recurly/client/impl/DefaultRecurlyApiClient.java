@@ -158,7 +158,10 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
         if (account.statusCode() == HTTP_NOT_FOUND) {
             final ObjectNode request = objectMapper.createObjectNode();
             putIfNotBlank(request, "code", accountCode(accountId));
-            if (billingAddress != null) {
+            // Only a confirmed billing address names the account. An address inferred from the delivery
+            // address carries the recipient's name, and on a gift order that is not the account holder —
+            // every future invoice would be issued to the wrong person.
+            if (billingAddress != null && billingAddress.confirmed()) {
                 putIfNotBlank(request, "first_name", billingAddress.firstName());
                 putIfNotBlank(request, "last_name", billingAddress.lastName());
             }
@@ -480,8 +483,12 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
             return;
         }
 
-        putIfNotBlank(request, "first_name", billingAddress.firstName());
-        putIfNotBlank(request, "last_name", billingAddress.lastName());
+        // Same rule as the account: an inferred address still carries a usable address, but its name is
+        // the recipient's, not the cardholder's, so it must not be sent as the billing name.
+        if (billingAddress.confirmed()) {
+            putIfNotBlank(request, "first_name", billingAddress.firstName());
+            putIfNotBlank(request, "last_name", billingAddress.lastName());
+        }
         final ObjectNode address = request.putObject("address");
         putIfNotBlank(address, "street1", billingAddress.street1());
         putIfNotBlank(address, "street2", billingAddress.street2());

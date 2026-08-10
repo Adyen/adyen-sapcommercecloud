@@ -2,6 +2,8 @@ package com.adyen.commerce.connector.recurly;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -130,8 +132,8 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
                 RecurlyPaymentMethodReference.parse(request.paymentMethod().externalId());
         final RecurlySubscriptionParams params = new RecurlySubscriptionParams(request.customer().externalId(),
                 paymentMethod.billingInfoId(), planCode(request.plan()), request.quantity(), request.currencyIsoCode(),
-                startDate.toString(), paymentMethod.networkTransactionId(), request.idempotencyKey(),
-                request.metadata());
+                startDate.toString(), paymentMethod.networkTransactionId(),
+                operationKey(request.idempotencyKey(), "create"), request.metadata());
         final String subscriptionId = apiClient.createSubscription(params);
         return new BillingSubscriptionRef(BillingPlatform.RECURLY, subscriptionId);
     }
@@ -147,18 +149,46 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
     public void updateSubscription(final SubscriptionUpdateRequest request) throws BillingException {
         final String planCode = request.plan() == null ? null : planCode(request.plan());
         apiClient.updateSubscription(request.subscription().externalId(), planCode, request.quantity(),
-                request.idempotencyKey());
+                operationKey(request.idempotencyKey(), "update"));
     }
 
     @Override
     public void cancelSubscription(final SubscriptionCancelRequest request) throws BillingException {
         apiClient.cancelSubscription(request.subscription().externalId(), request.atPeriodEnd(),
-                request.idempotencyKey());
+                operationKey(request.idempotencyKey(), "cancel"));
+    }
+
+    /**
+     * The core issues one idempotency key per subscription (the order code) and replays it for the whole
+     * lifecycle, so create, update and cancel would otherwise arrive at Recurly under the same key.
+     * Recurly answers a repeated key with the <em>first</em> response it recorded, which would let a
+     * cancel be acknowledged with the stored 201 from the create — the local status would flip to
+     * CANCELLED while Recurly kept billing. Namespacing by operation keeps each one independently
+     * idempotent under retry while making them distinct from each other.
+     */
+    protected static String operationKey(final String idempotencyKey, final String operation) {
+        return StringUtils.isBlank(idempotencyKey) ? null : idempotencyKey + "/" + operation;
     }
 
     @Override
     public NormalizedBillingEvent parseWebhook(final RawWebhook raw) throws BillingException {
         return webhookParser.parse(raw);
+    }
+
+    /**
+     * Recurly fires payment- and invoice-shaped events that never name their subscription, so the
+     * invoice or transaction has to be read back to find out which subscriptions it covers — and an
+     * invoice can legitimately cover several. The core only calls this for events that arrive without a
+     * subscription id, and only after the event id has been claimed, so a redelivery costs no extra
+     * round-trip.
+     */
+    @Override
+    public List<String> resolveSubscriptionIds(final NormalizedBillingEvent event) throws BillingException {
+        if (event == null) {
+            return List.of();
+        }
+        final Map<String, String> attributes = event.attributes();
+        return apiClient.resolveWebhookSubscriptionIds(attributes.get("resourceType"), attributes.get("resourceId"));
     }
 
     protected void verifyMerchantAccount(final AdyenTokenHandle token) throws PreconditionFailedException {

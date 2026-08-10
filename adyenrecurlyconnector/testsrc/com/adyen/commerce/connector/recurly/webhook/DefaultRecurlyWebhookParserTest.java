@@ -63,7 +63,35 @@ public class DefaultRecurlyWebhookParserTest
 
         assertEquals(BillingEventType.SUBSCRIPTION_CANCELLED, event.type());
         assertEquals("uuid-63ab531e1d5b1d47eaf1ef44eeb853c3", event.externalSubscriptionId());
-        assertEquals("header-notice", event.attributes().get("notificationId"));
+        // The signed body wins over the unsigned header: the HMAC covers only timestamp + "." + payload,
+        // so a header-first rule would let the dedup identity be changed from outside the signature.
+        assertEquals("notice-1", event.eventId());
+    }
+
+    @Test
+    public void notificationHeaderIsUsedOnlyWhenTheBodyCarriesNoId() throws Exception
+    {
+        final String payload = PAYLOAD.replace("\"id\":\"notice-1\",", "");
+        final String timestamp = Long.toString(NOW.getEpochSecond());
+        final String signature = timestamp + "," + sign(timestamp, payload);
+
+        final NormalizedBillingEvent event = parser.parse(new RawWebhook(
+                Map.of("Recurly-Notification-Id", "header-notice"), payload, signature));
+
+        assertEquals("header-notice", event.eventId());
+    }
+
+    @Test
+    public void payloadWithoutEventTimeIsRejectedAsTerminal() throws Exception
+    {
+        final String payload = PAYLOAD.replace("\"event_time\":\"2026-07-21T10:00:00Z\",", "");
+        final String timestamp = Long.toString(NOW.getEpochSecond());
+        final String signature = timestamp + "," + sign(timestamp, payload);
+        final RawWebhook raw = new RawWebhook(Map.of(), payload, signature);
+
+        // Without a timestamp there is no ordering signal at all; it must fail as a classified billing
+        // error rather than as an NPE crossing the SPI boundary.
+        assertThrows(TerminalBillingException.class, () -> parser.parse(raw));
     }
 
     @Test

@@ -121,7 +121,7 @@ public class DefaultRecurlyApiClientTest
         final String billingInfoId = client.importAdyenToken("code-customer", "shopper-1", "token-1",
                 new CardMetadata("visa", "1111", null, "03/2030", "credit"),
                 new BillingAddress("Ada", "Lovelace", "1 Main St", "Suite 2", "Warsaw", "MZ", "00-001", "PL",
-                        "+48123456789"));
+                        "+48123456789", true));
 
         assertEquals("billing-1", billingInfoId);
         final ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
@@ -145,6 +145,50 @@ public class DefaultRecurlyApiClientTest
     }
 
     @Test
+    public void unconfirmedBillingAddressContributesItsAddressButNotItsName() throws Exception
+    {
+        when(configService.isWalletEnabled()).thenReturn(true);
+        when(configService.getGatewayCode()).thenReturn("adyen-gateway");
+        when(httpClient.get(BASE + "/accounts/code-customer/billing_infos", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, "[]"));
+        when(httpClient.post(eq(BASE + "/accounts/code-customer/billing_infos"), eq(auth), eq(ACCEPT), any(), any()))
+                .thenReturn(new RecurlyHttpResponse(HTTP_CREATED, "{\"id\":\"billing-1\"}"));
+
+        // Derived from the delivery address, so the name is the recipient's, not the cardholder's.
+        client.importAdyenToken("code-customer", "shopper-1", "token-1", null,
+                new BillingAddress("Bob", "Recipient", "9 Ship St", null, "Berlin", null, "10115", "DE", null, false));
+
+        final ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
+        verify(httpClient).post(eq(BASE + "/accounts/code-customer/billing_infos"), eq(auth), eq(ACCEPT),
+                body.capture(), any());
+        assertFalse(body.getValue().contains("\"first_name\""));
+        assertFalse(body.getValue().contains("\"last_name\""));
+        assertTrue(body.getValue().contains("\"city\":\"Berlin\""));
+    }
+
+    @Test
+    public void unconfirmedBillingAddressDoesNotNameANewlyCreatedAccount() throws Exception
+    {
+        when(configService.isWalletEnabled()).thenReturn(false);
+        when(configService.getGatewayCode()).thenReturn("adyen-gateway");
+        when(httpClient.get(BASE + "/accounts/code-customer", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_NOT_FOUND, ""));
+        when(httpClient.post(eq(BASE + "/accounts"), eq(auth), eq(ACCEPT), any(), any()))
+                .thenReturn(new RecurlyHttpResponse(HTTP_CREATED, "{\"id\":\"account-1\"}"));
+        when(httpClient.get(BASE + "/accounts/code-customer/billing_info", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"id\":\"billing-1\"}"));
+
+        client.importAdyenToken("code-customer", "shopper-1", "token-1", null,
+                new BillingAddress("Bob", "Recipient", "9 Ship St", null, "Berlin", null, "10115", "DE", null, false));
+
+        final ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
+        verify(httpClient).post(eq(BASE + "/accounts"), eq(auth), eq(ACCEPT), body.capture(), any());
+        // The account outlives this order; naming it after a gift recipient would misaddress every
+        // future invoice and dunning email.
+        assertFalse(body.getValue().contains("\"Recipient\""));
+    }
+
+    @Test
     public void importAdyenTokenCreatesAccountWithPrimaryBillingInfoWithoutWallet() throws Exception
     {
         when(configService.isWalletEnabled()).thenReturn(false);
@@ -157,7 +201,7 @@ public class DefaultRecurlyApiClientTest
                 .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"id\":\"billing-1\"}"));
 
         assertEquals("billing-1", client.importAdyenToken("code-customer", "shopper-1", "token-1", null,
-                new BillingAddress("Ada", "Lovelace", "1 Main St", null, "Warsaw", null, "00-001", "PL", null)));
+                new BillingAddress("Ada", "Lovelace", "1 Main St", null, "Warsaw", null, "00-001", "PL", null, true)));
 
         final ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
         verify(httpClient).post(eq(BASE + "/accounts"), eq(auth), eq(ACCEPT), body.capture(),
@@ -165,6 +209,7 @@ public class DefaultRecurlyApiClientTest
         assertTrue(body.getValue().contains("\"code\":\"customer\""));
         assertTrue(body.getValue().contains("\"billing_info\":"));
         assertTrue(body.getValue().contains("\"gateway_code\":\"adyen-gateway\""));
+        assertTrue(body.getValue().contains("\"first_name\":\"Ada\""));
         assertTrue(body.getValue().contains("\"account_reference\":\"shopper-1\""));
         assertTrue(body.getValue().contains("\"token\":\"token-1\""));
         assertFalse(body.getValue().contains("\"primary_payment_method\""));

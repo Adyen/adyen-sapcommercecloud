@@ -178,6 +178,29 @@
                     <description>The SAP shopper that owns this subscription.</description>
                     <persistence type="property"/>
                 </attribute>
+
+                <!-- Event tracking. The platform is source-of-truth for status; these carry just
+                     enough history to decide whether an inbound event may be applied. -->
+                <attribute qualifier="lastAppliedEventId" type="java.lang.String">
+                    <description>Platform event id of the last event applied to this reference. Traceability, and
+                        the tie-break when two events carry the same lastAppliedEventAt.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="lastAppliedEventAt" type="java.util.Date">
+                    <description>Platform-side timestamp of the last applied event. An inbound event older than
+                        this is stale and must be discarded rather than applied.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="eventVersion" type="java.lang.Long">
+                    <description>Monotonic counter bumped on every applied event. Lets a reader detect that state
+                        moved on without comparing timestamps, and orders events whose platform timestamps collide.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="lastSyncedAt" type="java.util.Date">
+                    <description>When this projection was last confirmed against the platform, whether by an applied
+                        webhook or by a pull re-fetch. Drives the staleness sweep that backstops dropped webhooks.</description>
+                    <persistence type="property"/>
+                </attribute>
             </attributes>
             <indexes>
                 <!-- An external subscription id is unique within a platform (backs findByExternalId). -->
@@ -192,6 +215,105 @@
                 <index name="idx_billingSubRef_reconcile">
                     <key attribute="status"/>
                     <key attribute="lastReconciledAt"/>
+                </index>
+                <!-- Backs the reconciliation sweep: "refs in status X not confirmed since T". -->
+                <index name="idx_billingSubRef_sync">
+                    <key attribute="status"/>
+                    <key attribute="lastSyncedAt"/>
+                </index>
+            </indexes>
+        </itemtype>
+
+        <!-- Every inbound webhook delivery, keyed on the platform's own event id. Two jobs:
+             duplicate suppression (the unique index below is what makes a redelivery a no-op) and
+             an operator-visible record of what happened to each delivery, including terminal
+             failures that need intervention. -->
+        <itemtype code="BillingWebhookEvent" extends="GenericItem" autocreate="true" generate="true">
+            <deployment table="BillingWebhookEvent" typecode="22948"/>
+            <attributes>
+                <attribute qualifier="platform" type="BillingPlatform">
+                    <description>The billing platform that emitted this event.</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false" initial="true"/>
+                </attribute>
+                <attribute qualifier="eventId" type="java.lang.String">
+                    <description>The platform's own event id — the dedup key. Event ids are only unique within a
+                        platform, so the uniqueness constraint is on (platform, eventId).</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false" initial="true"/>
+                </attribute>
+                <attribute qualifier="eventType" type="java.lang.String">
+                    <description>Normalized BillingEventType name as produced by parseWebhook. Held as a String, not
+                        an enum type, so persisted history survives renamed or removed enum values.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="externalSubscriptionId" type="java.lang.String">
+                    <description>Subscription id carried by the event. Recorded even when no local reference matches,
+                        so an event for an unknown subscription is still auditable.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="occurredAt" type="java.util.Date">
+                    <description>Platform-side timestamp of the event. Compared against
+                        BillingSubscriptionRef.lastAppliedEventAt to detect stale deliveries.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="receivedAt" type="java.util.Date">
+                    <description>When we received the delivery. Together with occurredAt this is the webhook lag.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="processingStatus" type="java.lang.String">
+                    <description>Outcome of applying this event: RECEIVED, APPLIED, SKIPPED_STALE, SKIPPED_AMBIGUOUS,
+                        SKIPPED_UNKNOWN_SUBSCRIPTION, FAILED or DEAD_LETTER. A duplicate delivery gets no status of its
+                        own — it is dropped against the row already here, which is what makes it a no-op.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="attemptCount" type="java.lang.Integer">
+                    <description>How many times application of this event has been attempted; drives the retry cut-off.</description>
+                    <persistence type="property"/>
+                    <defaultvalue>Integer.valueOf(0)</defaultvalue>
+                </attribute>
+                <attribute qualifier="lastError" type="java.lang.String">
+                    <description>Failure detail from the most recent attempt. Long text — a stack trace or remote
+                        error body does not fit the default 255 characters.</description>
+                    <persistence type="property">
+                        <columntype database="oracle">
+                            <value>CLOB</value>
+                        </columntype>
+                        <columntype database="sap">
+                            <value>NCLOB</value>
+                        </columntype>
+                        <columntype database="mysql">
+                            <value>TEXT</value>
+                        </columntype>
+                        <columntype database="sqlserver">
+                            <value>TEXT</value>
+                        </columntype>
+                        <columntype>
+                            <value>HYBRIS.LONG_STRING</value>
+                        </columntype>
+                    </persistence>
+                </attribute>
+                <attribute qualifier="subscriptionRef" type="BillingSubscriptionRef">
+                    <description>The local reference this event was applied to, when one was found. A plain reference
+                        rather than a relation: nothing needs to walk the events of a subscription in bulk, and the
+                        event record must outlive nothing in particular.</description>
+                    <persistence type="property"/>
+                </attribute>
+            </attributes>
+            <indexes>
+                <!-- The whole point of the type: a redelivery of the same platform event id collides here
+                     instead of being applied twice. -->
+                <index name="idx_billingWhEvent_dedup" unique="true">
+                    <key attribute="platform"/>
+                    <key attribute="eventId"/>
+                </index>
+                <!-- Operator view: everything currently failed or dead-lettered. -->
+                <index name="idx_billingWhEvent_status">
+                    <key attribute="processingStatus"/>
+                </index>
+                <!-- Event history for one subscription. -->
+                <index name="idx_billingWhEvent_sub">
+                    <key attribute="subscriptionRef"/>
                 </index>
             </indexes>
         </itemtype>

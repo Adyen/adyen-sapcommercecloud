@@ -62,15 +62,19 @@ public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser {
             final String objectType = text(payload, "object_type");
             final String eventType = text(payload, "event_type");
             final String uuid = text(payload, "uuid");
-            final Instant occurredAt = Instant.parse(text(payload, "event_time"));
+            final String eventTime = text(payload, "event_time");
+            if (StringUtils.isBlank(eventTime)) {
+                // Without it there is no ordering signal, and Instant.parse(null) would throw an NPE
+                // straight through the SPI boundary, which the caller has no way to classify.
+                throw new TerminalBillingException("Recurly webhook has no event_time");
+            }
+            final Instant occurredAt = Instant.parse(eventTime);
             final String resourceId = resourceId(payload, objectType, uuid);
 
             final Map<String, String> attributes = new HashMap<>();
             putIfNotBlank(attributes, "eventType", eventType);
             putIfNotBlank(attributes, "objectType", objectType);
             putIfNotBlank(attributes, "siteId", text(payload, "site_id"));
-            putIfNotBlank(attributes, "notificationId", StringUtils.defaultIfBlank(
-                    header(raw.headers(), NOTIFICATION_ID_HEADER), text(payload, "id")));
             putIfNotBlank(attributes, "resourceType", objectType);
             putIfNotBlank(attributes, "resourceId", resourceId);
 
@@ -78,10 +82,21 @@ public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser {
                     ? "uuid-" + uuid
                     : null;
             return new NormalizedBillingEvent(BillingPlatform.RECURLY, mapEvent(objectType, eventType),
-                    subscriptionId, text(payload, "account_code"), occurredAt, attributes);
+                    notificationId(payload, raw), subscriptionId, text(payload, "account_code"), occurredAt,
+                    attributes);
         } catch (final JsonProcessingException | DateTimeException e) {
             throw new TerminalBillingException("Malformed Recurly JSON webhook: " + e.getMessage());
         }
+    }
+
+    /**
+     * The event id the core deduplicates on. The body is preferred because the HMAC covers only
+     * {@code timestamp + "." + payload} — a header is not signed, so taking it first would let the dedup
+     * identity of a byte-identical, correctly-signed delivery be changed from outside. The header stays
+     * as the fallback because Recurly omits {@code id} from some payload shapes.
+     */
+    protected String notificationId(final JsonNode payload, final RawWebhook raw) {
+        return StringUtils.defaultIfBlank(text(payload, "id"), header(raw.headers(), NOTIFICATION_ID_HEADER));
     }
 
     protected void verifySignature(final String header, final String payload) throws BillingException {

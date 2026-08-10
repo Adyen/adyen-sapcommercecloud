@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans.xsd
+           http://www.springframework.org/schema/context
+           http://www.springframework.org/schema/context/spring-context.xsd">
+
+    <context:annotation-config/>
+    <context:component-scan base-package="com.adyen.commerce.connector.occ.controllers"/>
+
+    <!--
+      The webhook endpoint is base-site-independent: its first path segment is "subscription-billing",
+      not a base site. OCC's baseSiteMatchingFilter otherwise treats the first segment as {baseSiteId}
+      and rejects the request with "Base site subscription-billing doesn't exist". We override that
+      filter to add "subscription-billing" to the negative-lookahead exclusion list (alongside
+      swagger/api-docs/csrf/webjars/mcpadmin).
+
+      This file is imported AFTER filter-config-v2-spring.xml in the same web application context, so
+      this definition overrides the platform default.
+
+      NOTE: this bean id is shared with mcpadminocc, which also overrides it (for its own "mcpadmin"
+      prefix). Since a later Spring import fully replaces an earlier bean definition with the same id
+      (no merging), both extensions define the SAME full exclusion list here so neither's prefix gets
+      silently dropped regardless of which one happens to load last. If you add another base-site-
+      independent prefix, update it in both places.
+    -->
+    <bean id="defaultBaseSiteMatchingFilter"
+          class="de.hybris.platform.commercewebservices.core.v2.filter.BaseSiteMatchingFilter">
+        <property name="regexp"
+                  value="^/(?!(swagger)|(.*api-docs)|(csrf)|(webjars)|(mcpadmin)|(subscription-billing))([^/]+)"/>
+        <property name="baseSiteService" ref="baseSiteService"/>
+    </bean>
+
+</beans>

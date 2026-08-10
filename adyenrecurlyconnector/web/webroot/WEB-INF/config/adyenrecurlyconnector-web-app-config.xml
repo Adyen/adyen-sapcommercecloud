@@ -25,10 +25,24 @@
 		<constructor-arg>
 			<list>
 				<ref bean="log4jFilter"/>
-				<ref bean="sessionFilter"/>
+				<!--
+				  restSessionFilter, not sessionFilter. The only endpoint here is an unauthenticated
+				  webhook: sessionFilter would create an HttpSession plus a JaloSession for every request
+				  and leave them to expire on their own, so anyone able to POST to this URL could pin
+				  session pairs in memory for the whole session-timeout window without presenting a single
+				  credential. restSessionFilter opens a jalo session per request and closes it again, and
+				  SessionHidingFilter in web.xml stops the HttpSession being created at all. Same choice as
+				  adyenv6notificationv2, which faces the same exposure.
+				  If this webapp ever needs to track user sessions, swap the three of them back together.
+				-->
+				<ref bean="restSessionFilter"/>
                 <ref bean="adyenrecurlyconnectorMediaFilter"/>
 			</list>
 		</constructor-arg>
+	</bean>
+
+	<bean id="restSessionFilter" class="de.hybris.platform.webservicescommons.filter.RestSessionFilter">
+		<property name="sessionService" ref="sessionService"/>
 	</bean>
 
     <!-- This filter is responsible for all media and secure-media handling -->
