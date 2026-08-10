@@ -25,6 +25,7 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import org.slf4j.Logger;
@@ -201,19 +202,54 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 
 	protected BillingAddress buildBillingAddress(final AbstractOrderModel order)
 	{
-		final AddressModel address = order.getPaymentAddress() != null
-				? order.getPaymentAddress()
-				: order.getDeliveryAddress();
+		final AddressModel paymentAddress = order.getPaymentAddress();
+		final AddressModel address = paymentAddress != null ? paymentAddress : order.getDeliveryAddress();
 		if (address == null)
 		{
 			return null;
+		}
+
+		// Merely having a payment address proves nothing: the Adyen checkout paths copy the delivery
+		// address onto the payment info whenever the shopper gives no separate billing address, and express
+		// wallet checkout puts the very same AddressModel on both. So the address is only treated as the
+		// cardholder's own when it differs from where the goods are going. It is still sent either way —
+		// it is the only address there is — but an address that might belong to the recipient must not be
+		// used to name an account. On a gift order that is somebody else entirely.
+		final boolean confirmed = paymentAddress != null && !sameAddress(paymentAddress, order.getDeliveryAddress());
+		if (!confirmed)
+		{
+			LOG.info("Order '{}' has no billing address distinct from its delivery address; passing the address "
+					+ "on unconfirmed so connectors do not treat it as the cardholder's identity", order.getCode());
 		}
 
 		final String country = address.getCountry() == null ? null : address.getCountry().getIsocode();
 		final String region = address.getRegion() == null ? null : address.getRegion().getIsocodeShort();
 		return new BillingAddress(address.getFirstname(), address.getLastname(),
 				joinStreet(address.getStreetname(), address.getStreetnumber()), null, address.getTown(), region,
-				address.getPostalcode(), country, address.getPhone1());
+				address.getPostalcode(), country, address.getPhone1(), confirmed);
+	}
+
+	/**
+	 * Compares by value, not identity: express checkout puts the same object on both, but the card and
+	 * accelerator paths clone it, so identity alone would miss the clone.
+	 */
+	protected boolean sameAddress(final AddressModel left, final AddressModel right)
+	{
+		if (left == right)
+		{
+			return true;
+		}
+		if (right == null)
+		{
+			return false;
+		}
+		return Objects.equals(left.getFirstname(), right.getFirstname())
+				&& Objects.equals(left.getLastname(), right.getLastname())
+				&& Objects.equals(left.getStreetname(), right.getStreetname())
+				&& Objects.equals(left.getStreetnumber(), right.getStreetnumber())
+				&& Objects.equals(left.getPostalcode(), right.getPostalcode())
+				&& Objects.equals(left.getTown(), right.getTown())
+				&& Objects.equals(left.getCountry(), right.getCountry());
 	}
 
 	protected String joinStreet(final String streetName, final String streetNumber)

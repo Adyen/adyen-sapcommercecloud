@@ -20,6 +20,8 @@
  */
 package com.adyen.commerce.connector.spi;
 
+import java.util.List;
+
 import com.adyen.commerce.connector.dto.BillingCustomerRef;
 import com.adyen.commerce.connector.dto.BillingPaymentMethodRef;
 import com.adyen.commerce.connector.dto.BillingSubscriptionRef;
@@ -156,4 +158,21 @@ public interface SubscriptionBillingConnector
 	 * Verify the webhook signature (connector-owned) and normalize it into a vendor-neutral event.
 	 */
 	NormalizedBillingEvent parseWebhook(RawWebhook raw) throws BillingException;
+
+	/**
+	 * Resolve which subscriptions an event applies to, for platforms whose webhooks do not name one.
+	 * Called <em>only</em> when {@link NormalizedBillingEvent#externalSubscriptionId()} is absent — an
+	 * invoice- or payment-shaped event, say — so a connector whose events always carry their
+	 * subscription id needs nothing here. Returning more than one id is legitimate: one invoice can
+	 * cover several subscriptions, and the event then applies to each.
+	 *
+	 * <p>The dispatcher calls this <em>after</em> claiming the event id for deduplication, so a
+	 * redelivery cannot repeat whatever remote lookup this performs.
+	 *
+	 * @return the external subscription ids this event applies to; empty if none could be resolved
+	 */
+	default List<String> resolveSubscriptionIds(final NormalizedBillingEvent event) throws BillingException
+	{
+		return List.of();
+	}
 }

@@ -13,6 +13,8 @@ import org.apache.hc.client5.http.classic.methods.HttpUriRequestBase;
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
 import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.HttpHeaders;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
@@ -110,8 +112,23 @@ public class DefaultRecurlyHttpClient implements RecurlyHttpClient {
                     final RequestConfig requestConfig = RequestConfig.custom()
                             .setConnectTimeout(Timeout.ofMilliseconds(configService.getConnectTimeoutMillis()))
                             .setResponseTimeout(Timeout.ofMilliseconds(configService.getResponseTimeoutMillis()))
+                            // Without this the wait for a free pooled connection defaults to three
+                            // minutes, so the configured timeouts stop being the upper bound a caller
+                            // sees: under load a platform worker thread blocks in the lease long before
+                            // its request is ever sent.
+                            .setConnectionRequestTimeout(
+                                    Timeout.ofMilliseconds(configService.getConnectionRequestTimeoutMillis()))
                             .build();
-                    client = HttpClients.custom().useSystemProperties().setDefaultRequestConfig(requestConfig).build();
+                    // Every call targets the one Recurly host, so the default per-route cap of 2 (and pool
+                    // of 5) would serialize the whole platform onto a couple of connections.
+                    final PoolingHttpClientConnectionManager connectionManager =
+                            PoolingHttpClientConnectionManagerBuilder.create()
+                                    .setMaxConnTotal(configService.getMaxConnections())
+                                    .setMaxConnPerRoute(configService.getMaxConnections())
+                                    .build();
+                    client = HttpClients.custom().useSystemProperties()
+                            .setConnectionManager(connectionManager)
+                            .setDefaultRequestConfig(requestConfig).build();
                     httpClient = client;
                 }
             }

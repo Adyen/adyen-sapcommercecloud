@@ -19,6 +19,8 @@ public class DefaultRecurlyConfigService implements RecurlyConfigService {
     static final String P_MINIMUM_START_DELAY_SECONDS = "recurly.minimumStartDelaySeconds";
     static final String P_CONNECT_TIMEOUT_MILLIS = "recurly.http.connectTimeoutMillis";
     static final String P_RESPONSE_TIMEOUT_MILLIS = "recurly.http.responseTimeoutMillis";
+    static final String P_CONNECTION_REQUEST_TIMEOUT_MILLIS = "recurly.http.connectionRequestTimeoutMillis";
+    static final String P_MAX_CONNECTIONS = "recurly.http.maxConnections";
     static final String P_WEBHOOK_SIGNING_KEY = "recurly.webhookSigningKey";
     static final String P_WEBHOOK_TOLERANCE_SECONDS = "recurly.webhookToleranceSeconds";
     static final String P_EXTERNAL_NTID_FEATURE_ENABLED = "recurly.externalNtidFeatureEnabled";
@@ -27,6 +29,8 @@ public class DefaultRecurlyConfigService implements RecurlyConfigService {
     static final int DEFAULT_MINIMUM_START_DELAY_SECONDS = 300;
     static final int DEFAULT_CONNECT_TIMEOUT_MILLIS = 5000;
     static final int DEFAULT_RESPONSE_TIMEOUT_MILLIS = 30000;
+    static final int DEFAULT_CONNECTION_REQUEST_TIMEOUT_MILLIS = 5000;
+    static final int DEFAULT_MAX_CONNECTIONS = 20;
     static final int DEFAULT_WEBHOOK_TOLERANCE_SECONDS = 300;
 
     private final ConfigurationService configurationService;
@@ -73,6 +77,16 @@ public class DefaultRecurlyConfigService implements RecurlyConfigService {
     @Override
     public int getResponseTimeoutMillis() {
         return positiveInt(P_RESPONSE_TIMEOUT_MILLIS, DEFAULT_RESPONSE_TIMEOUT_MILLIS);
+    }
+
+    @Override
+    public int getConnectionRequestTimeoutMillis() {
+        return positiveInt(P_CONNECTION_REQUEST_TIMEOUT_MILLIS, DEFAULT_CONNECTION_REQUEST_TIMEOUT_MILLIS);
+    }
+
+    @Override
+    public int getMaxConnections() {
+        return positiveInt(P_MAX_CONNECTIONS, DEFAULT_MAX_CONNECTIONS);
     }
 
     @Override

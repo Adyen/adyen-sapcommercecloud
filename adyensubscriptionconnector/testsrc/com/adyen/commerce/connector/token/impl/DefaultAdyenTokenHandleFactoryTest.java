@@ -21,6 +21,7 @@
 package com.adyen.commerce.connector.token.impl;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.when;
@@ -88,9 +89,43 @@ public class DefaultAdyenTokenHandleFactoryTest
 		assertEquals("shopper-1", handle.shopperReference());
 		assertEquals("TOKEN-1", handle.storedPaymentMethodId());
 		assertEquals("MERCH", handle.merchantAccount());
-		assertNull("plugin does not capture an NTID", handle.networkTransactionId());
+		assertNull("no NTID on the payment info means none on the handle", handle.networkTransactionId());
 		assertEquals("visa", handle.cardMetadata().brand());
 		assertEquals("1111", handle.cardMetadata().last4());
+	}
+
+	@Test
+	public void shouldCarryTheCapturedNetworkTransactionId() throws Exception
+	{
+		givenValidOrder();
+		when(paymentInfo.getAdyenNetworkTxReference()).thenReturn("NTID-42");
+
+		// Connectors that advertise requiresNetworkTransactionId are refused by the core without this,
+		// so the whole activation path for such a platform depends on it reaching the handle.
+		assertEquals("NTID-42", factory.create(order).networkTransactionId());
+	}
+
+	@Test
+	public void shouldTreatABlankNetworkTransactionIdAsAbsent() throws Exception
+	{
+		givenValidOrder();
+		when(paymentInfo.getAdyenNetworkTxReference()).thenReturn("   ");
+
+		final AdyenTokenHandle handle = factory.create(order);
+
+		// hasNetworkTransactionId() is what the core branches on; whitespace must not read as present.
+		assertNull(handle.networkTransactionId());
+		assertFalse(handle.hasNetworkTransactionId());
+	}
+
+	private void givenValidOrder()
+	{
+		when(order.getPaymentInfo()).thenReturn(paymentInfo);
+		when(paymentInfo.getAdyenSelectedReference()).thenReturn("TOKEN-1");
+		when(order.getUser()).thenReturn(customer);
+		when(customer.getCustomerID()).thenReturn("shopper-1");
+		when(order.getStore()).thenReturn(store);
+		when(adyenMerchantAccountStrategy.getWebMerchantAccount(store)).thenReturn("MERCH");
 	}
 
 	@Test
