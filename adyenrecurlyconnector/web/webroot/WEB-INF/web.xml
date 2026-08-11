@@ -34,6 +34,15 @@
         </init-param>
     </filter>
 
+    <!-- Stops an HttpSession being created at all. This webapp serves one unauthenticated webhook, so
+         there is no user session worth tracking and every created session would be an unauthenticated
+         caller holding memory until it times out. Pairs with restSessionFilter in
+         adyenrecurlyconnector-web-app-config.xml; to track user sessions, change both back together. -->
+    <filter>
+        <filter-name>SessionHidingRequestFilter</filter-name>
+        <filter-class>de.hybris.platform.webservicescommons.filter.SessionHidingFilter</filter-class>
+    </filter>
+
     <filter>
         <filter-name>adyenrecurlyconnectorPlatformFilterChain</filter-name>
         <filter-class>org.springframework.web.filter.DelegatingFilterProxy</filter-class>
@@ -52,6 +61,11 @@
 
     <filter-mapping>
         <filter-name>characterEncodingFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+
+    <filter-mapping>
+        <filter-name>SessionHidingRequestFilter</filter-name>
         <url-pattern>/*</url-pattern>
     </filter-mapping>
 

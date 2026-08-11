@@ -45,10 +45,15 @@ import de.hybris.platform.core.model.user.UserModel;
  *       (the plugin normalizes modern {@code storedPaymentMethodId} and legacy
  *       {@code recurringDetailReference} into this single attribute)</li>
  *   <li>{@code merchantAccount} &larr; {@link AdyenMerchantAccountStrategy}</li>
+ *   <li>{@code networkTransactionId} &larr; {@code PaymentInfo.adyenNetworkTxReference}, captured from
+ *       the authorisation response's {@code additionalData.networkTxReference}</li>
  *   <li>card metadata &larr; the {@code PaymentInfo} adyen card attributes</li>
  * </ul>
- * The plugin does not currently capture a network transaction id, so it is left {@code null};
- * connectors that require one (e.g. Recurly) must source it separately.
+ * The network transaction id stays optional: schemes return it for card authorisations, but not for
+ * every payment method, and only connectors that advertise
+ * {@code ConnectorCapabilities.requiresNetworkTransactionId()} need one. Orders authorised before that
+ * attribute existed have none, so a token minted back then cannot be imported into such a platform
+ * without a fresh authorisation.
  */
 public class DefaultAdyenTokenHandleFactory implements AdyenTokenHandleFactory
 {
@@ -96,8 +101,8 @@ public class DefaultAdyenTokenHandleFactory implements AdyenTokenHandleFactory
 					"Base store of order '" + order.getCode() + "' has no Adyen merchant account configured");
 		}
 
-		return new AdyenTokenHandle(merchantAccount, shopperReference, storedPaymentMethodId, null,
-				buildCardMetadata(paymentInfo));
+		return new AdyenTokenHandle(merchantAccount, shopperReference, storedPaymentMethodId,
+				StringUtils.trimToNull(paymentInfo.getAdyenNetworkTxReference()), buildCardMetadata(paymentInfo));
 	}
 
 	protected CardMetadata buildCardMetadata(final PaymentInfoModel paymentInfo)

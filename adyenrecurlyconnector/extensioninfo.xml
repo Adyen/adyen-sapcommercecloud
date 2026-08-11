@@ -11,6 +11,8 @@
              transitively from adyenv6core (usemaven=false: no own maven deps needed). -->
         <requires-extension name="adyensubscriptionconnector"/>
         <requires-extension name="adyenv6core"/>
+        <!-- RestSessionFilter / SessionHidingFilter for the webhook webapp. -->
+        <requires-extension name="webservicescommons"/>
 
         <coremodule generated="true"
                     manager="com.adyen.commerce.connector.recurly.jalo.AdyenrecurlyconnectorManager"

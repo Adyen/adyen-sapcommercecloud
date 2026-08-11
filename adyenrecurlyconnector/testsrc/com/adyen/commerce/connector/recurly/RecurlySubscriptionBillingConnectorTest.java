@@ -189,8 +189,11 @@ public class RecurlySubscriptionBillingConnectorTest
                 new BillingSubscriptionRef(BillingPlatform.RECURLY, "uuid-sub"),
                 CancelReason.REQUESTED_BY_CUSTOMER, true, "cancel-key"));
 
-        verify(apiClient).updateSubscription("uuid-sub", "annual", 2, "update-key");
-        verify(apiClient).cancelSubscription("uuid-sub", true, "cancel-key");
+        // Namespaced per operation: the core reuses one key for a subscription's whole lifecycle, and
+        // Recurly answers a repeated key with the first response it recorded — so a cancel sharing the
+        // create's key could be acknowledged with the stored 201 while billing continued.
+        verify(apiClient).updateSubscription("uuid-sub", "annual", 2, "update-key/update");
+        verify(apiClient).cancelSubscription("uuid-sub", true, "cancel-key/cancel");
     }
 
     @Test
@@ -198,11 +201,35 @@ public class RecurlySubscriptionBillingConnectorTest
     {
         final RawWebhook raw = new RawWebhook(Map.of(), "{}", "signature");
         final NormalizedBillingEvent event = new NormalizedBillingEvent(BillingPlatform.RECURLY,
-                com.adyen.commerce.connector.dto.BillingEventType.SUBSCRIPTION_ACTIVATED, "uuid-sub", null, NOW,
+                com.adyen.commerce.connector.dto.BillingEventType.SUBSCRIPTION_ACTIVATED, "ev-1", "uuid-sub", null, NOW,
                 Map.of());
         when(webhookParser.parse(raw)).thenReturn(event);
 
         assertSame(event, connector.parseWebhook(raw));
+    }
+
+    @Test
+    public void resolveSubscriptionIdsLooksUpTheInvoiceOrTransactionBehindTheEvent() throws Exception
+    {
+        final NormalizedBillingEvent event = new NormalizedBillingEvent(BillingPlatform.RECURLY,
+                com.adyen.commerce.connector.dto.BillingEventType.INVOICE_PAID, "ev-1", null, "code-customer", NOW,
+                java.util.Map.of("resourceType", "charge_invoice", "resourceId", "number-1031"));
+        // An invoice can cover several subscriptions, and the event applies to every one of them.
+        when(apiClient.resolveWebhookSubscriptionIds("charge_invoice", "number-1031"))
+                .thenReturn(java.util.List.of("uuid-a", "uuid-b"));
+
+        assertEquals(java.util.List.of("uuid-a", "uuid-b"), connector.resolveSubscriptionIds(event));
+    }
+
+    @Test
+    public void resolveSubscriptionIdsPassesThroughWhenTheEventCarriesNoResource() throws Exception
+    {
+        final NormalizedBillingEvent event = new NormalizedBillingEvent(BillingPlatform.RECURLY,
+                com.adyen.commerce.connector.dto.BillingEventType.INVOICE_PAID, "ev-1", null, "code-customer", NOW,
+                java.util.Map.of());
+        when(apiClient.resolveWebhookSubscriptionIds(null, null)).thenReturn(java.util.List.of());
+
+        assertEquals(java.util.List.of(), connector.resolveSubscriptionIds(event));
     }
 
     private SubscriptionCreateRequest request(final Instant startsAt)

@@ -21,9 +21,12 @@
 package com.adyen.commerce.connector.service.impl;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -45,6 +48,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import com.adyen.commerce.connector.dto.AdyenTokenHandle;
+import com.adyen.commerce.connector.dto.BillingAddress;
 import com.adyen.commerce.connector.dto.BillingCustomerRef;
 import com.adyen.commerce.connector.dto.BillingPaymentMethodRef;
 import com.adyen.commerce.connector.dto.BillingSubscriptionRef;
@@ -256,6 +260,67 @@ public class DefaultSubscriptionBillingServiceTest
 	public void shouldRejectCancelOfNullSubscription()
 	{
 		assertThrows(PreconditionFailedException.class, () -> service.cancel(null, CancelReason.OTHER));
+	}
+
+	@Test
+	public void billingAddressIsConfirmedOnlyWhenItDiffersFromWhereTheGoodsGo()
+	{
+		final AddressModel billing = address("Ada", "Lovelace", "Warsaw", "00-001");
+		final AddressModel delivery = address("Bob", "Recipient", "Berlin", "10115");
+		when(order.getPaymentAddress()).thenReturn(billing);
+		when(order.getDeliveryAddress()).thenReturn(delivery);
+
+		final BillingAddress result = service.buildBillingAddress(order);
+
+		assertEquals("Ada", result.firstName());
+		assertTrue(result.confirmed());
+	}
+
+	@Test
+	public void billingAddressClonedFromTheDeliveryAddressIsNotConfirmed()
+	{
+		// The Adyen checkout paths copy the delivery address onto the payment info when the shopper gives
+		// no separate billing address, so a non-null payment address proves nothing on its own — the card
+		// path clones it into a different object with identical values.
+		final AddressModel clone = address("Bob", "Recipient", "Berlin", "10115");
+		final AddressModel original = address("Bob", "Recipient", "Berlin", "10115");
+		when(order.getPaymentAddress()).thenReturn(clone);
+		when(order.getDeliveryAddress()).thenReturn(original);
+
+		final BillingAddress result = service.buildBillingAddress(order);
+
+		assertEquals("Berlin", result.city());
+		assertFalse("a copy of the delivery address must not pass as the cardholder's identity",
+				result.confirmed());
+	}
+
+	@Test
+	public void expressCheckoutPuttingOneAddressOnBothIsNotConfirmed()
+	{
+		final AddressModel shared = address("Bob", "Recipient", "Berlin", "10115");
+		when(order.getPaymentAddress()).thenReturn(shared);
+		when(order.getDeliveryAddress()).thenReturn(shared);
+
+		assertFalse(service.buildBillingAddress(order).confirmed());
+	}
+
+	@Test
+	public void orderWithNoAddressAtAllYieldsNoBillingAddress()
+	{
+		when(order.getPaymentAddress()).thenReturn(null);
+		when(order.getDeliveryAddress()).thenReturn(null);
+
+		assertNull(service.buildBillingAddress(order));
+	}
+
+	private static AddressModel address(final String first, final String last, final String town, final String postal)
+	{
+		final AddressModel address = mock(AddressModel.class);
+		when(address.getFirstname()).thenReturn(first);
+		when(address.getLastname()).thenReturn(last);
+		when(address.getTown()).thenReturn(town);
+		when(address.getPostalcode()).thenReturn(postal);
+		return address;
 	}
 
 	private static ConnectorCapabilities noNtidCaps()

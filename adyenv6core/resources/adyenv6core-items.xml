@@ -538,6 +538,12 @@
                     <description>Credit Card payment auth code</description>
                     <persistence type="property"/>
                 </attribute>
+                <attribute qualifier="adyenNetworkTxReference" type="java.lang.String">
+                    <description>Network transaction id (NTID) returned by the scheme on the initial authorisation.
+                        Required by billing platforms that import the stored token and charge it themselves, since the
+                        scheme expects every merchant-initiated transaction to reference the original.</description>
+                    <persistence type="property"/>
+                </attribute>
                 <attribute qualifier="adyenCardHolder" type="java.lang.String">
                     <description>Credit Card holder name</description>
                     <persistence type="property"/>

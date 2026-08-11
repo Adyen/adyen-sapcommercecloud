@@ -300,7 +300,7 @@ public class ChargebeeSubscriptionBillingConnectorTest
 		assertEquals("sub-1", event.externalSubscriptionId());
 		assertEquals("cust-1", event.externalCustomerId());
 		assertEquals(Instant.ofEpochSecond(1784628635L), event.occurredAt());
-		assertEquals("ev_1", event.attributes().get("eventId"));
+		assertEquals("ev_1", event.eventId());
 	}
 
 	@Test

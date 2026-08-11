@@ -27,7 +27,7 @@ public class RecurlyWebhookController
     private final SubscriptionBillingWebhookDispatcher webhookDispatcher;
 
     public RecurlyWebhookController(
-            @Qualifier("recurlySubscriptionBillingWebhookDispatcher")
+            @Qualifier("subscriptionBillingWebhookDispatcher")
             final SubscriptionBillingWebhookDispatcher webhookDispatcher)
     {
         this.webhookDispatcher = webhookDispatcher;
