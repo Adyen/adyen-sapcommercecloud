@@ -1,20 +1,16 @@
 package com.adyen.commerce.connector.recurly.config.impl;
 
-import de.hybris.platform.store.BaseStoreModel;
-import de.hybris.platform.store.services.BaseStoreService;
-import java.net.URI;
-import java.net.URISyntaxException;
-
+import com.adyen.commerce.connector.exception.ConnectorNotConfiguredException;
+import com.adyen.commerce.connector.recurly.config.RecurlyConfigService;
 import com.adyen.v6.enums.AdyenSubscriptionPlatform;
 import com.adyen.v6.model.RecurlyConfigModel;
+import de.hybris.platform.servicelayer.config.ConfigurationService;
 import de.hybris.platform.store.BaseStoreModel;
 import de.hybris.platform.store.services.BaseStoreService;
 import org.apache.commons.lang3.StringUtils;
 
-import com.adyen.commerce.connector.exception.ConnectorNotConfiguredException;
-import com.adyen.commerce.connector.recurly.config.RecurlyConfigService;
-
-import de.hybris.platform.servicelayer.config.ConfigurationService;
+import java.net.URI;
+import java.net.URISyntaxException;
 
 /**
  * Reads Recurly configuration from the platform {@link ConfigurationService} (project/local.properties).
@@ -26,7 +22,6 @@ public class DefaultRecurlyConfigService implements RecurlyConfigService {
     static final String P_RESPONSE_TIMEOUT_MILLIS = "recurly.http.responseTimeoutMillis";
     static final String P_CONNECTION_REQUEST_TIMEOUT_MILLIS = "recurly.http.connectionRequestTimeoutMillis";
     static final String P_MAX_CONNECTIONS = "recurly.http.maxConnections";
-    static final String P_WEBHOOK_SIGNING_KEY = "recurly.webhookSigningKey";
     static final String P_WEBHOOK_TOLERANCE_SECONDS = "recurly.webhookToleranceSeconds";
     static final String DEFAULT_API_VERSION = "v2021-02-25";
     static final int DEFAULT_MINIMUM_START_DELAY_SECONDS = 300;
