@@ -54,6 +54,11 @@
             <value code="PAYMENT_PENDING"/>
             <value code="CHARGEBACK"/>
         </enumtype>
+        <enumtype code="AdyenSubscriptionPlatform" autocreate="true" generate="true" dynamic="true">
+            <value code="CHARGEBEE"/>
+            <value code="ZUORA"/>
+            <value code="RECURLY"/>
+        </enumtype>
         <enumtype code="AdyenRegions" dynamic="true">
             <value code="EU"/>
             <value code="US"/>
@@ -387,6 +392,22 @@
                     <persistence type="property" />
                     <modifiers optional="true" />
                     <defaultvalue>Boolean.FALSE</defaultvalue>
+                </attribute>
+                <attribute type="AdyenSubscriptionPlatform" qualifier="adyenSubscriptionPlatform"
+                           generate="true" autocreate="true">
+                    <persistence type="property"/>
+                    <modifiers optional="false"/>
+                    <defaultvalue>em().getEnumerationValue("AdyenSubscriptionPlatform","CHARGEBEE")</defaultvalue>
+                    <description>Which subscription platform is being used</description>
+                </attribute>
+                <attribute qualifier="recurlyConfig" type="RecurlyConfig">
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="chargebeeConfig" type="ChargebeeConfig">
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="zuoraConfig" type="ZuoraConfig">
+                    <persistence type="property"/>
                 </attribute>
             </attributes>
         </itemtype>
@@ -956,6 +977,74 @@
                     <persistence type="property"/>
                 </attribute>
             </attributes>
+        </itemtype>
+
+        <itemtype code="AdyenSubscriptionConfig" autocreate="true" generate="true">
+            <description>Adyen Subscription Configuration</description>
+            <deployment table="AdyenSubscriptionConfig" typecode="10103"/>
+            <attributes>
+                 <attribute qualifier="subscriptionApiKey" type="java.lang.String">
+                    <description>Subscription API Key</description>
+                    <modifiers encrypted="true" optional="false"/>
+                    <persistence type="property"/>
+                     <defaultvalue/>
+                </attribute>
+                <attribute qualifier="subscriptionSiteId" type="java.lang.String">
+                    <description>Subscription Site ID</description>
+                    <modifiers optional="false"/>
+                    <persistence type="property"/>
+                    <defaultvalue/>
+                </attribute>
+                <attribute qualifier="subscriptionGatewayAccountId" type="java.lang.String">
+                    <description>Subscription Gateway Account ID</description>
+                    <modifiers optional="false"/>
+                    <persistence type="property"/>
+                    <defaultvalue/>
+                </attribute>
+            </attributes>
+        </itemtype>
+
+        <itemtype code="RecurlyConfig" autocreate="true" generate="true" extends="AdyenSubscriptionConfig">
+            <attributes>
+                <attribute qualifier="recurlyWebhookSigningKey" type="java.lang.String">
+                    <description>Recurly Webhook Signing Key</description>
+                    <modifiers encrypted="true" optional="false"/>
+                    <persistence type="property"/>
+                    <defaultvalue/>
+                </attribute>
+                <attribute qualifier="walletEnabled" type="java.lang.boolean">
+                    <description>Wallet Enabled</description>
+                    <modifiers optional="false"/>
+                    <persistence type="property"/>
+                   <defaultvalue>Boolean.FALSE</defaultvalue>
+                </attribute>
+                <attribute qualifier="externalNtidFeatureEnabled" type="java.lang.boolean">
+                    <description>External Ntid Feature Enabled</description>
+                    <modifiers optional="false"/>
+                    <persistence type="property"/>
+                    <defaultvalue>Boolean.FALSE</defaultvalue>
+                </attribute>
+            </attributes>
+        </itemtype>
+
+        <itemtype code="ChargebeeConfig" autocreate="true" generate="true" extends="AdyenSubscriptionConfig">
+        <attributes>
+            <attribute qualifier="chargebeeWebhookPassword" type="java.lang.String">
+                <description>Chargebee Webhook Password</description>
+                <modifiers encrypted="true" optional="false"/>
+                <persistence type="property"/>
+                <defaultvalue/>
+            </attribute>
+            <attribute qualifier="chargebeeWebhookUsername" type="java.lang.String">
+                <description>Chargebee Webhook Username</description>
+                <modifiers optional="false"/>
+                <persistence type="property"/>
+                <defaultvalue/>
+            </attribute>
+        </attributes>
+        </itemtype>
+
+        <itemtype code="ZuoraConfig" autocreate="true" generate="true" extends="AdyenSubscriptionConfig">
         </itemtype>
     </itemtypes>
 </items>

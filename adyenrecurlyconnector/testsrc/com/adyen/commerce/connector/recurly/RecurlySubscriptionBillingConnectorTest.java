@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Map;
 
+import com.adyen.commerce.connector.exception.ConnectorNotConfiguredException;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -64,8 +65,7 @@ public class RecurlySubscriptionBillingConnectorTest
     private RecurlySubscriptionBillingConnector connector;
 
     @Before
-    public void setUp()
-    {
+    public void setUp() throws ConnectorNotConfiguredException {
         MockitoAnnotations.openMocks(this);
         connector = new RecurlySubscriptionBillingConnector(apiClient, configService, planResolver, webhookParser,
                 Clock.fixed(NOW, ZoneOffset.UTC));
@@ -151,8 +151,7 @@ public class RecurlySubscriptionBillingConnectorTest
     }
 
     @Test
-    public void rejectsTokenImportWhenRecurlyNtidFeatureIsNotConfirmed()
-    {
+    public void rejectsTokenImportWhenRecurlyNtidFeatureIsNotConfirmed() throws ConnectorNotConfiguredException {
         when(configService.isExternalNtidFeatureEnabled()).thenReturn(false);
         final AdyenTokenHandle token = new AdyenTokenHandle("MERCHANT", "shopper", "token", "ntid", null);
 
@@ -162,8 +161,7 @@ public class RecurlySubscriptionBillingConnectorTest
     }
 
     @Test
-    public void rejectsTokenWithoutNtid()
-    {
+    public void rejectsTokenWithoutNtid() throws ConnectorNotConfiguredException {
         when(configService.getConfiguredAdyenMerchantAccount()).thenReturn("MERCHANT");
         final AdyenTokenHandle token = new AdyenTokenHandle("MERCHANT", "shopper", "token", null, null);
 

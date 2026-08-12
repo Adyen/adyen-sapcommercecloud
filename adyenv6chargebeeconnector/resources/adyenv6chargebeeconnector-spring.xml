@@ -11,7 +11,7 @@
     <alias name="defaultChargebeeConfigService" alias="chargebeeConfigService"/>
     <bean id="defaultChargebeeConfigService"
           class="com.adyen.commerce.connector.chargebee.config.impl.DefaultChargebeeConfigService">
-        <property name="configurationService" ref="configurationService"/>
+        <property name="baseStoreService" ref="baseStoreService"/>
     </bean>
 
     <alias name="defaultChargebeeHttpClient" alias="chargebeeHttpClient"/>

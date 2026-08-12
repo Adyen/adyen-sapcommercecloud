@@ -13,9 +13,13 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import com.adyen.commerce.connector.exception.ConnectorNotConfiguredException;
+import com.adyen.v6.enums.AdyenSubscriptionPlatform;
+import com.adyen.v6.model.RecurlyConfigModel;
 
 import de.hybris.bootstrap.annotations.UnitTest;
 import de.hybris.platform.servicelayer.config.ConfigurationService;
+import de.hybris.platform.store.BaseStoreModel;
+import de.hybris.platform.store.services.BaseStoreService;
 
 @UnitTest
 public class DefaultRecurlyConfigServiceTest
@@ -24,6 +28,12 @@ public class DefaultRecurlyConfigServiceTest
     private ConfigurationService configurationService;
     @Mock
     private Configuration configuration;
+    @Mock
+    private BaseStoreService baseStoreService;
+    @Mock
+    private BaseStoreModel baseStore;
+    @Mock
+    private RecurlyConfigModel recurlyConfig;
 
     private DefaultRecurlyConfigService service;
 
@@ -32,22 +42,42 @@ public class DefaultRecurlyConfigServiceTest
     {
         MockitoAnnotations.openMocks(this);
         when(configurationService.getConfiguration()).thenReturn(configuration);
-        service = new DefaultRecurlyConfigService(configurationService);
+        when(baseStoreService.getCurrentBaseStore()).thenReturn(baseStore);
+        when(baseStore.getAdyenSubscriptionPlatform()).thenReturn(AdyenSubscriptionPlatform.RECURLY);
+        when(baseStore.getRecurlyConfig()).thenReturn(recurlyConfig);
+        service = new DefaultRecurlyConfigService(configurationService, baseStoreService);
     }
 
     @Test
     public void trimsTrailingSlashFromBaseUrl() throws Exception
     {
-        when(configuration.getString("recurly.baseUrl", null)).thenReturn("https://v3.recurly.com/");
+        when(recurlyConfig.getSubscriptionSiteId()).thenReturn("https://v3.recurly.com/");
+
         assertEquals("https://v3.recurly.com", service.getApiBaseUrl());
     }
 
     @Test
-    public void rejectsMissingRequiredConfiguration()
+    public void rejectsBaseUrlWithoutScheme()
     {
+        when(recurlyConfig.getSubscriptionSiteId()).thenReturn("v3.recurly.com");
+
+        assertThrows(ConnectorNotConfiguredException.class, service::getApiBaseUrl);
+    }
+
+    @Test
+    public void rejectsMissingRecurlyConfiguration()
+    {
+        when(baseStore.getRecurlyConfig()).thenReturn(null);
+
         assertThrows(ConnectorNotConfiguredException.class, service::getApiKey);
-        assertThrows(ConnectorNotConfiguredException.class, service::getGatewayCode);
-        assertThrows(ConnectorNotConfiguredException.class, service::getWebhookSigningKey);
+    }
+
+    @Test
+    public void rejectsBlankRequiredConfiguration()
+    {
+        when(recurlyConfig.getSubscriptionApiKey()).thenReturn("   ");
+
+        assertThrows(ConnectorNotConfiguredException.class, service::getApiKey);
     }
 
     @Test
@@ -67,20 +97,12 @@ public class DefaultRecurlyConfigServiceTest
     }
 
     @Test
-    public void featureConfirmationsDefaultToFalse()
+    public void readsFeatureFlagsFromRecurlyConfiguration() throws Exception
     {
-        when(configuration.getBoolean("recurly.externalNtidFeatureEnabled", false)).thenReturn(false);
-        when(configuration.getBoolean("recurly.walletEnabled", false)).thenReturn(false);
-        assertFalse(service.isExternalNtidFeatureEnabled());
-        assertFalse(service.isWalletEnabled());
-    }
+        when(recurlyConfig.getExternalNtidFeatureEnabled()).thenReturn(true);
+        when(recurlyConfig.getWalletEnabled()).thenReturn(false);
 
-    @Test
-    public void readsConfirmedFeatures()
-    {
-        when(configuration.getBoolean("recurly.externalNtidFeatureEnabled", false)).thenReturn(true);
-        when(configuration.getBoolean("recurly.walletEnabled", false)).thenReturn(true);
         assertTrue(service.isExternalNtidFeatureEnabled());
-        assertTrue(service.isWalletEnabled());
+        assertFalse(service.isWalletEnabled());
     }
 }

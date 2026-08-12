@@ -97,7 +97,17 @@
 						<editorArea:attribute qualifier="l2L3ESDEnabled"/>
 						<editorArea:attribute qualifier="adyenSkipCvcForOneClick"/>
 						<editorArea:attribute qualifier="additionalPaymentRetry" />
+						<editorArea:attribute qualifier="adyenSubscriptionPlatform"  />
 					</editorArea:section>
+				<editorArea:section name="hmc.adyen.recurlyConfig">
+					<editorArea:attribute qualifier="recurlyConfig"/>
+				</editorArea:section>
+				<editorArea:section name="hmc.adyen.chargebeeConfig">
+					<editorArea:attribute qualifier="chargebeeConfig"/>
+				</editorArea:section>
+				<editorArea:section name="hmc.adyen.zuoraConfig">
+					<editorArea:attribute qualifier="zuoraConfig"/>
+				</editorArea:section>
 				<editorArea:section name="hmc.adyen.installments">
 					<editorArea:attribute qualifier="adyenInstallmentConfigs"/>
 				</editorArea:section>
