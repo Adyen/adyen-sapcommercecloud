@@ -1008,10 +1008,10 @@
                 </attribute>
                 <attribute qualifier="adyenGatewayMerchantAccount" type="java.lang.String">
                     <!-- Deliberately NOT BaseStore.adyenMerchantAccount. This is the account the
-                         platform's own Adyen gateway is configured with, on the vendor's side. The R2
+                         platform's own Adyen gateway is configured with, on the vendor's side. The
                          guard compares the two to catch them diverging, so sourcing both from the store
                          would make the comparison compare a value with itself and never fail. -->
-                    <description>Adyen merchant account the subscription platform's Adyen gateway is bound to (R2 check)</description>
+                    <description>Adyen merchant account the subscription platform's Adyen gateway is bound to (gateway-binding check)</description>
                     <!-- Optional at the type level: ZuoraConfig inherits this and has no connector, and a
                          mandatory attribute with no default makes every pre-existing row unsaveable after an
                          update system. The connectors' own verifyMerchantAccount refuses a blank, so an

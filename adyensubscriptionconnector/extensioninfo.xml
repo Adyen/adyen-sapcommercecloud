@@ -19,7 +19,7 @@
              AdyenMerchantAccountStrategy) and the standard commerce services. -->
         <requires-extension name="adyenv6core"/>
         <requires-extension name="commerceservices"/>
-        <!-- OCC webapp host for the inbound webhook endpoint (task P1.10) -->
+        <!-- OCC webapp host for the inbound webhook endpoint -->
         <requires-extension name="commercewebservices"/>
 
         <coremodule generated="true" manager="com.adyen.commerce.connector.jalo.AdyensubscriptionconnectorManager"

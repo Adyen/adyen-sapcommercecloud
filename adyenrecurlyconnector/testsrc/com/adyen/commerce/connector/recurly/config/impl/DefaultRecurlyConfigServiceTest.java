@@ -122,7 +122,7 @@ public class DefaultRecurlyConfigServiceTest
 
     /**
      * The SPI forbids this one from throwing, so here "not configured" really is null. The connector's
-     * own verifyMerchantAccount rejects a blank, which is what keeps R2 fail-closed.
+     * own verifyMerchantAccount rejects a blank, which is what keeps that check fail-closed.
      */
     @Test
     public void merchantAccountIsNullRatherThanThrownWhenRecurlyConfigMissing()

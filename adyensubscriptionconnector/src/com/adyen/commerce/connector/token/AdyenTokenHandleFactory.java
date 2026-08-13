@@ -27,7 +27,7 @@ import de.hybris.platform.core.model.order.AbstractOrderModel;
 
 /**
  * Builds the uniform {@link AdyenTokenHandle} from the artifacts the existing Adyen plugin produces
- * (design P1.8). The plugin captures the token during checkout; this factory only reads it &mdash; no
+ * The plugin captures the token during checkout; this factory only reads it &mdash; no
  * PAN is ever touched.
  */
 public interface AdyenTokenHandleFactory

@@ -65,7 +65,7 @@ public class DefaultRecurlyConfigService implements RecurlyConfigService {
     }
 
     /**
-     * Read off the Recurly configuration, not off the base store. The R2 guard compares this against the
+     * Read off the Recurly configuration, not off the base store. The gateway-binding guard compares this against the
      * store's own Adyen merchant account, so taking it from the store would compare a value with itself
      * and could never fail.
      *
@@ -188,7 +188,7 @@ public class DefaultRecurlyConfigService implements RecurlyConfigService {
      * is already chosen by {@code getActiveConnector(store)} — reading the same attribute again a line
      * later cannot discover anything. And a refusal here surfaces as {@code null} from
      * {@link #getConfiguredAdyenMerchantAccount()}, which {@code DefaultConnectorMerchantAccountValidator}
-     * reads as "R2 does not apply" and skips: the gate would turn a merchant-account mismatch into an
+     * reads as "the check does not apply" and skips: the gate would turn a merchant-account mismatch into an
      * unchecked one.</p>
      *
      * <p>Secondly, cancellation routes on {@code subscription.getPlatform()}, so a store that has since

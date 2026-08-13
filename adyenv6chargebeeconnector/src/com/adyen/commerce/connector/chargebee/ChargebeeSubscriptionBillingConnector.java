@@ -59,11 +59,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
- * Chargebee adapter of the {@link SubscriptionBillingConnector} SPI (ADR-001 Option A: Adyen keeps
- * processing recurring payments; Chargebee only orchestrates billing).
+ * Chargebee adapter of the {@link SubscriptionBillingConnector} SPI: Adyen keeps processing the
+ * recurring payments, Chargebee only orchestrates the billing.
  *
  * <p>This first cut covers the outbound lifecycle (customer, token import, plan resolution,
- * subscription create/update/cancel) plus inbound webhook verification/normalization (task P2.4).
+ * subscription create/update/cancel) plus inbound webhook verification/normalization.
  * Pause is not supported ({@code supportsPause=false}, SPI default rejects it).</p>
  */
 public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillingConnector
@@ -314,19 +314,19 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 	}
 
 	/**
-	 * Defensive R2 guard (the core validator already checks this pre-activation): the token must be
+	 * Defensive gateway-binding guard (the core validator already checks this pre-activation): the token must be
 	 * charged by a Chargebee gateway bound to the same Adyen merchant account it was minted under.
 	 */
 	protected void verifyMerchantAccount(final AdyenTokenHandle token) throws PreconditionFailedException
 	{
 		final String configured = configService.getConfiguredAdyenMerchantAccount();
 		// Chargebee is an external gateway: a blank merchant account is a misconfiguration, not an
-		// exemption. Fail closed so R2 cannot be silently bypassed (the core validator skips on null).
+		// exemption. Fail closed so the check cannot be silently bypassed (the core validator skips on null).
 		if (StringUtils.isBlank(configured))
 		{
 			throw new PreconditionFailedException("Chargebee connector has no configured Adyen merchant account "
 					+ "(Chargebee Config: Adyen Gateway Merchant Account); refusing to import a token "
-					+ "without the R2 guarantee");
+					+ "without that guarantee");
 		}
 		if (!configured.equals(token.merchantAccount()))
 		{

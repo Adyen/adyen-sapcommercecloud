@@ -111,9 +111,10 @@
 				<editorArea:section name="hmc.adyen.chargebeeConfig">
 					<editorArea:attribute qualifier="chargebeeConfig"/>
 				</editorArea:section>
-				<editorArea:section name="hmc.adyen.zuoraConfig">
-					<editorArea:attribute qualifier="zuoraConfig"/>
-				</editorArea:section>
+				<!-- No Zuora section until a Zuora connector exists. ZuoraConfig has no attributes of
+				     its own and nothing reads it, so offering it here only lets an operator configure a
+				     platform whose first activation throws ConnectorNotConfiguredException. Restore this
+				     section together with the connector. -->
 				<editorArea:section name="hmc.adyen.installments">
 					<editorArea:attribute qualifier="adyenInstallmentConfigs"/>
 				</editorArea:section>

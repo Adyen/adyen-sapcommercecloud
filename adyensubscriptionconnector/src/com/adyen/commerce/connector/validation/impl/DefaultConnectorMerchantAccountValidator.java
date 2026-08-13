@@ -54,14 +54,14 @@ public class DefaultConnectorMerchantAccountValidator implements ConnectorMercha
 		{
 			// Only the built-in Adyen-native path genuinely has no external gateway to bind, so only it is
 			// exempt. For an external connector a blank answer means "not configured yet", and treating that
-			// as an exemption would disable R2 precisely while the operator is still setting the gateway up
+			// as an exemption would disable the check precisely while the operator is still setting the gateway up
 			// — and it would do so silently, before activateSubscription creates the customer remotely.
 			if (BillingPlatform.ADYEN_NATIVE.equals(connector.platform()))
 			{
 				return;
 			}
 			throw new PreconditionFailedException(String.format(
-					"Connector '%s' has no configured Adyen merchant account, so the R2 guarantee cannot be "
+					"Connector '%s' has no configured Adyen merchant account, so that guarantee cannot be "
 							+ "established for base store '%s'. Set the platform's Adyen Gateway Merchant Account "
 							+ "in its subscription configuration.",
 					connector.platform(), store == null ? "<null>" : store.getUid()));

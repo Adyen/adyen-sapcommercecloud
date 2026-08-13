@@ -25,6 +25,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.when;
 
+import org.apache.commons.configuration2.Configuration;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
@@ -35,6 +36,7 @@ import com.adyen.commerce.connector.exception.ConnectorNotConfiguredException;
 import com.adyen.v6.model.ChargebeeConfigModel;
 
 import de.hybris.bootstrap.annotations.UnitTest;
+import de.hybris.platform.servicelayer.config.ConfigurationService;
 import de.hybris.platform.store.BaseStoreModel;
 import de.hybris.platform.store.services.BaseStoreService;
 
@@ -51,6 +53,10 @@ public class DefaultChargebeeConfigServiceTest
 	private BaseStoreModel baseStore;
 	@Mock
 	private ChargebeeConfigModel chargebeeConfig;
+	@Mock
+	private ConfigurationService configurationService;
+	@Mock
+	private Configuration configuration;
 
 	private DefaultChargebeeConfigService service;
 
@@ -60,8 +66,45 @@ public class DefaultChargebeeConfigServiceTest
 		MockitoAnnotations.openMocks(this);
 		when(baseStoreService.getCurrentBaseStore()).thenReturn(baseStore);
 		when(baseStore.getChargebeeConfig()).thenReturn(chargebeeConfig);
+		when(configurationService.getConfiguration()).thenReturn(configuration);
 		service = new DefaultChargebeeConfigService();
 		service.setBaseStoreService(baseStoreService);
+		service.setConfigurationService(configurationService);
+	}
+
+	/**
+	 * Transport tuning is per installation, so it stays in properties rather than on the base store.
+	 */
+	@Test
+	public void transportTuningIsReadFromProperties()
+	{
+		when(configuration.getInt("chargebee.http.connectTimeoutMillis", 5000)).thenReturn(1234);
+		when(configuration.getInt("chargebee.http.responseTimeoutMillis", 30000)).thenReturn(4321);
+		when(configuration.getInt("chargebee.http.connectionRequestTimeoutMillis", 5000)).thenReturn(999);
+		when(configuration.getInt("chargebee.http.maxConnections", 20)).thenReturn(50);
+
+		assertEquals(1234, service.getConnectTimeoutMillis());
+		assertEquals(4321, service.getResponseTimeoutMillis());
+		assertEquals(999, service.getConnectionRequestTimeoutMillis());
+		assertEquals(50, service.getMaxConnections());
+	}
+
+	/**
+	 * A non-positive override would restore the unbounded wait this configuration exists to remove, so
+	 * it must fall back rather than be passed through.
+	 */
+	@Test
+	public void nonPositiveTransportOverridesFallBackToTheDefault()
+	{
+		when(configuration.getInt("chargebee.http.connectTimeoutMillis", 5000)).thenReturn(0);
+		when(configuration.getInt("chargebee.http.responseTimeoutMillis", 30000)).thenReturn(-1);
+		when(configuration.getInt("chargebee.http.connectionRequestTimeoutMillis", 5000)).thenReturn(-100);
+		when(configuration.getInt("chargebee.http.maxConnections", 20)).thenReturn(0);
+
+		assertEquals(5000, service.getConnectTimeoutMillis());
+		assertEquals(30000, service.getResponseTimeoutMillis());
+		assertEquals(5000, service.getConnectionRequestTimeoutMillis());
+		assertEquals(20, service.getMaxConnections());
 	}
 
 	@Test
@@ -121,7 +164,7 @@ public class DefaultChargebeeConfigServiceTest
 	}
 
 	/**
-	 * The R2 guard compares this against the store's own Adyen merchant account, so it has to come from
+	 * The gateway-binding guard compares this against the store's own Adyen merchant account, so it has to come from
 	 * the Chargebee configuration. Reading it off the store would make the comparison a tautology — the
 	 * store value is stubbed differently here on purpose to catch that regression.
 	 */

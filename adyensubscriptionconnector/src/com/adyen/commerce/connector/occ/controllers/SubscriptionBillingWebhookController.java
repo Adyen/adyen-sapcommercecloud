@@ -48,7 +48,7 @@ import de.hybris.platform.site.BaseSiteService;
 import jakarta.servlet.http.HttpServletRequest;
 
 /**
- * Public inbound webhook endpoint (task P1.10):
+ * Public inbound webhook endpoint:
  * {@code POST /subscription-billing/webhooks/{baseSiteId}/{platform}}. Identifies the platform from the
  * path, builds a {@link RawWebhook} from the raw request, and hands it to the platform-agnostic
  * {@link SubscriptionBillingWebhookDispatcher}. Signature/auth verification is entirely
@@ -108,7 +108,11 @@ public class SubscriptionBillingWebhookController
 		baseSiteService.setCurrentBaseSite(baseSite, false);
 
 		final Map<String, String> headers = extractHeaders(request);
-		final RawWebhook raw = new RawWebhook(headers, payload == null ? "" : payload, headers.get("Signature"));
+		// Signature stays null on purpose. RawWebhook's own contract says the scheme is connector-owned,
+		// and each platform names its header differently — Recurly sends "recurly-signature", Chargebee
+		// signs nothing at all and authenticates with Basic Auth. Guessing a generic "Signature" header
+		// only ever produced null anyway; the connectors read the header they actually expect.
+		final RawWebhook raw = new RawWebhook(headers, payload == null ? "" : payload, null);
 
 		try
 		{

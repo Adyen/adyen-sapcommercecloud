@@ -32,7 +32,7 @@ import de.hybris.platform.store.BaseStoreModel;
 /**
  * Resolves the {@link SubscriptionBillingConnector} to use. Adapter extensions contribute their
  * connector to the underlying list (Spring list-merge); adding a connector makes it resolvable with
- * no change to the core (design P1.6 &amp; the abstraction's acceptance test).
+ * no change to the core.
  */
 public interface SubscriptionBillingConnectorRegistry
 {
@@ -44,7 +44,7 @@ public interface SubscriptionBillingConnectorRegistry
 
 	/**
 	 * Resolve the connector for the store's {@code activeBillingPlatform} (one active connector per
-	 * BaseStore, design D3).
+	 * BaseStore).
 	 *
 	 * @throws ConnectorNotConfiguredException if the store has no active platform or none is registered
 	 */

@@ -74,7 +74,7 @@ import de.hybris.bootstrap.annotations.UnitTest;
 
 /**
  * Unit test for {@link ChargebeeSubscriptionBillingConnector} against a mocked API client / config /
- * plan resolver (Phase 2, task P2.1&ndash;P2.3).
+ * plan resolver.
  */
 @UnitTest
 public class ChargebeeSubscriptionBillingConnectorTest

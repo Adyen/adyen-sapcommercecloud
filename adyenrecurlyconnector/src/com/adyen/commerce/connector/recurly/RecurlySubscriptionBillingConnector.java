@@ -188,7 +188,7 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
         if (StringUtils.isBlank(configured)) {
             throw new PreconditionFailedException("Recurly connector has no configured Adyen merchant account "
                     + "(Recurly Config: Adyen Gateway Merchant Account); refusing to import a token "
-                    + "without the R2 guarantee");
+                    + "without that guarantee");
         }
         if (!configured.equals(token.merchantAccount())) {
             throw new PreconditionFailedException("Recurly connector is bound to Adyen merchant account '" + configured

@@ -40,7 +40,7 @@ import de.hybris.platform.store.BaseStoreModel;
 
 /**
  * Unit test for {@link DefaultConnectorMerchantAccountValidator} — enforces connector ≡ store Adyen
- * merchant account (design R2 / P1.9 acceptance criterion).
+ * merchant account.
  */
 @UnitTest
 public class DefaultConnectorMerchantAccountValidatorTest
@@ -98,7 +98,7 @@ public class DefaultConnectorMerchantAccountValidatorTest
 
 	/**
 	 * The regression this guards: an external connector answering "not configured" used to be treated the
-	 * same as ADYEN_NATIVE's "not applicable", which silently disabled R2 — and did so before
+	 * same as ADYEN_NATIVE's "not applicable", which silently disabled the check — and did so before
 	 * activateSubscription had created the customer on the remote platform.
 	 */
 	@Test

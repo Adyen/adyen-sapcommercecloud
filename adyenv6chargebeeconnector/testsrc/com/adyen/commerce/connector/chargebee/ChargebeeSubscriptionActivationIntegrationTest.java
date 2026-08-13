@@ -68,12 +68,12 @@ import de.hybris.platform.store.BaseStoreModel;
 import jakarta.annotation.Resource;
 
 /**
- * Closes tasks P2.5 and (the update/cancel gap in) P2.3: real end-to-end tests of
+ * Real end-to-end tests of
  * {@code activateSubscription}/{@code updateSubscription}/{@code cancelSubscription} against the live
  * Chargebee sandbox — not mocks. Unlike the standalone smoke-test driver used earlier (which called
  * {@link com.adyen.commerce.connector.chargebee.client.ChargebeeApiClient} directly), this exercises the
  * actual core orchestration path: {@link SubscriptionBillingService#activateSubscription} resolves the
- * active connector from {@code BaseStore.activeBillingPlatform}, validates the R2 merchant-account
+ * active connector from {@code BaseStore.activeBillingPlatform}, validates the merchant-account
  * precondition, builds the {@code AdyenTokenHandle} from the order, and persists
  * {@code BillingCustomerRef}/{@code BillingPaymentMethodRef}/{@code BillingSubscriptionRef} on real SAP
  * models — all against the real Chargebee sandbox over HTTPS.
@@ -88,7 +88,7 @@ import jakarta.annotation.Resource;
  * that pair must match what Adyen actually has on file, regardless of which hybris tenant is calling.</p>
  *
  * <p>The fixture also builds the store's {@code ChargebeeConfig} and activates a {@code BaseSite}
- * carrying that store: since AD-662 the connector reads its credentials from the CURRENT base store, and
+ * carrying that store: the connector reads its credentials from the CURRENT base store, and
  * without an active site every call fails with "No current base store". The sandbox credentials
  * themselves are not committed — they come from local configuration, and the whole class SKIPS when they
  * are absent (see {@link #createChargebeeConfig()}).</p>
@@ -103,8 +103,8 @@ import jakarta.annotation.Resource;
 public class ChargebeeSubscriptionActivationIntegrationTest extends ServicelayerTransactionalTest
 {
 	// The real Adyen shopperReference (Customer.customerID) and storedPaymentMethodId this RECURRING
-	// token is actually registered under with Adyen (see order 00028000 / [[adyen-recurring-token-bug-fix]]
-	// memory). Adyen's live validation on import checks this exact pair, not anything hybris-tenant-local.
+	// token is actually registered under with Adyen, captured from a real recurring-token order.
+	// Adyen's live validation on import checks this exact pair, not anything hybris-tenant-local.
 	private static final String REAL_SHOPPER_REFERENCE = "26077f0d-7210-425c-9cc3-cdc83fca8e9e";
 	private static final String REAL_ADYEN_TOKEN = "H55RW4QG9F9SKTV5";
 	private static final String REAL_ADYEN_MERCHANT_ACCOUNT = "REPLYAccount_AlphaDev_TEST";
@@ -210,7 +210,7 @@ public class ChargebeeSubscriptionActivationIntegrationTest extends Servicelayer
 	 * local.properties keeps working; the test skips rather than fails when they are absent, because a
 	 * missing sandbox key is a "not set up here" condition, not a defect in the code under test.
 	 *
-	 * <p>{@code adyenGatewayMerchantAccount} deliberately mirrors the store's own merchant account: the R2
+	 * <p>{@code adyenGatewayMerchantAccount} deliberately mirrors the store's own merchant account: the
 	 * precondition compares the two, and this fixture is asserting the happy path through it.</p>
 	 */
 	protected ChargebeeConfigModel createChargebeeConfig()
@@ -241,12 +241,12 @@ public class ChargebeeSubscriptionActivationIntegrationTest extends Servicelayer
 	}
 
 	@Test
-	@Ignore("P2.5 was verified live on 2026-07-22 (passed). Re-running is blocked on a live-data expiry, not a "
+	@Ignore("This scenario was verified live on 2026-07-22 (passed). Re-running is blocked on a live-data expiry, not a "
 			+ "code defect: activateSubscription's first step imports the Adyen token into Chargebee, which "
 			+ "Chargebee re-validates against Adyen on every run. Adyen's TEST platform has since pruned the stored "
 			+ "payment method behind the fixed shopperReference/storedPaymentMethodId pair, so the import now returns "
 			+ "400 [invalid_request] Invalid Reference ID. Re-enable after a fresh storefront checkout produces a new "
-			+ "RECURRING token, then update REAL_SHOPPER_REFERENCE/REAL_ADYEN_TOKEN. Update+cancel (P2.3) don't touch "
+			+ "RECURRING token, then update REAL_SHOPPER_REFERENCE/REAL_ADYEN_TOKEN. Update+cancel don't touch "
 			+ "Adyen and are covered live by updatesAndCancelsSubscriptionAgainstLiveChargebeeSandbox.")
 	public void activatesSubscriptionAgainstLiveChargebeeSandboxAndIsIdempotentOnReplay() throws Exception
 	{
@@ -274,7 +274,7 @@ public class ChargebeeSubscriptionActivationIntegrationTest extends Servicelayer
 				paymentInfo.getBillingPaymentMethodRefs().stream()
 						.anyMatch(ref -> ref.getPlatform() == BillingPlatform.CHARGEBEE));
 
-		// Idempotency (design D5/P4.4 seed): re-activating the same order must return the SAME ref,
+		// Idempotency: re-activating the same order must return the SAME ref,
 		// not create a second Chargebee subscription.
 		final BillingSubscriptionRefModel second = subscriptionBillingService.activateSubscription(order, subProduct);
 		assertEquals(first.getPk(), second.getPk());
@@ -282,7 +282,7 @@ public class ChargebeeSubscriptionActivationIntegrationTest extends Servicelayer
 	}
 
 	/**
-	 * Closes task P2.3's remaining gap: {@code updateSubscription}/{@code cancelSubscription} were
+	 * Covers the remaining gap: {@code updateSubscription}/{@code cancelSubscription} were
 	 * previously unit-tested only (mocked API client) — this exercises both against the live Chargebee
 	 * sandbox through the real {@link SubscriptionBillingConnector} bean and its
 	 * {@link com.adyen.commerce.connector.chargebee.client.impl.DefaultChargebeeApiClient}.
@@ -290,7 +290,7 @@ public class ChargebeeSubscriptionActivationIntegrationTest extends Servicelayer
 	 * <p>Deliberately does NOT go through {@code activateSubscription}: that path's first step imports the
 	 * Adyen token into Chargebee ({@code create_using_permanent_token}), which Chargebee validates live
 	 * against Adyen. Adyen's TEST platform prunes stored payment methods over time, so the fixed
-	 * {@code shopperReference/storedPaymentMethodId} pair used by the P2.5 test eventually starts returning
+	 * {@code shopperReference/storedPaymentMethodId} pair used by the activation test eventually starts returning
 	 * {@code 400 [invalid_request] Invalid Reference ID} — a live-data expiry, not a code defect. Update
 	 * and cancel don't touch Adyen at all (they only mutate an existing Chargebee subscription), so this
 	 * test bypasses token import entirely: it creates a fresh subscription directly on the Chargebee
@@ -310,7 +310,7 @@ public class ChargebeeSubscriptionActivationIntegrationTest extends Servicelayer
 		final String idem = "p23-update-cancel-" + System.nanoTime();
 
 		// The Chargebee customer for REAL_SHOPPER_REFERENCE already exists with a primary payment source
-		// (created during earlier P2.5 activation runs); createSubscription uses that source automatically,
+		// (created during earlier activation runs); createSubscription uses that source automatically,
 		// so no Adyen token import is needed. paymentMethod is required by the DTO but is not sent by the
 		// Chargebee createSubscription call (subscription_for_items references the customer, not a source id).
 		final BillingCustomerRef customerRef = new BillingCustomerRef(BillingPlatform.CHARGEBEE, REAL_SHOPPER_REFERENCE);
