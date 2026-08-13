@@ -82,13 +82,43 @@ public class DefaultConnectorMerchantAccountValidatorTest
 		assertThrows(PreconditionFailedException.class, () -> validator.validate(connector, store));
 	}
 
+	/**
+	 * ADYEN_NATIVE has no external gateway, so there is nothing to bind and nothing to compare.
+	 */
 	@Test
-	public void shouldSkipWhenConnectorHasNoConfiguredAccount() throws Exception
+	public void shouldSkipForTheAdyenNativeConnector() throws Exception
 	{
 		when(connector.configuredAdyenMerchantAccount()).thenReturn(null);
+		when(connector.platform()).thenReturn(BillingPlatform.ADYEN_NATIVE);
 
 		validator.validate(connector, store);
 
 		verify(adyenMerchantAccountStrategy, never()).getWebMerchantAccount(store);
+	}
+
+	/**
+	 * The regression this guards: an external connector answering "not configured" used to be treated the
+	 * same as ADYEN_NATIVE's "not applicable", which silently disabled R2 — and did so before
+	 * activateSubscription had created the customer on the remote platform.
+	 */
+	@Test
+	public void shouldFailWhenAnExternalConnectorHasNoConfiguredAccount()
+	{
+		when(connector.configuredAdyenMerchantAccount()).thenReturn(null);
+		when(connector.platform()).thenReturn(BillingPlatform.CHARGEBEE);
+		when(store.getUid()).thenReturn("electronics");
+
+		assertThrows(PreconditionFailedException.class, () -> validator.validate(connector, store));
+		verify(adyenMerchantAccountStrategy, never()).getWebMerchantAccount(store);
+	}
+
+	@Test
+	public void shouldTreatABlankConfiguredAccountAsUnset()
+	{
+		when(connector.configuredAdyenMerchantAccount()).thenReturn("   ");
+		when(connector.platform()).thenReturn(BillingPlatform.RECURLY);
+		when(store.getUid()).thenReturn("electronics");
+
+		assertThrows(PreconditionFailedException.class, () -> validator.validate(connector, store));
 	}
 }

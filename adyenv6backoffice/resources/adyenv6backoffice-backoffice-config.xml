@@ -97,8 +97,14 @@
 						<editorArea:attribute qualifier="l2L3ESDEnabled"/>
 						<editorArea:attribute qualifier="adyenSkipCvcForOneClick"/>
 						<editorArea:attribute qualifier="additionalPaymentRetry" />
-						<editorArea:attribute qualifier="adyenSubscriptionPlatform"  />
 					</editorArea:section>
+				<!-- activeBillingPlatform is declared by adyensubscriptionconnector, which adyenv6backoffice
+				     does not require. With that extension disabled DefaultEditorAreaSectionRenderer logs one
+				     ERROR and skips the field, leaving this section rendered but empty; the rest of the
+				     editor area is unaffected. -->
+				<editorArea:section name="hmc.adyen.subscriptionPlatform">
+					<editorArea:attribute qualifier="activeBillingPlatform"/>
+				</editorArea:section>
 				<editorArea:section name="hmc.adyen.recurlyConfig">
 					<editorArea:attribute qualifier="recurlyConfig"/>
 				</editorArea:section>

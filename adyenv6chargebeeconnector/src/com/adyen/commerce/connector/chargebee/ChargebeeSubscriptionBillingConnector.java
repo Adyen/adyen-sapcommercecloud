@@ -216,7 +216,7 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 		if (StringUtils.isBlank(expectedUsername) || StringUtils.isBlank(expectedPassword))
 		{
 			throw new PreconditionFailedException("Chargebee webhook Basic Auth credentials "
-					+ "(chargebee.webhookUsername/chargebee.webhookPassword) are not configured");
+					+ "(Chargebee Config: Webhook Username/Webhook Password) are not configured on the base store");
 		}
 
 		final String authorizationHeader = findHeaderIgnoreCase(raw.headers(), AUTHORIZATION_HEADER);
@@ -325,7 +325,8 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 		if (StringUtils.isBlank(configured))
 		{
 			throw new PreconditionFailedException("Chargebee connector has no configured Adyen merchant account "
-					+ "(chargebee.adyenMerchantAccount); refusing to import a token without the R2 guarantee");
+					+ "(Chargebee Config: Adyen Gateway Merchant Account); refusing to import a token "
+					+ "without the R2 guarantee");
 		}
 		if (!configured.equals(token.merchantAccount()))
 		{

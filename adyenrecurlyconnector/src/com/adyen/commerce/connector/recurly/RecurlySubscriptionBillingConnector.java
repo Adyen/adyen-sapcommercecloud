@@ -187,7 +187,8 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
         final String configured = configService.getConfiguredAdyenMerchantAccount();
         if (StringUtils.isBlank(configured)) {
             throw new PreconditionFailedException("Recurly connector has no configured Adyen merchant account "
-                    + "(recurly.adyenMerchantAccount); refusing to import a token without the R2 guarantee");
+                    + "(Recurly Config: Adyen Gateway Merchant Account); refusing to import a token "
+                    + "without the R2 guarantee");
         }
         if (!configured.equals(token.merchantAccount())) {
             throw new PreconditionFailedException("Recurly connector is bound to Adyen merchant account '" + configured
@@ -224,11 +225,11 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
         }
     }
 
-    protected void verifyExternalNtidSupport() throws PreconditionFailedException {
+    protected void verifyExternalNtidSupport() throws BillingException {
         if (!configService.isExternalNtidFeatureEnabled()) {
             throw new PreconditionFailedException("Recurly external-NTID support is not confirmed. Enable "
-                    + "'Allow NTIDs in APIs' and 'Enables Backfilling External Tokens', then set "
-                    + "recurly.externalNtidFeatureEnabled=true");
+                    + "'Allow NTIDs in APIs' and 'Enables Backfilling External Tokens', then tick "
+                    + "'External Ntid Feature Enabled' in the base store's Recurly Config");
         }
     }
 

@@ -24,33 +24,31 @@ import org.apache.commons.lang3.StringUtils;
 
 import com.adyen.commerce.connector.chargebee.config.ChargebeeConfigService;
 import com.adyen.commerce.connector.exception.ConnectorNotConfiguredException;
+import com.adyen.v6.model.ChargebeeConfigModel;
 
-import de.hybris.platform.servicelayer.config.ConfigurationService;
+import de.hybris.platform.store.BaseStoreModel;
+import de.hybris.platform.store.services.BaseStoreService;
 
 /**
- * Reads Chargebee configuration from the platform {@link ConfigurationService} (project/local.properties).
+ * Reads Chargebee configuration from the current {@link BaseStoreModel}'s {@code chargebeeConfig}
+ * (Backoffice: Adyen Configuration &gt; Chargebee Config). The former {@code chargebee.*} properties
+ * are gone: the store is the single source of truth so a multi-store setup can hold one Chargebee
+ * site per base store.
  */
 public class DefaultChargebeeConfigService implements ChargebeeConfigService
 {
-	static final String P_SITE = "chargebee.site";
-	static final String P_API_KEY = "chargebee.apiKey";
-	static final String P_GATEWAY = "chargebee.gatewayAccountId";
-	static final String P_MERCHANT = "chargebee.adyenMerchantAccount";
-	static final String P_WEBHOOK_USERNAME = "chargebee.webhookUsername";
-	static final String P_WEBHOOK_PASSWORD = "chargebee.webhookPassword";
-
-	private ConfigurationService configurationService;
+	private BaseStoreService baseStoreService;
 
 	@Override
 	public String getApiKey() throws ConnectorNotConfiguredException
 	{
-		return required(P_API_KEY);
+		return required(requireChargebeeConfig().getSubscriptionApiKey(), "subscriptionApiKey");
 	}
 
 	@Override
 	public String getSiteName() throws ConnectorNotConfiguredException
 	{
-		return required(P_SITE);
+		return required(requireChargebeeConfig().getSubscriptionSiteId(), "subscriptionSiteId");
 	}
 
 	@Override
@@ -62,44 +60,87 @@ public class DefaultChargebeeConfigService implements ChargebeeConfigService
 	@Override
 	public String getGatewayAccountId()
 	{
-		return optional(P_GATEWAY);
+		final ChargebeeConfigModel config = findChargebeeConfig();
+		return config == null ? null : StringUtils.trimToNull(config.getSubscriptionGatewayAccountId());
 	}
 
+	/**
+	 * Read off the Chargebee configuration, not off the base store. The R2 guard compares this against
+	 * the store's own Adyen merchant account, so taking it from the store would compare a value with
+	 * itself and could never fail.
+	 */
 	@Override
 	public String getConfiguredAdyenMerchantAccount()
 	{
-		return optional(P_MERCHANT);
+		final ChargebeeConfigModel config = findChargebeeConfig();
+		return config == null ? null : StringUtils.trimToNull(config.getAdyenGatewayMerchantAccount());
 	}
 
 	@Override
 	public String getWebhookUsername()
 	{
-		return optional(P_WEBHOOK_USERNAME);
+		final ChargebeeConfigModel config = findChargebeeConfig();
+		return config == null ? null : StringUtils.trimToNull(config.getChargebeeWebhookUsername());
 	}
 
 	@Override
 	public String getWebhookPassword()
 	{
-		return optional(P_WEBHOOK_PASSWORD);
+		final ChargebeeConfigModel config = findChargebeeConfig();
+		return config == null ? null : StringUtils.trimToNull(config.getChargebeeWebhookPassword());
 	}
 
-	protected String required(final String key) throws ConnectorNotConfiguredException
+	/**
+	 * The same lookup as {@link #requireChargebeeConfig()}, reported as {@code null} instead of thrown.
+	 * Deliberately delegates rather than repeating the checks: the two must agree on exactly when a store
+	 * counts as configured, and the callers are the getters the interface forbids from throwing.
+	 */
+	protected ChargebeeConfigModel findChargebeeConfig()
 	{
-		final String value = optional(key);
-		if (value == null)
+		try
 		{
-			throw new ConnectorNotConfiguredException("Missing Chargebee configuration property '" + key + "'");
+			return requireChargebeeConfig();
 		}
-		return value;
+		catch (final ConnectorNotConfiguredException e)
+		{
+			return null;
+		}
 	}
 
-	protected String optional(final String key)
+	protected ChargebeeConfigModel requireChargebeeConfig() throws ConnectorNotConfiguredException
 	{
-		return StringUtils.trimToNull(configurationService.getConfiguration().getString(key, null));
+		final BaseStoreModel baseStore = baseStoreService.getCurrentBaseStore();
+
+		if (baseStore == null)
+		{
+			throw new ConnectorNotConfiguredException("No current base store");
+		}
+
+		final ChargebeeConfigModel config = baseStore.getChargebeeConfig();
+
+		if (config == null)
+		{
+			throw new ConnectorNotConfiguredException(
+					"Chargebee configuration is missing for base store '" + baseStore.getUid() + "'");
+		}
+
+		return config;
 	}
 
-	public void setConfigurationService(final ConfigurationService configurationService)
+	protected String required(final String value, final String attributeName) throws ConnectorNotConfiguredException
 	{
-		this.configurationService = configurationService;
+		final String normalizedValue = StringUtils.trimToNull(value);
+
+		if (normalizedValue == null)
+		{
+			throw new ConnectorNotConfiguredException("Missing Chargebee configuration attribute '" + attributeName + "'");
+		}
+
+		return normalizedValue;
+	}
+
+	public void setBaseStoreService(final BaseStoreService baseStoreService)
+	{
+		this.baseStoreService = baseStoreService;
 	}
 }

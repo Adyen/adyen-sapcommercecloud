@@ -25,28 +25,32 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.when;
 
-import org.apache.commons.configuration2.Configuration;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import com.adyen.commerce.connector.enums.BillingPlatform;
 import com.adyen.commerce.connector.exception.ConnectorNotConfiguredException;
+import com.adyen.v6.model.ChargebeeConfigModel;
 
 import de.hybris.bootstrap.annotations.UnitTest;
-import de.hybris.platform.servicelayer.config.ConfigurationService;
+import de.hybris.platform.store.BaseStoreModel;
+import de.hybris.platform.store.services.BaseStoreService;
 
 /**
- * Unit test for {@link DefaultChargebeeConfigService}: required vs optional properties and the
- * derived API base URL.
+ * Unit test for {@link DefaultChargebeeConfigService}: required vs optional attributes read off the
+ * current base store's Chargebee configuration, and the derived API base URL.
  */
 @UnitTest
 public class DefaultChargebeeConfigServiceTest
 {
 	@Mock
-	private ConfigurationService configurationService;
+	private BaseStoreService baseStoreService;
 	@Mock
-	private Configuration configuration;
+	private BaseStoreModel baseStore;
+	@Mock
+	private ChargebeeConfigModel chargebeeConfig;
 
 	private DefaultChargebeeConfigService service;
 
@@ -54,55 +58,146 @@ public class DefaultChargebeeConfigServiceTest
 	public void setUp()
 	{
 		MockitoAnnotations.openMocks(this);
+		when(baseStoreService.getCurrentBaseStore()).thenReturn(baseStore);
+		when(baseStore.getChargebeeConfig()).thenReturn(chargebeeConfig);
 		service = new DefaultChargebeeConfigService();
-//		service.setConfigurationService(configurationService);
-		when(configurationService.getConfiguration()).thenReturn(configuration);
+		service.setBaseStoreService(baseStoreService);
 	}
 
 	@Test
 	public void buildsApiBaseUrlFromSite() throws Exception
 	{
-		when(configuration.getString("chargebee.site", null)).thenReturn("acme");
+		when(chargebeeConfig.getSubscriptionSiteId()).thenReturn("acme");
+
 		assertEquals("https://acme.chargebee.com/api/v2", service.getApiBaseUrl());
 	}
 
 	@Test
 	public void missingApiKeyThrowsConnectorNotConfigured()
 	{
-		when(configuration.getString("chargebee.apiKey", null)).thenReturn(null);
+		when(chargebeeConfig.getSubscriptionApiKey()).thenReturn(null);
+
 		assertThrows(ConnectorNotConfiguredException.class, service::getApiKey);
 	}
 
 	@Test
 	public void blankSiteIsTreatedAsUnset()
 	{
-		when(configuration.getString("chargebee.site", null)).thenReturn("   ");
+		when(chargebeeConfig.getSubscriptionSiteId()).thenReturn("   ");
+
 		assertThrows(ConnectorNotConfiguredException.class, service::getSiteName);
 	}
 
 	@Test
-	public void optionalMerchantAccountIsNullWhenUnset()
+	public void requiredAttributesAreTrimmed() throws Exception
 	{
-		when(configuration.getString("chargebee.adyenMerchantAccount", null)).thenReturn(null);
+		when(chargebeeConfig.getSubscriptionApiKey()).thenReturn("  cb-key  ");
+
+		assertEquals("cb-key", service.getApiKey());
+	}
+
+	@Test
+	public void missingChargebeeConfigThrowsConnectorNotConfigured()
+	{
+		when(baseStore.getChargebeeConfig()).thenReturn(null);
+
+		assertThrows(ConnectorNotConfiguredException.class, service::getApiKey);
+	}
+
+	@Test
+	public void missingBaseStoreThrowsConnectorNotConfigured()
+	{
+		when(baseStoreService.getCurrentBaseStore()).thenReturn(null);
+
+		assertThrows(ConnectorNotConfiguredException.class, service::getApiKey);
+	}
+
+	@Test
+	public void gatewayAccountIdReadFromChargebeeConfig()
+	{
+		when(chargebeeConfig.getSubscriptionGatewayAccountId()).thenReturn("gw_adyen");
+
+		assertEquals("gw_adyen", service.getGatewayAccountId());
+	}
+
+	/**
+	 * The R2 guard compares this against the store's own Adyen merchant account, so it has to come from
+	 * the Chargebee configuration. Reading it off the store would make the comparison a tautology — the
+	 * store value is stubbed differently here on purpose to catch that regression.
+	 */
+	@Test
+	public void merchantAccountReadFromChargebeeConfigNotFromBaseStore()
+	{
+		when(chargebeeConfig.getAdyenGatewayMerchantAccount()).thenReturn("AdyenGatewayECOM");
+		when(baseStore.getAdyenMerchantAccount()).thenReturn("AdyenStoreECOM");
+
+		assertEquals("AdyenGatewayECOM", service.getConfiguredAdyenMerchantAccount());
+	}
+
+	/**
+	 * Mirrors the Recurly side: this service deliberately does not gate on the store's
+	 * activeBillingPlatform. Cancellation routes on the subscription's own platform, so a store that has
+	 * migrated to another platform must still reach its Chargebee credentials to cancel what it created
+	 * there. Re-adding a gate here would fail this test.
+	 */
+	@Test
+	public void credentialsStayReadableForAStoreThatHasMovedToAnotherPlatform() throws Exception
+	{
+		when(chargebeeConfig.getSubscriptionApiKey()).thenReturn("cb-key");
+		when(baseStore.getActiveBillingPlatform()).thenReturn(BillingPlatform.RECURLY);
+
+		assertEquals("cb-key", service.getApiKey());
+	}
+
+	@Test
+	public void blankMerchantAccountIsTreatedAsUnset()
+	{
+		when(chargebeeConfig.getAdyenGatewayMerchantAccount()).thenReturn("   ");
+
 		assertNull(service.getConfiguredAdyenMerchantAccount());
 	}
 
 	@Test
-	public void webhookCredentialsReadFromConfig()
+	public void webhookCredentialsReadFromChargebeeConfig()
 	{
-		when(configuration.getString("chargebee.webhookUsername", null)).thenReturn("cb-user");
-		when(configuration.getString("chargebee.webhookPassword", null)).thenReturn("cb-pass");
+		when(chargebeeConfig.getChargebeeWebhookUsername()).thenReturn("cb-user");
+		when(chargebeeConfig.getChargebeeWebhookPassword()).thenReturn("cb-pass");
 
 		assertEquals("cb-user", service.getWebhookUsername());
 		assertEquals("cb-pass", service.getWebhookPassword());
 	}
 
+	/**
+	 * The nullable getters cannot throw, so an absent configuration has to read as "unset" — the
+	 * webhook auth check fails closed on that.
+	 */
 	@Test
-	public void webhookCredentialsAreNullWhenUnset()
+	public void optionalGettersAreNullWhenChargebeeConfigMissing()
 	{
-		when(configuration.getString("chargebee.webhookUsername", null)).thenReturn(null);
-		when(configuration.getString("chargebee.webhookPassword", null)).thenReturn(null);
+		when(baseStore.getChargebeeConfig()).thenReturn(null);
 
+		assertNull(service.getGatewayAccountId());
+		assertNull(service.getWebhookUsername());
+		assertNull(service.getWebhookPassword());
+	}
+
+	@Test
+	public void optionalGettersAreNullWhenBaseStoreMissing()
+	{
+		when(baseStoreService.getCurrentBaseStore()).thenReturn(null);
+
+		assertNull(service.getGatewayAccountId());
+		assertNull(service.getConfiguredAdyenMerchantAccount());
+	}
+
+	@Test
+	public void blankOptionalAttributesAreTreatedAsUnset()
+	{
+		when(chargebeeConfig.getSubscriptionGatewayAccountId()).thenReturn("  ");
+		when(chargebeeConfig.getChargebeeWebhookUsername()).thenReturn("");
+		when(chargebeeConfig.getChargebeeWebhookPassword()).thenReturn("\t");
+
+		assertNull(service.getGatewayAccountId());
 		assertNull(service.getWebhookUsername());
 		assertNull(service.getWebhookPassword());
 	}

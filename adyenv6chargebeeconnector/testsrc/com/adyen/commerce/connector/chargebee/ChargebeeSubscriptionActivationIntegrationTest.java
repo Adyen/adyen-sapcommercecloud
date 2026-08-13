@@ -23,10 +23,15 @@ package com.adyen.commerce.connector.chargebee;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
 
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.configuration2.Configuration;
+import org.apache.commons.lang3.StringUtils;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -45,14 +50,19 @@ import com.adyen.commerce.connector.model.BillingSubscriptionRefModel;
 import com.adyen.commerce.connector.service.SubscriptionBillingService;
 import com.adyen.commerce.connector.spi.SubscriptionBillingConnector;
 
+import com.adyen.v6.model.ChargebeeConfigModel;
+
 import de.hybris.bootstrap.annotations.IntegrationTest;
+import de.hybris.platform.basecommerce.model.site.BaseSiteModel;
 import de.hybris.platform.core.model.c2l.CurrencyModel;
 import de.hybris.platform.core.model.order.OrderModel;
 import de.hybris.platform.core.model.order.payment.PaymentInfoModel;
 import de.hybris.platform.core.model.product.ProductModel;
 import de.hybris.platform.core.model.user.CustomerModel;
 import de.hybris.platform.servicelayer.ServicelayerTransactionalTest;
+import de.hybris.platform.servicelayer.config.ConfigurationService;
 import de.hybris.platform.servicelayer.model.ModelService;
+import de.hybris.platform.site.BaseSiteService;
 import de.hybris.platform.store.BaseStoreModel;
 
 import jakarta.annotation.Resource;
@@ -76,6 +86,12 @@ import jakarta.annotation.Resource;
  * ({@code adyenSelectedReference} = "H55RW4QG9F9SKTV5"): Chargebee validates the imported token live
  * against Adyen using {@code reference_id = shopperReference/recurringDetailReference}, so both halves of
  * that pair must match what Adyen actually has on file, regardless of which hybris tenant is calling.</p>
+ *
+ * <p>The fixture also builds the store's {@code ChargebeeConfig} and activates a {@code BaseSite}
+ * carrying that store: since AD-662 the connector reads its credentials from the CURRENT base store, and
+ * without an active site every call fails with "No current base store". The sandbox credentials
+ * themselves are not committed — they come from local configuration, and the whole class SKIPS when they
+ * are absent (see {@link #createChargebeeConfig()}).</p>
  *
  * <p>{@link ServicelayerTransactionalTest} rolls back all SAP persistence after the test method, so
  * re-running is safe on the SAP side. The remote Chargebee side effects are NOT rolled back: token import
@@ -102,6 +118,12 @@ public class ChargebeeSubscriptionActivationIntegrationTest extends Servicelayer
 
 	@Resource
 	private ModelService modelService;
+
+	@Resource
+	private BaseSiteService baseSiteService;
+
+	@Resource
+	private ConfigurationService configurationService;
 
 	private OrderModel order;
 	private ProductModel subProduct;
@@ -132,7 +154,18 @@ public class ChargebeeSubscriptionActivationIntegrationTest extends Servicelayer
 		store.setUid("test-store-" + unique);
 		store.setAdyenMerchantAccount(REAL_ADYEN_MERCHANT_ACCOUNT);
 		store.setActiveBillingPlatform(BillingPlatform.CHARGEBEE);
+		store.setChargebeeConfig(createChargebeeConfig());
 		modelService.save(store);
+
+		// DefaultChargebeeConfigService reads the configuration off baseStoreService.getCurrentBaseStore(),
+		// and DefaultBaseStoreSelectorStrategy resolves that from the current base site's stores. Without an
+		// active site there is no current store and every connector call fails with "No current base store",
+		// so the fixture has to put this store on a site and activate it.
+		final BaseSiteModel site = modelService.create(BaseSiteModel.class);
+		site.setUid("test-site-" + unique);
+		site.setStores(List.of(store));
+		modelService.save(site);
+		baseSiteService.setCurrentBaseSite(site, false);
 
 		final PaymentInfoModel paymentInfo = modelService.create(PaymentInfoModel.class);
 		paymentInfo.setCode("test-payment-" + unique);
@@ -158,6 +191,53 @@ public class ChargebeeSubscriptionActivationIntegrationTest extends Servicelayer
 		planMapping.setProductCode(subProduct.getCode());
 		planMapping.setItemPriceId(TEST_ITEM_PRICE_ID);
 		modelService.save(planMapping);
+	}
+
+	/**
+	 * ServicelayerTransactionalTest rolls back persistence but not the session, so the base site activated
+	 * in {@link #setUp()} would otherwise stay current for every later test in the same JVM.
+	 */
+	@After
+	public void clearCurrentBaseSite()
+	{
+		baseSiteService.setCurrentBaseSite((BaseSiteModel) null, false);
+	}
+
+	/**
+	 * The sandbox credentials moved out of {@code chargebee.*} properties and onto the base store, but a
+	 * test still needs them from somewhere, and they must not be committed. They are read from the local
+	 * configuration under the same keys the connector used before the migration, so an existing
+	 * local.properties keeps working; the test skips rather than fails when they are absent, because a
+	 * missing sandbox key is a "not set up here" condition, not a defect in the code under test.
+	 *
+	 * <p>{@code adyenGatewayMerchantAccount} deliberately mirrors the store's own merchant account: the R2
+	 * precondition compares the two, and this fixture is asserting the happy path through it.</p>
+	 */
+	protected ChargebeeConfigModel createChargebeeConfig()
+	{
+		final Configuration configuration = configurationService.getConfiguration();
+		final String site = StringUtils.trimToNull(configuration.getString("chargebee.site", null));
+		final String apiKey = StringUtils.trimToNull(configuration.getString("chargebee.apiKey", null));
+		final String gatewayAccountId =
+				StringUtils.trimToNull(configuration.getString("chargebee.gatewayAccountId", null));
+
+		// All three, not just the credentials: a blank gateway account id reaches Chargebee and comes back
+		// as an opaque 400 rather than as "you have not set this up".
+		assumeTrue("Chargebee sandbox is not configured locally (chargebee.site / chargebee.apiKey / "
+				+ "chargebee.gatewayAccountId) — this test talks to the live sandbox",
+				site != null && apiKey != null && gatewayAccountId != null);
+
+		final ChargebeeConfigModel config = modelService.create(ChargebeeConfigModel.class);
+		config.setSubscriptionSiteId(site);
+		config.setSubscriptionApiKey(apiKey);
+		config.setSubscriptionGatewayAccountId(gatewayAccountId);
+		config.setAdyenGatewayMerchantAccount(REAL_ADYEN_MERCHANT_ACCOUNT);
+		// Mandatory on ChargebeeConfig and unused by this test: nothing here receives a webhook.
+		config.setChargebeeWebhookUsername("integration-test");
+		config.setChargebeeWebhookPassword("integration-test");
+		modelService.save(config);
+
+		return config;
 	}
 
 	@Test
