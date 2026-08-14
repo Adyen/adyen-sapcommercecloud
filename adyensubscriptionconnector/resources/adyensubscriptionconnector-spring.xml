@@ -66,24 +66,28 @@
     </bean>
 
     <!-- ============================================================= -->
-    <!-- Place-order hook                                              -->
-    <!-- the only production caller of activateSubscription: turns a   -->
-    <!-- placed storefront order into a subscription on the store's    -->
-    <!-- active platform                                               -->
+    <!-- Order activation                                              -->
+    <!-- decides whether a placed order becomes a subscription;         -->
+    <!-- deliberately independent of what triggers it                  -->
     <!-- ============================================================= -->
-    <alias name="defaultSubscriptionActivationPlaceOrderMethodHook"
-           alias="subscriptionActivationPlaceOrderMethodHook"/>
-    <bean id="defaultSubscriptionActivationPlaceOrderMethodHook"
-          class="com.adyen.commerce.connector.hook.impl.DefaultSubscriptionActivationPlaceOrderMethodHook">
+    <alias name="defaultSubscriptionOrderActivator" alias="subscriptionOrderActivator"/>
+    <bean id="defaultSubscriptionOrderActivator"
+          class="com.adyen.commerce.connector.activation.impl.DefaultSubscriptionOrderActivator">
         <property name="subscriptionBillingService" ref="subscriptionBillingService"/>
         <property name="connectorRegistry" ref="subscriptionBillingConnectorRegistry"/>
     </bean>
 
-    <!-- Append to the platform's hook list rather than aliasing over an existing hook: several
-         extensions contribute to it, and replacing the alias would drop theirs. -->
-    <bean id="subscriptionActivationPlaceOrderMethodHookMergeDirective"
-          depends-on="commercePlaceOrderMethodHooks" parent="listMergeDirective">
-        <property name="add" ref="subscriptionActivationPlaceOrderMethodHook"/>
+    <!-- ============================================================= -->
+    <!-- Activation trigger                                            -->
+    <!-- fires on Adyen's AUTHORISATION notification, which is the      -->
+    <!-- first moment the token is on the order AND the payment is      -->
+    <!-- confirmed                                                     -->
+    <!-- ============================================================= -->
+    <bean id="subscriptionActivationAuthorisationEventListener"
+          class="com.adyen.commerce.connector.listener.SubscriptionActivationAuthorisationEventListener"
+          parent="abstractEventListener">
+        <property name="subscriptionOrderActivator" ref="subscriptionOrderActivator"/>
+        <property name="orderRepository" ref="adyenOrderRepository"/>
     </bean>
 
 </beans>
