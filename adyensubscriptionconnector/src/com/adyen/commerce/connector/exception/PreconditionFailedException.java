@@ -22,7 +22,7 @@ package com.adyen.commerce.connector.exception;
 
 /**
  * A required precondition was not met before calling the platform &mdash; e.g. the connector's Adyen
- * merchant account does not match the store's (design R2), or a required NTID is missing.
+ * merchant account does not match the store's, or a required NTID is missing.
  */
 public class PreconditionFailedException extends TerminalBillingException
 {

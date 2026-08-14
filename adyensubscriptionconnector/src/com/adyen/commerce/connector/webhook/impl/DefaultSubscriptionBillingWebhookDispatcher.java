@@ -72,8 +72,8 @@ import de.hybris.platform.servicelayer.search.FlexibleSearchService;
  * <p>Where ordering is genuinely undecidable — two distinct events bearing the same platform timestamp,
  * which Chargebee's whole-second granularity makes realistic — this does not guess. It applies neither,
  * and clears {@code lastSyncedAt} so the pull-based reconciliation sweep re-fetches authoritative state.
- * That sweep is P4.1b; until it exists, such a ref stays at the first-applied value and is flagged in
- * the log. Retry and dead-letter handling for {@code FAILED} events is P4.4.
+ * That sweep does not exist yet; until it does, such a ref stays at the first-applied value and is
+ * flagged in the log. Retry and dead-letter handling for {@code FAILED} events is likewise still to come.
  */
 public class DefaultSubscriptionBillingWebhookDispatcher implements SubscriptionBillingWebhookDispatcher
 {
@@ -146,8 +146,9 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 		}
 		catch (final RuntimeException | BillingException e)
 		{
-			// Left non-terminal on purpose so a redelivery is still processed. P4.4 turns repeated
-			// failures into a dead letter; today the platform's own retry is the recovery path.
+			// Left non-terminal on purpose so a redelivery is still processed. Turning repeated
+			// failures into a dead letter is still to come; today the platform's own retry is the
+			// recovery path.
 			LOG.error("Failed to apply {} event '{}' on platform {}", event.type(), dedupKey, event.platform(), e);
 			record.setProcessingStatus(PROCESSING_FAILED);
 			record.setLastError(describe(e));

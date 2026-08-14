@@ -54,6 +54,11 @@
             <value code="PAYMENT_PENDING"/>
             <value code="CHARGEBACK"/>
         </enumtype>
+        <!-- There is deliberately no subscription-platform enum here. Which billing platform a store
+             uses is BillingPlatform / BaseStore.activeBillingPlatform, declared by
+             adyensubscriptionconnector: it is the value the connector registry actually routes on
+             (DefaultSubscriptionBillingConnectorRegistry.getActiveConnector) and it carries the
+             ADYEN_NATIVE case. A second enum here could only ever disagree with it. -->
         <enumtype code="AdyenRegions" dynamic="true">
             <value code="EU"/>
             <value code="US"/>
@@ -266,7 +271,11 @@
                 </attribute>
                 <attribute qualifier="adyenNotificationPassword" type="java.lang.String">
                     <description>Server Communication HTTP Basic password</description>
-                    <persistence type="property"/>
+                    <persistence type="property">
+                        <columntype>
+                            <value>varchar(1024)</value>
+                        </columntype>
+                    </persistence>
                     <modifiers encrypted="true"/>
                 </attribute>
                 <attribute qualifier="adyenNotificationHMACKey" type="java.lang.String">
@@ -387,6 +396,19 @@
                     <persistence type="property" />
                     <modifiers optional="true" />
                     <defaultvalue>Boolean.FALSE</defaultvalue>
+                </attribute>
+                <!-- Which platform is active lives on BaseStore.activeBillingPlatform
+                     (adyensubscriptionconnector). Only the per-platform credentials are held here, and
+                     holding all three at once is intentional: switching platforms, or running a
+                     migration across two of them, must not require retyping the other's API key. -->
+                <attribute qualifier="recurlyConfig" type="RecurlyConfig">
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="chargebeeConfig" type="ChargebeeConfig">
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="zuoraConfig" type="ZuoraConfig">
+                    <persistence type="property"/>
                 </attribute>
             </attributes>
         </itemtype>
@@ -956,6 +978,96 @@
                     <persistence type="property"/>
                 </attribute>
             </attributes>
+        </itemtype>
+
+        <itemtype code="AdyenSubscriptionConfig" autocreate="true" generate="true">
+            <description>Adyen Subscription Configuration</description>
+            <deployment table="AdyenSubscriptionConfig" typecode="10103"/>
+            <attributes>
+                <attribute qualifier="subscriptionApiKey" type="java.lang.String">
+                    <description>Subscription API Key</description>
+                    <!-- Encrypted values are ciphertext + encoding, so they need far more room than the
+                         cleartext key. varchar(1024) matches BaseStore.adyenAPIKey; widening later would
+                         need a manual ALTER on every environment, an update system does not do it. -->
+                    <persistence type="property">
+                        <columntype>
+                            <value>varchar(1024)</value>
+                        </columntype>
+                    </persistence>
+                    <modifiers encrypted="true" optional="false"/>
+                </attribute>
+                <attribute qualifier="subscriptionSiteId" type="java.lang.String">
+                    <description>Subscription Site ID</description>
+                    <modifiers optional="false"/>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="subscriptionGatewayAccountId" type="java.lang.String">
+                    <description>Subscription Gateway Account ID</description>
+                    <modifiers optional="false"/>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="adyenGatewayMerchantAccount" type="java.lang.String">
+                    <!-- Deliberately NOT BaseStore.adyenMerchantAccount. This is the account the
+                         platform's own Adyen gateway is configured with, on the vendor's side. The
+                         guard compares the two to catch them diverging, so sourcing both from the store
+                         would make the comparison compare a value with itself and never fail. -->
+                    <description>Adyen merchant account the subscription platform's Adyen gateway is bound to (gateway-binding check)</description>
+                    <!-- Optional at the type level: ZuoraConfig inherits this and has no connector, and a
+                         mandatory attribute with no default makes every pre-existing row unsaveable after an
+                         update system. The connectors' own verifyMerchantAccount refuses a blank, so an
+                         unset value still fails closed at token import. -->
+                    <modifiers optional="true"/>
+                    <persistence type="property"/>
+                </attribute>
+            </attributes>
+        </itemtype>
+
+        <itemtype code="RecurlyConfig" autocreate="true" generate="true" extends="AdyenSubscriptionConfig">
+            <attributes>
+                <attribute qualifier="recurlyWebhookSigningKey" type="java.lang.String">
+                    <description>Recurly Webhook Signing Key</description>
+                    <persistence type="property">
+                        <columntype>
+                            <value>varchar(1024)</value>
+                        </columntype>
+                    </persistence>
+                    <modifiers encrypted="true" optional="false"/>
+                </attribute>
+                <attribute qualifier="walletEnabled" type="java.lang.boolean">
+                    <description>Wallet Enabled</description>
+                    <modifiers optional="false"/>
+                    <persistence type="property"/>
+                   <defaultvalue>Boolean.FALSE</defaultvalue>
+                </attribute>
+                <attribute qualifier="externalNtidFeatureEnabled" type="java.lang.boolean">
+                    <description>External Ntid Feature Enabled</description>
+                    <modifiers optional="false"/>
+                    <persistence type="property"/>
+                    <defaultvalue>Boolean.FALSE</defaultvalue>
+                </attribute>
+            </attributes>
+        </itemtype>
+
+        <itemtype code="ChargebeeConfig" autocreate="true" generate="true" extends="AdyenSubscriptionConfig">
+            <attributes>
+                <attribute qualifier="chargebeeWebhookPassword" type="java.lang.String">
+                    <description>Chargebee Webhook Password</description>
+                    <persistence type="property">
+                        <columntype>
+                            <value>varchar(1024)</value>
+                        </columntype>
+                    </persistence>
+                    <modifiers encrypted="true" optional="false"/>
+                </attribute>
+                <attribute qualifier="chargebeeWebhookUsername" type="java.lang.String">
+                    <description>Chargebee Webhook Username</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false"/>
+                </attribute>
+            </attributes>
+        </itemtype>
+
+        <itemtype code="ZuoraConfig" autocreate="true" generate="true" extends="AdyenSubscriptionConfig">
         </itemtype>
     </itemtypes>
 </items>

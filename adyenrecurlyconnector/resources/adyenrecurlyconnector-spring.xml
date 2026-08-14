@@ -9,6 +9,7 @@
     <bean id="defaultRecurlyConfigService"
           class="com.adyen.commerce.connector.recurly.config.impl.DefaultRecurlyConfigService">
         <constructor-arg name="configurationService" ref="configurationService"/>
+        <constructor-arg name="baseStoreService" ref="baseStoreService"/>
     </bean>
 
     <alias name="defaultRecurlyHttpClient" alias="recurlyHttpClient"/>

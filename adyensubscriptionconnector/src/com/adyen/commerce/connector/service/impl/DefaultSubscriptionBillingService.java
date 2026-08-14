@@ -99,10 +99,10 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 
 		final SubscriptionBillingConnector connector = connectorRegistry.getActiveConnector(store);
 
-		// Design R2: the connector's Adyen account must match the store's, else the token is uncharged.
+		// The connector's Adyen account must match the store's, else the token is uncharged.
 		merchantAccountValidator.validate(connector, store);
 
-		// Idempotency (seed for design P4.4): never create a second subscription for the same order/platform.
+		// Idempotency: never create a second subscription for the same order/platform.
 		final Optional<BillingSubscriptionRefModel> existing = findSubscriptionRef(order, connector.platform());
 		if (existing.isPresent())
 		{
@@ -114,7 +114,7 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 		final AdyenTokenHandle token = tokenHandleFactory.create(order);
 		final ConnectorCapabilities caps = connector.capabilities();
 
-		// Design P1.7: branch on capabilities, not platform identity.
+		// Branch on capabilities, not platform identity.
 		if (caps.requiresNetworkTransactionId() && !token.hasNetworkTransactionId())
 		{
 			throw new PreconditionFailedException("Connector " + connector.platform()
