@@ -88,7 +88,7 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
     }
 
     @Override
-    public String configuredAdyenMerchantAccount() throws ConnectorNotConfiguredException {
+    public String configuredAdyenMerchantAccount() {
         return configService.getConfiguredAdyenMerchantAccount();
     }
 
@@ -346,7 +346,6 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
         }
     }
 
-    protected void verifyExternalNtidSupport() throws BillingException {
     protected void verifyExternalNtidSupport()
             throws PreconditionFailedException, ConnectorNotConfiguredException {
         if (!configService.isExternalNtidFeatureEnabled()) {
