@@ -18,7 +18,7 @@
  *  This file is open source and available under the MIT license.
  *  See the LICENSE file for more info.
  */
-package com.adyen.commerce.connector.hook.impl;
+package com.adyen.commerce.connector.activation.impl;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
@@ -48,19 +48,18 @@ import com.adyen.commerce.connector.service.SubscriptionBillingService;
 import com.adyen.commerce.connector.spi.SubscriptionBillingConnector;
 
 import de.hybris.bootstrap.annotations.UnitTest;
-import de.hybris.platform.commerceservices.service.data.CommerceCheckoutParameter;
-import de.hybris.platform.commerceservices.service.data.CommerceOrderResult;
 import de.hybris.platform.core.model.order.AbstractOrderEntryModel;
 import de.hybris.platform.core.model.order.OrderModel;
 import de.hybris.platform.core.model.product.ProductModel;
+import de.hybris.platform.servicelayer.exceptions.ModelSavingException;
 import de.hybris.platform.store.BaseStoreModel;
 
 /**
- * Unit test for {@link DefaultSubscriptionActivationPlaceOrderMethodHook} — which orders activate a
+ * Unit test for {@link DefaultSubscriptionOrderActivator} — which orders activate a
  * subscription, which are left alone, and the guarantee that nothing ever escapes into the checkout.
  */
 @UnitTest
-public class DefaultSubscriptionActivationPlaceOrderMethodHookTest
+public class DefaultSubscriptionOrderActivatorTest
 {
 	private static final String SUB_PRODUCT = "sub-product";
 	private static final String PLAIN_PRODUCT = "plain-product";
@@ -72,26 +71,21 @@ public class DefaultSubscriptionActivationPlaceOrderMethodHookTest
 	@Mock
 	private SubscriptionBillingConnector connector;
 	@Mock
-	private CommerceCheckoutParameter parameter;
-	@Mock
-	private CommerceOrderResult result;
-	@Mock
 	private OrderModel order;
 	@Mock
 	private BaseStoreModel store;
 
-	private DefaultSubscriptionActivationPlaceOrderMethodHook hook;
+	private DefaultSubscriptionOrderActivator activator;
 
 	@Before
 	public void setUp() throws Exception
 	{
 		MockitoAnnotations.openMocks(this);
 
-		hook = new DefaultSubscriptionActivationPlaceOrderMethodHook();
-		hook.setSubscriptionBillingService(subscriptionBillingService);
-		hook.setConnectorRegistry(connectorRegistry);
+		activator = new DefaultSubscriptionOrderActivator();
+		activator.setSubscriptionBillingService(subscriptionBillingService);
+		activator.setConnectorRegistry(connectorRegistry);
 
-		when(result.getOrder()).thenReturn(order);
 		when(order.getCode()).thenReturn("order-1");
 		when(order.getStore()).thenReturn(store);
 		when(store.getUid()).thenReturn("electronics");
@@ -115,9 +109,23 @@ public class DefaultSubscriptionActivationPlaceOrderMethodHookTest
 	{
 		givenEntries(product(SUB_PRODUCT));
 
-		hook.afterPlaceOrder(parameter, result);
+		activator.activateFor(order);
 
 		verify(subscriptionBillingService).activateSubscription(order, entryProduct(SUB_PRODUCT));
+	}
+
+	/**
+	 * The unique index on (order, platform) is what actually stops two notifications for the same order
+	 * from both creating a subscription; losing that race is normal, not a failure to report.
+	 */
+	@Test
+	public void treatsALostRaceAsNothingToDo() throws Exception
+	{
+		givenEntries(product(SUB_PRODUCT));
+		doThrow(new ModelSavingException("unique index violated")).when(subscriptionBillingService)
+				.activateSubscription(any(), any());
+
+		activator.activateFor(order);
 	}
 
 	@Test
@@ -125,7 +133,7 @@ public class DefaultSubscriptionActivationPlaceOrderMethodHookTest
 	{
 		givenEntries(product(PLAIN_PRODUCT), product("another-plain"));
 
-		hook.afterPlaceOrder(parameter, result);
+		activator.activateFor(order);
 
 		verifyNoInteractions(subscriptionBillingService);
 	}
@@ -140,7 +148,7 @@ public class DefaultSubscriptionActivationPlaceOrderMethodHookTest
 		when(connector.resolvePlan(any(PlanResolutionRequest.class))).thenReturn(new PlanRef("plan-1", null));
 		givenEntries(product("sub-a"), product("sub-b"));
 
-		hook.afterPlaceOrder(parameter, result);
+		activator.activateFor(order);
 
 		verify(subscriptionBillingService, times(1)).activateSubscription(any(), any());
 	}
@@ -150,7 +158,7 @@ public class DefaultSubscriptionActivationPlaceOrderMethodHookTest
 	{
 		givenEntries(product(SUB_PRODUCT), product(SUB_PRODUCT));
 
-		hook.afterPlaceOrder(parameter, result);
+		activator.activateFor(order);
 
 		verify(subscriptionBillingService, times(1)).activateSubscription(order, entryProduct(SUB_PRODUCT));
 	}
@@ -161,7 +169,7 @@ public class DefaultSubscriptionActivationPlaceOrderMethodHookTest
 		when(store.getActiveBillingPlatform()).thenReturn(null);
 		givenEntries(product(SUB_PRODUCT));
 
-		hook.afterPlaceOrder(parameter, result);
+		activator.activateFor(order);
 
 		verify(connectorRegistry, never()).getActiveConnector(any());
 		verifyNoInteractions(subscriptionBillingService);
@@ -173,17 +181,15 @@ public class DefaultSubscriptionActivationPlaceOrderMethodHookTest
 		when(order.getStore()).thenReturn(null);
 		givenEntries(product(SUB_PRODUCT));
 
-		hook.afterPlaceOrder(parameter, result);
+		activator.activateFor(order);
 
 		verifyNoInteractions(subscriptionBillingService);
 	}
 
 	@Test
-	public void doesNothingWhenThereIsNoOrder() throws Exception
+	public void doesNothingForANullOrder() throws Exception
 	{
-		when(result.getOrder()).thenReturn(null);
-
-		hook.afterPlaceOrder(parameter, result);
+		activator.activateFor(null);
 
 		verifyNoInteractions(subscriptionBillingService);
 	}
@@ -199,7 +205,7 @@ public class DefaultSubscriptionActivationPlaceOrderMethodHookTest
 		doThrow(new RetryableBillingException("Chargebee is down")).when(subscriptionBillingService)
 				.activateSubscription(any(), any());
 
-		hook.afterPlaceOrder(parameter, result);
+		activator.activateFor(order);
 	}
 
 	@Test
@@ -209,7 +215,7 @@ public class DefaultSubscriptionActivationPlaceOrderMethodHookTest
 		when(connectorRegistry.getActiveConnector(store))
 				.thenThrow(new ConnectorNotConfiguredException("no connector for CHARGEBEE"));
 
-		hook.afterPlaceOrder(parameter, result);
+		activator.activateFor(order);
 
 		verifyNoInteractions(subscriptionBillingService);
 	}
@@ -220,7 +226,7 @@ public class DefaultSubscriptionActivationPlaceOrderMethodHookTest
 		givenEntries(product(SUB_PRODUCT));
 		when(order.getEntries()).thenThrow(new IllegalStateException("boom"));
 
-		hook.afterPlaceOrder(parameter, result);
+		activator.activateFor(order);
 	}
 
 	/**
@@ -234,7 +240,7 @@ public class DefaultSubscriptionActivationPlaceOrderMethodHookTest
 				.thenThrow(new RetryableBillingException("resolver exploded"));
 		givenEntries(product(SUB_PRODUCT));
 
-		hook.afterPlaceOrder(parameter, result);
+		activator.activateFor(order);
 
 		verifyNoInteractions(subscriptionBillingService);
 	}
@@ -248,16 +254,15 @@ public class DefaultSubscriptionActivationPlaceOrderMethodHookTest
 		when(blankCode.getProduct()).thenReturn(blank);
 		when(order.getEntries()).thenReturn(List.of(noProduct, blankCode));
 
-		hook.afterPlaceOrder(parameter, result);
+		activator.activateFor(order);
 
 		verifyNoInteractions(subscriptionBillingService);
 	}
 
 	@Test
-	public void theOtherTwoHookMethodsDoNothing() throws Exception
+	public void aNullOrderDoesNothing() throws Exception
 	{
-		hook.beforePlaceOrder(parameter);
-		hook.beforeSubmitOrder(parameter, result);
+		activator.activateFor(null);
 
 		verify(connectorRegistry, never()).getActiveConnector(any());
 		verifyNoInteractions(subscriptionBillingService);
@@ -268,7 +273,7 @@ public class DefaultSubscriptionActivationPlaceOrderMethodHookTest
 	{
 		givenEntries(product(SUB_PRODUCT), product(SUB_PRODUCT), product(PLAIN_PRODUCT));
 
-		hook.afterPlaceOrder(parameter, result);
+		activator.activateFor(order);
 
 		verify(connector, times(2)).resolvePlan(any(PlanResolutionRequest.class));
 	}
@@ -310,7 +315,7 @@ public class DefaultSubscriptionActivationPlaceOrderMethodHookTest
 	{
 		givenEntries(product(PLAIN_PRODUCT));
 
-		hook.afterPlaceOrder(parameter, result);
+		activator.activateFor(order);
 
 		verify(subscriptionBillingService, never()).activateSubscription(any(), any());
 	}
