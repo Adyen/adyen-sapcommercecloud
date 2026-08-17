@@ -2,7 +2,7 @@ INSERT_UPDATE ServicelayerJob;code[unique=true];springId
 ;subscriptionReconciliationJob;subscriptionReconciliationJob
 
 INSERT_UPDATE CronJob;code[unique=true];job(code);singleExecutable;sessionLanguage(isocode)
-;subscriptionReconciliationCronJob;subscriptionReconciliationJob;true;en
+;subscriptionReconciliationCronJob;subscriptionReconciliationJob;false;en
 
 INSERT_UPDATE Trigger;cronjob(code)[unique=true];cronExpression
 ;subscriptionReconciliationCronJob;0 0/15 * * * ?

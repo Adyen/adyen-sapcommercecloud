@@ -63,6 +63,7 @@ import com.adyen.commerce.connector.exception.PreconditionFailedException;
 import com.adyen.commerce.connector.model.BillingCustomerRefModel;
 import com.adyen.commerce.connector.model.BillingPaymentMethodRefModel;
 import com.adyen.commerce.connector.model.BillingSubscriptionRefModel;
+import com.adyen.commerce.connector.reconciliation.SubscriptionReconciliationService;
 import com.adyen.commerce.connector.registry.SubscriptionBillingConnectorRegistry;
 import com.adyen.commerce.connector.spi.SubscriptionBillingConnector;
 import com.adyen.commerce.connector.token.AdyenTokenHandleFactory;
@@ -105,6 +106,8 @@ public class DefaultSubscriptionBillingServiceTest
 	@Mock
 	private EventService eventService;
 	@Mock
+	private SubscriptionReconciliationService reconciliationService;
+	@Mock
 	private SubscriptionBillingConnector connector;
 	@Mock
 	private AbstractOrderModel order;
@@ -135,6 +138,7 @@ public class DefaultSubscriptionBillingServiceTest
 		service.setModelService(modelService);
 		service.setFlexibleSearchService(flexibleSearchService);
 		service.setEventService(eventService);
+		service.setReconciliationService(reconciliationService);
 		service.setClock(Clock.fixed(Instant.parse("2026-06-25T10:00:00Z"), ZoneOffset.UTC));
 
 		when(order.getStore()).thenReturn(store);
@@ -188,6 +192,7 @@ public class DefaultSubscriptionBillingServiceTest
 
 		verify(result).setExternalSubscriptionId("sub-ext");
 		verify(modelService).save(result);
+		verify(reconciliationService, never()).reconcile(any());
 		verify(eventService).publishEvent(any(SubscriptionActivatedEvent.class));
 	}
 

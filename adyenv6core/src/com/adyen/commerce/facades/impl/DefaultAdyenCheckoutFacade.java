@@ -584,16 +584,23 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     protected OrderData createOrderFromPaymentResponse(final PaymentResponse paymentsResponse) throws InvalidCartException {
         LOGGER.debug("Create order from paymentsResponse: {}", paymentsResponse.getPspReference());
 
-        OrderData orderData = getCheckoutFacade().placeOrder();
-
-        OrderModel orderModel = orderRepository.getOrderModel(orderData.getCode());
-
         String paymentType = "";
         if (paymentsResponse.getPaymentMethod() != null) {
             paymentType = paymentsResponse.getPaymentMethod().getType();
         }
 
         Map<String, String> additionalData = paymentsResponse.getAdditionalData();
+
+        // CommercePlaceOrderMethodHook.afterPlaceOrder runs inside placeOrder(). Persist the token and
+        // networkTxReference on the cart first so the PaymentInfo copied to the new order is complete
+        // when subscription activation executes. Keep the post-order update below as a defensive write
+        // for order-cloning strategies that replace PaymentInfo rather than copying its attributes.
+        CartModel cartModel = getCartService().getSessionCart();
+        getAdyenOrderService().updatePaymentInfo(cartModel, paymentType, additionalData);
+
+        OrderData orderData = getCheckoutFacade().placeOrder();
+
+        OrderModel orderModel = orderRepository.getOrderModel(orderData.getCode());
 
         getAdyenOrderService().updatePaymentInfo(orderModel, paymentType, additionalData);
         getAdyenOrderService().storeFraudReport(orderModel, paymentsResponse.getPspReference(), paymentsResponse.getFraudResult());

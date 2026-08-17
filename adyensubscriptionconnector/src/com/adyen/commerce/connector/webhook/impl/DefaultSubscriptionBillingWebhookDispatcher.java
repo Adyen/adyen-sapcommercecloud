@@ -24,14 +24,13 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
-import java.time.Instant;
 import java.util.Date;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-import com.adyen.commerce.connector.reconciliation.SubscriptionReconciliationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,8 +39,11 @@ import com.adyen.commerce.connector.dto.NormalizedBillingEvent;
 import com.adyen.commerce.connector.dto.RawWebhook;
 import com.adyen.commerce.connector.enums.BillingPlatform;
 import com.adyen.commerce.connector.exception.BillingException;
+import com.adyen.commerce.connector.exception.RetryableBillingException;
 import com.adyen.commerce.connector.model.BillingSubscriptionRefModel;
+import com.adyen.commerce.connector.model.BillingWebhookEventApplicationModel;
 import com.adyen.commerce.connector.model.BillingWebhookEventModel;
+import com.adyen.commerce.connector.reconciliation.SubscriptionReconciliationService;
 import com.adyen.commerce.connector.registry.SubscriptionBillingConnectorRegistry;
 import com.adyen.commerce.connector.spi.SubscriptionBillingConnector;
 import com.adyen.commerce.connector.webhook.SubscriptionBillingWebhookDispatcher;
@@ -51,54 +53,34 @@ import de.hybris.platform.servicelayer.search.FlexibleSearchQuery;
 import de.hybris.platform.servicelayer.search.FlexibleSearchService;
 
 /**
- * Default dispatcher. Verifies and normalizes an inbound webhook via the connector, then applies it to
- * the local {@code BillingSubscriptionRef} under the agreed source-of-truth rule: <b>the billing
- * platform is authoritative for subscription status; the local status is a projection of it and never
- * authoritative.</b>
+ * Verifies and deduplicates an inbound webhook, resolves the subscriptions it concerns and then reads
+ * each subscription's current authoritative state from the billing platform.
  *
- * <p>Three rules decide whether a delivery may be applied:
- * <ol>
- * <li><b>Duplicate</b> — every delivery is recorded as a {@code BillingWebhookEvent} keyed on the
- * platform's own event id. A redelivery of an id that already reached a terminal outcome is a no-op.
- * The unique index on {@code (platform, eventId)} — not the lookup — is what actually guarantees this,
- * so two concurrent deliveries cannot both apply.</li>
- * <li><b>Stale</b> — an event older than the last applied one is discarded rather than applied, so a
- * late-arriving old event cannot overwrite newer platform state.</li>
- * <li><b>Projection</b> — an accepted event maps the platform's state onto the ref and advances the
- * watermark ({@code lastAppliedEventAt}/{@code lastAppliedEventId}/{@code eventVersion}). Only events
- * that actually carry a status take part: the stale and ordering rules are about competing status
- * claims, so an event mapping to no status is recorded and otherwise left to one side.</li>
- * </ol>
+ * <p>The webhook is deliberately never projected directly onto a local status. A payment failure is a
+ * transaction fact, an invoice past-due event is an invoice fact, and even a subscription-created event
+ * can describe a future-dated subscription. The event therefore says only "this resource may have
+ * changed"; {@link SubscriptionReconciliationService} decides the resulting local state from a live
+ * platform snapshot.</p>
  *
- * <p>Where ordering is genuinely undecidable — two distinct events bearing the same platform timestamp,
- * which Chargebee's whole-second granularity makes realistic — this does not guess. It applies neither,
- * and clears {@code lastSyncedAt} so the pull-based reconciliation sweep re-fetches authoritative state.
- * That sweep does not exist yet; until it does, such a ref stays at the first-applied value and is
- * flagged in the log. Retry and dead-letter handling for {@code FAILED} events is likewise still to come.
+ * <p>Delivery ordering is not a state rule. An old cancellation arriving after a reactivation still
+ * triggers a read of the current subscription, which converges to the reactivated state. The platform
+ * event id remains the deduplication key, while {@code BillingWebhookEventApplication} records the
+ * independent result for every subscription behind a multi-subscription invoice.</p>
  */
 public class DefaultSubscriptionBillingWebhookDispatcher implements SubscriptionBillingWebhookDispatcher
 {
 	private static final Logger LOG = LoggerFactory.getLogger(DefaultSubscriptionBillingWebhookDispatcher.class);
 
 	protected static final String PROCESSING_RECEIVED = "RECEIVED";
-	protected static final String PROCESSING_APPLIED = "APPLIED";
-	protected static final String PROCESSING_SKIPPED_STALE = "SKIPPED_STALE";
-	protected static final String PROCESSING_SKIPPED_AMBIGUOUS = "SKIPPED_AMBIGUOUS";
+	protected static final String PROCESSING_RECONCILED = "RECONCILED";
+	protected static final String PROCESSING_SKIPPED_NO_SUBSCRIPTION = "SKIPPED_NO_SUBSCRIPTION";
+	protected static final String PROCESSING_SKIPPED_UNSUPPORTED = "SKIPPED_UNSUPPORTED";
 	protected static final String PROCESSING_SKIPPED_UNKNOWN_SUBSCRIPTION = "SKIPPED_UNKNOWN_SUBSCRIPTION";
+	protected static final String PROCESSING_RETRYABLE_UNKNOWN_SUBSCRIPTION = "RETRYABLE_UNKNOWN_SUBSCRIPTION";
 	protected static final String PROCESSING_FAILED = "FAILED";
 
-	/**
-	 * Outcomes that mean "this delivery is finished, do not process it again". {@code RECEIVED} and
-	 * {@code FAILED} are deliberately absent: an attempt that never reached a verdict must stay eligible
-	 * for the platform's own redelivery, otherwise a transient failure would be silently swallowed
-	 * forever by the dedup check that was supposed to protect us.
-	 */
-	private static final Set<String> TERMINAL_OUTCOMES = Set.of(PROCESSING_APPLIED, PROCESSING_SKIPPED_STALE,
-			PROCESSING_SKIPPED_AMBIGUOUS, PROCESSING_SKIPPED_UNKNOWN_SUBSCRIPTION);
-
-	/** Weakest to strongest; see {@link #strongest(String, String)}. */
-	private static final List<String> OUTCOME_PRECEDENCE = List.of(PROCESSING_SKIPPED_UNKNOWN_SUBSCRIPTION,
-			PROCESSING_SKIPPED_STALE, PROCESSING_SKIPPED_AMBIGUOUS, PROCESSING_APPLIED);
+	private static final Set<String> TERMINAL_OUTCOMES = Set.of(PROCESSING_RECONCILED,
+			PROCESSING_SKIPPED_NO_SUBSCRIPTION, PROCESSING_SKIPPED_UNSUPPORTED);
 
 	private SubscriptionBillingConnectorRegistry connectorRegistry;
 	private FlexibleSearchService flexibleSearchService;
@@ -132,11 +114,10 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 			return;
 		}
 
-		// Claim the id before touching subscription state. On a concurrent double delivery one of the two
-		// saves loses on the unique index, and that loser must not go on to apply the event a second time.
 		final BillingWebhookEventModel record = alreadySeen.orElseGet(() -> newEventRecord(event, dedupKey));
 		record.setAttemptCount(attemptCount(record) + 1);
 		record.setProcessingStatus(PROCESSING_RECEIVED);
+		record.setLastError(null);
 		if (!claim(record, event, dedupKey))
 		{
 			return;
@@ -148,10 +129,7 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 		}
 		catch (final RuntimeException | BillingException e)
 		{
-			// Left non-terminal on purpose so a redelivery is still processed. Turning repeated
-			// failures into a dead letter is still to come; today the platform's own retry is the
-			// recovery path.
-			LOG.error("Failed to apply {} event '{}' on platform {}", event.type(), dedupKey, event.platform(), e);
+			LOG.error("Failed to reconcile {} event '{}' on platform {}", event.type(), dedupKey, event.platform(), e);
 			record.setProcessingStatus(PROCESSING_FAILED);
 			record.setLastError(describe(e));
 			modelService.save(record);
@@ -159,16 +137,9 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 		}
 	}
 
-	/**
-	 * Persists the dedup row, which is how this delivery claims the event id.
-	 *
-	 * <p>A failure here is only treated as "another delivery got there first" if the row really is there
-	 * afterwards. Anything else — a lock timeout, a dropped connection, a truncation — is rethrown. Reading
-	 * every save failure as a lost race would be worse than the race it guards against: the caller would
-	 * answer the platform with a success, the platform would never redeliver, and no row would exist to
-	 * show that anything was lost.
-	 */
-	protected boolean claim(final BillingWebhookEventModel record, final NormalizedBillingEvent event, final String dedupKey)
+	/** Claims the platform event id before any remote lookup or local subscription update. */
+	protected boolean claim(final BillingWebhookEventModel record, final NormalizedBillingEvent event,
+			final String dedupKey)
 	{
 		try
 		{
@@ -183,8 +154,6 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 						event.type(), dedupKey, event.platform(), e);
 				return false;
 			}
-			LOG.error("Could not record {} event '{}' on platform {}; failing so the platform redelivers",
-					event.type(), dedupKey, event.platform(), e);
 			throw e;
 		}
 	}
@@ -195,41 +164,94 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 		final List<String> subscriptionIds = resolveSubscriptionIds(event, connector);
 		if (subscriptionIds.isEmpty())
 		{
-			LOG.warn("Received {} event '{}' on platform {} that names no subscription and could not be resolved to one",
-					event.type(), record.getEventId(), event.platform());
-			record.setProcessingStatus(PROCESSING_SKIPPED_UNKNOWN_SUBSCRIPTION);
+			final String outcome = event.type() == BillingEventType.UNKNOWN
+					? PROCESSING_SKIPPED_UNSUPPORTED
+					: PROCESSING_SKIPPED_NO_SUBSCRIPTION;
+			record.setProcessingStatus(outcome);
 			modelService.save(record);
 			return;
 		}
 
-		String outcome = null;
+		boolean reconciledAny = false;
 		for (final String subscriptionId : subscriptionIds)
 		{
+			final BillingWebhookEventApplicationModel application = findApplication(record, subscriptionId)
+					.orElseGet(() -> newApplication(record, subscriptionId));
+			application.setAttemptCount(applicationAttemptCount(application) + 1);
+			application.setProcessingStatus(PROCESSING_RECEIVED);
+			application.setLastError(null);
+			modelService.save(application);
+
 			final Optional<BillingSubscriptionRefModel> found = findByExternalId(event.platform(), subscriptionId);
 			if (found.isEmpty())
 			{
-				LOG.warn("Received {} event for unknown subscription {} on platform {}", event.type(), subscriptionId,
-						event.platform());
-				outcome = strongest(outcome, PROCESSING_SKIPPED_UNKNOWN_SUBSCRIPTION);
+				handleUnknownSubscription(event, application, subscriptionId);
 				continue;
 			}
+
 			final BillingSubscriptionRefModel ref = found.get();
+			application.setSubscriptionRef(ref);
 			if (record.getSubscriptionRef() == null)
 			{
 				record.setSubscriptionRef(ref);
 			}
-			outcome = strongest(outcome, applyToRef(event, ref, record));
+
+			try
+			{
+				final Projection before = Projection.from(ref);
+				reconciliationService.reconcile(ref);
+				markReconciled(event, record, ref, before.differsFrom(ref));
+
+				application.setProcessingStatus(PROCESSING_RECONCILED);
+				application.setReconciledAt(now());
+				application.setLastError(null);
+				modelService.save(application);
+				reconciledAny = true;
+			}
+			catch (final RuntimeException | BillingException e)
+			{
+				application.setProcessingStatus(PROCESSING_FAILED);
+				application.setLastError(describe(e));
+				modelService.save(application);
+				throw e;
+			}
 		}
 
-		record.setProcessingStatus(outcome);
+		record.setProcessingStatus(reconciledAny ? PROCESSING_RECONCILED : PROCESSING_SKIPPED_NO_SUBSCRIPTION);
+		record.setLastError(null);
 		modelService.save(record);
 	}
 
-	/**
-	 * The subscriptions this event applies to. An event that names its own subscription is taken at its
-	 * word; only one that does not costs a connector round-trip — and by this point the event id is
-	 * already claimed, so a redelivery never pays for that lookup twice.
-	 */
+	protected void handleUnknownSubscription(final NormalizedBillingEvent event,
+			final BillingWebhookEventApplicationModel application, final String subscriptionId)
+			throws RetryableBillingException
+	{
+		if (isDirectSubscriptionEvent(event))
+		{
+			application.setProcessingStatus(PROCESSING_RETRYABLE_UNKNOWN_SUBSCRIPTION);
+			application.setLastError("Local subscription reference does not exist yet");
+			modelService.save(application);
+			throw new RetryableBillingException("Subscription " + subscriptionId
+					+ " is not available locally yet; retrying protects the create/webhook race");
+		}
+
+		LOG.info("Ignoring {} event for external subscription {} that is not managed locally",
+				event.type(), subscriptionId);
+		application.setProcessingStatus(PROCESSING_SKIPPED_UNKNOWN_SUBSCRIPTION);
+		application.setLastError(null);
+		modelService.save(application);
+	}
+
+	protected boolean isDirectSubscriptionEvent(final NormalizedBillingEvent event)
+	{
+		if (event.externalSubscriptionId() == null || event.externalSubscriptionId().isBlank())
+		{
+			return false;
+		}
+		final String objectType = event.attributes().get("objectType");
+		return objectType == null || "subscription".equals(objectType);
+	}
+
 	protected List<String> resolveSubscriptionIds(final NormalizedBillingEvent event,
 			final SubscriptionBillingConnector connector) throws BillingException
 	{
@@ -239,86 +261,13 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 		}
 		final List<String> resolved = connector.resolveSubscriptionIds(event);
 		return resolved == null ? List.of()
-				: resolved.stream().filter(id -> id != null && !id.isBlank()).toList();
+				: resolved.stream().filter(id -> id != null && !id.isBlank()).distinct().toList();
 	}
 
-	/**
-	 * Applies one event to one reference and reports what happened to it.
-	 */
-	protected String applyToRef(final NormalizedBillingEvent event, final BillingSubscriptionRefModel ref,
-			final BillingWebhookEventModel record)
+	protected void markReconciled(final NormalizedBillingEvent event, final BillingWebhookEventModel record,
+			final BillingSubscriptionRefModel ref, final boolean projectionChanged)
 	{
-		if (mapStatus(event.type()) == null)
-		{
-			// Carries no status, so it neither competes with nor supersedes anything. Recorded as handled
-			// and the reference is left exactly as it was — deliberately without consulting the ordering
-			// rules, which only make sense between events that both claim a status.
-			return PROCESSING_APPLIED;
-		}
-
-		switch (ordering(event, ref, record.getEventId()))
-		{
-			case STALE:
-				LOG.info("Discarding stale {} event '{}' for subscription {}: occurred {}, last applied {}",
-						event.type(), record.getEventId(), ref.getExternalSubscriptionId(), event.occurredAt(),
-						ref.getLastAppliedEventAt());
-				return PROCESSING_SKIPPED_STALE;
-
-			case UNDECIDABLE:
-				LOG.warn(
-						"Cannot order {} event '{}' for subscription {} against the last applied event "
-								+ "(both at {}) — reconciling authoritative platform state instead of guessing",
-						event.type(),
-						record.getEventId(),
-						ref.getExternalSubscriptionId(),
-						event.occurredAt());
-
-				try
-				{
-					reconciliationService.reconcile(ref);
-				}
-				catch (final BillingException e)
-				{
-					throw new RuntimeException(
-							"Failed to reconcile ambiguous webhook for subscription "
-									+ ref.getExternalSubscriptionId(),
-							e);
-				}
-
-				return PROCESSING_SKIPPED_AMBIGUOUS;
-
-			default:
-				project(event, ref, record);
-				modelService.save(ref);
-				return PROCESSING_APPLIED;
-		}
-	}
-
-	/**
-	 * Projects platform state onto the local reference and advances the watermark.
-	 *
-	 * <p>The watermark tracks status specifically, so only an event that carries a status moves it. An
-	 * event type this connector maps to nothing — a payment-method change, an unrecognised type — says
-	 * nothing about the subscription's status and must leave it alone. Moving it for those would be
-	 * actively harmful on platforms whose timestamps are whole seconds: a status-less event landing in the
-	 * same second as a real one would make the real one look like an unresolvable tie and drop it, and one
-	 * arriving later would make a genuinely newer status change look stale.
-	 *
-	 * @return whether anything was actually projected
-	 */
-	protected boolean project(final NormalizedBillingEvent event, final BillingSubscriptionRefModel ref,
-			final BillingWebhookEventModel record)
-	{
-		final String newStatus = mapStatus(event.type());
-		if (newStatus == null)
-		{
-			return false;
-		}
-		ref.setStatus(newStatus);
-		// Only a genuinely new event counts as a change. Re-applying the one already on the watermark —
-		// which happens when a previous attempt persisted the reference but not its event row — must leave
-		// the counter alone, or a retry would look like additional state movement to anyone watching it.
-		if (!record.getEventId().equals(ref.getLastAppliedEventId()))
+		if (projectionChanged)
 		{
 			ref.setEventVersion(eventVersion(ref) + 1L);
 		}
@@ -327,63 +276,18 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 		{
 			ref.setLastAppliedEventAt(Date.from(event.occurredAt()));
 		}
-		ref.setLastSyncedAt(now());
-		return true;
+		modelService.save(ref);
 	}
 
-	/**
-	 * Where this delivery sits relative to the last one applied to the reference.
-	 */
-	protected Ordering ordering(final NormalizedBillingEvent event, final BillingSubscriptionRefModel ref,
-			final String dedupKey)
-	{
-		if (dedupKey.equals(ref.getLastAppliedEventId()))
-		{
-			// A retry of the very event already on the watermark. It is not a rival for the same instant,
-			// so the ambiguity rule below must not fire — re-applying it just restates what it already said.
-			return Ordering.NEWER;
-		}
-		final Date lastApplied = ref.getLastAppliedEventAt();
-		if (lastApplied == null)
-		{
-			return Ordering.NEWER;
-		}
-		if (event.occurredAt() == null)
-		{
-			// No timestamp to compare against a watermark that exists — same problem as a tie.
-			return Ordering.UNDECIDABLE;
-		}
-		final Instant last = lastApplied.toInstant();
-		if (event.occurredAt().isBefore(last))
-		{
-			return Ordering.STALE;
-		}
-		if (event.occurredAt().equals(last))
-		{
-			return Ordering.UNDECIDABLE;
-		}
-		return Ordering.NEWER;
-	}
-
-	/**
-	 * The platform's own event id where there is one. A connector that cannot supply one still gets replay
-	 * protection, from a key derived from the content that identifies the delivery — a genuine redelivery
-	 * reproduces it exactly. The prefix keeps the two kinds distinguishable to an operator reading the table.
-	 */
 	protected String dedupKey(final NormalizedBillingEvent event, final RawWebhook raw)
 	{
 		if (event.eventId() != null && !event.eventId().isBlank())
 		{
 			return event.eventId();
 		}
-		// The key has to come from the delivery itself, because the normalized fields are not enough to tell
-		// two deliveries apart: an event that names no subscription (an invoice, say) contributes nothing
-		// there, and a whole-second timestamp is shared by everything that happened in that second. Two
-		// unrelated invoices would then collide and the second would be discarded as a duplicate. The body
-		// is the one thing a genuine redelivery reproduces exactly and a different event does not.
 		final String derived = "derived:" + digest(raw == null ? null : raw.payload());
-		LOG.warn("Connector for platform {} produced a {} event with no platform event id; deduplicating on "
-				+ "the payload digest '{}' instead", event.platform(), event.type(), derived);
+		LOG.warn("Connector for platform {} produced a {} event with no platform event id; deduplicating on '{}'",
+				event.platform(), event.type(), derived);
 		return derived;
 	}
 
@@ -406,35 +310,21 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 		final BillingWebhookEventModel record = modelService.create(BillingWebhookEventModel.class);
 		record.setPlatform(event.platform());
 		record.setEventId(dedupKey);
-		record.setEventType(event.type() == null ? null : event.type().name());
+		record.setEventType(event.type().name());
 		record.setExternalSubscriptionId(event.externalSubscriptionId());
 		record.setOccurredAt(event.occurredAt() == null ? null : Date.from(event.occurredAt()));
 		record.setReceivedAt(now());
 		return record;
 	}
 
-	protected String mapStatus(final BillingEventType type)
+	protected BillingWebhookEventApplicationModel newApplication(final BillingWebhookEventModel event,
+			final String externalSubscriptionId)
 	{
-		if (type == null)
-		{
-			return null;
-		}
-		switch (type)
-		{
-			case SUBSCRIPTION_ACTIVATED:
-			case SUBSCRIPTION_RENEWED:
-			case SUBSCRIPTION_RESUMED:
-			case INVOICE_PAID:
-				return "ACTIVE";
-			case SUBSCRIPTION_CANCELLED:
-				return "CANCELLED";
-			case SUBSCRIPTION_PAUSED:
-				return "PAUSED";
-			case INVOICE_PAYMENT_FAILED:
-				return "PAST_DUE";
-			default:
-				return null;
-		}
+		final BillingWebhookEventApplicationModel application = modelService
+				.create(BillingWebhookEventApplicationModel.class);
+		application.setEvent(event);
+		application.setExternalSubscriptionId(externalSubscriptionId);
+		return application;
 	}
 
 	protected Optional<BillingWebhookEventModel> findEvent(final BillingPlatform platform, final String eventId)
@@ -445,6 +335,19 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 		query.addQueryParameter("eventId", eventId);
 		final List<BillingWebhookEventModel> result = flexibleSearchService
 				.<BillingWebhookEventModel> search(query).getResult();
+		return result.isEmpty() ? Optional.empty() : Optional.of(result.get(0));
+	}
+
+	protected Optional<BillingWebhookEventApplicationModel> findApplication(final BillingWebhookEventModel event,
+			final String externalSubscriptionId)
+	{
+		final FlexibleSearchQuery query = new FlexibleSearchQuery(
+				"SELECT {pk} FROM {BillingWebhookEventApplication} "
+						+ "WHERE {event} = ?event AND {externalSubscriptionId} = ?externalSubscriptionId");
+		query.addQueryParameter("event", event);
+		query.addQueryParameter("externalSubscriptionId", externalSubscriptionId);
+		final List<BillingWebhookEventApplicationModel> result = flexibleSearchService
+				.<BillingWebhookEventApplicationModel> search(query).getResult();
 		return result.isEmpty() ? Optional.empty() : Optional.of(result.get(0));
 	}
 
@@ -460,28 +363,8 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 		return result.isEmpty() ? Optional.empty() : Optional.of(result.get(0));
 	}
 
-	protected enum Ordering
-	{
-		NEWER, STALE, UNDECIDABLE
-	}
-
-	/**
-	 * One event can touch several references and fare differently on each. The row records the strongest
-	 * thing that happened: if any reference took the event it was applied, and among the refusals the one
-	 * most deserving of attention wins — an unresolved ordering outranks a plain stale drop.
-	 */
-	private static String strongest(final String current, final String candidate)
-	{
-		if (current == null)
-		{
-			return candidate;
-		}
-		return OUTCOME_PRECEDENCE.indexOf(candidate) > OUTCOME_PRECEDENCE.indexOf(current) ? candidate : current;
-	}
-
 	private static boolean isTerminal(final String processingStatus)
 	{
-		// Set.of(...) rejects a null probe, and a half-written record legitimately has no status yet.
 		return processingStatus != null && TERMINAL_OUTCOMES.contains(processingStatus);
 	}
 
@@ -490,12 +373,17 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 		return record.getAttemptCount() == null ? 0 : record.getAttemptCount().intValue();
 	}
 
+	private static int applicationAttemptCount(final BillingWebhookEventApplicationModel application)
+	{
+		return application.getAttemptCount() == null ? 0 : application.getAttemptCount().intValue();
+	}
+
 	private static long eventVersion(final BillingSubscriptionRefModel ref)
 	{
 		return ref.getEventVersion() == null ? 0L : ref.getEventVersion().longValue();
 	}
 
-	private static String describe(final Exception e)
+	private static String describe(final Throwable e)
 	{
 		return e.getClass().getName() + ": " + e.getMessage();
 	}
@@ -503,6 +391,22 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 	private Date now()
 	{
 		return Date.from(clock.instant());
+	}
+
+	/** Relevant projection fields before a reconciliation, used to version real state changes only. */
+	protected record Projection(String status, String planCode, Integer quantity, Date currentPeriodStart,
+			Date currentPeriodEnd, Boolean cancelAtPeriodEnd)
+	{
+		static Projection from(final BillingSubscriptionRefModel ref)
+		{
+			return new Projection(ref.getStatus(), ref.getPlanCode(), ref.getQuantity(), ref.getCurrentPeriodStart(),
+					ref.getCurrentPeriodEnd(), ref.getCancelAtPeriodEnd());
+		}
+
+		boolean differsFrom(final BillingSubscriptionRefModel ref)
+		{
+			return !Objects.equals(this, from(ref));
+		}
 	}
 
 	public void setConnectorRegistry(final SubscriptionBillingConnectorRegistry connectorRegistry)
@@ -525,8 +429,7 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 		this.clock = clock;
 	}
 
-	public void setReconciliationService(
-			final SubscriptionReconciliationService reconciliationService)
+	public void setReconciliationService(final SubscriptionReconciliationService reconciliationService)
 	{
 		this.reconciliationService = reconciliationService;
 	}

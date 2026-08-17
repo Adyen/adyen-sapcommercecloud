@@ -145,19 +145,11 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 		final BillingSubscriptionRefModel model = persistSubscriptionRef(order, customer, subscriptionRef, customerRef,
 				paymentMethodRef, plan, idempotencyKey);
 
-		try
-		{
-			reconciliationService.reconcile(model);
-		}
-		catch (final BillingException e)
-		{
-			LOG.warn(
-					"Subscription {} was created on platform {}, but its authoritative state "
-							+ "could not be fetched immediately; reconciliation sweep will retry",
-					subscriptionRef.externalId(),
-					connector.platform(),
-					e);
-		}
+		// Do not perform an immediate platform read here. The external create cannot participate in
+		// the SAP transaction, so a reconciliation failure must not roll back the durable local
+		// reference after the subscription has already been created remotely. Webhooks and the
+		// reconciliation sweep promote the initial PENDING projection to its authoritative state.
+		publishActivated(model);
 		LOG.info(
 				"Created subscription {} for order '{}' on platform {} with local status {}",
 				subscriptionRef.externalId(),

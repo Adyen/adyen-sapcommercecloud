@@ -179,21 +179,20 @@
                     <persistence type="property"/>
                 </attribute>
 
-                <!-- Event tracking. The platform is source-of-truth for status; these carry just
-                     enough history to decide whether an inbound event may be applied. -->
+                <!-- Event tracking. The platform is source-of-truth for status; these fields retain
+                     audit and change-version information after an authoritative reconciliation. -->
                 <attribute qualifier="lastAppliedEventId" type="java.lang.String">
-                    <description>Platform event id of the last event applied to this reference. Traceability, and
-                        the tie-break when two events carry the same lastAppliedEventAt.</description>
+                    <description>Platform event id of the last delivery reconciled for this reference.</description>
                     <persistence type="property"/>
                 </attribute>
                 <attribute qualifier="lastAppliedEventAt" type="java.util.Date">
-                    <description>Platform-side timestamp of the last applied event. An inbound event older than
-                        this is stale and must be discarded rather than applied.</description>
+                    <description>Platform-side timestamp carried by the last reconciled delivery. It is retained
+                        for audit only; delivery order never overrides the current platform snapshot.</description>
                     <persistence type="property"/>
                 </attribute>
                 <attribute qualifier="eventVersion" type="java.lang.Long">
-                    <description>Monotonic counter bumped on every applied event. Lets a reader detect that state
-                        moved on without comparing timestamps, and orders events whose platform timestamps collide.</description>
+                    <description>Monotonic counter bumped when authoritative reconciliation changes the local
+                        subscription projection.</description>
                     <persistence type="property"/>
                 </attribute>
                 <attribute qualifier="lastSyncedAt" type="java.util.Date">
@@ -253,8 +252,7 @@
                     <persistence type="property"/>
                 </attribute>
                 <attribute qualifier="occurredAt" type="java.util.Date">
-                    <description>Platform-side timestamp of the event. Compared against
-                        BillingSubscriptionRef.lastAppliedEventAt to detect stale deliveries.</description>
+                    <description>Platform-side timestamp of the event, retained for delivery audit.</description>
                     <persistence type="property"/>
                 </attribute>
                 <attribute qualifier="receivedAt" type="java.util.Date">
@@ -262,9 +260,9 @@
                     <persistence type="property"/>
                 </attribute>
                 <attribute qualifier="processingStatus" type="java.lang.String">
-                    <description>Outcome of applying this event: RECEIVED, APPLIED, SKIPPED_STALE, SKIPPED_AMBIGUOUS,
-                        SKIPPED_UNKNOWN_SUBSCRIPTION, FAILED or DEAD_LETTER. A duplicate delivery gets no status of its
-                        own — it is dropped against the row already here, which is what makes it a no-op.</description>
+                    <description>Overall outcome of this delivery: RECEIVED, RECONCILED,
+                        SKIPPED_NO_SUBSCRIPTION, SKIPPED_UNSUPPORTED, FAILED or DEAD_LETTER. Per-subscription
+                        outcomes are stored in BillingWebhookEventApplication.</description>
                     <persistence type="property"/>
                 </attribute>
                 <attribute qualifier="attemptCount" type="java.lang.Integer">
@@ -294,9 +292,8 @@
                     </persistence>
                 </attribute>
                 <attribute qualifier="subscriptionRef" type="BillingSubscriptionRef">
-                    <description>The local reference this event was applied to, when one was found. A plain reference
-                        rather than a relation: nothing needs to walk the events of a subscription in bulk, and the
-                        event record must outlive nothing in particular.</description>
+                    <description>The first local reference this event was applied to, retained for backwards
+                        compatibility. BillingWebhookEventApplication contains the complete per-subscription result.</description>
                     <persistence type="property"/>
                 </attribute>
             </attributes>
@@ -313,6 +310,65 @@
                 </index>
                 <!-- Event history for one subscription. -->
                 <index name="idx_billingWhEvent_sub">
+                    <key attribute="subscriptionRef"/>
+                </index>
+            </indexes>
+        </itemtype>
+
+        <!-- Per-subscription result of applying one webhook. Invoice events can legitimately resolve to
+             several subscriptions, so a single reference and status on BillingWebhookEvent is not enough
+             for retry diagnostics or operator audit. -->
+        <itemtype code="BillingWebhookEventApplication" extends="GenericItem" autocreate="true" generate="true">
+            <deployment table="BillingWhEventApp" typecode="22949"/>
+            <attributes>
+                <attribute qualifier="event" type="BillingWebhookEvent">
+                    <description>The deduplicated delivery this application belongs to.</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false" initial="true"/>
+                </attribute>
+                <attribute qualifier="externalSubscriptionId" type="java.lang.String">
+                    <description>The external subscription id resolved from the delivery.</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false" initial="true"/>
+                </attribute>
+                <attribute qualifier="subscriptionRef" type="BillingSubscriptionRef">
+                    <description>The matching local subscription reference, if it existed.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="processingStatus" type="java.lang.String">
+                    <description>RECEIVED, RECONCILED, SKIPPED_UNKNOWN_SUBSCRIPTION,
+                        RETRYABLE_UNKNOWN_SUBSCRIPTION or FAILED.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="attemptCount" type="java.lang.Integer">
+                    <description>Number of attempts made for this event/subscription pair.</description>
+                    <persistence type="property"/>
+                    <defaultvalue>Integer.valueOf(0)</defaultvalue>
+                </attribute>
+                <attribute qualifier="lastError" type="java.lang.String">
+                    <description>Failure detail from the most recent attempt.</description>
+                    <persistence type="property">
+                        <columntype database="oracle"><value>CLOB</value></columntype>
+                        <columntype database="sap"><value>NCLOB</value></columntype>
+                        <columntype database="mysql"><value>TEXT</value></columntype>
+                        <columntype database="sqlserver"><value>TEXT</value></columntype>
+                        <columntype><value>HYBRIS.LONG_STRING</value></columntype>
+                    </persistence>
+                </attribute>
+                <attribute qualifier="reconciledAt" type="java.util.Date">
+                    <description>When the authoritative subscription snapshot was successfully applied.</description>
+                    <persistence type="property"/>
+                </attribute>
+            </attributes>
+            <indexes>
+                <index name="idx_billingWhApp_eventSub" unique="true">
+                    <key attribute="event"/>
+                    <key attribute="externalSubscriptionId"/>
+                </index>
+                <index name="idx_billingWhApp_status">
+                    <key attribute="processingStatus"/>
+                </index>
+                <index name="idx_billingWhApp_sub">
                     <key attribute="subscriptionRef"/>
                 </index>
             </indexes>

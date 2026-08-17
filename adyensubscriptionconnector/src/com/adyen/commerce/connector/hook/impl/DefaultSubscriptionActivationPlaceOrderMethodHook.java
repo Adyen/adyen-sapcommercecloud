@@ -100,11 +100,21 @@ public class DefaultSubscriptionActivationPlaceOrderMethodHook implements Commer
 	@Override
 	public void afterPlaceOrder(final CommerceCheckoutParameter parameter, final CommerceOrderResult result)
 	{
+		activateOrder(result == null ? null : result.getOrder());
+	}
+
+	/**
+	 * Shared entry point for the synchronous place-order hook and the post-3DS payment event.
+	 * Activation is idempotent in {@link SubscriptionBillingService}, and no failure may escape into
+	 * either checkout completion path after the shopper has already been charged.
+	 */
+	public void activateOrder(final OrderModel order)
+	{
 		// The whole body is inside the guard, not just the activation call: reading the order or its entries
 		// can fail too, and this method must not be able to throw at all.
 		try
 		{
-			activateIfSubscriptionOrder(result);
+			activateIfSubscriptionOrder(order);
 		}
 		catch (final RuntimeException e)
 		{
@@ -112,9 +122,8 @@ public class DefaultSubscriptionActivationPlaceOrderMethodHook implements Commer
 		}
 	}
 
-	protected void activateIfSubscriptionOrder(final CommerceOrderResult result)
+	protected void activateIfSubscriptionOrder(final OrderModel order)
 	{
-		final OrderModel order = result == null ? null : result.getOrder();
 		if (order == null || CollectionUtils.isEmpty(order.getEntries()))
 		{
 			return;

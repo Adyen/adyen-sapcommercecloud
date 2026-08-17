@@ -121,7 +121,7 @@ public class DefaultRecurlyWebhookParserTest
                 + "\"event_time\":\"2026-07-21T10:00:00Z\",\"uuid\":\"payment-uuid\"}";
         final NormalizedBillingEvent event = parse(payload);
 
-        assertEquals(BillingEventType.INVOICE_PAID, event.type());
+        assertEquals(BillingEventType.PAYMENT_SUCCEEDED, event.type());
         assertNull(event.externalSubscriptionId());
         assertEquals("payment", event.attributes().get("resourceType"));
         assertEquals("uuid-payment-uuid", event.attributes().get("resourceId"));
@@ -134,7 +134,7 @@ public class DefaultRecurlyWebhookParserTest
                 + "\"event_time\":\"2026-07-21T10:00:00Z\",\"invoice_number\":1031}";
         final NormalizedBillingEvent event = parse(payload);
 
-        assertEquals(BillingEventType.INVOICE_PAYMENT_FAILED, event.type());
+        assertEquals(BillingEventType.INVOICE_PAST_DUE, event.type());
         assertEquals("charge_invoice", event.attributes().get("resourceType"));
         assertEquals("number-1031", event.attributes().get("resourceId"));
     }
@@ -145,6 +145,56 @@ public class DefaultRecurlyWebhookParserTest
         final String payload = "{\"id\":\"notice-4\",\"object_type\":\"account\",\"event_type\":\"updated\","
                 + "\"event_time\":\"2026-07-21T10:00:00Z\"}";
         assertEquals(BillingEventType.UNKNOWN, parse(payload).type());
+    }
+
+    @Test
+    public void subscriptionLifecycleEventsRemainSemanticallyDistinct() throws Exception
+    {
+        assertSubscriptionEvent("created", BillingEventType.SUBSCRIPTION_CREATED);
+        assertSubscriptionEvent("updated", BillingEventType.SUBSCRIPTION_UPDATED);
+        assertSubscriptionEvent("renewed", BillingEventType.SUBSCRIPTION_RENEWED);
+        assertSubscriptionEvent("canceled", BillingEventType.SUBSCRIPTION_CANCELLED);
+        assertSubscriptionEvent("expired", BillingEventType.SUBSCRIPTION_EXPIRED);
+        assertSubscriptionEvent("paused", BillingEventType.SUBSCRIPTION_PAUSED);
+        assertSubscriptionEvent("resumed", BillingEventType.SUBSCRIPTION_RESUMED);
+        assertSubscriptionEvent("reactivated", BillingEventType.SUBSCRIPTION_RESUMED);
+    }
+
+    @Test
+    public void scheduledSubscriptionChangesAreRecognized() throws Exception
+    {
+        assertSubscriptionEvent("pending_change.scheduled", BillingEventType.SUBSCRIPTION_CHANGE_SCHEDULED);
+        assertSubscriptionEvent("pause.scheduled", BillingEventType.SUBSCRIPTION_PAUSE_SCHEDULED);
+        assertSubscriptionEvent("pause.modified", BillingEventType.SUBSCRIPTION_PAUSE_UPDATED);
+        assertSubscriptionEvent("pause.canceled", BillingEventType.SUBSCRIPTION_PAUSE_CANCELLED);
+    }
+
+    @Test
+    public void paymentAndInvoiceEventsAreNotCollapsedIntoSubscriptionStatusClaims() throws Exception
+    {
+        assertEquals(BillingEventType.PAYMENT_FAILED,
+                parse(resourcePayload("payment", "failed", "\"uuid\":\"payment-uuid\"")).type());
+        assertEquals(BillingEventType.INVOICE_PAID,
+                parse(resourcePayload("charge_invoice", "paid", "\"invoice_number\":1031")).type());
+        assertEquals(BillingEventType.INVOICE_FAILED,
+                parse(resourcePayload("charge_invoice", "failed", "\"invoice_number\":1031")).type());
+        assertEquals(BillingEventType.INVOICE_PAST_DUE,
+                parse(resourcePayload("invoice", "past_due", "\"invoice_number\":1031")).type());
+    }
+
+    private void assertSubscriptionEvent(final String eventType, final BillingEventType expected) throws Exception
+    {
+        final String payload = resourcePayload("subscription", eventType, "\"uuid\":\"subscription-uuid\"");
+        final NormalizedBillingEvent event = parse(payload);
+        assertEquals(expected, event.type());
+        assertEquals("uuid-subscription-uuid", event.externalSubscriptionId());
+    }
+
+    private String resourcePayload(final String objectType, final String eventType, final String resourceField)
+    {
+        return "{\"id\":\"notice-" + objectType + "-" + eventType + "\",\"object_type\":\""
+                + objectType + "\",\"event_type\":\"" + eventType
+                + "\",\"event_time\":\"2026-07-21T10:00:00Z\"," + resourceField + "}";
     }
 
     private NormalizedBillingEvent parse(final String payload) throws Exception

@@ -39,6 +39,15 @@
         <property name="adyenMerchantAccountStrategy" ref="adyenMerchantStrategy"/>
     </bean>
 
+    <!-- Runs while the Adyen /payments request is still being built, before the shopper can be
+         charged. It both forces tokenization for mapped subscription products and rejects payment
+         methods that the connector cannot safely reuse for renewals. -->
+    <bean id="subscriptionPaymentRequestDecorator"
+          class="com.adyen.commerce.connector.payment.SubscriptionPaymentRequestDecorator">
+        <property name="cartService" ref="cartService"/>
+        <property name="connectorRegistry" ref="subscriptionBillingConnectorRegistry"/>
+    </bean>
+
     <!-- ============================================================= -->
     <!-- Orchestration service (the single entry point / facade)       -->
     <!-- ============================================================= -->
@@ -68,6 +77,25 @@
         <property name="flexibleSearchService" ref="flexibleSearchService"/>
         <property name="reconciliationService" ref="subscriptionReconciliationService"/>
         <property name="configurationService" ref="configurationService"/>
+        <property name="sessionService" ref="sessionService"/>
+        <property name="baseSiteService" ref="baseSiteService"/>
+    </bean>
+
+    <!-- Cron jobs have no storefront context. This selector reads the exact order store from a local
+         reconciliation session and otherwise yields to SAP's ordinary site-based selector. -->
+    <bean id="subscriptionBaseStoreSelectorStrategy"
+          class="com.adyen.commerce.connector.context.SubscriptionBaseStoreSelectorStrategy">
+        <property name="sessionService" ref="sessionService"/>
+    </bean>
+    <bean id="subscriptionBaseStoreSelectorStrategyMergeDirective"
+          depends-on="defaultBaseStoreService" parent="listMergeDirective">
+        <property name="add" ref="subscriptionBaseStoreSelectorStrategy"/>
+        <property name="fieldName" value="baseStoreSelectorStrategies"/>
+        <property name="beforeClasses">
+            <list value-type="java.lang.Class">
+                <value>de.hybris.platform.basecommerce.strategies.impl.DefaultBaseStoreSelectorStrategy</value>
+            </list>
+        </property>
     </bean>
 
     <!-- ============================================================= -->
@@ -102,6 +130,15 @@
     <bean id="subscriptionActivationPlaceOrderMethodHookMergeDirective"
           depends-on="commercePlaceOrderMethodHooks" parent="listMergeDirective">
         <property name="add" ref="subscriptionActivationPlaceOrderMethodHook"/>
+    </bean>
+
+    <!-- A 3DS/redirect order is placed before its final token metadata exists, so the ordinary
+         place-order hook cannot activate it. Re-enter the same idempotent flow when adyenv6core
+         announces that authorization and PaymentInfo persistence have completed. -->
+    <bean id="adyenPaymentAuthorizedSubscriptionListener"
+          class="com.adyen.commerce.connector.listener.AdyenPaymentAuthorizedEventListener"
+          parent="abstractEventListener">
+        <property name="activationHook" ref="subscriptionActivationPlaceOrderMethodHook"/>
     </bean>
 
 </beans>
