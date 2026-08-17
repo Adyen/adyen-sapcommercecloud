@@ -12,11 +12,15 @@
     <bean id="defaultChargebeeConfigService"
           class="com.adyen.commerce.connector.chargebee.config.impl.DefaultChargebeeConfigService">
         <property name="baseStoreService" ref="baseStoreService"/>
+        <!-- Only for the chargebee.http.* transport tuning; every credential comes from the base store. -->
+        <property name="configurationService" ref="configurationService"/>
     </bean>
 
     <alias name="defaultChargebeeHttpClient" alias="chargebeeHttpClient"/>
     <bean id="defaultChargebeeHttpClient"
-          class="com.adyen.commerce.connector.chargebee.http.impl.DefaultChargebeeHttpClient"/>
+          class="com.adyen.commerce.connector.chargebee.http.impl.DefaultChargebeeHttpClient">
+        <property name="configService" ref="chargebeeConfigService"/>
+    </bean>
 
     <alias name="defaultChargebeeApiClient" alias="chargebeeApiClient"/>
     <bean id="defaultChargebeeApiClient"

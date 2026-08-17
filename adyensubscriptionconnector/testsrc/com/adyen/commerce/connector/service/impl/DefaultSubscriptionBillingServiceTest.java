@@ -87,7 +87,7 @@ import de.hybris.platform.store.BaseStoreModel;
 
 /**
  * Unit test for {@link DefaultSubscriptionBillingService} — verifies the orchestration flow against a
- * mock connector (design P1.5 acceptance criterion).
+ * mock connector.
  */
 @UnitTest
 public class DefaultSubscriptionBillingServiceTest

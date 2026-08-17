@@ -196,9 +196,21 @@
                     <key attribute="platform"/>
                     <key attribute="externalSubscriptionId"/>
                 </index>
-                <!-- Supports the per-order idempotency lookup findSubscriptionRef(order, platform). -->
-                <index name="idx_billingSubRef_order">
+                <!-- Backs the per-order idempotency lookup findSubscriptionRef(order, platform), and
+                     enforces it. The service checks for an existing ref before creating one, but that is a
+                     read followed by a write with no lock in between: an order can be activated from two
+                     threads at once, because Adyen sends one AUTHORISATION notification per payment leg and
+                     redelivers on top of that. Without the constraint both callers pass the check and the
+                     second one only fails later, on the external-id index, after it has already created a
+                     customer and imported a token on the billing platform.
+
+                     Note for SQL Server: `order` is optional, and SQL Server treats NULLs in a unique index
+                     as equal, so there it also means "at most one ref with no order per platform". Every
+                     writer today sets the order; revisit if a reconciliation sweep ever needs to record
+                     platform-side subscriptions that have none. -->
+                <index name="idx_billingSubRef_order" unique="true">
                     <key attribute="order"/>
+                    <key attribute="platform"/>
                 </index>
                 <!-- Backs the reconciliation sweep: "refs in status X not confirmed since T". -->
                 <index name="idx_billingSubRef_sync">

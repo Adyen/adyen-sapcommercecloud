@@ -29,7 +29,16 @@ public interface RecurlyConfigService {
 
     int getWebhookToleranceSeconds();
 
-    boolean isExternalNtidFeatureEnabled();
+    /**
+     * Selects a mode rather than granting a permission, so "not configured" must not silently read as
+     * {@code false}: that would quietly run the no-NTID flow against a site set up for the opposite.
+     * Every caller sits in a method declaring {@code BillingException}, so failing fast costs nothing.
+     */
+    boolean isExternalNtidFeatureEnabled() throws ConnectorNotConfiguredException;
 
-    boolean isWalletEnabled();
+    /**
+     * Same reasoning as {@link #isExternalNtidFeatureEnabled()}: {@code false} means "the account's single
+     * primary billing info", not "unknown", and three branches in the API client turn on it.
+     */
+    boolean isWalletEnabled() throws ConnectorNotConfiguredException;
 }

@@ -28,16 +28,21 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.classic.methods.HttpUriRequestBase;
+import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
 import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.HttpHeaders;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.io.entity.StringEntity;
+import org.apache.hc.core5.util.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
+import com.adyen.commerce.connector.chargebee.config.ChargebeeConfigService;
 import com.adyen.commerce.connector.chargebee.http.ChargebeeHttpClient;
 import com.adyen.commerce.connector.chargebee.http.ChargebeeHttpResponse;
 import com.adyen.commerce.connector.exception.RetryableBillingException;
@@ -50,6 +55,7 @@ public class DefaultChargebeeHttpClient implements ChargebeeHttpClient
 {
 	private static final Logger LOG = LoggerFactory.getLogger(DefaultChargebeeHttpClient.class);
 	private volatile CloseableHttpClient httpClient;
+	private ChargebeeConfigService configService;
 
 	private static final ContentType FORM_UTF8 = ContentType.create("application/x-www-form-urlencoded",
 			StandardCharsets.UTF_8);
@@ -164,7 +170,27 @@ public class DefaultChargebeeHttpClient implements ChargebeeHttpClient
 				client = httpClient;
 				if (client == null)
 				{
-					client = HttpClients.createSystem();
+					final RequestConfig requestConfig = RequestConfig.custom()
+							.setConnectTimeout(Timeout.ofMilliseconds(configService.getConnectTimeoutMillis()))
+							// httpclient5 has NO default response timeout: without this a Chargebee call that
+							// connects and then hangs holds a platform worker thread forever.
+							.setResponseTimeout(Timeout.ofMilliseconds(configService.getResponseTimeoutMillis()))
+							// Left at the default the wait for a free pooled connection is three minutes, which
+							// silently becomes the real worst case a caller sees regardless of the two above.
+							.setConnectionRequestTimeout(
+									Timeout.ofMilliseconds(configService.getConnectionRequestTimeoutMillis()))
+							.build();
+					// Every call targets the one Chargebee host, so the default per-route cap of 2 would
+					// serialize the whole platform onto two connections.
+					final PoolingHttpClientConnectionManager connectionManager =
+							PoolingHttpClientConnectionManagerBuilder.create()
+									.setMaxConnTotal(configService.getMaxConnections())
+									.setMaxConnPerRoute(configService.getMaxConnections())
+									.build();
+					client = HttpClients.custom().useSystemProperties()
+							.setConnectionManager(connectionManager)
+							.setDefaultRequestConfig(requestConfig)
+							.build();
 					httpClient = client;
 				}
 			}
@@ -175,5 +201,10 @@ public class DefaultChargebeeHttpClient implements ChargebeeHttpClient
 	public void setHttpClient(final CloseableHttpClient httpClient)
 	{
 		this.httpClient = httpClient;
+	}
+
+	public void setConfigService(final ChargebeeConfigService configService)
+	{
+		this.configService = configService;
 	}
 }

@@ -67,7 +67,7 @@ import de.hybris.platform.servicelayer.search.SearchResult;
 
 /**
  * Unit test for {@link DefaultSubscriptionBillingWebhookDispatcher}: dispatch delegates to the
- * platform-resolved connector's {@code parseWebhook}, then applies the event under the P4.1a rules —
+ * platform-resolved connector's {@code parseWebhook}, then applies the event under the dedup and ordering rules —
  * dedup on the platform event id, discard events older than the last applied one, and project platform
  * state onto the local reference.
  *

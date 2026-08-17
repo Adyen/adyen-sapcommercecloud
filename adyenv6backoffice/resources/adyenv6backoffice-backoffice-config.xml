@@ -97,17 +97,24 @@
 						<editorArea:attribute qualifier="l2L3ESDEnabled"/>
 						<editorArea:attribute qualifier="adyenSkipCvcForOneClick"/>
 						<editorArea:attribute qualifier="additionalPaymentRetry" />
-						<editorArea:attribute qualifier="adyenSubscriptionPlatform"  />
 					</editorArea:section>
+				<!-- activeBillingPlatform is declared by adyensubscriptionconnector, which adyenv6backoffice
+				     does not require. With that extension disabled DefaultEditorAreaSectionRenderer logs one
+				     ERROR and skips the field, leaving this section rendered but empty; the rest of the
+				     editor area is unaffected. -->
+				<editorArea:section name="hmc.adyen.subscriptionPlatform">
+					<editorArea:attribute qualifier="activeBillingPlatform"/>
+				</editorArea:section>
 				<editorArea:section name="hmc.adyen.recurlyConfig">
 					<editorArea:attribute qualifier="recurlyConfig"/>
 				</editorArea:section>
 				<editorArea:section name="hmc.adyen.chargebeeConfig">
 					<editorArea:attribute qualifier="chargebeeConfig"/>
 				</editorArea:section>
-				<editorArea:section name="hmc.adyen.zuoraConfig">
-					<editorArea:attribute qualifier="zuoraConfig"/>
-				</editorArea:section>
+				<!-- No Zuora section until a Zuora connector exists. ZuoraConfig has no attributes of
+				     its own and nothing reads it, so offering it here only lets an operator configure a
+				     platform whose first activation throws ConnectorNotConfiguredException. Restore this
+				     section together with the connector. -->
 				<editorArea:section name="hmc.adyen.installments">
 					<editorArea:attribute qualifier="adyenInstallmentConfigs"/>
 				</editorArea:section>

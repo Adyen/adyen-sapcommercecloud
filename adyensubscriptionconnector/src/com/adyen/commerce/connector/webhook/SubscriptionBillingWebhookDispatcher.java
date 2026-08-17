@@ -27,7 +27,7 @@ import com.adyen.commerce.connector.exception.BillingException;
 
 /**
  * Routes a raw inbound webhook to the owning connector for verification + normalization, then
- * reconciles SAP state from the normalized event (design P1.10). Signature verification and payload
+ * reconciles SAP state from the normalized event. Signature verification and payload
  * parsing stay connector-owned; the dispatcher itself contains no per-vendor logic.
  *
  * <p>The HTTP endpoint that receives the webhook (in the OCC/web layer) is expected to identify the

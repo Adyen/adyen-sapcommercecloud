@@ -19,7 +19,7 @@
           class="com.adyen.commerce.connector.registry.impl.DefaultSubscriptionBillingConnectorRegistry"/>
 
     <!-- ============================================================= -->
-    <!-- Startup / pre-activation validation (design R2)               -->
+    <!-- Startup / pre-activation validation                          -->
     <!-- connector's Adyen merchant account must equal the store's.    -->
     <!-- adyenMerchantStrategy is provided by adyenv6core.             -->
     <!-- ============================================================= -->
@@ -30,7 +30,7 @@
     </bean>
 
     <!-- ============================================================= -->
-    <!-- AdyenTokenHandle factory (design P1.8)                        -->
+    <!-- AdyenTokenHandle factory                                      -->
     <!-- builds the uniform token contract from the existing Adyen flow -->
     <!-- ============================================================= -->
     <alias name="defaultAdyenTokenHandleFactory" alias="adyenTokenHandleFactory"/>
@@ -54,7 +54,7 @@
     </bean>
 
     <!-- ============================================================= -->
-    <!-- Webhook dispatcher (design P1.10)                             -->
+    <!-- Webhook dispatcher                                            -->
     <!-- normalizes inbound platform webhooks and reconciles SAP state -->
     <!-- ============================================================= -->
     <alias name="defaultSubscriptionBillingWebhookDispatcher" alias="subscriptionBillingWebhookDispatcher"/>
@@ -63,6 +63,31 @@
         <property name="connectorRegistry" ref="subscriptionBillingConnectorRegistry"/>
         <property name="flexibleSearchService" ref="flexibleSearchService"/>
         <property name="modelService" ref="modelService"/>
+    </bean>
+
+    <!-- ============================================================= -->
+    <!-- Order activation                                              -->
+    <!-- decides whether a placed order becomes a subscription;         -->
+    <!-- deliberately independent of what triggers it                  -->
+    <!-- ============================================================= -->
+    <alias name="defaultSubscriptionOrderActivator" alias="subscriptionOrderActivator"/>
+    <bean id="defaultSubscriptionOrderActivator"
+          class="com.adyen.commerce.connector.activation.impl.DefaultSubscriptionOrderActivator">
+        <property name="subscriptionBillingService" ref="subscriptionBillingService"/>
+        <property name="connectorRegistry" ref="subscriptionBillingConnectorRegistry"/>
+    </bean>
+
+    <!-- ============================================================= -->
+    <!-- Activation trigger                                            -->
+    <!-- fires on Adyen's AUTHORISATION notification, which is the      -->
+    <!-- first moment the token is on the order AND the payment is      -->
+    <!-- confirmed                                                     -->
+    <!-- ============================================================= -->
+    <bean id="subscriptionActivationAuthorisationEventListener"
+          class="com.adyen.commerce.connector.listener.SubscriptionActivationAuthorisationEventListener"
+          parent="abstractEventListener">
+        <property name="subscriptionOrderActivator" ref="subscriptionOrderActivator"/>
+        <property name="orderRepository" ref="adyenOrderRepository"/>
     </bean>
 
 </beans>

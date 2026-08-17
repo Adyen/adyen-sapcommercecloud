@@ -71,13 +71,15 @@ public interface SubscriptionBillingConnector
 
 	/**
 	 * The Adyen merchant account this connector's gateway is configured against, used by the core to
-	 * enforce that it equals {@code BaseStore.adyenMerchantAccount} (design R2).
+	 * enforce that it equals {@code BaseStore.adyenMerchantAccount}.
 	 *
-	 * <p><b>External connectors must return their real gateway merchant account</b> — returning
-	 * {@code null} disables the R2 safety check for this connector. Only return {@code null} when there
-	 * is genuinely no external gateway binding (e.g. the Adyen-native connector).</p>
+	 * <p><b>External connectors must return their real gateway merchant account.</b> A blank answer is
+	 * treated as "not configured" and rejected: only {@code ADYEN_NATIVE} is exempt, because it is
+	 * the one path with no external gateway to bind. This deliberately does not let an incompletely
+	 * configured gateway switch the check off by returning nothing.</p>
 	 *
-	 * @return the configured Adyen merchant account, or {@code null} when not applicable
+	 * @return the configured Adyen merchant account; {@code null} only for {@code ADYEN_NATIVE}, where
+	 *         there is genuinely nothing to bind
 	 */
 	String configuredAdyenMerchantAccount();
 

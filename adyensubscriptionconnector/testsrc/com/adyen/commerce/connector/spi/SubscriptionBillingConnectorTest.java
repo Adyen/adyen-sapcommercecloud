@@ -36,7 +36,7 @@ import de.hybris.bootstrap.annotations.UnitTest;
 
 /**
  * Contract test for the {@link SubscriptionBillingConnector} SPI: a connector that does not override
- * {@code pauseSubscription} rejects pause with {@link CapabilityUnsupportedException} (design P1.3).
+ * {@code pauseSubscription} rejects pause with {@link CapabilityUnsupportedException}.
  */
 @UnitTest
 public class SubscriptionBillingConnectorTest
