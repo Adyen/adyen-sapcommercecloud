@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import com.adyen.commerce.connector.reconciliation.SubscriptionReconciliationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -103,6 +104,7 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 	private FlexibleSearchService flexibleSearchService;
 	private ModelService modelService;
 	private Clock clock = Clock.systemUTC();
+	private SubscriptionReconciliationService reconciliationService;
 
 	@Override
 	public NormalizedBillingEvent dispatch(final BillingPlatform platform, final RawWebhook raw) throws BillingException
@@ -263,13 +265,26 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 				return PROCESSING_SKIPPED_STALE;
 
 			case UNDECIDABLE:
-				// Do not guess an order the platform did not give us. Marking the projection unconfirmed
-				// hands the decision to the re-fetch sweep, which reads authoritative state directly.
-				LOG.warn("Cannot order {} event '{}' for subscription {} against the last applied event "
-						+ "(both at {}) — flagging the reference for re-fetch instead of guessing",
-						event.type(), record.getEventId(), ref.getExternalSubscriptionId(), event.occurredAt());
-				ref.setLastSyncedAt(null);
-				modelService.save(ref);
+				LOG.warn(
+						"Cannot order {} event '{}' for subscription {} against the last applied event "
+								+ "(both at {}) — reconciling authoritative platform state instead of guessing",
+						event.type(),
+						record.getEventId(),
+						ref.getExternalSubscriptionId(),
+						event.occurredAt());
+
+				try
+				{
+					reconciliationService.reconcile(ref);
+				}
+				catch (final BillingException e)
+				{
+					throw new RuntimeException(
+							"Failed to reconcile ambiguous webhook for subscription "
+									+ ref.getExternalSubscriptionId(),
+							e);
+				}
+
 				return PROCESSING_SKIPPED_AMBIGUOUS;
 
 			default:
@@ -508,5 +523,11 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 	public void setClock(final Clock clock)
 	{
 		this.clock = clock;
+	}
+
+	public void setReconciliationService(
+			final SubscriptionReconciliationService reconciliationService)
+	{
+		this.reconciliationService = reconciliationService;
 	}
 }

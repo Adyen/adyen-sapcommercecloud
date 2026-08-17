@@ -51,6 +51,8 @@
         <property name="modelService" ref="modelService"/>
         <property name="flexibleSearchService" ref="flexibleSearchService"/>
         <property name="eventService" ref="eventService"/>
+        <property name="reconciliationService"
+                  ref="subscriptionReconciliationService"/>
     </bean>
 
     <alias name="defaultSubscriptionReconciliationService" alias="subscriptionReconciliationService"/>

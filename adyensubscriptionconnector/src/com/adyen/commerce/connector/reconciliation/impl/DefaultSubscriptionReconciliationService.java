@@ -38,22 +38,36 @@ public class DefaultSubscriptionReconciliationService implements SubscriptionRec
 		return snapshot;
 	}
 
-	protected void validateSnapshot(final BillingSubscriptionRef requested, final NormalizedSubscription snapshot)
+	protected void validateSnapshot(final BillingSubscriptionRef requested,
+	                                final NormalizedSubscription snapshot)
 			throws PreconditionFailedException
 	{
 		if (snapshot == null)
 		{
 			throw new PreconditionFailedException("Connector returned no subscription snapshot");
 		}
+
 		if (snapshot.subscription().platform() != requested.platform())
 		{
-			throw new PreconditionFailedException("Connector returned a " + snapshot.subscription().platform()
-					+ " snapshot for a " + requested.platform() + " subscription");
+			throw new PreconditionFailedException(
+					"Connector returned a " + snapshot.subscription().platform()
+							+ " snapshot for a " + requested.platform()
+							+ " subscription");
+		}
+
+		if (!requested.externalId().equals(snapshot.subscription().externalId()))
+		{
+			throw new PreconditionFailedException(
+					"Connector returned subscription "
+							+ snapshot.subscription().externalId()
+							+ " while reconciling "
+							+ requested.externalId());
 		}
 	}
 
-	protected void apply(final BillingSubscriptionRefModel model, final NormalizedSubscription snapshot,
-			final Instant reconciledAt)
+	protected void apply(final BillingSubscriptionRefModel model,
+	                     final NormalizedSubscription snapshot,
+	                     final Instant reconciledAt)
 	{
 		model.setExternalSubscriptionId(snapshot.subscription().externalId());
 		model.setStatus(snapshot.status().name());
@@ -61,9 +75,26 @@ public class DefaultSubscriptionReconciliationService implements SubscriptionRec
 		model.setQuantity(snapshot.quantity());
 		model.setCurrentPeriodStart(toDate(snapshot.currentPeriodStart()));
 		model.setCurrentPeriodEnd(toDate(snapshot.currentPeriodEnd()));
-		modelService.setAttributeValue(model, "cancelAtPeriodEnd", Boolean.valueOf(snapshot.cancelAtPeriodEnd()));
-		modelService.setAttributeValue(model, "platformUpdatedAt", toDate(snapshot.platformUpdatedAt()));
-		modelService.setAttributeValue(model, "lastReconciledAt", Date.from(reconciledAt));
+
+		modelService.setAttributeValue(
+				model,
+				"cancelAtPeriodEnd",
+				Boolean.valueOf(snapshot.cancelAtPeriodEnd()));
+
+		modelService.setAttributeValue(
+				model,
+				"platformUpdatedAt",
+				toDate(snapshot.platformUpdatedAt()));
+
+		modelService.setAttributeValue(
+				model,
+				"lastReconciledAt",
+				Date.from(reconciledAt));
+
+		modelService.setAttributeValue(
+				model,
+				"lastSyncedAt",
+				Date.from(reconciledAt));
 	}
 
 	protected Date toDate(final Instant value)

@@ -67,14 +67,21 @@ public class SubscriptionReconciliationJob extends AbstractJobPerformable<CronJo
 
 	protected List<BillingSubscriptionRefModel> findCandidates(final Instant staleBefore, final int batchSize)
 	{
-		final FlexibleSearchQuery query = new FlexibleSearchQuery("SELECT {pk} FROM {BillingSubscriptionRef} "
-				+ "WHERE {status} = ?pastDue OR {lastReconciledAt} IS NULL OR {lastReconciledAt} < ?staleBefore "
-				+ "ORDER BY {lastReconciledAt} ASC");
+		final FlexibleSearchQuery query = new FlexibleSearchQuery(
+				"SELECT {pk} FROM {BillingSubscriptionRef} "
+						+ "WHERE {status} = ?pastDue "
+						+ "OR {lastSyncedAt} IS NULL "
+						+ "OR {lastSyncedAt} < ?staleBefore "
+						+ "ORDER BY {lastSyncedAt} ASC");
+
 		query.addQueryParameter("pastDue", "PAST_DUE");
 		query.addQueryParameter("staleBefore", Date.from(staleBefore));
 		query.setCount(batchSize);
 		query.setNeedTotal(false);
-		return flexibleSearchService.<BillingSubscriptionRefModel>search(query).getResult();
+
+		return flexibleSearchService
+				.<BillingSubscriptionRefModel>search(query)
+				.getResult();
 	}
 
 	public void setFlexibleSearchService(final FlexibleSearchService flexibleSearchService)
