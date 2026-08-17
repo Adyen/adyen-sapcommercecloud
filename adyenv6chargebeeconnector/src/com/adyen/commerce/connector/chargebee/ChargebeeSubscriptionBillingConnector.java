@@ -134,6 +134,9 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 	{
 		final long startedAt = System.nanoTime();
 		final AdyenTokenHandle token = request.token();
+		LOG.info("event=connector_operation platform=CHARGEBEE operation=import_token outcome=started correlation_id={} "
+						+ "token_reference={} merchant_account={}", correlationId(), token.storedPaymentMethodId(),
+				token.merchantAccount());
 		verifyMerchantAccount(token);
 		final String paymentSourceId;
 		try

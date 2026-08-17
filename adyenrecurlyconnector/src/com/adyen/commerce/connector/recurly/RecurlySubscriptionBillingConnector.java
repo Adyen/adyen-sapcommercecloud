@@ -88,7 +88,7 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
     }
 
     @Override
-    public String configuredAdyenMerchantAccount() {
+    public String configuredAdyenMerchantAccount() throws ConnectorNotConfiguredException {
         return configService.getConfiguredAdyenMerchantAccount();
     }
 
@@ -114,6 +114,9 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
     public BillingPaymentMethodRef importAdyenToken(final TokenImportRequest request) throws BillingException {
         final long startedAt = System.nanoTime();
         final AdyenTokenHandle token = request.token();
+        LOG.info("event=connector_operation platform=RECURLY operation=import_token outcome=started correlation_id={} "
+                        + "token_reference={} merchant_account={} network_transaction_id_present={}", correlationId(),
+                token.storedPaymentMethodId(), token.merchantAccount(), token.hasNetworkTransactionId());
         verifyRecurlyCustomer(request.customer());
         verifySubscriptionModel(request.model());
         verifyTokenOwnership(request.customer(), token);

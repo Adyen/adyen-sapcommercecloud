@@ -30,6 +30,7 @@ import com.adyen.commerce.connector.webhook.SubscriptionBillingWebhookDispatcher
 public class RecurlyWebhookController
 {
     private static final Logger LOG = LoggerFactory.getLogger(RecurlyWebhookController.class);
+    private static final String CORRELATION_ID_KEY = "correlationId";
     private final SubscriptionBillingWebhookDispatcher webhookDispatcher;
 
     public RecurlyWebhookController(
@@ -43,11 +44,15 @@ public class RecurlyWebhookController
     public ResponseEntity<Void> receive(@RequestHeader final HttpHeaders headers, @RequestBody final String payload)
     {
         final long startedAt = System.nanoTime();
-        final String previousCorrelationId = MDC.get("correlationId");
+        final String previousCorrelationId = MDC.get(CORRELATION_ID_KEY);
         final String correlationId = previousCorrelationId == null ? UUID.randomUUID().toString() : previousCorrelationId;
-        MDC.put("correlationId", correlationId);
+        MDC.put(CORRELATION_ID_KEY, correlationId);
         final Map<String, String> singleHeaders = headers.toSingleValueMap();
         final RawWebhook raw = new RawWebhook(singleHeaders, payload, headers.getFirst("recurly-signature"));
+        LOG.info("event=webhook_request platform=RECURLY operation=dispatch_webhook outcome=received duration_ms=0 "
+                        + "http_status=none error_class=none retryable=false correlation_id={} payload_bytes={} "
+                        + "signature_present={}", correlationId, payloadBytes(payload),
+                headers.getFirst("recurly-signature") != null);
         try
         {
             webhookDispatcher.dispatch(BillingPlatform.RECURLY, raw);
@@ -76,11 +81,11 @@ public class RecurlyWebhookController
         {
             if (previousCorrelationId == null)
             {
-                MDC.remove("correlationId");
+                MDC.remove(CORRELATION_ID_KEY);
             }
             else
             {
-                MDC.put("correlationId", previousCorrelationId);
+                MDC.put(CORRELATION_ID_KEY, previousCorrelationId);
             }
         }
     }
