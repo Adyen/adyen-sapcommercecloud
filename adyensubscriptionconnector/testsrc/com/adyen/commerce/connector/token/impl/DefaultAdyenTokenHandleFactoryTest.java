@@ -43,7 +43,7 @@ import de.hybris.platform.store.BaseStoreModel;
 
 /**
  * Unit test for {@link DefaultAdyenTokenHandleFactory} — asserts the token contract is assembled
- * field-by-field from the existing Adyen plugin artifacts (design P1.8 acceptance criterion).
+ * field-by-field from the existing Adyen plugin artifacts.
  */
 @UnitTest
 public class DefaultAdyenTokenHandleFactoryTest

@@ -18,7 +18,11 @@
                     manager="com.adyen.commerce.connector.recurly.jalo.AdyenrecurlyconnectorManager"
                     packageroot="com.adyen.commerce.connector.recurly"/>
 
-        <webmodule jspcompile="false" webroot="/adyenrecurlyconnector"/>
+        <!-- No web module: the inbound webhook is the base-site-aware OCC endpoint
+             POST /occ/v2/subscription-billing/webhooks/{baseSiteId}/{platform} in
+             adyensubscriptionconnector. A second, base-site-less controller lived here and could only
+             ever answer 400 (no current base store means no credentials); worse, it gave operators a
+             second plausible URL to point Recurly at, where every event would be dropped silently. -->
     </extension>
 
 </extensioninfo>

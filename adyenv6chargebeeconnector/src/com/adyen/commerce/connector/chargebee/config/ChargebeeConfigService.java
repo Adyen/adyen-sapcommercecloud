@@ -51,7 +51,7 @@ public interface ChargebeeConfigService
 	String getGatewayAccountId();
 
 	/**
-	 * @return the Adyen merchant account the Chargebee gateway is bound to (for the R2 check), or {@code null}
+	 * @return the Adyen merchant account the Chargebee gateway is bound to (for the gateway-binding check), or {@code null}
 	 */
 	String getConfiguredAdyenMerchantAccount();
 
@@ -65,4 +65,21 @@ public interface ChargebeeConfigService
 	 * @return the Basic Auth password configured on the Chargebee-side webhook, or {@code null} if unset
 	 */
 	String getWebhookPassword();
+
+	// --- Transport tuning ---
+	//
+	// Deliberately not on the base store: these describe this installation's tolerance for a slow
+	// Chargebee, not the shop's relationship with it, so they stay in project/local.properties.
+
+	/** Time to establish the TCP/TLS connection before failing. */
+	int getConnectTimeoutMillis();
+
+	/** Time to wait for Chargebee's response before failing. Without it a hung call blocks forever. */
+	int getResponseTimeoutMillis();
+
+	/** How long a caller may wait for a free pooled connection before failing. */
+	int getConnectionRequestTimeoutMillis();
+
+	/** Size of the connection pool, total and per route — every call goes to the one Chargebee host. */
+	int getMaxConnections();
 }

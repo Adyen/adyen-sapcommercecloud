@@ -46,7 +46,7 @@ import de.hybris.platform.store.BaseStoreModel;
 
 /**
  * Unit test for {@link DefaultSubscriptionBillingConnectorRegistry} — resolution by platform and per
- * BaseStore (design P1.6).
+ * BaseStore.
  */
 @UnitTest
 public class DefaultSubscriptionBillingConnectorRegistryTest

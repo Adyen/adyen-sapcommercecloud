@@ -3,8 +3,8 @@
  Copyright (c) 2026 Adyen B.V. - MIT license.
 
  adyenv6chargebeeconnector - Chargebee adapter of the SubscriptionBillingConnector SPI.
- First external adapter (ADR-001 Option A: Adyen keeps processing recurring payments;
- Chargebee only orchestrates billing). Implements the port defined in adyensubscriptionconnector.
+ First external adapter: Adyen keeps processing the recurring payments, Chargebee only
+ orchestrates the billing. Implements the port defined in adyensubscriptionconnector.
 -->
 <extensioninfo xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="extensioninfo.xsd">
 

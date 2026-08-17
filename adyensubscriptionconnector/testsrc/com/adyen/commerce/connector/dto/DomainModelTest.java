@@ -35,8 +35,8 @@ import com.adyen.commerce.connector.enums.BillingPlatform;
 import de.hybris.bootstrap.annotations.UnitTest;
 
 /**
- * Unit test for the vendor-neutral domain model invariants and immutability (design P1.2 acceptance:
- * the types are unit-constructible, enforce their required fields, and defensively copy mutable inputs).
+ * Unit test for the vendor-neutral domain model invariants and immutability: the types are
+ * unit-constructible, enforce their required fields, and defensively copy mutable inputs.
  */
 @UnitTest
 public class DomainModelTest
