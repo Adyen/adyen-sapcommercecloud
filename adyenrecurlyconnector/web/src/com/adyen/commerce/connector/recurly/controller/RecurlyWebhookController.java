@@ -1,6 +1,8 @@
 package com.adyen.commerce.connector.recurly.controller;
 
 import java.util.Map;
+import java.nio.charset.StandardCharsets;
+import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpHeaders;
@@ -12,6 +14,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import com.adyen.commerce.connector.dto.RawWebhook;
 import com.adyen.commerce.connector.enums.BillingPlatform;
@@ -24,6 +29,7 @@ import com.adyen.commerce.connector.webhook.SubscriptionBillingWebhookDispatcher
 @RequestMapping("/webhooks/recurly")
 public class RecurlyWebhookController
 {
+    private static final Logger LOG = LoggerFactory.getLogger(RecurlyWebhookController.class);
     private final SubscriptionBillingWebhookDispatcher webhookDispatcher;
 
     public RecurlyWebhookController(
@@ -36,20 +42,56 @@ public class RecurlyWebhookController
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Void> receive(@RequestHeader final HttpHeaders headers, @RequestBody final String payload)
     {
+        final long startedAt = System.nanoTime();
+        final String previousCorrelationId = MDC.get("correlationId");
+        final String correlationId = previousCorrelationId == null ? UUID.randomUUID().toString() : previousCorrelationId;
+        MDC.put("correlationId", correlationId);
         final Map<String, String> singleHeaders = headers.toSingleValueMap();
         final RawWebhook raw = new RawWebhook(singleHeaders, payload, headers.getFirst("recurly-signature"));
         try
         {
             webhookDispatcher.dispatch(BillingPlatform.RECURLY, raw);
+            LOG.info("event=webhook_request platform=RECURLY operation=dispatch_webhook outcome=success duration_ms={} "
+                            + "http_status=204 error_class=none retryable=false correlation_id={} payload_bytes={}",
+                    elapsedMillis(startedAt), correlationId, payloadBytes(payload));
             return ResponseEntity.noContent().build();
         }
         catch (final RetryableBillingException e)
         {
+            LOG.warn("event=webhook_request platform=RECURLY operation=dispatch_webhook outcome=failure duration_ms={} "
+                            + "http_status=503 error_class=retryable_billing exception_class={} retryable=true "
+                            + "correlation_id={} payload_bytes={}", elapsedMillis(startedAt), e.getClass().getName(),
+                    correlationId, payloadBytes(payload));
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
         }
         catch (final BillingException e)
         {
+            LOG.warn("event=webhook_request platform=RECURLY operation=dispatch_webhook outcome=failure duration_ms={} "
+                            + "http_status=400 error_class=terminal_billing exception_class={} retryable=false "
+                            + "correlation_id={} payload_bytes={}", elapsedMillis(startedAt), e.getClass().getName(),
+                    correlationId, payloadBytes(payload));
             return ResponseEntity.badRequest().build();
         }
+        finally
+        {
+            if (previousCorrelationId == null)
+            {
+                MDC.remove("correlationId");
+            }
+            else
+            {
+                MDC.put("correlationId", previousCorrelationId);
+            }
+        }
+    }
+
+    private static long elapsedMillis(final long startedAt)
+    {
+        return (System.nanoTime() - startedAt) / 1_000_000L;
+    }
+
+    private static int payloadBytes(final String payload)
+    {
+        return payload == null ? 0 : payload.getBytes(StandardCharsets.UTF_8).length;
     }
 }

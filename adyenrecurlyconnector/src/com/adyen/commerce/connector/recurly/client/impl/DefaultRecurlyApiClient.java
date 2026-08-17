@@ -18,6 +18,9 @@ import java.util.Set;
 import java.util.UUID;
 
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import com.adyen.commerce.connector.dto.BillingAddress;
 import com.adyen.commerce.connector.dto.CardMetadata;
@@ -41,6 +44,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
  * surfaces only normalized {@link BillingException} failures to the SPI layer.
  */
 public class DefaultRecurlyApiClient implements RecurlyApiClient {
+    private static final Logger LOG = LoggerFactory.getLogger(DefaultRecurlyApiClient.class);
     private static final int HTTP_TOO_MANY_REQUESTS = 429;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -177,8 +181,8 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
             if (billingInfoMatches(existing.body(), shopperReference, storedPaymentMethodId)) {
                 return readId(existing.body());
             }
-            throw new PreconditionFailedException("Recurly account '" + accountId
-                    + "' already has a different primary billing info and Subscriber Wallet is disabled; "
+            throw new PreconditionFailedException("Recurly account already has a different primary billing info "
+                    + "and Subscriber Wallet is disabled; "
                     + "refusing to replace the customer's payment method implicitly");
         }
         if (existing.statusCode() != HTTP_NOT_FOUND) {
@@ -286,9 +290,14 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
         final String detail = extractError(response.body());
         final String message = "Recurly " + action + " failed (HTTP " + response.statusCode() + ")"
                 + (detail == null ? "" : ": " + detail);
-        if (response.statusCode() == HTTP_CLIENT_TIMEOUT || response.statusCode() == HTTP_CONFLICT
+        final boolean retryable = response.statusCode() == HTTP_CLIENT_TIMEOUT || response.statusCode() == HTTP_CONFLICT
                 || response.statusCode() == HTTP_TOO_MANY_REQUESTS || response.statusCode() >= HTTP_INTERNAL_ERROR
-                || StringUtils.containsIgnoreCase(detail, "simultaneous_request")) {
+                || StringUtils.containsIgnoreCase(detail, "simultaneous_request");
+        LOG.warn("event=vendor_api_error platform=RECURLY operation={} outcome=failure http_status={} "
+                        + "error_class={} vendor_error_code={} retryable={} correlation_id={}",
+                action.replace(' ', '_'), response.statusCode(), classifyStatus(response.statusCode()), detail,
+                retryable, correlationId());
+        if (retryable) {
             return new RetryableBillingException(message);
         }
         return new TerminalBillingException(message);
@@ -300,12 +309,8 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
         }
         try {
             final JsonNode node = objectMapper.readTree(body);
-            final String message = node.path("message").asText(node.path("error").path("message").asText(null));
             final String type = node.path("type").asText(node.path("error").path("type").asText(null));
-            if (message == null && type == null) {
-                return null;
-            }
-            return (type == null ? "" : "[" + type + "] ") + StringUtils.defaultString(message);
+            return type;
         } catch (final IOException e) {
             return null;
         }
@@ -340,7 +345,7 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
             }
             throw new TerminalBillingException("Recurly subscription response missing id and uuid");
         } catch (final IOException e) {
-            throw new TerminalBillingException("Malformed Recurly response: " + e.getMessage());
+            throw new TerminalBillingException("Malformed Recurly response", e);
         }
     }
 
@@ -458,8 +463,7 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
         final RecurlyHttpResponse response = httpClient.get(
                 url("/accounts/" + pathSegment(accountId) + "/billing_info"), authHeader(), acceptHeader());
         if (response.statusCode() == HTTP_NOT_FOUND) {
-            throw new TerminalBillingException("Recurly account '" + accountId
-                    + "' has no primary billing info after importing the Adyen token");
+            throw new TerminalBillingException("Recurly account has no primary billing info after importing the Adyen token");
         }
         requireSuccess(response, "retrieve primary billing info");
         return readId(response.body());
@@ -469,7 +473,7 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
         try {
             return objectMapper.readTree(body);
         } catch (final IOException e) {
-            throw new TerminalBillingException("Malformed Recurly " + resource + " response: " + e.getMessage());
+            throw new TerminalBillingException("Malformed Recurly " + resource + " response", e);
         }
     }
 
@@ -521,6 +525,17 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
     protected static String fingerprintedKey(final String prefix, final String sensitiveValue) {
         return prefix + "/" + UUID.nameUUIDFromBytes(
                 StringUtils.defaultString(sensitiveValue).getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static String classifyStatus(final int status) {
+        if (status == HTTP_TOO_MANY_REQUESTS) return "rate_limit";
+        if (status >= HTTP_INTERNAL_ERROR) return "remote_5xx";
+        if (status >= 400) return "remote_4xx";
+        return "unexpected_status";
+    }
+
+    private static String correlationId() {
+        return StringUtils.defaultIfBlank(MDC.get("correlationId"), "none");
     }
 
 }

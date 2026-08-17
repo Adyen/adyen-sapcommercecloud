@@ -6,6 +6,9 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import com.adyen.commerce.connector.dto.AdyenTokenHandle;
 import com.adyen.commerce.connector.dto.BillingCustomerRef;
@@ -25,6 +28,7 @@ import com.adyen.commerce.connector.dto.TokenImportRequest;
 import com.adyen.commerce.connector.dto.TokenImportStyle;
 import com.adyen.commerce.connector.enums.BillingPlatform;
 import com.adyen.commerce.connector.exception.BillingException;
+import com.adyen.commerce.connector.exception.ConnectorNotConfiguredException;
 import com.adyen.commerce.connector.exception.PreconditionFailedException;
 import com.adyen.commerce.connector.recurly.client.RecurlyApiClient;
 import com.adyen.commerce.connector.recurly.client.RecurlySubscriptionParams;
@@ -39,6 +43,7 @@ import com.adyen.commerce.connector.spi.SubscriptionBillingConnector;
  * plan resolver, and one SPI bean.
  */
 public class RecurlySubscriptionBillingConnector implements SubscriptionBillingConnector {
+    private static final Logger LOG = LoggerFactory.getLogger(RecurlySubscriptionBillingConnector.class);
     private static final ConnectorCapabilities CAPABILITIES = new ConnectorCapabilities(
             true,
             false,
@@ -89,13 +94,25 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
 
     @Override
     public BillingCustomerRef ensureCustomer(final CustomerSyncRequest request) throws BillingException {
-        final String accountId = apiClient.ensureCustomer(request.customerId(), request.email(), request.firstName(),
-                request.lastName());
+        final long startedAt = System.nanoTime();
+        final String accountId;
+        try {
+            accountId = apiClient.ensureCustomer(request.customerId(), request.email(), request.firstName(),
+                    request.lastName());
+        } catch (final BillingException e) {
+            LOG.warn("event=connector_operation platform=RECURLY operation=ensure_customer outcome=failure duration_ms={} "
+                            + "error_class={} exception_class={} correlation_id={}", elapsedMillis(startedAt),
+                    errorClass(e), e.getClass().getName(), correlationId());
+            throw e;
+        }
+        LOG.info("event=connector_operation platform=RECURLY operation=ensure_customer outcome=success duration_ms={} "
+                        + "error_class=none correlation_id={}", elapsedMillis(startedAt), correlationId());
         return new BillingCustomerRef(BillingPlatform.RECURLY, accountId);
     }
 
     @Override
     public BillingPaymentMethodRef importAdyenToken(final TokenImportRequest request) throws BillingException {
+        final long startedAt = System.nanoTime();
         final AdyenTokenHandle token = request.token();
         verifyRecurlyCustomer(request.customer());
         verifySubscriptionModel(request.model());
@@ -104,20 +121,62 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
         verifyMerchantAccount(token);
         verifyNetworkTransactionId(token);
 
-        final String billingInfoId = apiClient.importAdyenToken(request.customer().externalId(),
-                token.shopperReference(), token.storedPaymentMethodId(), token.cardMetadata(),
-                request.billingAddress());
+        final String billingInfoId;
+        try {
+            billingInfoId = apiClient.importAdyenToken(request.customer().externalId(), token.shopperReference(),
+                    token.storedPaymentMethodId(), token.cardMetadata(), request.billingAddress());
+        } catch (final BillingException e) {
+            LOG.warn("event=connector_operation platform=RECURLY operation=import_token outcome=failure duration_ms={} "
+                            + "error_class={} correlation_id={} token_reference={} merchant_account={} "
+                            + "network_transaction_id_present={}", elapsedMillis(startedAt), errorClass(e),
+                    correlationId(), token.storedPaymentMethodId(), token.merchantAccount(),
+                    token.hasNetworkTransactionId());
+            throw e;
+        }
+        LOG.info("event=connector_operation platform=RECURLY operation=import_token outcome=success duration_ms={} "
+                        + "error_class=none correlation_id={} token_reference={} billing_info_id={} "
+                        + "merchant_account={} network_transaction_id={}", elapsedMillis(startedAt), correlationId(),
+                token.storedPaymentMethodId(), billingInfoId, token.merchantAccount(), token.networkTransactionId());
         return new BillingPaymentMethodRef(BillingPlatform.RECURLY,
                 RecurlyPaymentMethodReference.encode(billingInfoId, token.networkTransactionId()));
     }
 
     @Override
     public PlanRef resolvePlan(final PlanResolutionRequest request) throws BillingException {
-        return planResolver.resolve(request);
+        final long startedAt = System.nanoTime();
+        final PlanRef plan;
+        try {
+            plan = planResolver.resolve(request);
+        } catch (final BillingException e) {
+            LOG.warn("event=connector_operation platform=RECURLY operation=resolve_plan outcome=failure duration_ms={} "
+                            + "error_class={} exception_class={} correlation_id={} product_code={}",
+                    elapsedMillis(startedAt), errorClass(e), e.getClass().getName(), correlationId(),
+                    request.productCode());
+            throw e;
+        }
+        LOG.info("event=connector_operation platform=RECURLY operation=resolve_plan outcome=success duration_ms={} "
+                        + "error_class=none correlation_id={} product_code={} plan_id={}", elapsedMillis(startedAt),
+                correlationId(), request.productCode(), plan.planId());
+        return plan;
     }
 
     @Override
     public BillingSubscriptionRef createSubscription(final SubscriptionCreateRequest request) throws BillingException {
+        final long startedAt = System.nanoTime();
+        try {
+            return createSubscriptionInternal(request, startedAt);
+        } catch (final BillingException e) {
+            LOG.warn("event=connector_operation platform=RECURLY operation=create_subscription outcome=failure "
+                            + "duration_ms={} error_class={} exception_class={} correlation_id={} plan_id={} "
+                            + "payment_method_reference={}", elapsedMillis(startedAt), errorClass(e),
+                    e.getClass().getName(), correlationId(), planCode(request.plan()),
+                    request.paymentMethod().externalId());
+            throw e;
+        }
+    }
+
+    private BillingSubscriptionRef createSubscriptionInternal(final SubscriptionCreateRequest request,
+                                                               final long startedAt) throws BillingException {
         final Instant now = clock.instant();
         final Instant startDate = request.startDate() == null
                 ? now.plusSeconds(configService.getMinimumStartDelaySeconds())
@@ -134,20 +193,50 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
                 startDate.toString(), paymentMethod.networkTransactionId(),
                 operationKey(request.idempotencyKey(), "create"), request.metadata());
         final String subscriptionId = apiClient.createSubscription(params);
+        LOG.info("event=connector_operation platform=RECURLY operation=create_subscription outcome=success "
+                        + "duration_ms={} error_class=none correlation_id={} subscription_id={} plan_id={} quantity={} "
+                        + "currency={} start_at={} payment_method_reference={}", elapsedMillis(startedAt), correlationId(),
+                subscriptionId, planCode(request.plan()), request.quantity(), request.currencyIsoCode(), startDate,
+                request.paymentMethod().externalId());
         return new BillingSubscriptionRef(BillingPlatform.RECURLY, subscriptionId);
     }
 
     @Override
     public void updateSubscription(final SubscriptionUpdateRequest request) throws BillingException {
+        final long startedAt = System.nanoTime();
         final String planCode = request.plan() == null ? null : planCode(request.plan());
-        apiClient.updateSubscription(request.subscription().externalId(), planCode, request.quantity(),
-                operationKey(request.idempotencyKey(), "update"));
+        try {
+            apiClient.updateSubscription(request.subscription().externalId(), planCode, request.quantity(),
+                    operationKey(request.idempotencyKey(), "update"));
+        } catch (final BillingException e) {
+            LOG.warn("event=connector_operation platform=RECURLY operation=update_subscription outcome=failure "
+                            + "duration_ms={} error_class={} exception_class={} correlation_id={} subscription_id={} "
+                            + "plan_id={} quantity={}", elapsedMillis(startedAt), errorClass(e), e.getClass().getName(),
+                    correlationId(), request.subscription().externalId(), planCode, request.quantity());
+            throw e;
+        }
+        LOG.info("event=connector_operation platform=RECURLY operation=update_subscription outcome=success "
+                        + "duration_ms={} error_class=none correlation_id={} subscription_id={} plan_id={} quantity={}",
+                elapsedMillis(startedAt), correlationId(), request.subscription().externalId(), planCode,
+                request.quantity());
     }
 
     @Override
     public void cancelSubscription(final SubscriptionCancelRequest request) throws BillingException {
-        apiClient.cancelSubscription(request.subscription().externalId(), request.atPeriodEnd(),
-                operationKey(request.idempotencyKey(), "cancel"));
+        final long startedAt = System.nanoTime();
+        try {
+            apiClient.cancelSubscription(request.subscription().externalId(), request.atPeriodEnd(),
+                    operationKey(request.idempotencyKey(), "cancel"));
+        } catch (final BillingException e) {
+            LOG.warn("event=connector_operation platform=RECURLY operation=cancel_subscription outcome=failure "
+                            + "duration_ms={} error_class={} exception_class={} correlation_id={} subscription_id={} "
+                            + "at_period_end={}", elapsedMillis(startedAt), errorClass(e), e.getClass().getName(),
+                    correlationId(), request.subscription().externalId(), request.atPeriodEnd());
+            throw e;
+        }
+        LOG.info("event=connector_operation platform=RECURLY operation=cancel_subscription outcome=success "
+                        + "duration_ms={} error_class=none correlation_id={} subscription_id={} at_period_end={}",
+                elapsedMillis(startedAt), correlationId(), request.subscription().externalId(), request.atPeriodEnd());
     }
 
     /**
@@ -180,16 +269,37 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
             return List.of();
         }
         final Map<String, String> attributes = event.attributes();
-        return apiClient.resolveWebhookSubscriptionIds(attributes.get("resourceType"), attributes.get("resourceId"));
+        final List<String> resolved = apiClient.resolveWebhookSubscriptionIds(attributes.get("resourceType"),
+                attributes.get("resourceId"));
+        if (resolved == null || resolved.isEmpty()) {
+            LOG.warn("event=reconciliation_gap platform=RECURLY operation=resolve_webhook outcome=unresolved "
+                    + "error_class=none correlation_id={} event_id={} resource_type={} resource_id={}",
+                    correlationId(), event.eventId(), attributes.get("resourceType"), attributes.get("resourceId"));
+        } else {
+            LOG.info("event=webhook_resolution platform=RECURLY operation=resolve_webhook outcome=success "
+                            + "error_class=none correlation_id={} event_id={} resource_type={} resource_id={} "
+                            + "resolved_subscription_count={} resolved_subscription_ids={}", correlationId(),
+                    event.eventId(), attributes.get("resourceType"), attributes.get("resourceId"), resolved.size(), resolved);
+        }
+        return resolved;
     }
 
-    protected void verifyMerchantAccount(final AdyenTokenHandle token) throws PreconditionFailedException {
+    protected void verifyMerchantAccount(final AdyenTokenHandle token)
+            throws PreconditionFailedException, ConnectorNotConfiguredException {
         final String configured = configService.getConfiguredAdyenMerchantAccount();
         if (StringUtils.isBlank(configured)) {
+            logTokenValidationFailure("merchant_account_not_configured", token, "configuration");
+            LOG.error("event=merchant_account_mismatch platform=RECURLY operation=import_token outcome=failure "
+                            + "error_class=configuration correlation_id={} configured_merchant_account=missing "
+                            + "token_merchant_account={}", correlationId(), token.merchantAccount());
             throw new PreconditionFailedException("Recurly connector has no configured Adyen merchant account "
                     + "(recurly.adyenMerchantAccount); refusing to import a token without the R2 guarantee");
         }
         if (!configured.equals(token.merchantAccount())) {
+            logTokenValidationFailure("merchant_account_mismatch", token, "validation");
+            LOG.error("event=merchant_account_mismatch platform=RECURLY operation=import_token outcome=failure "
+                            + "error_class=validation correlation_id={} configured_merchant_account={} "
+                            + "token_merchant_account={}", correlationId(), configured, token.merchantAccount());
             throw new PreconditionFailedException("Recurly connector is bound to Adyen merchant account '" + configured
                     + "' but the token was minted under '" + token.merchantAccount() + "'");
         }
@@ -197,6 +307,9 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
 
     protected void verifyRecurlyCustomer(final BillingCustomerRef customer) throws PreconditionFailedException {
         if (customer.platform() != BillingPlatform.RECURLY) {
+            LOG.warn("event=token_import_validation_failure platform=RECURLY operation=import_token outcome=failure "
+                            + "error_class=validation reason=customer_platform_mismatch correlation_id={} "
+                            + "received_platform={}", correlationId(), customer.platform());
             throw new PreconditionFailedException("Cannot import an Adyen token into a " + customer.platform()
                     + " customer reference using the Recurly connector");
         }
@@ -204,6 +317,9 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
 
     protected void verifySubscriptionModel(final RecurringProcessingModel model) throws PreconditionFailedException {
         if (model != RecurringProcessingModel.SUBSCRIPTION) {
+            LOG.warn("event=token_import_validation_failure platform=RECURLY operation=import_token outcome=failure "
+                            + "error_class=validation reason=recurring_model_unsupported correlation_id={} "
+                            + "recurring_model={}", correlationId(), model);
             throw new PreconditionFailedException("Recurly token import supports only SUBSCRIPTION recurring "
                     + "processing, but received " + model);
         }
@@ -213,6 +329,7 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
             throws PreconditionFailedException {
         final String expectedShopperReference = accountCode(customer.externalId());
         if (!StringUtils.equals(expectedShopperReference, token.shopperReference())) {
+            logTokenValidationFailure("token_ownership_mismatch", token, "validation");
             throw new PreconditionFailedException("Adyen token shopperReference does not match the Recurly customer "
                     + "reference; refusing to attach a payment method belonging to another customer");
         }
@@ -220,12 +337,16 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
 
     protected void verifyNetworkTransactionId(final AdyenTokenHandle token) throws PreconditionFailedException {
         if (!token.hasNetworkTransactionId()) {
+            logTokenValidationFailure("network_transaction_id_missing", token, "validation");
             throw new PreconditionFailedException("Recurly requires a network transaction id for Adyen token import");
         }
     }
 
-    protected void verifyExternalNtidSupport() throws PreconditionFailedException {
+    protected void verifyExternalNtidSupport()
+            throws PreconditionFailedException, ConnectorNotConfiguredException {
         if (!configService.isExternalNtidFeatureEnabled()) {
+            LOG.warn("event=token_import_validation_failure platform=RECURLY operation=import_token outcome=failure "
+                    + "error_class=configuration reason=external_ntid_feature_disabled correlation_id={}", correlationId());
             throw new PreconditionFailedException("Recurly external-NTID support is not confirmed. Enable "
                     + "'Allow NTIDs in APIs' and 'Enables Backfilling External Tokens', then set "
                     + "recurly.externalNtidFeatureEnabled=true");
@@ -238,5 +359,30 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
 
     protected String accountCode(final String accountId) {
         return StringUtils.removeStart(accountId, "code-");
+    }
+
+    private void logTokenValidationFailure(final String reason, final AdyenTokenHandle token,
+                                           final String errorClass) {
+        LOG.warn("event=token_import_validation_failure platform=RECURLY operation=import_token outcome=failure "
+                        + "error_class={} reason={} correlation_id={} token_reference={} merchant_account={} "
+                        + "network_transaction_id_present={}", errorClass, reason, correlationId(),
+                token == null ? null : token.storedPaymentMethodId(), token == null ? null : token.merchantAccount(),
+                token != null && token.hasNetworkTransactionId());
+    }
+
+    private static String errorClass(final BillingException error) {
+        final String type = error.getClass().getSimpleName();
+        if (type.contains("Retryable")) return "remote_retryable";
+        if (type.contains("Precondition")) return "validation";
+        if (type.contains("Configured")) return "configuration";
+        return "remote_terminal";
+    }
+
+    private static long elapsedMillis(final long startedAt) {
+        return (System.nanoTime() - startedAt) / 1_000_000L;
+    }
+
+    private static String correlationId() {
+        return StringUtils.defaultIfBlank(MDC.get("correlationId"), "none");
     }
 }

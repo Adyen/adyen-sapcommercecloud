@@ -29,6 +29,9 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import com.adyen.commerce.connector.chargebee.client.ChargebeeApiClient;
 import com.adyen.commerce.connector.chargebee.client.ChargebeeSubscriptionParams;
@@ -68,6 +71,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  */
 public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillingConnector
 {
+	private static final Logger LOG = LoggerFactory.getLogger(ChargebeeSubscriptionBillingConnector.class);
 	private static final ConnectorCapabilities CAPABILITIES = new ConnectorCapabilities(
 			false, // requiresNetworkTransactionId — the Adyen plugin never captures an NTID, and Chargebee import does not need one
 			true,  // supportsImmediateStart — subscription_for_items can start immediately
@@ -106,49 +110,148 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 	@Override
 	public BillingCustomerRef ensureCustomer(final CustomerSyncRequest request) throws BillingException
 	{
-		final String customerId = apiClient.ensureCustomer(request.customerId(), request.email(), request.firstName(),
-				request.lastName());
+		final long startedAt = System.nanoTime();
+		final String customerId;
+		try
+		{
+			customerId = apiClient.ensureCustomer(request.customerId(), request.email(), request.firstName(),
+					request.lastName());
+		}
+		catch (final BillingException e)
+		{
+			LOG.warn("event=connector_operation platform=CHARGEBEE operation=ensure_customer outcome=failure "
+					+ "duration_ms={} error_class={} exception_class={} correlation_id={}", elapsedMillis(startedAt),
+					errorClass(e), e.getClass().getName(), correlationId());
+			throw e;
+		}
+		LOG.info("event=connector_operation platform=CHARGEBEE operation=ensure_customer outcome=success duration_ms={} "
+				+ "error_class=none correlation_id={}", elapsedMillis(startedAt), correlationId());
 		return new BillingCustomerRef(BillingPlatform.CHARGEBEE, customerId);
 	}
 
 	@Override
 	public BillingPaymentMethodRef importAdyenToken(final TokenImportRequest request) throws BillingException
 	{
+		final long startedAt = System.nanoTime();
 		final AdyenTokenHandle token = request.token();
 		verifyMerchantAccount(token);
-		final String paymentSourceId = apiClient.importPermanentToken(request.customer().externalId(),
-				buildReferenceId(token), token.cardMetadata());
+		final String paymentSourceId;
+		try
+		{
+			paymentSourceId = apiClient.importPermanentToken(request.customer().externalId(), buildReferenceId(token),
+					token.cardMetadata());
+		}
+		catch (final BillingException e)
+		{
+			LOG.warn("event=connector_operation platform=CHARGEBEE operation=import_token outcome=failure duration_ms={} "
+					+ "error_class={} correlation_id={} token_reference={} merchant_account={}", elapsedMillis(startedAt),
+					errorClass(e), correlationId(), token.storedPaymentMethodId(), token.merchantAccount());
+			throw e;
+		}
+		LOG.info("event=connector_operation platform=CHARGEBEE operation=import_token outcome=success duration_ms={} "
+				+ "error_class=none correlation_id={} token_reference={} payment_source_id={} merchant_account={}",
+				elapsedMillis(startedAt), correlationId(), token.storedPaymentMethodId(), paymentSourceId,
+				token.merchantAccount());
 		return new BillingPaymentMethodRef(BillingPlatform.CHARGEBEE, paymentSourceId);
 	}
 
 	@Override
 	public PlanRef resolvePlan(final PlanResolutionRequest request) throws BillingException
 	{
-		return planResolver.resolve(request);
+		final long startedAt = System.nanoTime();
+		final PlanRef plan;
+		try
+		{
+			plan = planResolver.resolve(request);
+		}
+		catch (final BillingException e)
+		{
+			LOG.warn("event=connector_operation platform=CHARGEBEE operation=resolve_plan outcome=failure "
+					+ "duration_ms={} error_class={} exception_class={} correlation_id={} product_code={}",
+					elapsedMillis(startedAt), errorClass(e), e.getClass().getName(), correlationId(), request.productCode());
+			throw e;
+		}
+		LOG.info("event=connector_operation platform=CHARGEBEE operation=resolve_plan outcome=success duration_ms={} "
+				+ "error_class=none correlation_id={} product_code={} plan_id={}", elapsedMillis(startedAt),
+				correlationId(), request.productCode(), plan.planId());
+		return plan;
 	}
 
 	@Override
 	public BillingSubscriptionRef createSubscription(final SubscriptionCreateRequest request) throws BillingException
+	{
+		final long startedAt = System.nanoTime();
+		try
+		{
+			return createSubscriptionInternal(request, startedAt);
+		}
+		catch (final BillingException e)
+		{
+			LOG.warn("event=connector_operation platform=CHARGEBEE operation=create_subscription outcome=failure "
+					+ "duration_ms={} error_class={} exception_class={} correlation_id={} plan_id={} "
+					+ "payment_source_id={}", elapsedMillis(startedAt), errorClass(e), e.getClass().getName(),
+					correlationId(), itemPriceId(request.plan()), request.paymentMethod().externalId());
+			throw e;
+		}
+	}
+
+	private BillingSubscriptionRef createSubscriptionInternal(final SubscriptionCreateRequest request,
+			final long startedAt) throws BillingException
 	{
 		final Long startEpochSeconds = request.startDate() == null ? null : request.startDate().getEpochSecond();
 		final ChargebeeSubscriptionParams params = new ChargebeeSubscriptionParams(request.customer().externalId(),
 				itemPriceId(request.plan()), request.quantity(), startEpochSeconds, request.idempotencyKey(),
 				request.metadata());
 		final String subscriptionId = apiClient.createSubscription(params);
+		LOG.info("event=connector_operation platform=CHARGEBEE operation=create_subscription outcome=success "
+				+ "duration_ms={} error_class=none correlation_id={} subscription_id={} plan_id={} quantity={} "
+				+ "start_epoch_seconds={} payment_source_id={}", elapsedMillis(startedAt), correlationId(), subscriptionId,
+				itemPriceId(request.plan()), request.quantity(), startEpochSeconds, request.paymentMethod().externalId());
 		return new BillingSubscriptionRef(BillingPlatform.CHARGEBEE, subscriptionId);
 	}
 
 	@Override
 	public void updateSubscription(final SubscriptionUpdateRequest request) throws BillingException
 	{
+		final long startedAt = System.nanoTime();
 		final String itemPriceId = request.plan() == null ? null : itemPriceId(request.plan());
-		apiClient.updateSubscription(request.subscription().externalId(), itemPriceId, request.quantity());
+		try
+		{
+			apiClient.updateSubscription(request.subscription().externalId(), itemPriceId, request.quantity());
+		}
+		catch (final BillingException e)
+		{
+			LOG.warn("event=connector_operation platform=CHARGEBEE operation=update_subscription outcome=failure "
+					+ "duration_ms={} error_class={} exception_class={} correlation_id={} subscription_id={} "
+					+ "plan_id={} quantity={}", elapsedMillis(startedAt), errorClass(e), e.getClass().getName(),
+					correlationId(), request.subscription().externalId(), itemPriceId, request.quantity());
+			throw e;
+		}
+		LOG.info("event=connector_operation platform=CHARGEBEE operation=update_subscription outcome=success "
+				+ "duration_ms={} error_class=none correlation_id={} subscription_id={} plan_id={} quantity={}",
+				elapsedMillis(startedAt), correlationId(), request.subscription().externalId(), itemPriceId,
+				request.quantity());
 	}
 
 	@Override
 	public void cancelSubscription(final SubscriptionCancelRequest request) throws BillingException
 	{
-		apiClient.cancelSubscription(request.subscription().externalId(), request.atPeriodEnd());
+		final long startedAt = System.nanoTime();
+		try
+		{
+			apiClient.cancelSubscription(request.subscription().externalId(), request.atPeriodEnd());
+		}
+		catch (final BillingException e)
+		{
+			LOG.warn("event=connector_operation platform=CHARGEBEE operation=cancel_subscription outcome=failure "
+					+ "duration_ms={} error_class={} exception_class={} correlation_id={} subscription_id={} "
+					+ "at_period_end={}", elapsedMillis(startedAt), errorClass(e), e.getClass().getName(),
+					correlationId(), request.subscription().externalId(), request.atPeriodEnd());
+			throw e;
+		}
+		LOG.info("event=connector_operation platform=CHARGEBEE operation=cancel_subscription outcome=success "
+				+ "duration_ms={} error_class=none correlation_id={} subscription_id={} at_period_end={}",
+				elapsedMillis(startedAt), correlationId(), request.subscription().externalId(), request.atPeriodEnd());
 	}
 
 	// pauseSubscription is intentionally NOT overridden: supportsPause=false, so the SPI default
@@ -157,7 +260,27 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 	@Override
 	public NormalizedBillingEvent parseWebhook(final RawWebhook raw) throws BillingException
 	{
-		verifyWebhookAuth(raw);
+		final long startedAt = System.nanoTime();
+		if (raw == null)
+		{
+			logWebhookFailure(startedAt, "webhook_missing", "none", 0);
+			throw new TerminalBillingException("Chargebee webhook is missing");
+		}
+		final int payloadBytes = raw.payload() == null ? 0 : raw.payload().getBytes(StandardCharsets.UTF_8).length;
+		if (StringUtils.isBlank(raw.payload()))
+		{
+			logWebhookFailure(startedAt, "payload_missing", "none", payloadBytes);
+			throw new TerminalBillingException("Chargebee webhook payload is missing");
+		}
+		try
+		{
+			verifyWebhookAuth(raw);
+		}
+		catch (final BillingException e)
+		{
+			logWebhookFailure(startedAt, webhookAuthFailureReason(e), "none", payloadBytes);
+			throw e;
+		}
 
 		final JsonNode root;
 		try
@@ -166,6 +289,7 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 		}
 		catch (final IOException e)
 		{
+			logWebhookFailure(startedAt, "payload_parsing_failed", "none", payloadBytes);
 			throw new TerminalBillingException("Chargebee webhook payload is not valid JSON", e);
 		}
 
@@ -175,6 +299,10 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 		{
 			// Chargebee fires many event types we don't act on (invoice_generated, customer_changed, ...).
 			// Acknowledge without erroring: the dispatcher no-ops on a null event.
+			LOG.info("event=webhook_processing platform=CHARGEBEE operation=parse_webhook outcome=ignored "
+					+ "duration_ms={} error_class=none reason=unsupported_event_type correlation_id={} event_id={} "
+					+ "vendor_event_type={} payload_bytes={} auth_verified=true", elapsedMillis(startedAt), correlationId(),
+					root.path("id").asText(null), chargebeeEventType, payloadBytes);
 			return null;
 		}
 
@@ -195,6 +323,18 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 		// Chargebee's own docs recommend deduplicating on the event id; the core does exactly that, so it
 		// travels as a first-class field rather than an attribute.
 		final String eventId = root.path("id").asText(null);
+		final long lagMs = Instant.now().toEpochMilli() - occurredAt.toEpochMilli();
+		LOG.info("event=webhook_processing platform=CHARGEBEE operation=parse_webhook outcome=success duration_ms={} "
+				+ "error_class=none reason=none correlation_id={} event_id={} subscription_id={} "
+				+ "vendor_event_type={} normalized_event_type={} webhook_lag_ms={} clock_skew={} payload_bytes={} "
+				+ "auth_verified=true", elapsedMillis(startedAt), correlationId(), eventId, externalSubscriptionId,
+				chargebeeEventType, type, lagMs, lagMs < 0L, payloadBytes);
+		if (StringUtils.isBlank(externalSubscriptionId))
+		{
+			LOG.warn("event=reconciliation_gap platform=CHARGEBEE operation=parse_webhook outcome=unresolved "
+					+ "error_class=none correlation_id={} event_id={} vendor_event_type={} reason=subscription_id_missing",
+					correlationId(), eventId, chargebeeEventType);
+		}
 
 		final Map<String, String> attributes = new LinkedHashMap<>();
 		putIfNotBlank(attributes, "chargebeeEventType", chargebeeEventType);
@@ -324,11 +464,19 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 		// exemption. Fail closed so R2 cannot be silently bypassed (the core validator skips on null).
 		if (StringUtils.isBlank(configured))
 		{
+			logTokenValidationFailure("merchant_account_not_configured", token, "configuration");
+			LOG.error("event=merchant_account_mismatch platform=CHARGEBEE operation=import_token outcome=failure "
+					+ "error_class=configuration correlation_id={} configured_merchant_account=missing "
+					+ "token_merchant_account={}", correlationId(), token == null ? null : token.merchantAccount());
 			throw new PreconditionFailedException("Chargebee connector has no configured Adyen merchant account "
 					+ "(chargebee.adyenMerchantAccount); refusing to import a token without the R2 guarantee");
 		}
 		if (!configured.equals(token.merchantAccount()))
 		{
+			logTokenValidationFailure("merchant_account_mismatch", token, "validation");
+			LOG.error("event=merchant_account_mismatch platform=CHARGEBEE operation=import_token outcome=failure "
+					+ "error_class=validation correlation_id={} configured_merchant_account={} "
+					+ "token_merchant_account={}", correlationId(), configured, token.merchantAccount());
 			throw new PreconditionFailedException("Chargebee connector is bound to Adyen merchant account '" + configured
 					+ "' but the token was minted under '" + token.merchantAccount() + "'");
 		}
@@ -363,5 +511,49 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 	public void setPlanResolver(final ChargebeePlanResolver planResolver)
 	{
 		this.planResolver = planResolver;
+	}
+
+	private void logTokenValidationFailure(final String reason, final AdyenTokenHandle token,
+			final String errorClass)
+	{
+		LOG.warn("event=token_import_validation_failure platform=CHARGEBEE operation=import_token outcome=failure "
+				+ "error_class={} reason={} correlation_id={} token_reference={} merchant_account={}", errorClass, reason,
+				correlationId(), token == null ? null : token.storedPaymentMethodId(),
+				token == null ? null : token.merchantAccount());
+	}
+
+	private static void logWebhookFailure(final long startedAt, final String reason, final String eventId,
+			final int payloadBytes)
+	{
+		LOG.warn("event=webhook_processing platform=CHARGEBEE operation=parse_webhook outcome=failure duration_ms={} "
+				+ "error_class=validation reason={} correlation_id={} event_id={} payload_bytes={} auth_verified=false",
+				elapsedMillis(startedAt), reason, correlationId(), eventId, payloadBytes);
+	}
+
+	private static String webhookAuthFailureReason(final BillingException error)
+	{
+		final String message = StringUtils.defaultString(error.getMessage());
+		if (message.contains("not configured")) return "webhook_auth_not_configured";
+		if (message.contains("Base64")) return "authorization_header_invalid_base64";
+		if (message.contains("do not match")) return "webhook_credentials_mismatch";
+		return "authorization_header_missing_or_invalid";
+	}
+
+	private static String errorClass(final BillingException error)
+	{
+		final String type = error.getClass().getSimpleName();
+		if (type.contains("Retryable")) return "remote_retryable";
+		if (type.contains("Precondition")) return "validation";
+		return "remote_terminal";
+	}
+
+	private static long elapsedMillis(final long startedAt)
+	{
+		return (System.nanoTime() - startedAt) / 1_000_000L;
+	}
+
+	private static String correlationId()
+	{
+		return StringUtils.defaultIfBlank(MDC.get("correlationId"), "none");
 	}
 }

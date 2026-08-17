@@ -2,6 +2,7 @@ package com.adyen.commerce.connector.recurly.http.impl;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hc.client5.http.classic.methods.HttpDelete;
@@ -20,6 +21,9 @@ import org.apache.hc.core5.http.HttpHeaders;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.apache.hc.core5.util.Timeout;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import com.adyen.commerce.connector.exception.RetryableBillingException;
 import com.adyen.commerce.connector.recurly.config.RecurlyConfigService;
@@ -31,6 +35,7 @@ import com.adyen.commerce.connector.recurly.http.RecurlyHttpResponse;
  * {@link RetryableBillingException}.
  */
 public class DefaultRecurlyHttpClient implements RecurlyHttpClient {
+    private static final Logger LOG = LoggerFactory.getLogger(DefaultRecurlyHttpClient.class);
     private static final String IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
 
     private volatile CloseableHttpClient httpClient;
@@ -90,17 +95,76 @@ public class DefaultRecurlyHttpClient implements RecurlyHttpClient {
         if (StringUtils.isNotBlank(idempotencyKey)) {
             request.setHeader(IDEMPOTENCY_KEY_HEADER, idempotencyKey);
         }
+        final String operation = operation(request);
+        final long startedAt = System.nanoTime();
         try {
-            return getHttpClient().execute(request, response ->
+            final RecurlyHttpResponse result = getHttpClient().execute(request, response ->
             {
                 final String body = response.getEntity() == null
                         ? ""
                         : EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
                 return new RecurlyHttpResponse(response.getCode(), body);
             });
+            final long durationMs = elapsedMillis(startedAt);
+            final String outcome = result.isSuccess() ? "success" : "failure";
+            final String errorClass = classifyStatus(result.statusCode());
+            final boolean retryable = isRetryableStatus(result.statusCode());
+            if (result.isSuccess()) {
+                LOG.info("event=connector_call platform=RECURLY operation={} method={} outcome={} duration_ms={} "
+                                + "http_status={} error_class={} retryable={} idempotency_key_present={} correlation_id={}",
+                        operation, request.getMethod(), outcome, durationMs, result.statusCode(), errorClass, retryable,
+                        StringUtils.isNotBlank(idempotencyKey), correlationId());
+            } else {
+                LOG.warn("event=connector_call platform=RECURLY operation={} method={} outcome={} duration_ms={} "
+                                + "http_status={} error_class={} retryable={} idempotency_key_present={} correlation_id={}",
+                        operation, request.getMethod(), outcome, durationMs, result.statusCode(), errorClass, retryable,
+                        StringUtils.isNotBlank(idempotencyKey), correlationId());
+            }
+            return result;
         } catch (final IOException e) {
-            throw new RetryableBillingException("Recurly HTTP call to " + url + " failed: " + e.getMessage(), e);
+            LOG.warn("event=connector_call platform=RECURLY operation={} method={} outcome=failure duration_ms={} "
+                            + "http_status=none error_class={} exception_class={} retryable=true "
+                            + "idempotency_key_present={} correlation_id={}", operation, request.getMethod(),
+                    elapsedMillis(startedAt), classifyException(e), e.getClass().getName(),
+                    StringUtils.isNotBlank(idempotencyKey), correlationId());
+            throw new RetryableBillingException("Recurly HTTP operation '" + operation + "' failed", e);
         }
+    }
+
+    protected String operation(final HttpUriRequestBase request) {
+        final String path = StringUtils.defaultString(request.getPath()).toLowerCase(Locale.ROOT);
+        if (path.contains("/billing_info")) return "import_token";
+        if (path.contains("/transactions/") || path.contains("/invoices/")) return "resolve_webhook";
+        if (path.matches(".*/subscriptions/?$") && "POST".equals(request.getMethod())) return "create_subscription";
+        if (path.endsWith("/change")) return "update_subscription";
+        if (path.contains("/subscriptions/")) return "cancel_subscription";
+        if (path.contains("/accounts")) return "ensure_customer";
+        return "http_" + request.getMethod().toLowerCase(Locale.ROOT);
+    }
+
+    private static String classifyStatus(final int status) {
+        if (status >= 200 && status < 300) return "none";
+        if (status == 429) return "rate_limit";
+        if (status >= 500) return "remote_5xx";
+        if (status >= 400) return "remote_4xx";
+        return "unexpected_status";
+    }
+
+    private static boolean isRetryableStatus(final int status) {
+        return status == 408 || status == 409 || status == 429 || status >= 500;
+    }
+
+    private static String classifyException(final IOException error) {
+        final String type = error.getClass().getSimpleName().toLowerCase(Locale.ROOT);
+        return type.contains("timeout") ? "timeout" : "connection";
+    }
+
+    private static long elapsedMillis(final long startedAt) {
+        return (System.nanoTime() - startedAt) / 1_000_000L;
+    }
+
+    private static String correlationId() {
+        return StringUtils.defaultIfBlank(MDC.get("correlationId"), "none");
     }
 
     protected CloseableHttpClient getHttpClient() {

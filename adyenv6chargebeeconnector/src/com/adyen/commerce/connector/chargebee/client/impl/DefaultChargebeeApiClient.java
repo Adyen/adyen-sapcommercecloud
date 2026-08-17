@@ -28,6 +28,9 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import com.adyen.commerce.connector.chargebee.client.ChargebeeApiClient;
 import com.adyen.commerce.connector.chargebee.client.ChargebeeSubscriptionParams;
@@ -48,6 +51,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  */
 public class DefaultChargebeeApiClient implements ChargebeeApiClient
 {
+	private static final Logger LOG = LoggerFactory.getLogger(DefaultChargebeeApiClient.class);
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	private ChargebeeHttpClient httpClient;
@@ -205,7 +209,11 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 		final String detail = extractError(response.body());
 		final String message = "Chargebee " + action + " failed (HTTP " + response.statusCode() + ")"
 				+ (detail == null ? "" : ": " + detail);
-		if (response.statusCode() == 429 || response.statusCode() >= 500)
+		final boolean retryable = response.statusCode() == 429 || response.statusCode() >= 500;
+		LOG.warn("event=vendor_api_error platform=CHARGEBEE operation={} outcome=failure http_status={} "
+				+ "error_class={} vendor_error_code={} retryable={} correlation_id={}", action.replace(' ', '_'),
+				response.statusCode(), classifyStatus(response.statusCode()), detail, retryable, correlationId());
+		if (retryable)
 		{
 			return new RetryableBillingException(message);
 		}
@@ -221,13 +229,8 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 		try
 		{
 			final JsonNode node = objectMapper.readTree(body);
-			final String message = node.path("message").asText(null);
 			final String code = node.path("api_error_code").asText(node.path("type").asText(null));
-			if (message == null && code == null)
-			{
-				return null;
-			}
-			return (code == null ? "" : "[" + code + "] ") + StringUtils.defaultString(message);
+			return code;
 		}
 		catch (final IOException e)
 		{
@@ -248,7 +251,7 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 		}
 		catch (final IOException e)
 		{
-			throw new TerminalBillingException("Malformed Chargebee response: " + e.getMessage());
+			throw new TerminalBillingException("Malformed Chargebee response", e);
 		}
 	}
 
@@ -287,5 +290,18 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 	public void setConfigService(final ChargebeeConfigService configService)
 	{
 		this.configService = configService;
+	}
+
+	private static String classifyStatus(final int status)
+	{
+		if (status == 429) return "rate_limit";
+		if (status >= 500) return "remote_5xx";
+		if (status >= 400) return "remote_4xx";
+		return "unexpected_status";
+	}
+
+	private static String correlationId()
+	{
+		return StringUtils.defaultIfBlank(MDC.get("correlationId"), "none");
 	}
 }
