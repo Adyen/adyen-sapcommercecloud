@@ -81,21 +81,11 @@ public class DefaultSubscriptionOrderActivator implements SubscriptionOrderActiv
 	@Override
 	public void activateFor(final OrderModel order)
 	{
-		activateOrder(result == null ? null : result.getOrder());
-	}
-
-	/**
-	 * Shared entry point for the synchronous place-order hook and the post-3DS payment event.
-	 * Activation is idempotent in {@link SubscriptionBillingService}, and no failure may escape into
-	 * either checkout completion path after the shopper has already been charged.
-	 */
-	public void activateOrder(final OrderModel order)
-	{
 		// The whole body is inside the guard, not just the activation call: reading the order or its entries
 		// can fail too, and this method must not be able to throw at all.
 		try
 		{
-			activateIfSubscriptionOrder(order);
+			doActivateFor(order);
 		}
 		catch (final RuntimeException e)
 		{

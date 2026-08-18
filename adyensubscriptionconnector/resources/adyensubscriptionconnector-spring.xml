@@ -142,7 +142,7 @@
     <bean id="adyenPaymentAuthorizedSubscriptionListener"
           class="com.adyen.commerce.connector.listener.AdyenPaymentAuthorizedEventListener"
           parent="abstractEventListener">
-        <property name="activationHook" ref="subscriptionActivationPlaceOrderMethodHook"/>
+        <property name="subscriptionOrderActivator" ref="subscriptionOrderActivator"/>
     </bean>
 
 </beans>

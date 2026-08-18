@@ -5,7 +5,7 @@ import static org.mockito.Mockito.verify;
 
 import org.junit.Test;
 
-import com.adyen.commerce.connector.hook.impl.DefaultSubscriptionActivationPlaceOrderMethodHook;
+import com.adyen.commerce.connector.activation.SubscriptionOrderActivator;
 import com.adyen.v6.event.AdyenPaymentAuthorizedEvent;
 
 import de.hybris.bootstrap.annotations.UnitTest;
@@ -17,14 +17,13 @@ public class AdyenPaymentAuthorizedEventListenerTest
 	@Test
 	public void reentersIdempotentActivationForAuthorizedOrder()
 	{
-		final DefaultSubscriptionActivationPlaceOrderMethodHook hook =
-				mock(DefaultSubscriptionActivationPlaceOrderMethodHook.class);
+		final SubscriptionOrderActivator activator = mock(SubscriptionOrderActivator.class);
 		final OrderModel order = mock(OrderModel.class);
 		final AdyenPaymentAuthorizedEventListener listener = new AdyenPaymentAuthorizedEventListener();
-		listener.setActivationHook(hook);
+		listener.setSubscriptionOrderActivator(activator);
 
 		listener.onEvent(new AdyenPaymentAuthorizedEvent(order));
 
-		verify(hook).activateOrder(order);
+		verify(activator).activateFor(order);
 	}
 }
