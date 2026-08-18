@@ -211,8 +211,8 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 				+ (detail == null ? "" : ": " + detail);
 		final boolean retryable = response.statusCode() == 429 || response.statusCode() >= 500;
 		LOG.warn("event=vendor_api_error platform=CHARGEBEE operation={} outcome=failure http_status={} "
-				+ "error_class={} vendor_error_code={} retryable={} correlation_id={}", action.replace(' ', '_'),
-				response.statusCode(), classifyStatus(response.statusCode()), detail, retryable, correlationId());
+				+ "error_class={} vendor_error_code={} retryable={}", action.replace(' ', '_'),
+				response.statusCode(), classifyStatus(response.statusCode()), detail, retryable);
 		if (retryable)
 		{
 			return new RetryableBillingException(message);
@@ -298,10 +298,5 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 		if (status >= 500) return "remote_5xx";
 		if (status >= 400) return "remote_4xx";
 		return "unexpected_status";
-	}
-
-	private static String correlationId()
-	{
-		return StringUtils.defaultIfBlank(MDC.get("correlationId"), "none");
 	}
 }

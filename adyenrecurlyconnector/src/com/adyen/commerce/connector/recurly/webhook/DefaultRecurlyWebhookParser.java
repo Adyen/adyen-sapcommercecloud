@@ -102,11 +102,11 @@ public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser {
             final String eventId = notificationId(payload, raw);
             final long lagMs = clock.instant().toEpochMilli() - occurredAt.toEpochMilli();
             LOG.info("event=webhook_processing platform=RECURLY operation=parse_webhook outcome={} duration_ms={} "
-                            + "error_class=none reason=none correlation_id={} event_id={} subscription_id={} "
+                            + "error_class=none reason=none event_id={} subscription_id={} "
                             + "vendor_event_type={} object_type={} normalized_event_type={} resource_id={} "
                             + "webhook_lag_ms={} clock_skew={} payload_bytes={} signature_verified=true",
                     normalizedType == BillingEventType.UNKNOWN ? "ignored" : "success", elapsedMillis(startedAt),
-                    correlationId(), eventId, subscriptionId, eventType, objectType, normalizedType, resourceId,
+                     eventId, subscriptionId, eventType, objectType, normalizedType, resourceId,
                     lagMs, lagMs < 0L, payloadBytes);
             return new NormalizedBillingEvent(BillingPlatform.RECURLY, normalizedType, eventId, subscriptionId,
                     text(payload, "account_code"), occurredAt, attributes);
@@ -118,8 +118,8 @@ public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser {
 
     private void logFailure(final long startedAt, final String reason, final String eventId, final int payloadBytes) {
         LOG.warn("event=webhook_processing platform=RECURLY operation=parse_webhook outcome=failure duration_ms={} "
-                        + "error_class=validation reason={} correlation_id={} event_id={} payload_bytes={} "
-                        + "signature_verified=false", elapsedMillis(startedAt), reason, correlationId(), eventId,
+                        + "error_class=validation reason={} event_id={} payload_bytes={} "
+                        + "signature_verified=false", elapsedMillis(startedAt), reason, eventId,
                 payloadBytes);
     }
 
@@ -135,10 +135,6 @@ public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser {
 
     private static long elapsedMillis(final long startedAt) {
         return (System.nanoTime() - startedAt) / 1_000_000L;
-    }
-
-    private static String correlationId() {
-        return StringUtils.defaultIfBlank(MDC.get("correlationId"), "none");
     }
 
     /**

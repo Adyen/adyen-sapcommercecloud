@@ -101,16 +101,16 @@ public class DefaultChargebeeHttpClient implements ChargebeeHttpClient
 			if (result.isSuccess())
 			{
 				LOG.info("event=connector_call platform=CHARGEBEE operation={} method={} outcome={} duration_ms={} "
-						+ "http_status={} error_class={} retryable={} idempotency_key_present={} correlation_id={}",
+						+ "http_status={} error_class={} retryable={} idempotency_key_present={}",
 						operation, request.getMethod(), outcome, durationMs, result.statusCode(), errorClass, retryable,
-						idempotent, correlationId());
+						idempotent);
 			}
 			else
 			{
 				LOG.warn("event=connector_call platform=CHARGEBEE operation={} method={} outcome={} duration_ms={} "
-						+ "http_status={} error_class={} retryable={} idempotency_key_present={} correlation_id={}",
+						+ "http_status={} error_class={} retryable={} idempotency_key_present={}",
 						operation, request.getMethod(), outcome, durationMs, result.statusCode(), errorClass, retryable,
-						idempotent, correlationId());
+						idempotent);
 			}
 			return result;
 		}
@@ -118,8 +118,8 @@ public class DefaultChargebeeHttpClient implements ChargebeeHttpClient
 		{
 			LOG.warn("event=connector_call platform=CHARGEBEE operation={} method={} outcome=failure duration_ms={} "
 					+ "http_status=none error_class={} exception_class={} retryable=true "
-					+ "idempotency_key_present={} correlation_id={}", operation, request.getMethod(), elapsedMillis(startedAt),
-					classifyException(e), e.getClass().getName(), idempotent, correlationId());
+					+ "idempotency_key_present={}", operation, request.getMethod(), elapsedMillis(startedAt),
+					classifyException(e), e.getClass().getName(), idempotent);
 			throw new RetryableBillingException("Chargebee HTTP operation '" + operation + "' failed", e);
 		}
 	}

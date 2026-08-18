@@ -111,22 +111,22 @@ public class DefaultRecurlyHttpClient implements RecurlyHttpClient {
             final boolean retryable = isRetryableStatus(result.statusCode());
             if (result.isSuccess()) {
                 LOG.info("event=connector_call platform=RECURLY operation={} method={} outcome={} duration_ms={} "
-                                + "http_status={} error_class={} retryable={} idempotency_key_present={} correlation_id={}",
+                                + "http_status={} error_class={} retryable={} idempotency_key_present={}",
                         operation, request.getMethod(), outcome, durationMs, result.statusCode(), errorClass, retryable,
-                        StringUtils.isNotBlank(idempotencyKey), correlationId());
+                        StringUtils.isNotBlank(idempotencyKey));
             } else {
                 LOG.warn("event=connector_call platform=RECURLY operation={} method={} outcome={} duration_ms={} "
-                                + "http_status={} error_class={} retryable={} idempotency_key_present={} correlation_id={}",
+                                + "http_status={} error_class={} retryable={} idempotency_key_present={}",
                         operation, request.getMethod(), outcome, durationMs, result.statusCode(), errorClass, retryable,
-                        StringUtils.isNotBlank(idempotencyKey), correlationId());
+                        StringUtils.isNotBlank(idempotencyKey));
             }
             return result;
         } catch (final IOException e) {
             LOG.warn("event=connector_call platform=RECURLY operation={} method={} outcome=failure duration_ms={} "
                             + "http_status=none error_class={} exception_class={} retryable=true "
-                            + "idempotency_key_present={} correlation_id={}", operation, request.getMethod(),
+                            + "idempotency_key_present={}", operation, request.getMethod(),
                     elapsedMillis(startedAt), classifyException(e), e.getClass().getName(),
-                    StringUtils.isNotBlank(idempotencyKey), correlationId());
+                    StringUtils.isNotBlank(idempotencyKey));
             throw new RetryableBillingException("Recurly HTTP operation '" + operation + "' failed", e);
         }
     }
@@ -161,10 +161,6 @@ public class DefaultRecurlyHttpClient implements RecurlyHttpClient {
 
     private static long elapsedMillis(final long startedAt) {
         return (System.nanoTime() - startedAt) / 1_000_000L;
-    }
-
-    private static String correlationId() {
-        return StringUtils.defaultIfBlank(MDC.get("correlationId"), "none");
     }
 
     protected CloseableHttpClient getHttpClient() {

@@ -1,27 +1,5 @@
 package com.adyen.commerce.connector.recurly.client.impl;
 
-import static java.net.HttpURLConnection.HTTP_CLIENT_TIMEOUT;
-import static java.net.HttpURLConnection.HTTP_CONFLICT;
-import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
-import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
-import static java.net.HttpURLConnection.HTTP_OK;
-
-import java.io.IOException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
-
-import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
-
 import com.adyen.commerce.connector.dto.BillingAddress;
 import com.adyen.commerce.connector.dto.CardMetadata;
 import com.adyen.commerce.connector.exception.BillingException;
@@ -38,6 +16,16 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+
+import static java.net.HttpURLConnection.*;
 
 /**
  * Default Recurly client. It intentionally keeps vendor JSON translation inside the adapter and
@@ -286,7 +274,7 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
         }
     }
 
-    protected BillingException toBillingException(final RecurlyHttpResponse response, final String action) {
+    protected BillingException toBillingException(final RecurlyHttpResponse response, final String action) throws BillingException {
         final String detail = extractError(response.body());
         final String message = "Recurly " + action + " failed (HTTP " + response.statusCode() + ")"
                 + (detail == null ? "" : ": " + detail);
@@ -294,9 +282,9 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
                 || response.statusCode() == HTTP_TOO_MANY_REQUESTS || response.statusCode() >= HTTP_INTERNAL_ERROR
                 || StringUtils.containsIgnoreCase(detail, "simultaneous_request");
         LOG.warn("event=vendor_api_error platform=RECURLY operation={} outcome=failure http_status={} "
-                        + "error_class={} vendor_error_code={} retryable={} correlation_id={}",
+                        + "error_class={} vendor_error_code={} retryable={} subscriptionID={}",
                 action.replace(' ', '_'), response.statusCode(), classifyStatus(response.statusCode()), detail,
-                retryable, correlationId());
+                retryable, readSubscriptionId(response.body()));
         if (retryable) {
             return new RetryableBillingException(message);
         }
@@ -533,9 +521,4 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
         if (status >= 400) return "remote_4xx";
         return "unexpected_status";
     }
-
-    private static String correlationId() {
-        return StringUtils.defaultIfBlank(MDC.get("correlationId"), "none");
-    }
-
 }
