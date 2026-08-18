@@ -20,39 +20,11 @@
  */
 package com.adyen.commerce.connector.chargebee;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.time.Instant;
-import java.util.Base64;
-import java.util.LinkedHashMap;
-import java.util.Map;
-
-import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
-
 import com.adyen.commerce.connector.chargebee.client.ChargebeeApiClient;
 import com.adyen.commerce.connector.chargebee.client.ChargebeeSubscriptionParams;
 import com.adyen.commerce.connector.chargebee.config.ChargebeeConfigService;
 import com.adyen.commerce.connector.chargebee.plan.ChargebeePlanResolver;
-import com.adyen.commerce.connector.dto.AdyenTokenHandle;
-import com.adyen.commerce.connector.dto.BillingCustomerRef;
-import com.adyen.commerce.connector.dto.BillingEventType;
-import com.adyen.commerce.connector.dto.BillingPaymentMethodRef;
-import com.adyen.commerce.connector.dto.BillingSubscriptionRef;
-import com.adyen.commerce.connector.dto.ConnectorCapabilities;
-import com.adyen.commerce.connector.dto.CustomerSyncRequest;
-import com.adyen.commerce.connector.dto.NormalizedBillingEvent;
-import com.adyen.commerce.connector.dto.PlanRef;
-import com.adyen.commerce.connector.dto.PlanResolutionRequest;
-import com.adyen.commerce.connector.dto.RawWebhook;
-import com.adyen.commerce.connector.dto.SubscriptionCancelRequest;
-import com.adyen.commerce.connector.dto.SubscriptionCreateRequest;
-import com.adyen.commerce.connector.dto.SubscriptionUpdateRequest;
-import com.adyen.commerce.connector.dto.TokenImportRequest;
-import com.adyen.commerce.connector.dto.TokenImportStyle;
+import com.adyen.commerce.connector.dto.*;
 import com.adyen.commerce.connector.enums.BillingPlatform;
 import com.adyen.commerce.connector.exception.BillingException;
 import com.adyen.commerce.connector.exception.PreconditionFailedException;
@@ -60,6 +32,17 @@ import com.adyen.commerce.connector.exception.TerminalBillingException;
 import com.adyen.commerce.connector.spi.SubscriptionBillingConnector;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.Instant;
+import java.util.Base64;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * Chargebee adapter of the {@link SubscriptionBillingConnector} SPI: Adyen keeps processing the

@@ -20,10 +20,10 @@
  */
 package com.adyen.commerce.connector.chargebee.http.impl;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.Locale;
-
+import com.adyen.commerce.connector.chargebee.config.ChargebeeConfigService;
+import com.adyen.commerce.connector.chargebee.http.ChargebeeHttpClient;
+import com.adyen.commerce.connector.chargebee.http.ChargebeeHttpResponse;
+import com.adyen.commerce.connector.exception.RetryableBillingException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
@@ -40,12 +40,10 @@ import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.apache.hc.core5.util.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
 
-import com.adyen.commerce.connector.chargebee.config.ChargebeeConfigService;
-import com.adyen.commerce.connector.chargebee.http.ChargebeeHttpClient;
-import com.adyen.commerce.connector.chargebee.http.ChargebeeHttpResponse;
-import com.adyen.commerce.connector.exception.RetryableBillingException;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 
 /**
  * httpclient5-based transport (reuses the client jar provided by adyenv6core). IOExceptions are
@@ -153,11 +151,6 @@ public class DefaultChargebeeHttpClient implements ChargebeeHttpClient
 	private static long elapsedMillis(final long startedAt)
 	{
 		return (System.nanoTime() - startedAt) / 1_000_000L;
-	}
-
-	private static String correlationId()
-	{
-		return StringUtils.defaultIfBlank(MDC.get("correlationId"), "none");
 	}
 
 	protected CloseableHttpClient getHttpClient()
