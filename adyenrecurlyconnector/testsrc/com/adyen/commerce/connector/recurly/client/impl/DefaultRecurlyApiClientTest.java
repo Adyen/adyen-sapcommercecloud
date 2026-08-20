@@ -25,6 +25,8 @@ import org.mockito.MockitoAnnotations;
 
 import com.adyen.commerce.connector.dto.BillingAddress;
 import com.adyen.commerce.connector.dto.CardMetadata;
+import com.adyen.commerce.connector.dto.NormalizedSubscription;
+import com.adyen.commerce.connector.dto.NormalizedSubscriptionStatus;
 import com.adyen.commerce.connector.recurly.client.RecurlySubscriptionParams;
 import com.adyen.commerce.connector.recurly.config.RecurlyConfigService;
 import com.adyen.commerce.connector.recurly.http.RecurlyHttpClient;
@@ -356,6 +358,63 @@ public class DefaultRecurlyApiClientTest
 
         assertEquals(java.util.List.of("uuid-subscription-1"),
                 client.resolveWebhookSubscriptionIds("payment", "uuid-payment"));
+    }
+
+    @Test
+    public void fetchSubscriptionReturnsNormalizedLiveState() throws Exception
+    {
+        when(httpClient.get(BASE + "/subscriptions/uuid-subscription-1", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, subscriptionJson("active", true)));
+        when(httpClient.get(BASE + "/accounts/account-1/invoices?state=past_due&limit=200", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK,
+                        "{\"object\":\"list\",\"has_more\":false,\"data\":[]}"));
+
+        final NormalizedSubscription result = client.fetchSubscription("uuid-subscription-1");
+
+        assertEquals("uuid-subscription-1", result.subscription().externalId());
+        assertEquals(NormalizedSubscriptionStatus.ACTIVE, result.status());
+        assertEquals("monthly", result.planId());
+        assertEquals(Integer.valueOf(2), result.quantity());
+        assertEquals(java.time.Instant.parse("2026-08-01T00:00:00Z"), result.currentPeriodStart());
+        assertEquals(java.time.Instant.parse("2026-09-01T00:00:00Z"), result.currentPeriodEnd());
+        assertFalse(result.cancelAtPeriodEnd());
+    }
+
+    @Test
+    public void fetchSubscriptionDerivesPastDueFromMatchingInvoice() throws Exception
+    {
+        when(httpClient.get(BASE + "/subscriptions/uuid-subscription-1", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, subscriptionJson("active", true)));
+        when(httpClient.get(BASE + "/accounts/account-1/invoices?state=past_due&limit=200", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"object\":\"list\",\"has_more\":false,"
+                        + "\"data\":[{\"subscription_ids\":[\"subscription-1\"]}]}"));
+
+        assertEquals(NormalizedSubscriptionStatus.PAST_DUE,
+                client.fetchSubscription("uuid-subscription-1").status());
+    }
+
+    @Test
+    public void failedSubscriptionIsNotMisclassifiedAsPastDue() throws Exception
+    {
+        when(httpClient.get(BASE + "/subscriptions/uuid-subscription-1", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, subscriptionJson("failed", false)));
+
+        final NormalizedSubscription result = client.fetchSubscription("uuid-subscription-1");
+
+        assertEquals(NormalizedSubscriptionStatus.FAILED, result.status());
+        assertTrue(result.cancelAtPeriodEnd());
+        verify(httpClient, never()).get(BASE + "/accounts/account-1/invoices?state=past_due&limit=200", auth,
+                ACCEPT);
+    }
+
+    private String subscriptionJson(final String state, final boolean autoRenew)
+    {
+        return "{\"id\":\"short-subscription-id\",\"uuid\":\"subscription-1\","
+                + "\"account\":{\"id\":\"account-1\"},\"state\":\"" + state + "\","
+                + "\"plan\":{\"code\":\"monthly\"},\"quantity\":2,\"auto_renew\":" + autoRenew + ","
+                + "\"current_period_started_at\":\"2026-08-01T00:00:00Z\","
+                + "\"current_period_ends_at\":\"2026-09-01T00:00:00Z\","
+                + "\"updated_at\":\"2026-08-05T12:00:00Z\"}";
     }
 
     private static UUID fingerprint(final String value)

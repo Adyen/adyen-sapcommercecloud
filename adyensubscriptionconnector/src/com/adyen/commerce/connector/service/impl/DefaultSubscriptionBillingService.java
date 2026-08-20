@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import com.adyen.commerce.connector.reconciliation.SubscriptionReconciliationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -79,8 +80,7 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 {
 	private static final Logger LOG = LoggerFactory.getLogger(DefaultSubscriptionBillingService.class);
 
-	private static final String STATUS_ACTIVE = "ACTIVE";
-	private static final String STATUS_CANCELLED = "CANCELLED";
+	private static final String STATUS_PENDING = "PENDING";
 
 	private SubscriptionBillingConnectorRegistry connectorRegistry;
 	private ConnectorMerchantAccountValidator merchantAccountValidator;
@@ -89,6 +89,7 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 	private FlexibleSearchService flexibleSearchService;
 	private EventService eventService;
 	private Clock clock = Clock.systemUTC();
+	private SubscriptionReconciliationService reconciliationService;
 
 	@Override
 	public BillingSubscriptionRefModel activateSubscription(final AbstractOrderModel order, final ProductModel subProduct)
@@ -167,9 +168,17 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 			return winner.get();
 		}
 
+		// Do not perform an immediate platform read here. The external create cannot participate in
+		// the SAP transaction, so a reconciliation failure must not roll back the durable local
+		// reference after the subscription has already been created remotely. Webhooks and the
+		// reconciliation sweep promote the initial PENDING projection to its authoritative state.
 		publishActivated(model);
-		LOG.info("Activated subscription {} for order '{}' on platform {}", subscriptionRef.externalId(),
-				order.getCode(), connector.platform());
+		LOG.info(
+				"Created subscription {} for order '{}' on platform {} with local status {}",
+				subscriptionRef.externalId(),
+				order.getCode(),
+				connector.platform(),
+				model.getStatus());
 		return model;
 	}
 
@@ -193,9 +202,28 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 		final BillingSubscriptionRef ref = new BillingSubscriptionRef(subscription.getPlatform(),
 				subscription.getExternalSubscriptionId());
 		connector.cancelSubscription(
-				new SubscriptionCancelRequest(ref, effectiveReason, false, subscription.getIdempotencyKey()));
-		subscription.setStatus(STATUS_CANCELLED);
-		modelService.save(subscription);
+				new SubscriptionCancelRequest(
+						ref,
+						effectiveReason,
+						false,
+						subscription.getIdempotencyKey()));
+
+		try
+		{
+			reconciliationService.reconcile(subscription);
+		}
+		catch (final BillingException e)
+		{
+			subscription.setLastSyncedAt(null);
+			modelService.save(subscription);
+
+			LOG.warn(
+					"Subscription {} was cancelled on platform {}, but its authoritative state "
+							+ "could not be fetched immediately; reconciliation sweep will retry",
+					subscription.getExternalSubscriptionId(),
+					subscription.getPlatform(),
+					e);
+		}
 	}
 
 	protected void validateActivationInputs(final AbstractOrderModel order, final ProductModel subProduct)
@@ -344,7 +372,7 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 		model.setIdempotencyKey(idempotencyKey);
 		model.setOrder(order);
 		model.setCustomer(customer);
-		model.setStatus(STATUS_ACTIVE);
+		model.setStatus(STATUS_PENDING);
 		modelService.save(model);
 		return model;
 	}
@@ -402,5 +430,11 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 	public void setClock(final Clock clock)
 	{
 		this.clock = clock;
+	}
+
+	public void setReconciliationService(
+			final SubscriptionReconciliationService reconciliationService)
+	{
+		this.reconciliationService = reconciliationService;
 	}
 }

@@ -24,6 +24,7 @@ import com.adyen.model.checkout.PaymentDetailsRequest;
 import com.adyen.model.checkout.PaymentDetailsResponse;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.constants.Adyenv6coreConstants;
+import com.adyen.v6.event.AdyenPaymentAuthorizedEvent;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
 import com.adyen.v6.repository.OrderRepository;
@@ -32,6 +33,7 @@ import de.hybris.platform.core.enums.OrderStatus;
 import de.hybris.platform.core.model.order.OrderModel;
 import de.hybris.platform.order.InvalidCartException;
 import de.hybris.platform.servicelayer.dto.converter.Converter;
+import de.hybris.platform.servicelayer.event.EventService;
 import de.hybris.platform.servicelayer.model.ModelService;
 import de.hybris.platform.servicelayer.session.SessionService;
 import de.hybris.platform.store.services.BaseStoreService;
@@ -63,6 +65,7 @@ public class DefaultThreeDSAuthorizationService implements ThreeDSAuthorizationS
     private AdyenOrderService adyenOrderService;
     private AdyenBusinessProcessService adyenBusinessProcessService;
     private Converter<OrderModel, OrderData> orderConverter;
+    private EventService eventService;
 
     @Override
     public OrderData handle3DSResponse(PaymentDetailsRequest paymentsDetailsRequest) throws Exception {
@@ -137,6 +140,12 @@ public class DefaultThreeDSAuthorizationService implements ThreeDSAuthorizationS
         Map<String, String> additionalData = paymentDetailsResponse.getAdditionalData();
 
         adyenOrderService.updatePaymentInfo(orderModel, paymentType, additionalData);
+        if (PaymentDetailsResponse.ResultCodeEnum.AUTHORISED == paymentDetailsResponse.getResultCode()) {
+            // The place-order hook has already run for a 3DS/redirect order. Publish only after the
+            // stored token and networkTxReference are durable so subscription activation can retry
+            // idempotently with a complete payment contract.
+            eventService.publishEvent(new AdyenPaymentAuthorizedEvent(orderModel));
+        }
         adyenOrderService.storeFraudReport(orderModel, paymentDetailsResponse.getPspReference(), 
             paymentDetailsResponse.getFraudResult());
     }
@@ -228,6 +237,10 @@ public class DefaultThreeDSAuthorizationService implements ThreeDSAuthorizationS
 
     public void setAdyenBusinessProcessService(AdyenBusinessProcessService adyenBusinessProcessService) {
         this.adyenBusinessProcessService = adyenBusinessProcessService;
+    }
+
+    public void setEventService(EventService eventService) {
+        this.eventService = eventService;
     }
 
     public Converter<OrderModel, OrderData> getOrderConverter() {
