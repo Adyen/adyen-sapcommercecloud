@@ -11,6 +11,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.HexFormat;
 import java.util.Map;
+import java.util.Set;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -125,6 +126,9 @@ public class DefaultRecurlyWebhookParserTest
         assertNull(event.externalSubscriptionId());
         assertEquals("payment", event.attributes().get("resourceType"));
         assertEquals("uuid-payment-uuid", event.attributes().get("resourceId"));
+        // Pinned because the map used to carry the object type twice: RecurlySubscriptionBillingConnector
+        // reads resourceType/resourceId, and a second copy under another key drifts out of use unnoticed.
+        assertEquals(Set.of("eventType", "resourceType", "resourceId"), event.attributes().keySet());
     }
 
     @Test

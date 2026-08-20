@@ -40,6 +40,7 @@ import com.adyen.commerce.connector.dto.BillingSubscriptionRef;
 import com.adyen.commerce.connector.dto.CancelReason;
 import com.adyen.commerce.connector.dto.ConnectorCapabilities;
 import com.adyen.commerce.connector.dto.CustomerSyncRequest;
+import com.adyen.commerce.connector.dto.NormalizedSubscriptionStatus;
 import com.adyen.commerce.connector.dto.PlanRef;
 import com.adyen.commerce.connector.dto.PlanResolutionRequest;
 import com.adyen.commerce.connector.dto.RecurringProcessingModel;
@@ -79,8 +80,6 @@ import de.hybris.platform.store.BaseStoreModel;
 public class DefaultSubscriptionBillingService implements SubscriptionBillingService
 {
 	private static final Logger LOG = LoggerFactory.getLogger(DefaultSubscriptionBillingService.class);
-
-	private static final String STATUS_PENDING = "PENDING";
 
 	private SubscriptionBillingConnectorRegistry connectorRegistry;
 	private ConnectorMerchantAccountValidator merchantAccountValidator;
@@ -212,17 +211,45 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 		{
 			reconciliationService.reconcile(subscription);
 		}
-		catch (final BillingException e)
+		catch (final BillingException | RuntimeException e)
 		{
-			subscription.setLastSyncedAt(null);
-			modelService.save(subscription);
-
+			// The cancellation itself already happened on the platform, so everything after this point is a
+			// stale local projection and not a failed cancellation. RuntimeException is caught alongside
+			// BillingException for that reason and not out of caution: a ModelSavingException, or an NPE from
+			// a half-wired reconciliation bean, would otherwise reach the caller as if the subscription were
+			// still live — and a caller told the cancel failed will retry something that is already done.
 			LOG.warn(
 					"Subscription {} was cancelled on platform {}, but its authoritative state "
 							+ "could not be fetched immediately; reconciliation sweep will retry",
 					subscription.getExternalSubscriptionId(),
 					subscription.getPlatform(),
 					e);
+
+			flagForReconciliationSweep(subscription);
+		}
+	}
+
+	/**
+	 * Clears the sync watermark so the sweep treats this reference as never-synced and picks it up on its
+	 * next pass instead of waiting out the staleness window.
+	 *
+	 * <p>A failure to write that flag is itself only worth a warning. It is an optimisation, not the
+	 * recovery: the sweep revisits anything older than the window anyway, so the reference is still
+	 * reached, just later. Letting this throw would resurrect the very problem the caller was spared —
+	 * a completed cancellation reported as a failure.</p>
+	 */
+	protected void flagForReconciliationSweep(final BillingSubscriptionRefModel subscription)
+	{
+		try
+		{
+			subscription.setLastSyncedAt(null);
+			modelService.save(subscription);
+		}
+		catch (final RuntimeException e)
+		{
+			LOG.warn("Could not flag subscription {} on platform {} for the reconciliation sweep; it will be "
+					+ "picked up once its last sync goes stale instead", subscription.getExternalSubscriptionId(),
+					subscription.getPlatform(), e);
 		}
 	}
 
@@ -372,7 +399,9 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 		model.setIdempotencyKey(idempotencyKey);
 		model.setOrder(order);
 		model.setCustomer(customer);
-		model.setStatus(STATUS_PENDING);
+		// The status column holds the normalized vocabulary, so it is written from the enum here exactly
+		// as the reconciliation service writes it later. A literal would be a second place to keep in step.
+		model.setStatus(NormalizedSubscriptionStatus.PENDING.name());
 		modelService.save(model);
 		return model;
 	}

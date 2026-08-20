@@ -56,11 +56,13 @@ import com.adyen.commerce.connector.dto.BillingPaymentMethodRef;
 import com.adyen.commerce.connector.dto.BillingSubscriptionRef;
 import com.adyen.commerce.connector.dto.CancelReason;
 import com.adyen.commerce.connector.dto.ConnectorCapabilities;
+import com.adyen.commerce.connector.dto.NormalizedSubscriptionStatus;
 import com.adyen.commerce.connector.dto.PlanRef;
 import com.adyen.commerce.connector.dto.TokenImportStyle;
 import com.adyen.commerce.connector.dto.TokenImportRequest;
 import com.adyen.commerce.connector.enums.BillingPlatform;
 import com.adyen.commerce.connector.event.SubscriptionActivatedEvent;
+import com.adyen.commerce.connector.exception.BillingException;
 import com.adyen.commerce.connector.exception.PreconditionFailedException;
 import com.adyen.commerce.connector.model.BillingCustomerRefModel;
 import com.adyen.commerce.connector.model.BillingPaymentMethodRefModel;
@@ -313,6 +315,79 @@ public class DefaultSubscriptionBillingServiceTest
 		assertThrows(PreconditionFailedException.class, () -> service.cancel(null, CancelReason.OTHER));
 	}
 
+	/**
+	 * The projection the sweep and the webhooks later promote. Asserted against the enum rather than the
+	 * literal so a rename of the normalized vocabulary cannot leave this one writer behind.
+	 */
+	@Test
+	public void shouldProjectTheNormalizedPendingStatusOnActivation() throws Exception
+	{
+		final BillingSubscriptionRefModel result = service.activateSubscription(order, subProduct);
+
+		verify(result).setStatus(NormalizedSubscriptionStatus.PENDING.name());
+	}
+
+	@Test
+	public void shouldReconcileAfterASuccessfulCancelWithoutFlaggingForTheSweep() throws Exception
+	{
+		final BillingSubscriptionRefModel subscription = cancellableSubscription();
+
+		service.cancel(subscription, CancelReason.OTHER);
+
+		verify(reconciliationService).reconcile(subscription);
+		verify(subscription, never()).setLastSyncedAt(null);
+		verify(modelService, never()).save(subscription);
+	}
+
+	@Test
+	public void shouldNotReportAFailedCancelWhenTheFollowUpReadFails() throws Exception
+	{
+		final BillingSubscriptionRefModel subscription = cancellableSubscription();
+		when(reconciliationService.reconcile(subscription)).thenThrow(new BillingException("platform read timed out"));
+
+		service.cancel(subscription, CancelReason.OTHER);
+
+		verify(connector).cancelSubscription(any());
+		verify(subscription).setLastSyncedAt(null);
+		verify(modelService).save(subscription);
+	}
+
+	/**
+	 * The cancellation already happened on the platform, so an unchecked failure on the way back — a save
+	 * that blows up, an NPE out of a half-wired reconciliation bean — describes a stale local projection
+	 * and not a live subscription. A caller told the cancel failed retries something that is already done.
+	 */
+	@Test
+	public void shouldNotReportAFailedCancelWhenTheFollowUpReadThrowsUnchecked() throws Exception
+	{
+		final BillingSubscriptionRefModel subscription = cancellableSubscription();
+		when(reconciliationService.reconcile(subscription))
+				.thenThrow(new ModelSavingException("could not persist the reconciled state"));
+
+		service.cancel(subscription, CancelReason.OTHER);
+
+		verify(connector).cancelSubscription(any());
+		verify(subscription).setLastSyncedAt(null);
+		verify(modelService).save(subscription);
+	}
+
+	/**
+	 * Clearing the watermark is an optimisation, not the recovery: the sweep revisits anything past its
+	 * staleness window regardless. Losing that write must not undo the point of catching in the first place.
+	 */
+	@Test
+	public void shouldNotReportAFailedCancelWhenFlaggingForTheSweepAlsoFails() throws Exception
+	{
+		final BillingSubscriptionRefModel subscription = cancellableSubscription();
+		when(reconciliationService.reconcile(subscription))
+				.thenThrow(new IllegalStateException("no connector configured for this store"));
+		doThrow(new ModelSavingException("the database is gone")).when(modelService).save(subscription);
+
+		service.cancel(subscription, CancelReason.OTHER);
+
+		verify(modelService).save(subscription);
+	}
+
 	@Test
 	public void billingAddressIsConfirmedOnlyWhenItDiffersFromWhereTheGoodsGo()
 	{
@@ -362,6 +437,15 @@ public class DefaultSubscriptionBillingServiceTest
 		when(order.getDeliveryAddress()).thenReturn(null);
 
 		assertNull(service.buildBillingAddress(order));
+	}
+
+	private BillingSubscriptionRefModel cancellableSubscription() throws Exception
+	{
+		final BillingSubscriptionRefModel subscription = mock(BillingSubscriptionRefModel.class);
+		when(subscription.getPlatform()).thenReturn(BillingPlatform.CHARGEBEE);
+		when(subscription.getExternalSubscriptionId()).thenReturn("sub-ext");
+		when(connectorRegistry.getConnector(BillingPlatform.CHARGEBEE)).thenReturn(connector);
+		return subscription;
 	}
 
 	private static AddressModel address(final String first, final String last, final String town, final String postal)

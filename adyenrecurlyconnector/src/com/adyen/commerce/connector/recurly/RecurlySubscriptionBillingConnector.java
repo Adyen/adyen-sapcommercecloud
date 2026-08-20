@@ -162,9 +162,10 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
      * The core issues one idempotency key per subscription (the order code) and replays it for the whole
      * lifecycle, so create, update and cancel would otherwise arrive at Recurly under the same key.
      * Recurly answers a repeated key with the <em>first</em> response it recorded, which would let a
-     * cancel be acknowledged with the stored 201 from the create — the local status would flip to
-     * CANCELLED while Recurly kept billing. Namespacing by operation keeps each one independently
-     * idempotent under retry while making them distinct from each other.
+     * cancel be acknowledged with the stored 201 from the create — the caller would take the cancellation
+     * for done while Recurly kept billing, and the next reconciliation would read the subscription back as
+     * still serving. Namespacing by operation keeps each one independently idempotent under retry while
+     * making them distinct from each other.
      */
     protected static String operationKey(final String idempotencyKey, final String operation) {
         return StringUtils.isBlank(idempotencyKey) ? null : idempotencyKey + "/" + operation;

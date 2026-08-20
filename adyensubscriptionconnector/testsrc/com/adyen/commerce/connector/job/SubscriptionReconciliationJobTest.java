@@ -1,6 +1,8 @@
 package com.adyen.commerce.connector.job;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.Mockito.never;
@@ -13,6 +15,7 @@ import java.util.Map;
 import org.apache.commons.configuration2.Configuration;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
@@ -118,5 +121,77 @@ public class SubscriptionReconciliationJobTest
 		verify(reconciliationService, never()).reconcile(subscription);
 		assertEquals(CronJobResult.ERROR, result.getResult());
 		assertEquals(CronJobStatus.FINISHED, result.getStatus());
+	}
+
+	/**
+	 * A subscription that has ended is never re-fetched, but a past-due one always is. Asserted on the query
+	 * itself because the alternative — noticing that a sweep is spending its whole batch on subscriptions
+	 * that ended long ago — only surfaces as platform rate-limiting in production.
+	 */
+	@Test
+	public void terminalSubscriptionsAreExcludedWhilePastDueStaysEligible()
+	{
+		job.perform(cronJob);
+
+		final FlexibleSearchQuery query = capturedQuery();
+		assertTrue("terminal statuses must be filtered out in SQL, not after the batch limit",
+				query.getQuery().contains("{status} NOT IN (?terminalStatuses)"));
+		assertEquals(List.of("CANCELLED", "EXPIRED", "FAILED"),
+				query.getQueryParameters().get("terminalStatuses"));
+		assertEquals("PAST_DUE", query.getQueryParameters().get("pastDue"));
+		assertTrue("a reference whose status was never written is exactly what the sweep is for",
+				query.getQuery().contains("{status} IS NULL OR"));
+	}
+
+	/**
+	 * A subscription whose cancellation only takes effect at the end of the term keeps serving its customer,
+	 * and both connectors normalize that to ACTIVE with cancelAtPeriodEnd — so the pending end must not
+	 * become a second exclusion. Filtering on it would put the reference beyond the sweep's reach for the
+	 * whole remainder of the term, which is exactly the stretch during which a dropped webhook still needs
+	 * repairing.
+	 */
+	@Test
+	public void aSubscriptionServingOutACancelledTermStaysASweepCandidate()
+	{
+		job.perform(cronJob);
+
+		final FlexibleSearchQuery query = capturedQuery();
+		assertFalse("the pending end of a term must not exclude a subscription that is still serving it",
+				query.getQuery().contains("cancelAtPeriodEnd"));
+		assertFalse("ACTIVE is what a cancellation scheduled for period end normalizes to",
+				((List<?>) query.getQueryParameters().get("terminalStatuses")).contains("ACTIVE"));
+	}
+
+	/**
+	 * Oracle sorts nulls last on an ascending sort while MySQL and SQL Server sort them first, so leaving it
+	 * implicit would mean never-synced references head the batch on one deployment and are cut off it on
+	 * another.
+	 */
+	@Test
+	public void neverSyncedReferencesAreOrderedFirstIndependentlyOfTheDatabase()
+	{
+		job.perform(cronJob);
+
+		assertTrue("null lastSyncedAt must sort first explicitly", capturedQuery().getQuery()
+				.contains("ORDER BY CASE WHEN {lastSyncedAt} IS NULL THEN 0 ELSE 1 END ASC, {lastSyncedAt} ASC"));
+	}
+
+	/**
+	 * The keys are read from configuration, so a divergence from project.properties is invisible until the
+	 * job silently runs on its hardcoded defaults.
+	 */
+	@Test
+	public void configurationKeysShareTheAdyenSubscriptionNamespace()
+	{
+		assertEquals("adyen.subscription.reconciliation.staleAfterMinutes",
+				SubscriptionReconciliationJob.STALE_AFTER_MINUTES);
+		assertEquals("adyen.subscription.reconciliation.batchSize", SubscriptionReconciliationJob.BATCH_SIZE);
+	}
+
+	private FlexibleSearchQuery capturedQuery()
+	{
+		final ArgumentCaptor<FlexibleSearchQuery> captor = ArgumentCaptor.forClass(FlexibleSearchQuery.class);
+		verify(flexibleSearchService).search(captor.capture());
+		return captor.getValue();
 	}
 }

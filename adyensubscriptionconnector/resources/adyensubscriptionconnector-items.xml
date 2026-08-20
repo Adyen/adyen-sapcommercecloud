@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="ISO-8859-1"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!--
 
  Vendor-neutral type-system extensions for the agnostic subscription billing
@@ -223,11 +223,10 @@
                     <key attribute="order"/>
                     <key attribute="platform"/>
                 </index>
-                <index name="idx_billingSubRef_reconcile">
-                    <key attribute="status"/>
-                    <key attribute="lastReconciledAt"/>
-                </index>
-                <!-- Backs the reconciliation sweep: "refs in status X not confirmed since T". -->
+                <!-- Backs the reconciliation sweep, which asks "refs in a non-terminal status not confirmed
+                     since T". lastSyncedAt is the confirmation timestamp the sweep filters on, and it is the
+                     only date in that predicate: lastReconciledAt exists for audit ("when did a platform read
+                     last happen") and is never a search criterion, so it deliberately has no index of its own. -->
                 <index name="idx_billingSubRef_sync">
                     <key attribute="status"/>
                     <key attribute="lastSyncedAt"/>
@@ -367,8 +366,11 @@
                 </attribute>
                 <attribute qualifier="status" type="java.lang.String">
                     <description>Outcome of the attempt: PENDING while one is in flight, SUCCEEDED, FAILED for a
-                        transient failure that is still due a retry, or DEAD_LETTER once it is terminal or out of
-                        retries. Only FAILED is picked up again; DEAD_LETTER is where an operator has to look.</description>
+                        transient failure that is still due a retry, DEAD_LETTER once it is terminal or out of
+                        retries, or NOT_APPLICABLE for a row opened because the subscription product rule could not
+                        answer, on an order that a later attempt established is not a subscription order at all.
+                        Only FAILED is picked up again; DEAD_LETTER is where an operator has to look, and
+                        NOT_APPLICABLE is closed and uninteresting.</description>
                     <persistence type="property"/>
                 </attribute>
                 <attribute qualifier="attemptCount" type="java.lang.Integer">
@@ -443,7 +445,9 @@
              several subscriptions, so a single reference and status on BillingWebhookEvent is not enough
              for retry diagnostics or operator audit. -->
         <itemtype code="BillingWebhookEventApplication" extends="GenericItem" autocreate="true" generate="true">
-            <deployment table="BillingWhEventApp" typecode="22949"/>
+            <!-- 22950 is RecurlyPlanMapping in adyenrecurlyconnector, hence 22951: typecodes are global
+                 across every extension in the deployment, not per extension. -->
+            <deployment table="BillingWhEventApp" typecode="22951"/>
             <attributes>
                 <attribute qualifier="event" type="BillingWebhookEvent">
                     <description>The deduplicated delivery this application belongs to.</description>
@@ -461,7 +465,14 @@
                 </attribute>
                 <attribute qualifier="processingStatus" type="java.lang.String">
                     <description>RECEIVED, RECONCILED, SKIPPED_UNKNOWN_SUBSCRIPTION,
-                        RETRYABLE_UNKNOWN_SUBSCRIPTION or FAILED.</description>
+                        RETRYABLE_UNKNOWN_SUBSCRIPTION or FAILED. SKIPPED_UNKNOWN_SUBSCRIPTION covers two
+                        different situations, so read lastError before acting on it: an empty lastError means the
+                        delivery was simply not about a subscription of ours and there is nothing to do, while a
+                        lastError means we did expect a local reference, waited for it across the whole retry
+                        budget and then gave up. Only the second one needs an operator, since the reference it
+                        was waiting for was never created. They are deliberately not separate status values:
+                        splitting them would be a schema change with a migration cost, for a distinction
+                        lastError already carries.</description>
                     <persistence type="property"/>
                 </attribute>
                 <attribute qualifier="attemptCount" type="java.lang.Integer">

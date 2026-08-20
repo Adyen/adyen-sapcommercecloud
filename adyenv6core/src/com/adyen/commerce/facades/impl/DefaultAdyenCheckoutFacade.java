@@ -74,6 +74,7 @@ import de.hybris.platform.converters.Populator;
 import de.hybris.platform.core.enums.OrderStatus;
 import de.hybris.platform.core.model.c2l.CountryModel;
 import de.hybris.platform.core.model.order.AbstractOrderEntryModel;
+import de.hybris.platform.core.model.order.AbstractOrderModel;
 import de.hybris.platform.core.model.order.CartModel;
 import de.hybris.platform.core.model.order.OrderModel;
 import de.hybris.platform.core.model.order.payment.PaymentInfoModel;
@@ -573,7 +574,16 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         if (additionalData != null) {
             String recurringDetailReference = additionalData.get(RECURRING_RECURRING_DETAIL_REFERENCE);
             if (recurringDetailReference != null) {
-                cartModel.getPaymentInfo().setAdyenSelectedReference(recurringDetailReference);
+                PaymentInfoModel paymentInfo = cartModel.getPaymentInfo();
+                if (paymentInfo == null) {
+                    // Same cart-with-no-PaymentInfo case that DefaultAdyenOrderService.updatePaymentInfo
+                    // guards against. This runs only after Adyen accepted the payment, so losing the stored
+                    // reference must not be allowed to abort the order that is about to be placed.
+                    LOGGER.warn("No payment info on '{}', skipping the Adyen selected reference update",
+                            cartModel.getCode());
+                    return;
+                }
+                paymentInfo.setAdyenSelectedReference(recurringDetailReference);
             }
         }
     }
@@ -595,16 +605,40 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         // networkTxReference on the cart first so the PaymentInfo copied to the new order is complete
         // when subscription activation executes. Keep the post-order update below as a defensive write
         // for order-cloning strategies that replace PaymentInfo rather than copying its attributes.
-        CartModel cartModel = getCartService().getSessionCart();
-        getAdyenOrderService().updatePaymentInfo(cartModel, paymentType, additionalData);
+        storePaymentInfoOnSessionCart(paymentType, additionalData);
 
         OrderData orderData = getCheckoutFacade().placeOrder();
 
         OrderModel orderModel = orderRepository.getOrderModel(orderData.getCode());
 
-        getAdyenOrderService().updatePaymentInfo(orderModel, paymentType, additionalData);
+        // Cast so this binds to the single implemented method rather than to the deprecated OrderModel
+        // forwarder that only exists for callers compiled against the old signature.
+        getAdyenOrderService().updatePaymentInfo((AbstractOrderModel) orderModel, paymentType, additionalData);
         getAdyenOrderService().storeFraudReport(orderModel, paymentsResponse.getPspReference(), paymentsResponse.getFraudResult());
         return orderData;
+    }
+
+    /**
+     * The pre-place-order half of the two writes, and the optional one.
+     *
+     * <p>By the time this runs the shopper has been charged, so nothing it does may cost the order: an
+     * unusable session cart is a reason to log and carry on, never a reason to leave money taken and no
+     * order placed. The write is worth attempting all the same, because it is the only version of the
+     * PaymentInfo that the place-order hooks get to see; when it fails, the post-order write still puts the
+     * token where anything reading the finished order will look for it.</p>
+     */
+    protected void storePaymentInfoOnSessionCart(final String paymentType, final Map<String, String> additionalData) {
+        try {
+            final CartModel cartModel = getCartService().getSessionCart();
+            if (cartModel == null) {
+                LOGGER.warn("No session cart to store the Adyen payment info on before placing the order");
+                return;
+            }
+            getAdyenOrderService().updatePaymentInfo(cartModel, paymentType, additionalData);
+        } catch (RuntimeException e) {
+            LOGGER.error("Failed to store the Adyen payment info on the session cart; placing the order anyway, "
+                    + "the payment behind it is already authorized", e);
+        }
     }
 
     protected OrderData placePendingOrder(String resultCode) throws InvalidCartException {

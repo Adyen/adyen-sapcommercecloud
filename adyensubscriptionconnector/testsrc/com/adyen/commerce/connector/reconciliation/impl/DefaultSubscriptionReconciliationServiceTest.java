@@ -1,6 +1,8 @@
 package com.adyen.commerce.connector.reconciliation.impl;
 
 import static org.junit.Assert.assertSame;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -72,10 +74,30 @@ public class DefaultSubscriptionReconciliationServiceTest
 		verify(model).setStatus("PAST_DUE");
 		verify(model).setPlanCode("annual");
 		verify(model).setQuantity(3);
-		verify(modelService).setAttributeValue(model, "cancelAtPeriodEnd", Boolean.TRUE);
-		verify(modelService).setAttributeValue(model, "platformUpdatedAt", Date.from(PLATFORM_UPDATED));
-		verify(modelService).setAttributeValue(model, "lastReconciledAt", Date.from(NOW));
+		verify(model).setCancelAtPeriodEnd(Boolean.TRUE);
+		verify(model).setPlatformUpdatedAt(Date.from(PLATFORM_UPDATED));
+		verify(model).setLastReconciledAt(Date.from(NOW));
+		verify(model).setLastSyncedAt(Date.from(NOW));
 		verify(modelService).save(model);
+	}
+
+	/**
+	 * Reflective writes type-check at runtime rather than at compile time, so a renamed or removed attribute
+	 * only shows up as a failing reconciliation in production. Every attribute this service writes has a
+	 * generated setter; this pins that none of them regress to setAttributeValue.
+	 */
+	@Test
+	public void writesEveryAttributeThroughGeneratedSettersRatherThanReflectively() throws Exception
+	{
+		when(connector.fetchSubscription(anyRef())).thenReturn(snapshot());
+
+		service.reconcile(model);
+
+		// The type witness picks the (Object, String, Object) overload. Left to infer, the value matcher
+		// resolves to the more specific localized Map overload, which is a different method after erasure —
+		// the verification would then pass however many plain reflective writes the service made.
+		verify(modelService, never())
+				.setAttributeValue(any(), anyString(), org.mockito.ArgumentMatchers.<Object> any());
 	}
 
 	@Test
@@ -92,8 +114,8 @@ public class DefaultSubscriptionReconciliationServiceTest
 
 		verify(model, never()).setStatus("CANCELLED");
 		verify(model, never()).setPlanCode("old-plan");
-		verify(modelService).setAttributeValue(model, "lastReconciledAt", Date.from(NOW));
-		verify(modelService).setAttributeValue(model, "lastSyncedAt", Date.from(NOW));
+		verify(model).setLastReconciledAt(Date.from(NOW));
+		verify(model).setLastSyncedAt(Date.from(NOW));
 		verify(modelService).save(model);
 	}
 

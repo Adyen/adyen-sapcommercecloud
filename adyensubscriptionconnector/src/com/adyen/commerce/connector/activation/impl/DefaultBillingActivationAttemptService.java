@@ -147,6 +147,29 @@ public class DefaultBillingActivationAttemptService implements BillingActivation
 	}
 
 	@Override
+	public void notApplicable(final OrderModel order, final BillingPlatform platform, final String reason)
+	{
+		final Optional<BillingActivationAttemptModel> existing = find(order, platform);
+		if (existing.isEmpty())
+		{
+			return;
+		}
+		final BillingActivationAttemptModel attempt = existing.get();
+		if (STATUS_SUCCEEDED.equals(attempt.getStatus()))
+		{
+			// It really did activate something once. Whatever the rule says now, that row is not ours to
+			// rewrite - the subscription it points at exists on the platform.
+			return;
+		}
+		attempt.setStatus(STATUS_NOT_APPLICABLE);
+		attempt.setNextAttemptAt(null);
+		attempt.setLastError(reason);
+		LOG.info("Closing the activation record for order '{}' on {} as not applicable — {}", orderCode(attempt),
+				platform, reason);
+		modelService.save(attempt);
+	}
+
+	@Override
 	public List<BillingActivationAttemptModel> findDue(final Instant now, final Instant stalePendingBefore,
 			final int limit)
 	{

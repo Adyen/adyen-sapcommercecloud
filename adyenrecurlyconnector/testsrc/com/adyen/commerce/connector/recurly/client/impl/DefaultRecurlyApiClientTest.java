@@ -5,8 +5,10 @@ import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -27,6 +29,7 @@ import com.adyen.commerce.connector.dto.BillingAddress;
 import com.adyen.commerce.connector.dto.CardMetadata;
 import com.adyen.commerce.connector.dto.NormalizedSubscription;
 import com.adyen.commerce.connector.dto.NormalizedSubscriptionStatus;
+import com.adyen.commerce.connector.exception.TerminalBillingException;
 import com.adyen.commerce.connector.recurly.client.RecurlySubscriptionParams;
 import com.adyen.commerce.connector.recurly.config.RecurlyConfigService;
 import com.adyen.commerce.connector.recurly.http.RecurlyHttpClient;
@@ -405,6 +408,170 @@ public class DefaultRecurlyApiClientTest
         assertTrue(result.cancelAtPeriodEnd());
         verify(httpClient, never()).get(BASE + "/accounts/account-1/invoices?state=past_due&limit=200", auth,
                 ACCEPT);
+    }
+
+    @Test
+    public void pastDueLookupFollowsSiteRelativeNextPage() throws Exception
+    {
+        // Recurly hands back "next" as a path under the site, not as an absolute URL.
+        final String nextPath = "/sites/site-1/accounts/account-1/invoices?cursor=page-2&state=past_due&limit=200";
+        when(httpClient.get(BASE + "/subscriptions/uuid-subscription-1", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, subscriptionJson("active", true)));
+        when(httpClient.get(BASE + "/accounts/account-1/invoices?state=past_due&limit=200", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK,
+                        pastDueInvoicePage(true, nextPath, "another-subscription")));
+        when(httpClient.get(BASE + nextPath, auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, pastDueInvoicePage(false, null, "subscription-1")));
+
+        assertEquals(NormalizedSubscriptionStatus.PAST_DUE,
+                client.fetchSubscription("uuid-subscription-1").status());
+
+        verify(httpClient).get(BASE + nextPath, auth, ACCEPT);
+    }
+
+    @Test
+    public void pastDueLookupRejectsNextPageOnAnotherHost() throws Exception
+    {
+        when(httpClient.get(BASE + "/subscriptions/uuid-subscription-1", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, subscriptionJson("active", true)));
+        when(httpClient.get(BASE + "/accounts/account-1/invoices?state=past_due&limit=200", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, pastDueInvoicePage(true,
+                        "https://evil.example.com/accounts/account-1/invoices?cursor=page-2",
+                        "another-subscription")))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, pastDueInvoicePage(true,
+                        "//evil.example.com/accounts/account-1/invoices?cursor=page-2", "another-subscription")));
+
+        final TerminalBillingException absolute = assertThrows(TerminalBillingException.class,
+                () -> client.fetchSubscription("uuid-subscription-1"));
+        assertEquals("Recurly invoice pagination returned an unexpected URL", absolute.getMessage());
+
+        // A protocol-relative "next" carries its own authority, so joining it to the base must not
+        // launder a foreign host into something that passes the guard.
+        assertThrows(TerminalBillingException.class, () -> client.fetchSubscription("uuid-subscription-1"));
+        verify(httpClient, never()).get(contains("evil.example.com"), any(), any());
+    }
+
+    @Test(timeout = 5000)
+    public void pastDueLookupStopsWhenPaginationPointsBackAtAPageAlreadyRead() throws Exception
+    {
+        final String firstPagePath = "/accounts/account-1/invoices?state=past_due&limit=200";
+        when(httpClient.get(BASE + "/subscriptions/uuid-subscription-1", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, subscriptionJson("active", true)));
+        when(httpClient.get(BASE + firstPagePath, auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK,
+                        pastDueInvoicePage(true, firstPagePath, "another-subscription")));
+
+        final TerminalBillingException exception = assertThrows(TerminalBillingException.class,
+                () -> client.fetchSubscription("uuid-subscription-1"));
+
+        assertEquals("Recurly invoice pagination repeated a page", exception.getMessage());
+    }
+
+    /**
+     * {@code expired} keeps this about the identifier alone: it is not past-due eligible, so no invoice
+     * page has to be stubbed alongside the subscription just to reach the identifier assertion.
+     */
+    @Test
+    public void subscriptionWithoutUuidKeepsItsPlainIdentifier() throws Exception
+    {
+        when(httpClient.get(BASE + "/subscriptions/short-subscription-id", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"id\":\"short-subscription-id\","
+                        + "\"account\":{\"id\":\"account-1\"},\"state\":\"expired\","
+                        + "\"plan\":{\"code\":\"monthly\"},\"quantity\":1}"));
+
+        final NormalizedSubscription result = client.fetchSubscription("short-subscription-id");
+
+        assertEquals("short-subscription-id", result.subscription().externalId());
+        assertEquals(NormalizedSubscriptionStatus.EXPIRED, result.status());
+    }
+
+    /**
+     * Recurly's {@code canceled} and Chargebee's {@code non_renewing} are the same real-world state — the
+     * subscription stops renewing but keeps serving the customer to the end of the term — so one normalized
+     * vocabulary has to describe them the same way. Reporting CANCELLED here would revoke entitlement the
+     * customer has already paid for, and would take the reference out of the reconciliation sweep, which
+     * excludes terminal statuses, for the whole remainder of the term.
+     */
+    @Test
+    public void cancelledButStillServingTermIsActiveWithAPendingEnd() throws Exception
+    {
+        when(httpClient.get(BASE + "/subscriptions/uuid-subscription-1", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, subscriptionJson("canceled", false)));
+        when(httpClient.get(BASE + "/accounts/account-1/invoices?state=past_due&limit=200", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK,
+                        "{\"object\":\"list\",\"has_more\":false,\"data\":[]}"));
+
+        final NormalizedSubscription result = client.fetchSubscription("uuid-subscription-1");
+
+        assertEquals(NormalizedSubscriptionStatus.ACTIVE, result.status());
+        assertTrue(result.cancelAtPeriodEnd());
+        assertEquals(java.time.Instant.parse("2026-09-01T00:00:00Z"), result.currentPeriodEnd());
+    }
+
+    /**
+     * Recurly is still collecting the invoice for the term a cancelled subscription is serving out, so that
+     * term's dunning must still surface. Being ACTIVE rather than CANCELLED is what keeps it eligible for
+     * the past-due lookup at all, and the pending end has to survive the PAST_DUE override.
+     */
+    @Test
+    public void cancelledSubscriptionWithAnUnpaidInvoiceIsStillPastDue() throws Exception
+    {
+        when(httpClient.get(BASE + "/subscriptions/uuid-subscription-1", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, subscriptionJson("canceled", false)));
+        when(httpClient.get(BASE + "/accounts/account-1/invoices?state=past_due&limit=200", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"object\":\"list\",\"has_more\":false,"
+                        + "\"data\":[{\"subscription_ids\":[\"subscription-1\"]}]}"));
+
+        final NormalizedSubscription result = client.fetchSubscription("uuid-subscription-1");
+
+        assertEquals(NormalizedSubscriptionStatus.PAST_DUE, result.status());
+        assertTrue(result.cancelAtPeriodEnd());
+    }
+
+    /**
+     * The pending end must come from the state and not only from {@code auto_renew}: a payload that omits
+     * the flag defaults it to "renewing", which would contradict the {@code canceled} state next to it and
+     * tell the storefront the subscription is going to renew.
+     */
+    @Test
+    public void pendingEndIsDerivedFromTheStateWhenAutoRenewIsAbsent() throws Exception
+    {
+        when(httpClient.get(BASE + "/subscriptions/uuid-subscription-1", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"uuid\":\"subscription-1\","
+                        + "\"account\":{\"id\":\"account-1\"},\"state\":\"canceled\","
+                        + "\"plan\":{\"code\":\"monthly\"},\"quantity\":1}"));
+        when(httpClient.get(BASE + "/accounts/account-1/invoices?state=past_due&limit=200", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK,
+                        "{\"object\":\"list\",\"has_more\":false,\"data\":[]}"));
+
+        assertTrue(client.fetchSubscription("uuid-subscription-1").cancelAtPeriodEnd());
+    }
+
+    /**
+     * CANCELLED now means "already stopped", and no Recurly state carries that meaning: {@code expired} is
+     * the one a subscription reaches once its term has actually run out, so "it ended" stays covered.
+     */
+    @Test
+    public void onlyAnEndedTermMapsToATerminalStatus()
+    {
+        assertEquals(NormalizedSubscriptionStatus.ACTIVE, client.mapStatus("active"));
+        assertEquals(NormalizedSubscriptionStatus.ACTIVE, client.mapStatus("canceled"));
+        assertEquals(NormalizedSubscriptionStatus.EXPIRED, client.mapStatus("expired"));
+        assertEquals(NormalizedSubscriptionStatus.PENDING, client.mapStatus("future"));
+        assertEquals(NormalizedSubscriptionStatus.PAUSED, client.mapStatus("paused"));
+        assertEquals(NormalizedSubscriptionStatus.FAILED, client.mapStatus("failed"));
+        // A state Recurly may add later is recorded as UNKNOWN rather than guessed at. UNKNOWN is not one
+        // of the sweep's terminal statuses, so the reference keeps being re-read and a later mapping fixes
+        // it; guessing CANCELLED or EXPIRED would take it out of the sweep for good.
+        assertEquals(NormalizedSubscriptionStatus.UNKNOWN, client.mapStatus("a_state_we_do_not_know"));
+        assertEquals(NormalizedSubscriptionStatus.UNKNOWN, client.mapStatus(null));
+    }
+
+    private String pastDueInvoicePage(final boolean hasMore, final String next, final String subscriptionId)
+    {
+        return "{\"object\":\"list\",\"has_more\":" + hasMore + ","
+                + "\"next\":" + (next == null ? "null" : "\"" + next + "\"") + ","
+                + "\"data\":[{\"subscription_ids\":[\"" + subscriptionId + "\"]}]}";
     }
 
     private String subscriptionJson(final String state, final boolean autoRenew)

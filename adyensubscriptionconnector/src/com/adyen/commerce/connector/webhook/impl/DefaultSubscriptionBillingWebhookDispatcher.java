@@ -25,6 +25,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.util.Date;
+import java.util.EnumSet;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
@@ -81,6 +82,13 @@ import de.hybris.platform.servicelayer.search.FlexibleSearchService;
  * later redelivery is dropped against it — and, crucially, the caller is <em>not</em> told it failed.
  * Answering with an error would keep a platform that has been told nothing is wrong redelivering into a
  * row that now discards it, which is a busy way of losing the event twice over.</p>
+ *
+ * <p>The unknown subscription ends the same way for the same reason. A subscription event naming a local
+ * reference that does not exist yet is worth waiting for, because the create/webhook race is real and
+ * short. A subscription created straight in the platform's own panel, or one whose local activation was
+ * itself given up on, has no reference coming and the wait would never end. The same policy therefore
+ * bounds it, and what is left afterwards is recorded as skipped rather than failed: by then the honest
+ * reading is not "we could not apply this" but "this subscription is not ours".</p>
  */
 public class DefaultSubscriptionBillingWebhookDispatcher implements SubscriptionBillingWebhookDispatcher
 {
@@ -107,6 +115,20 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 	 */
 	private static final Set<String> TERMINAL_OUTCOMES = Set.of(PROCESSING_RECONCILED,
 			PROCESSING_SKIPPED_NO_SUBSCRIPTION, PROCESSING_SKIPPED_UNSUPPORTED, PROCESSING_DEAD_LETTER);
+
+	/**
+	 * The event types whose subject is the subscription itself, rather than an invoice or a payment that
+	 * merely mentions one. Enumerated rather than derived from the constant's name, so that a type added
+	 * later has to be classified on purpose: landing in here makes the dispatcher wait for a local
+	 * reference to appear, which is the wrong answer for anything invoice- or payment-shaped.
+	 */
+	private static final Set<BillingEventType> SUBSCRIPTION_SCOPED_TYPES = EnumSet.of(
+			BillingEventType.SUBSCRIPTION_CREATED, BillingEventType.SUBSCRIPTION_ACTIVATED,
+			BillingEventType.SUBSCRIPTION_UPDATED, BillingEventType.SUBSCRIPTION_RENEWED,
+			BillingEventType.SUBSCRIPTION_CANCELLED, BillingEventType.SUBSCRIPTION_EXPIRED,
+			BillingEventType.SUBSCRIPTION_PAUSED, BillingEventType.SUBSCRIPTION_RESUMED,
+			BillingEventType.SUBSCRIPTION_CHANGE_SCHEDULED, BillingEventType.SUBSCRIPTION_PAUSE_SCHEDULED,
+			BillingEventType.SUBSCRIPTION_PAUSE_UPDATED, BillingEventType.SUBSCRIPTION_PAUSE_CANCELLED);
 
 	private SubscriptionBillingConnectorRegistry connectorRegistry;
 	private FlexibleSearchService flexibleSearchService;
@@ -301,17 +323,48 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 		modelService.save(record);
 	}
 
+	/**
+	 * Records that this delivery names a subscription we hold no local reference for, and decides whether
+	 * it is worth waiting for one.
+	 *
+	 * <p>The waiting is bounded by {@link BillingRetryPolicy} — the same policy {@link #recordFailure}
+	 * consults, so the two cannot disagree on how much patience an event is owed — and the per-subscription
+	 * attempt count on the application row is what it counts. Unbounded, the wait would outlive its own
+	 * premise: the reference never arrives for a subscription that was created in the platform's panel or
+	 * whose activation dead-lettered, so every redelivery would be refused until the platform's own
+	 * schedule expired, leaving a row that never reached a verdict.</p>
+	 *
+	 * @throws RetryableBillingException while the wait is still justified, so the caller answers the
+	 *                                   platform with an error and the platform redelivers
+	 */
 	protected void handleUnknownSubscription(final NormalizedBillingEvent event,
 			final BillingWebhookEventApplicationModel application, final String subscriptionId)
 			throws RetryableBillingException
 	{
 		if (isDirectSubscriptionEvent(event))
 		{
-			application.setProcessingStatus(PROCESSING_RETRYABLE_UNKNOWN_SUBSCRIPTION);
-			application.setLastError("Local subscription reference does not exist yet");
-			modelService.save(application);
-			throw new RetryableBillingException("Subscription " + subscriptionId
+			final RetryableBillingException race = new RetryableBillingException("Subscription " + subscriptionId
 					+ " is not available locally yet; retrying protects the create/webhook race");
+			final RetryVerdict verdict = retryPolicy.decide(race, applicationAttemptCount(application),
+					clock.instant());
+			if (verdict.retry())
+			{
+				application.setProcessingStatus(PROCESSING_RETRYABLE_UNKNOWN_SUBSCRIPTION);
+				application.setLastError("Local subscription reference does not exist yet");
+				modelService.save(application);
+				throw race;
+			}
+
+			// Not rethrown, for the reason recordFailure() does not rethrow a dead letter: the caller would
+			// answer with an error, and the platform would go on redelivering an event this row now refuses.
+			LOG.error("Giving up on {} event '{}' for external subscription {} on platform {} — {}. Recording it "
+					+ "as a subscription that is not managed locally; if it should have been ours, its local "
+					+ "reference was never created and this needs an operator.", event.type(),
+					application.getEvent().getEventId(), subscriptionId, event.platform(), verdict.reason());
+			application.setProcessingStatus(PROCESSING_SKIPPED_UNKNOWN_SUBSCRIPTION);
+			application.setLastError(verdict.reason());
+			modelService.save(application);
+			return;
 		}
 
 		LOG.info("Ignoring {} event for external subscription {} that is not managed locally",
@@ -321,14 +374,23 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 		modelService.save(application);
 	}
 
+	/**
+	 * Whether the event's own subject is the subscription it names, which is the only case where a missing
+	 * local reference might still be on its way.
+	 *
+	 * <p>The answer comes from {@link BillingEventType} and nothing else. It used to come from an
+	 * {@code objectType} attribute that only the Recurly parser wrote — since removed — so for Chargebee it
+	 * was always absent and the fallback dragged every invoice and payment event carrying a subscription id
+	 * onto the waiting path, where a subscription that is simply not ours is indistinguishable from one that
+	 * has not been created yet.</p>
+	 */
 	protected boolean isDirectSubscriptionEvent(final NormalizedBillingEvent event)
 	{
 		if (event.externalSubscriptionId() == null || event.externalSubscriptionId().isBlank())
 		{
 			return false;
 		}
-		final String objectType = event.attributes().get("objectType");
-		return objectType == null || "subscription".equals(objectType);
+		return SUBSCRIPTION_SCOPED_TYPES.contains(event.type());
 	}
 
 	protected List<String> resolveSubscriptionIds(final NormalizedBillingEvent event,
@@ -389,6 +451,8 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 		final BillingWebhookEventModel record = modelService.create(BillingWebhookEventModel.class);
 		record.setPlatform(event.platform());
 		record.setEventId(dedupKey);
+		// No null check: NormalizedBillingEvent's compact constructor rejects a null type, so an unrecognised
+		// event has already been normalised to UNKNOWN by the time it reaches here.
 		record.setEventType(event.type().name());
 		record.setExternalSubscriptionId(event.externalSubscriptionId());
 		record.setOccurredAt(event.occurredAt() == null ? null : Date.from(event.occurredAt()));

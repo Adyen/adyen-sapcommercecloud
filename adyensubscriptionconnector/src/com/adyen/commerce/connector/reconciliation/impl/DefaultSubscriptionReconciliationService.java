@@ -43,10 +43,14 @@ public class DefaultSubscriptionReconciliationService implements SubscriptionRec
 		final NormalizedSubscription snapshot = connector.fetchSubscription(ref);
 		validateSnapshot(ref, snapshot);
 
-		// The remote read deliberately happens before taking the database lock. Holding a row lock while
-		// waiting on Recurly would serialize unrelated network latency into the database transaction. Once
-		// the response is available, refresh under the lock and compare the platform's own update timestamp
-		// so a slow, older response cannot overwrite a newer reconciliation that completed first.
+		// The remote read happens before the row lock is taken, so no other writer is blocked for the
+		// duration of the call. It is not outside the transaction, though: @Transactional covers the whole
+		// method, so the round trip runs inside it and holds a database connection while it waits. Narrowing
+		// it to the write half would take a separate transactional collaborator — an inner call on `this`
+		// bypasses the Spring proxy and would silently do nothing.
+		//
+		// Once the response is available, refresh under the lock and compare the platform's own update
+		// timestamp so a slow, older response cannot overwrite a newer reconciliation that completed first.
 		if (subscription.getPk() != null)
 		{
 			// SAP Commerce's bundled HSQLDB explicitly rejects ModelService.lock(). HSQLDB is a
@@ -117,32 +121,21 @@ public class DefaultSubscriptionReconciliationService implements SubscriptionRec
 		model.setQuantity(snapshot.quantity());
 		model.setCurrentPeriodStart(toDate(snapshot.currentPeriodStart()));
 		model.setCurrentPeriodEnd(toDate(snapshot.currentPeriodEnd()));
-
-		modelService.setAttributeValue(
-				model,
-				"cancelAtPeriodEnd",
-				Boolean.valueOf(snapshot.cancelAtPeriodEnd()));
-
-		modelService.setAttributeValue(
-				model,
-				"platformUpdatedAt",
-				toDate(snapshot.platformUpdatedAt()));
-
-		modelService.setAttributeValue(
-				model,
-				"lastReconciledAt",
-				Date.from(reconciledAt));
-
-		modelService.setAttributeValue(
-				model,
-				"lastSyncedAt",
-				Date.from(reconciledAt));
+		model.setCancelAtPeriodEnd(Boolean.valueOf(snapshot.cancelAtPeriodEnd()));
+		model.setPlatformUpdatedAt(toDate(snapshot.platformUpdatedAt()));
+		touchReconciliation(model, reconciledAt);
 	}
 
+	/**
+	 * Records that the platform was read, whether or not the answer changed anything. Both timestamps move
+	 * together on purpose: lastReconciledAt is the audit trail of platform reads and lastSyncedAt is what
+	 * takes the reference back out of the staleness sweep, and a read that is not credited to the sweep
+	 * leaves the reference permanently due.
+	 */
 	protected void touchReconciliation(final BillingSubscriptionRefModel model, final Instant reconciledAt)
 	{
-		modelService.setAttributeValue(model, "lastReconciledAt", Date.from(reconciledAt));
-		modelService.setAttributeValue(model, "lastSyncedAt", Date.from(reconciledAt));
+		model.setLastReconciledAt(Date.from(reconciledAt));
+		model.setLastSyncedAt(Date.from(reconciledAt));
 	}
 
 	protected Date toDate(final Instant value)

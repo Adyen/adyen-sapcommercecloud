@@ -235,6 +235,49 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 		assertEquals(Integer.valueOf(1), events.get("ev-1").getAttemptCount());
 	}
 
+	/**
+	 * The unique (platform, eventId) index is what actually serialises two simultaneous deliveries. Losing
+	 * that race has to end this delivery, not merely be noted: the winner is already applying the event, and
+	 * carrying on here would double exactly the work the index exists to prevent.
+	 */
+	@Test
+	public void concurrentDeliveryThatLosesTheClaimDoesNotApplyTheEvent() throws Exception
+	{
+		final BillingSubscriptionRefModel ref = givenSubscription("sub-1", "PENDING");
+		authoritative("sub-1", "ACTIVE", "monthly", 1);
+		// Stands in for the index rejecting the second insert of the same event id: our save loses, and what
+		// is visible afterwards is the winning delivery's row.
+		doAnswer(i -> {
+			final BillingWebhookEventModel losing = (BillingWebhookEventModel) i.getArgument(0);
+			events.put(losing.getEventId(), losing);
+			throw new IllegalStateException("unique index violation");
+		}).when(modelService).save(any());
+
+		dispatch(eventOf(BillingEventType.SUBSCRIPTION_CREATED, "ev-1", "sub-1", T1));
+
+		verify(reconciliationService, never()).reconcile(any());
+		assertEquals("PENDING", ref.getStatus());
+	}
+
+	/**
+	 * The mirror image, and the reason the claim check looks the row up instead of trusting the exception:
+	 * a save that failed for its own reasons is not a lost race. Reading it as one would acknowledge the
+	 * webhook, so the platform would never send it again and no row would exist to show anything was lost.
+	 */
+	@Test
+	public void aSaveFailureThatIsNotADuplicateFailsLoudlySoThePlatformRedelivers() throws Exception
+	{
+		givenSubscription("sub-1", "ACTIVE");
+		authoritative("sub-1", "ACTIVE", "monthly", 1);
+		final NormalizedBillingEvent event = eventOf(BillingEventType.SUBSCRIPTION_RENEWED, "ev-1", "sub-1", T1);
+		doThrow(new IllegalStateException("lock timeout")).when(modelService).save(any());
+
+		assertThrows(IllegalStateException.class, () -> dispatch(event));
+
+		verify(reconciliationService, never()).reconcile(any());
+		assertTrue("nothing was persisted, so nothing may claim the id", events.isEmpty());
+	}
+
 	@Test
 	public void directUnknownSubscriptionIsRetryableAndCanSucceedOnRedelivery() throws Exception
 	{
@@ -253,6 +296,55 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 		assertEquals("ACTIVE", ref.getStatus());
 		assertEquals("RECONCILED", events.get("ev-1").getProcessingStatus());
 		assertEquals(Integer.valueOf(2), application("ev-1", "sub-late").getAttemptCount());
+	}
+
+	/**
+	 * The wait for a local reference has to end. A subscription created straight in the platform's own panel
+	 * never grows one, and refusing every redelivery until the platform's own schedule expires would leave a
+	 * row that never reaches a verdict — so the policy stops it, and the row says which subscription it gave
+	 * up on and why.
+	 */
+	@Test
+	public void directUnknownSubscriptionStopsBeingRetriedOnceThePolicyGivesUp() throws Exception
+	{
+		// No vendor attributes at all: this is the Chargebee shape as much as the Recurly one, and the type
+		// alone has to be enough to recognise it as a subscription event.
+		final NormalizedBillingEvent event = eventOf(BillingEventType.SUBSCRIPTION_CREATED, "ev-1", "sub-never", T1);
+
+		for (int attempt = 1; attempt < MAX_ATTEMPTS; attempt++)
+		{
+			assertThrows(RetryableBillingException.class, () -> dispatch(event));
+			assertEquals("RETRYABLE_UNKNOWN_SUBSCRIPTION",
+					application("ev-1", "sub-never").getProcessingStatus());
+		}
+
+		dispatch(event);
+
+		assertEquals("SKIPPED_UNKNOWN_SUBSCRIPTION", application("ev-1", "sub-never").getProcessingStatus());
+		assertEquals(Integer.valueOf(MAX_ATTEMPTS), application("ev-1", "sub-never").getAttemptCount());
+		assertNotNull(application("ev-1", "sub-never").getLastError());
+		assertEquals("SKIPPED_NO_SUBSCRIPTION", events.get("ev-1").getProcessingStatus());
+
+		// Giving up is terminal, so a further redelivery is dropped rather than restarting the series.
+		dispatch(event);
+		assertEquals(Integer.valueOf(MAX_ATTEMPTS), events.get("ev-1").getAttemptCount());
+	}
+
+	/**
+	 * An invoice event names a subscription without being about it. That distinction used to be read from an
+	 * attribute only the Recurly parser writes, so for Chargebee every invoice and payment event carrying a
+	 * subscription id waited for a local reference that, for a subscription we do not manage, never comes.
+	 */
+	@Test
+	public void invoiceEventForAnUnmanagedSubscriptionIsSkippedRatherThanRetried() throws Exception
+	{
+		dispatch(eventOf(BillingEventType.INVOICE_PAST_DUE, "ev-1", "external-only", T1));
+
+		assertEquals("SKIPPED_UNKNOWN_SUBSCRIPTION",
+				application("ev-1", "external-only").getProcessingStatus());
+		assertEquals(Integer.valueOf(1), application("ev-1", "external-only").getAttemptCount());
+		assertEquals("SKIPPED_NO_SUBSCRIPTION", events.get("ev-1").getProcessingStatus());
+		verify(reconciliationService, never()).reconcile(any());
 	}
 
 	@Test
@@ -514,7 +606,7 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 			final String subscriptionId, final Instant occurredAt)
 	{
 		return new NormalizedBillingEvent(BillingPlatform.RECURLY, type, eventId, subscriptionId, "cust-1",
-				occurredAt, Map.of("objectType", "subscription"));
+				occurredAt, Map.of());
 	}
 
 	private static BillingSubscriptionRefModel statefulRef(final String id)

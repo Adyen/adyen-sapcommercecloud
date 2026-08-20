@@ -46,8 +46,10 @@ import com.adyen.commerce.connector.exception.ConnectorNotConfiguredException;
 import com.adyen.commerce.connector.exception.PlanNotMappedException;
 import com.adyen.commerce.connector.exception.PreconditionFailedException;
 import com.adyen.commerce.connector.exception.RetryableBillingException;
+import com.adyen.commerce.connector.exception.SubscriptionProductUndecidableException;
 import com.adyen.commerce.connector.model.BillingActivationAttemptModel;
 import com.adyen.commerce.connector.model.BillingSubscriptionRefModel;
+import com.adyen.commerce.connector.product.impl.DefaultSubscriptionProductRule;
 import com.adyen.commerce.connector.registry.SubscriptionBillingConnectorRegistry;
 import com.adyen.commerce.connector.service.SubscriptionBillingService;
 import com.adyen.commerce.connector.spi.SubscriptionBillingConnector;
@@ -109,6 +111,9 @@ public class DefaultSubscriptionOrderActivatorTest
 		activator = new DefaultSubscriptionOrderActivator();
 		activator.setSubscriptionBillingService(subscriptionBillingService);
 		activator.setConnectorRegistry(connectorRegistry);
+		// The real rule, shared in production with SubscriptionPaymentRequestDecorator. Stubbing it out here
+		// would let this test and the decorator's drift apart in exactly the way the shared bean prevents.
+		activator.setSubscriptionProductRule(new DefaultSubscriptionProductRule());
 		activator.setAttemptService(attemptService);
 		activator.setSessionService(sessionService);
 		activator.setBaseSiteService(baseSiteService);
@@ -367,19 +372,69 @@ public class DefaultSubscriptionOrderActivatorTest
 	}
 
 	/**
-	 * A resolver that breaks is not the same as a product that is not a subscription, but neither may take
-	 * the checkout down with it.
+	 * The paid-order-with-no-journal regression. A resolver that breaks is not the same as a product that is
+	 * not a subscription: it used to be flattened into one, and then the order looked ordinary,
+	 * {@code chooseSubscriptionProduct} returned null and the method returned before {@code begin} was ever
+	 * called. No attempt row, so nothing for {@code SubscriptionActivationRetryJob} to find and no dead
+	 * letter — the shopper had paid and nothing would ever try again. It must now leave a record, and the
+	 * record must still not take the checkout down with it.
 	 */
 	@Test
-	public void skipsAProductWhoseResolverFails() throws Exception
+	public void journalsAResolverThatCannotAnswerInsteadOfCallingTheOrderOrdinary() throws Exception
 	{
+		when(subscriptionBillingService.idempotencyKeyFor(order)).thenReturn("order-1");
 		when(connector.resolvePlan(any(PlanResolutionRequest.class)))
 				.thenThrow(new RetryableBillingException("resolver exploded"));
 		givenEntries(product(SUB_PRODUCT));
 
 		activator.activateFor(order);
 
-		verifyNoInteractions(subscriptionBillingService);
+		// No product code on the row: that is the marker that says "we could not tell", as opposed to a row
+		// carrying the product we did try and the platform's own refusal.
+		verify(attemptService).begin(order, BillingPlatform.CHARGEBEE, null, "order-1");
+		verify(attemptService).failed(eq(attempt), any(SubscriptionProductUndecidableException.class));
+		verify(subscriptionBillingService, never()).activateSubscription(any(), any());
+	}
+
+	/**
+	 * An unchecked failure out of the resolver &mdash; FlexibleSearch throws unchecked &mdash; is the same
+	 * "could not tell" and gets the same durable record, rather than being caught per-entry and dropped.
+	 */
+	@Test
+	public void journalsAnUncheckedResolverFailureToo() throws Exception
+	{
+		when(connector.resolvePlan(any(PlanResolutionRequest.class)))
+				.thenThrow(new IllegalStateException("FlexibleSearch is unhappy"));
+		givenEntries(product(SUB_PRODUCT));
+
+		activator.activateFor(order);
+
+		verify(attemptService).failed(eq(attempt), any(SubscriptionProductUndecidableException.class));
+		verify(subscriptionBillingService, never()).activateSubscription(any(), any());
+	}
+
+	/**
+	 * The price of the above, asserted rather than left to be discovered: one unclassifiable entry defers the
+	 * whole order to the retry, even though another entry did resolve. Only one subscription per order is
+	 * activated, so going ahead would mean choosing a plan while unable to see one of the candidates.
+	 */
+	@Test
+	public void defersAMixedOrderRatherThanActivatingTheEntryThatHappenedToResolve() throws Exception
+	{
+		when(connector.resolvePlan(any(PlanResolutionRequest.class))).thenAnswer(invocation -> {
+			final PlanResolutionRequest request = invocation.getArgument(0);
+			if (SUB_PRODUCT.equals(request.productCode()))
+			{
+				return new PlanRef("plan-1", null);
+			}
+			throw new RetryableBillingException("resolver exploded for " + request.productCode());
+		});
+		givenEntries(product("unreadable"), product(SUB_PRODUCT));
+
+		activator.activateFor(order);
+
+		verify(subscriptionBillingService, never()).activateSubscription(any(), any());
+		verify(attemptService).failed(eq(attempt), any(SubscriptionProductUndecidableException.class));
 	}
 
 	@Test

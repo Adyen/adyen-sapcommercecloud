@@ -7,6 +7,7 @@ import com.adyen.commerce.facades.AdyenCheckoutApiFacade;
 import com.adyen.commerce.request.PlaceOrderRequest;
 import com.adyen.commerce.response.OCCPlaceOrderResponse;
 import com.adyen.commerce.response.PlaceOrderResponse;
+import com.adyen.commerce.services.impl.RecurringContractHelper.TokenizationNotSupportedException;
 import com.adyen.commerce.validators.PaymentRequestValidator;
 import com.adyen.model.checkout.PaymentDetailsRequest;
 import com.adyen.model.checkout.PaymentResponse;
@@ -228,6 +229,13 @@ public abstract class PlaceOrderControllerBase {
             } else if (PaymentResponse.ResultCodeEnum.ERROR == paymentsResponse.getResultCode()) {
                 LOGGER.error("PaymentResponse is ERROR, reason: " + paymentsResponse.getRefusalReason() + " pspReference: " + paymentsResponse.getPspReference());
             }
+        } catch (TokenizationNotSupportedException e) {
+            // The shopper picked a method that cannot fund what is in their cart - something they can correct
+            // by picking another one. It carries its own message key so that it survives as that instead of
+            // being logged and flattened into the generic authorization error by the catch below. This is the
+            // single place the conversion happens; the partial-payment methods hand it back up untouched.
+            LOGGER.info("Refusing to authorize: " + e.getMessage());
+            throw new AdyenControllerException(e.getErrorCode());
         } catch (Exception e) {
             LOGGER.error(ExceptionUtils.getStackTrace(e));
         }
@@ -300,6 +308,12 @@ public abstract class PlaceOrderControllerBase {
                 throw new AdyenControllerException(errorMessage);
             }
 
+        } catch (TokenizationNotSupportedException e) {
+            // Defensive, and unreachable today: createPartialPaymentRequest does not run the payment request
+            // decorators at all - only createPaymentsRequest does - so nothing on the gift-card leg can raise
+            // this. Kept so that wiring the decorators into the partial leg later cannot silently turn the
+            // shopper's "pick a card" back into the authorization-failed default via the catch below.
+            throw e;
         } catch (AdyenControllerException e) {
             throw e;
         } catch (Exception e) {
@@ -368,6 +382,12 @@ public abstract class PlaceOrderControllerBase {
                 return executeAction(paymentsResponse);
             }
             throw new AdyenControllerException(CHECKOUT_ERROR_AUTHORIZATION_FAILED);
+        } catch (TokenizationNotSupportedException e) {
+            // Raised while the /payments request is still being assembled, so it never went out and the gift
+            // card hold behind this partial payment is untouched - deliberately not marked FAILED, which
+            // would record a payment failure that did not happen. handlePayment turns it into the controller
+            // exception that carries the message key.
+            throw e;
         } catch (AdyenControllerException e) {
             throw e;
         } catch (Exception e) {

@@ -52,6 +52,15 @@ public interface BillingActivationAttemptService
 	String STATUS_DEAD_LETTER = "DEAD_LETTER";
 
 	/**
+	 * The order turned out not to be a subscription order after all. Reached only from a row opened because
+	 * the rule could not classify a product: once it can, and the answer is "no", the row has to be closed as
+	 * a non-event rather than left in {@link #STATUS_FAILED} for the retry job to abandon. Without it a single
+	 * resolver blip on an ordinary order ends as a {@code DEAD_LETTER} announcing that a shopper was charged
+	 * for a subscription they never bought.
+	 */
+	String STATUS_NOT_APPLICABLE = "NOT_APPLICABLE";
+
+	/**
 	 * Opens or re-opens the record for this order and counts the attempt about to run. Written before the
 	 * platform is called, not after, so a crash mid-call still leaves evidence that something was tried.
 	 */
@@ -78,6 +87,12 @@ public interface BillingActivationAttemptService
 	 * leaving the row queued would mean re-reading it on every run of the job for ever.</p>
 	 */
 	void abandon(BillingActivationAttemptModel attempt, String reason);
+
+	/**
+	 * Closes any still-open row for this order as {@link #STATUS_NOT_APPLICABLE}. A no-op when there is no
+	 * row, which is the ordinary case: nothing is written for an order that was never a subscription order.
+	 */
+	void notApplicable(OrderModel order, BillingPlatform platform, String reason);
 
 	/**
 	 * The retry queue: attempts whose next try has come round, oldest first.

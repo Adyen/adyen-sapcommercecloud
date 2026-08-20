@@ -73,7 +73,6 @@ public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser {
 
             final Map<String, String> attributes = new HashMap<>();
             putIfNotBlank(attributes, "eventType", eventType);
-            putIfNotBlank(attributes, "objectType", objectType);
             putIfNotBlank(attributes, "siteId", text(payload, "site_id"));
             putIfNotBlank(attributes, "resourceType", objectType);
             putIfNotBlank(attributes, "resourceId", resourceId);

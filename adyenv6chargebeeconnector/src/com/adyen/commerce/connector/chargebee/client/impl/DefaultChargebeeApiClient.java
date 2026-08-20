@@ -23,8 +23,10 @@ package com.adyen.commerce.connector.chargebee.client.impl;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Base64;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
@@ -35,7 +37,11 @@ import com.adyen.commerce.connector.chargebee.config.ChargebeeConfigService;
 import com.adyen.commerce.connector.chargebee.http.ChargebeeHttpClient;
 import com.adyen.commerce.connector.chargebee.http.ChargebeeHttpResponse;
 import com.adyen.commerce.connector.chargebee.util.FormEncoder;
+import com.adyen.commerce.connector.dto.BillingSubscriptionRef;
 import com.adyen.commerce.connector.dto.CardMetadata;
+import com.adyen.commerce.connector.dto.NormalizedSubscription;
+import com.adyen.commerce.connector.dto.NormalizedSubscriptionStatus;
+import com.adyen.commerce.connector.enums.BillingPlatform;
 import com.adyen.commerce.connector.exception.BillingException;
 import com.adyen.commerce.connector.exception.PreconditionFailedException;
 import com.adyen.commerce.connector.exception.RetryableBillingException;
@@ -139,6 +145,143 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 	}
 
 	@Override
+	public NormalizedSubscription fetchSubscription(final String subscriptionId) throws BillingException
+	{
+		final ChargebeeHttpResponse response = httpClient
+				.get(configService.getApiBaseUrl() + "/subscriptions/" + pathSegment(subscriptionId), authHeader());
+		requireSuccess(response, "retrieve subscription");
+		return mapSubscription(response.body());
+	}
+
+	protected NormalizedSubscription mapSubscription(final String body) throws BillingException
+	{
+		final JsonNode root = readJson(body, "subscription");
+		final String subscriptionId = readId(root, "subscription");
+		final JsonNode subscription = root.path("subscription");
+		final JsonNode planItem = findPlanItem(subscription);
+
+		return new NormalizedSubscription(
+				new BillingSubscriptionRef(BillingPlatform.CHARGEBEE, subscriptionId),
+				mapStatus(subscription),
+				planItem.path("item_price_id").asText(null),
+				planItem.path("quantity").asInt(1),
+				parseEpochSeconds(subscription.path("current_term_start")),
+				parseEpochSeconds(subscription.path("current_term_end")),
+				isCancelAtPeriodEnd(subscription),
+				parseEpochSeconds(subscription.path("updated_at")));
+	}
+
+	/**
+	 * Chargebee has no {@code past_due} lifecycle state — a subscription with unpaid invoices stays
+	 * {@code active} and carries the dunning signal next to it as {@code due_invoices_count}, which ships
+	 * inside the subscription resource itself. So unlike Recurly, where past-due has to be derived from a
+	 * second call listing the account's past-due invoices, one retrieve answers both questions.
+	 */
+	protected NormalizedSubscriptionStatus mapStatus(final JsonNode subscription)
+	{
+		final NormalizedSubscriptionStatus lifecycleStatus = mapLifecycleStatus(subscription.path("status").asText(null));
+		return isPastDueEligible(lifecycleStatus) && subscription.path("due_invoices_count").asInt(0) > 0
+				? NormalizedSubscriptionStatus.PAST_DUE
+				: lifecycleStatus;
+	}
+
+	protected NormalizedSubscriptionStatus mapLifecycleStatus(final String chargebeeStatus)
+	{
+		if (StringUtils.isBlank(chargebeeStatus))
+		{
+			return NormalizedSubscriptionStatus.UNKNOWN;
+		}
+		return switch (chargebeeStatus.toLowerCase(Locale.ROOT))
+		{
+			case "future" -> NormalizedSubscriptionStatus.PENDING;
+			// in_trial is a live subscription that simply isn't being charged yet, and non_renewing keeps
+			// serving the customer until the term ends. Both are ACTIVE; the pending end of a non_renewing
+			// subscription travels as cancelAtPeriodEnd instead of prematurely reporting CANCELLED, which
+			// would revoke entitlement the customer has already paid for.
+			case "in_trial", "active", "non_renewing" -> NormalizedSubscriptionStatus.ACTIVE;
+			case "paused" -> NormalizedSubscriptionStatus.PAUSED;
+			case "cancelled" -> NormalizedSubscriptionStatus.CANCELLED;
+			// "transferred" (the subscription moved to another Chargebee site/entity) has no normalized
+			// equivalent: it is neither cancelled nor expired here. It stays UNKNOWN rather than being guessed
+			// at, so reconciliation leaves the local status alone instead of acting on an invented one.
+			default -> NormalizedSubscriptionStatus.UNKNOWN;
+		};
+	}
+
+	/**
+	 * Only states in which Chargebee would still be collecting money can be past due. Reporting PAST_DUE for
+	 * an already cancelled subscription that happens to carry a written-off invoice would resurrect dunning
+	 * for a subscription nobody is billing any more.
+	 */
+	protected boolean isPastDueEligible(final NormalizedSubscriptionStatus status)
+	{
+		return status == NormalizedSubscriptionStatus.ACTIVE || status == NormalizedSubscriptionStatus.PAUSED;
+	}
+
+	protected boolean isCancelAtPeriodEnd(final JsonNode subscription)
+	{
+		// non_renewing IS the end-of-term cancellation. cancel_schedule_created_at additionally covers a
+		// cancellation scheduled for a specific future date, which Chargebee can carry on a still-active one.
+		return "non_renewing".equalsIgnoreCase(subscription.path("status").asText(null))
+				|| subscription.path("cancel_schedule_created_at").asLong(0L) > 0L;
+	}
+
+	/**
+	 * A Chargebee subscription carries addons and one-time charges in the same {@code subscription_items}
+	 * array as the plan, so the plan is identified by {@code item_type}, not by position. That item price id
+	 * is exactly what {@link #createSubscription} sent as {@code subscription_items[item_price_id][0]}, which
+	 * keeps the plan round-trip symmetric.
+	 */
+	protected JsonNode findPlanItem(final JsonNode subscription)
+	{
+		final JsonNode items = subscription.path("subscription_items");
+		for (final JsonNode item : items)
+		{
+			if ("plan".equalsIgnoreCase(item.path("item_type").asText(null)))
+			{
+				return item;
+			}
+		}
+		return items.path(0);
+	}
+
+	/**
+	 * Chargebee timestamps are UNIX epoch seconds, not ISO-8601. An absent timestamp must stay {@code null}:
+	 * silently reading it as epoch 0 would date a subscription to 1970 and let the reconciliation staleness
+	 * guard discard every later snapshot as "older".
+	 */
+	protected Instant parseEpochSeconds(final JsonNode node) throws TerminalBillingException
+	{
+		if (node == null || node.isMissingNode() || node.isNull())
+		{
+			return null;
+		}
+		if (node.isNumber())
+		{
+			return toInstant(node.asLong());
+		}
+
+		final String text = node.asText(null);
+		if (StringUtils.isBlank(text))
+		{
+			return null;
+		}
+		try
+		{
+			return toInstant(Long.parseLong(text.trim()));
+		}
+		catch (final NumberFormatException exception)
+		{
+			throw new TerminalBillingException("Malformed Chargebee subscription timestamp '" + text + "'", exception);
+		}
+	}
+
+	protected Instant toInstant(final long epochSeconds)
+	{
+		return epochSeconds <= 0L ? null : Instant.ofEpochSecond(epochSeconds);
+	}
+
+	@Override
 	public void updateSubscription(final String subscriptionId, final String itemPriceId, final Integer quantity)
 			throws BillingException
 	{
@@ -237,18 +380,28 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 
 	protected String readId(final String body, final String wrapperKey) throws BillingException
 	{
+		return readId(readJson(body, wrapperKey), wrapperKey);
+	}
+
+	protected String readId(final JsonNode root, final String wrapperKey) throws BillingException
+	{
+		final JsonNode id = root.path(wrapperKey).path("id");
+		if (id.isMissingNode() || StringUtils.isBlank(id.asText(null)))
+		{
+			throw new TerminalBillingException("Chargebee response missing " + wrapperKey + ".id");
+		}
+		return id.asText();
+	}
+
+	protected JsonNode readJson(final String body, final String resource) throws TerminalBillingException
+	{
 		try
 		{
-			final JsonNode id = objectMapper.readTree(body).path(wrapperKey).path("id");
-			if (id.isMissingNode() || StringUtils.isBlank(id.asText(null)))
-			{
-				throw new TerminalBillingException("Chargebee response missing " + wrapperKey + ".id");
-			}
-			return id.asText();
+			return objectMapper.readTree(body);
 		}
 		catch (final IOException e)
 		{
-			throw new TerminalBillingException("Malformed Chargebee response: " + e.getMessage());
+			throw new TerminalBillingException("Malformed Chargebee " + resource + " response: " + e.getMessage());
 		}
 	}
 
