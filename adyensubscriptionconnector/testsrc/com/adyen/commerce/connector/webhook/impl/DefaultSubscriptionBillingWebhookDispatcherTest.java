@@ -54,9 +54,11 @@ import com.adyen.commerce.connector.dto.BillingEventType;
 import com.adyen.commerce.connector.dto.NormalizedBillingEvent;
 import com.adyen.commerce.connector.dto.RawWebhook;
 import com.adyen.commerce.connector.enums.BillingPlatform;
+import com.adyen.commerce.connector.exception.BillingException;
 import com.adyen.commerce.connector.model.BillingSubscriptionRefModel;
 import com.adyen.commerce.connector.model.BillingWebhookEventModel;
 import com.adyen.commerce.connector.registry.SubscriptionBillingConnectorRegistry;
+import com.adyen.commerce.connector.retry.impl.DefaultBillingRetryPolicy;
 import com.adyen.commerce.connector.spi.SubscriptionBillingConnector;
 
 import de.hybris.bootstrap.annotations.UnitTest;
@@ -85,6 +87,7 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 	private static final Instant T2 = Instant.parse("2026-08-06T10:05:00Z");
 	private static final Instant T3 = Instant.parse("2026-08-06T10:10:00Z");
 	private static final Instant NOW = Instant.parse("2026-08-06T12:00:00Z");
+	private static final int MAX_ATTEMPTS = 3;
 
 	@Mock
 	private SubscriptionBillingConnectorRegistry connectorRegistry;
@@ -112,6 +115,11 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 		dispatcher.setFlexibleSearchService(flexibleSearchService);
 		dispatcher.setModelService(modelService);
 		dispatcher.setClock(Clock.fixed(NOW, ZoneOffset.UTC));
+		// The real policy rather than a mock: it is a pure function, and the thing worth testing here is
+		// what the dispatcher does with its verdicts. Three attempts so exhaustion is reachable in a test.
+		final DefaultBillingRetryPolicy retryPolicy = new DefaultBillingRetryPolicy();
+		retryPolicy.setMaxAttempts(MAX_ATTEMPTS);
+		dispatcher.setRetryPolicy(retryPolicy);
 
 		raw = new RawWebhook(Map.of(), "{}", null);
 		when(connectorRegistry.getConnector(BillingPlatform.CHARGEBEE)).thenReturn(connector);
@@ -581,6 +589,66 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 		assertEquals(Long.valueOf(1L), ref.getEventVersion());
 	}
 
+	/**
+	 * A failure the connector has classified as terminal will fail identically on replay, so there is
+	 * nothing to gain by inviting one — and the caller must not be told to ask for it.
+	 */
+	@Test
+	public void deadLettersATerminalFailureWithoutAskingForRedelivery() throws Exception
+	{
+		when(connector.parseWebhook(raw)).thenReturn(eventOf(BillingEventType.INVOICE_PAID, "ev-1", null, T1));
+		when(connector.resolveSubscriptionIds(any())).thenThrow(new BillingException("this event names nothing we know"));
+
+		dispatcher.dispatch(BillingPlatform.CHARGEBEE, raw);
+
+		final BillingWebhookEventModel record = eventStore.get("ev-1");
+		assertEquals("DEAD_LETTER", record.getProcessingStatus());
+		assertNotNull(record.getDeadLetteredAt());
+		assertTrue(record.getLastError().contains("names nothing we know"));
+	}
+
+	/**
+	 * The other way it ends: a transient failure that never stops being transient. The platform is asked
+	 * to redeliver until the policy's cut-off and then, pointedly, is not.
+	 */
+	@Test
+	public void deadLettersOnceTheRetriesAreExhausted() throws Exception
+	{
+		final BillingSubscriptionRefModel ref = givenSubscription("sub-1");
+		when(connector.parseWebhook(raw))
+				.thenReturn(eventOf(BillingEventType.SUBSCRIPTION_ACTIVATED, "ev-1", "sub-1", T1));
+		doThrow(new IllegalStateException("boom")).when(modelService).save(ref);
+
+		for (int attempt = 1; attempt < MAX_ATTEMPTS; attempt++)
+		{
+			assertThrows(IllegalStateException.class, () -> dispatcher.dispatch(BillingPlatform.CHARGEBEE, raw));
+			assertEquals("FAILED", eventStore.get("ev-1").getProcessingStatus());
+		}
+
+		dispatcher.dispatch(BillingPlatform.CHARGEBEE, raw);
+
+		assertEquals("DEAD_LETTER", eventStore.get("ev-1").getProcessingStatus());
+		assertEquals(Integer.valueOf(MAX_ATTEMPTS), eventStore.get("ev-1").getAttemptCount());
+		assertNotNull(eventStore.get("ev-1").getDeadLetteredAt());
+	}
+
+	/**
+	 * Dead-lettering is a decision, not a pause: a redelivery arriving afterwards is dropped against the
+	 * row rather than restarting a series of attempts already given up on and reported.
+	 */
+	@Test
+	public void discardsARedeliveryOfADeadLetteredEvent() throws Exception
+	{
+		when(connector.parseWebhook(raw)).thenReturn(eventOf(BillingEventType.INVOICE_PAID, "ev-1", null, T1));
+		when(connector.resolveSubscriptionIds(any())).thenThrow(new BillingException("terminal"));
+		dispatcher.dispatch(BillingPlatform.CHARGEBEE, raw);
+
+		dispatcher.dispatch(BillingPlatform.CHARGEBEE, raw);
+
+		assertEquals("DEAD_LETTER", eventStore.get("ev-1").getProcessingStatus());
+		assertEquals(Integer.valueOf(1), eventStore.get("ev-1").getAttemptCount());
+	}
+
 	// ---------------------------------------------------------------- helpers
 
 	private void assertProjectedStatus(final BillingEventType type, final String expectedStatus) throws Exception
@@ -689,6 +757,8 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 		when(record.getAttemptCount()).thenAnswer(i -> state.get("attempts"));
 		doAnswer(i -> { state.put("lastError", i.getArgument(0)); return null; }).when(record).setLastError(any());
 		when(record.getLastError()).thenAnswer(i -> state.get("lastError"));
+		doAnswer(i -> { state.put("deadLetteredAt", i.getArgument(0)); return null; }).when(record).setDeadLetteredAt(any());
+		when(record.getDeadLetteredAt()).thenAnswer(i -> state.get("deadLetteredAt"));
 		return record;
 	}
 }

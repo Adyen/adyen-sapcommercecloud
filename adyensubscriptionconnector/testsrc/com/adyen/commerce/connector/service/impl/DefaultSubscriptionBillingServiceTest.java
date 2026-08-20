@@ -28,6 +28,8 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isA;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -79,6 +81,7 @@ import de.hybris.platform.core.model.user.CustomerModel;
 import de.hybris.platform.core.model.user.AddressModel;
 import de.hybris.platform.core.model.user.UserModel;
 import de.hybris.platform.servicelayer.event.EventService;
+import de.hybris.platform.servicelayer.exceptions.ModelSavingException;
 import de.hybris.platform.servicelayer.model.ModelService;
 import de.hybris.platform.servicelayer.search.FlexibleSearchQuery;
 import de.hybris.platform.servicelayer.search.FlexibleSearchService;
@@ -240,6 +243,49 @@ public class DefaultSubscriptionBillingServiceTest
 		assertSame(existing, result);
 		verify(connector, never()).ensureCustomer(any());
 		verify(connector, never()).createSubscription(any());
+	}
+
+	/**
+	 * The idempotency check is a read followed by a write with no lock in between, and Adyen sends one
+	 * notification per payment leg, so two activations of one order really do overlap. The loser is not a
+	 * failure to report: both sent the same idempotency key, so the platform returned one subscription to
+	 * both, and the winner's reference is the right answer to the question the caller asked.
+	 */
+	@Test
+	public void shouldReturnTheWinnersRefWhenTheIdempotencyRaceIsLost() throws Exception
+	{
+		final BillingSubscriptionRefModel winner = mock(BillingSubscriptionRefModel.class);
+		// Missing on the way in, present by the time the unique index rejects our own insert.
+		when(searchResult.getResult()).thenReturn(List.of(), List.of(winner));
+		doThrow(new ModelSavingException("unique index violated")).when(modelService)
+				.save(isA(BillingSubscriptionRefModel.class));
+
+		final BillingSubscriptionRefModel result = service.activateSubscription(order, subProduct);
+
+		assertSame(winner, result);
+		// The winner already published it; publishing again would double-count the activation.
+		verify(eventService, never()).publishEvent(any(SubscriptionActivatedEvent.class));
+	}
+
+	/**
+	 * A save that fails for any other reason has to stay a failure — reporting success would claim an
+	 * activation that left no local record of itself.
+	 */
+	@Test
+	public void shouldPropagateASaveFailureThatIsNotTheRace() throws Exception
+	{
+		when(searchResult.getResult()).thenReturn(List.of());
+		doThrow(new ModelSavingException("the database is gone")).when(modelService)
+				.save(isA(BillingSubscriptionRefModel.class));
+
+		assertThrows(ModelSavingException.class, () -> service.activateSubscription(order, subProduct));
+	}
+
+	@Test
+	public void shouldKeyTheRemoteCallOnTheOrderCode() throws Exception
+	{
+		assertEquals(order.getCode(), service.idempotencyKeyFor(order));
+		assertNull(service.idempotencyKeyFor(null));
 	}
 
 	@Test

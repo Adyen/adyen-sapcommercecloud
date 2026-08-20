@@ -21,6 +21,7 @@
 package com.adyen.commerce.connector.activation.impl;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -37,22 +38,32 @@ import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import com.adyen.commerce.connector.activation.BillingActivationAttemptService;
 import com.adyen.commerce.connector.dto.PlanRef;
 import com.adyen.commerce.connector.dto.PlanResolutionRequest;
 import com.adyen.commerce.connector.enums.BillingPlatform;
 import com.adyen.commerce.connector.exception.ConnectorNotConfiguredException;
 import com.adyen.commerce.connector.exception.PlanNotMappedException;
+import com.adyen.commerce.connector.exception.PreconditionFailedException;
 import com.adyen.commerce.connector.exception.RetryableBillingException;
+import com.adyen.commerce.connector.model.BillingActivationAttemptModel;
+import com.adyen.commerce.connector.model.BillingSubscriptionRefModel;
 import com.adyen.commerce.connector.registry.SubscriptionBillingConnectorRegistry;
 import com.adyen.commerce.connector.service.SubscriptionBillingService;
 import com.adyen.commerce.connector.spi.SubscriptionBillingConnector;
 
 import de.hybris.bootstrap.annotations.UnitTest;
+import de.hybris.platform.basecommerce.model.site.BaseSiteModel;
+import de.hybris.platform.core.PK;
 import de.hybris.platform.core.model.order.AbstractOrderEntryModel;
 import de.hybris.platform.core.model.order.OrderModel;
 import de.hybris.platform.core.model.product.ProductModel;
 import de.hybris.platform.servicelayer.exceptions.ModelSavingException;
+import de.hybris.platform.servicelayer.session.SessionExecutionBody;
+import de.hybris.platform.servicelayer.session.SessionService;
+import de.hybris.platform.site.BaseSiteService;
 import de.hybris.platform.store.BaseStoreModel;
+import de.hybris.platform.store.services.BaseStoreService;
 
 /**
  * Unit test for {@link DefaultSubscriptionOrderActivator} — which orders activate a
@@ -64,6 +75,9 @@ public class DefaultSubscriptionOrderActivatorTest
 	private static final String SUB_PRODUCT = "sub-product";
 	private static final String PLAIN_PRODUCT = "plain-product";
 
+	private static final PK STORE_PK = PK.fromLong(1001L);
+	private static final PK OTHER_STORE_PK = PK.fromLong(2002L);
+
 	@Mock
 	private SubscriptionBillingService subscriptionBillingService;
 	@Mock
@@ -71,9 +85,19 @@ public class DefaultSubscriptionOrderActivatorTest
 	@Mock
 	private SubscriptionBillingConnector connector;
 	@Mock
+	private BillingActivationAttemptService attemptService;
+	@Mock
+	private SessionService sessionService;
+	@Mock
+	private BaseSiteService baseSiteService;
+	@Mock
+	private BaseStoreService baseStoreService;
+	@Mock
 	private OrderModel order;
 	@Mock
 	private BaseStoreModel store;
+	@Mock
+	private BillingActivationAttemptModel attempt;
 
 	private DefaultSubscriptionOrderActivator activator;
 
@@ -85,11 +109,25 @@ public class DefaultSubscriptionOrderActivatorTest
 		activator = new DefaultSubscriptionOrderActivator();
 		activator.setSubscriptionBillingService(subscriptionBillingService);
 		activator.setConnectorRegistry(connectorRegistry);
+		activator.setAttemptService(attemptService);
+		activator.setSessionService(sessionService);
+		activator.setBaseSiteService(baseSiteService);
+		activator.setBaseStoreService(baseStoreService);
+
+		// The local view is the unit under test's own plumbing, not a collaborator to assert on: run the
+		// body inline so every test below exercises what the body actually does.
+		when(sessionService.executeInLocalView(any(SessionExecutionBody.class))).thenAnswer(invocation -> {
+			invocation.<SessionExecutionBody> getArgument(0).execute();
+			return null;
+		});
 
 		when(order.getCode()).thenReturn("order-1");
 		when(order.getStore()).thenReturn(store);
 		when(store.getUid()).thenReturn("electronics");
+		when(store.getPk()).thenReturn(STORE_PK);
 		when(store.getActiveBillingPlatform()).thenReturn(BillingPlatform.CHARGEBEE);
+		when(baseStoreService.getCurrentBaseStore()).thenReturn(store);
+		when(attemptService.begin(any(), any(), any(), any())).thenReturn(attempt);
 		when(connectorRegistry.getActiveConnector(store)).thenReturn(connector);
 		when(connector.platform()).thenReturn(BillingPlatform.CHARGEBEE);
 
@@ -114,16 +152,109 @@ public class DefaultSubscriptionOrderActivatorTest
 		verify(subscriptionBillingService).activateSubscription(order, entryProduct(SUB_PRODUCT));
 	}
 
+	@Test
+	public void journalsASuccessfulActivationAgainstTheKeyItSent() throws Exception
+	{
+		when(subscriptionBillingService.idempotencyKeyFor(order)).thenReturn("order-1");
+		final BillingSubscriptionRefModel ref = mock(BillingSubscriptionRefModel.class);
+		when(subscriptionBillingService.activateSubscription(any(), any())).thenReturn(ref);
+		givenEntries(product(SUB_PRODUCT));
+
+		activator.activateFor(order);
+
+		verify(attemptService).begin(order, BillingPlatform.CHARGEBEE, SUB_PRODUCT, "order-1");
+		verify(attemptService).succeeded(attempt, ref);
+		verify(attemptService, never()).failed(any(), any());
+	}
+
 	/**
-	 * The unique index on (order, platform) is what actually stops two notifications for the same order
-	 * from both creating a subscription; losing that race is normal, not a failure to report.
+	 * The whole point of the journal: a failure the checkout never sees still has to leave a record that
+	 * the retry policy can act on.
 	 */
 	@Test
-	public void treatsALostRaceAsNothingToDo() throws Exception
+	public void journalsAFailedActivationInsteadOfLosingIt() throws Exception
 	{
 		givenEntries(product(SUB_PRODUCT));
-		doThrow(new ModelSavingException("unique index violated")).when(subscriptionBillingService)
+		final RetryableBillingException failure = new RetryableBillingException("Chargebee is down");
+		doThrow(failure).when(subscriptionBillingService).activateSubscription(any(), any());
+
+		activator.activateFor(order);
+
+		verify(attemptService).failed(attempt, failure);
+		verify(attemptService, never()).succeeded(any(), any());
+	}
+
+	/**
+	 * A save failure that is not the (order, platform) race — the service resolves that one itself now —
+	 * is an ordinary failure and belongs in the journal like any other.
+	 */
+	@Test
+	public void journalsAModelSavingFailure() throws Exception
+	{
+		givenEntries(product(SUB_PRODUCT));
+		final ModelSavingException failure = new ModelSavingException("could not save");
+		doThrow(failure).when(subscriptionBillingService).activateSubscription(any(), any());
+
+		activator.activateFor(order);
+
+		verify(attemptService).failed(attempt, failure);
+	}
+
+	@Test
+	public void activatesTheOrdersOwnBaseSiteBeforeTouchingAConnector() throws Exception
+	{
+		final BaseSiteModel site = mock(BaseSiteModel.class);
+		when(order.getSite()).thenReturn(site);
+		givenEntries(product(SUB_PRODUCT));
+
+		activator.activateFor(order);
+
+		verify(baseSiteService).setCurrentBaseSite(site, false);
+		verify(subscriptionBillingService).activateSubscription(order, entryProduct(SUB_PRODUCT));
+	}
+
+	/**
+	 * A base site listing several stores resolves to its first one. Activating anyway would have the
+	 * connector read another store's credentials and bill a merchant account the shopper never saw, so
+	 * this refuses — and, being configuration rather than weather, refuses terminally.
+	 */
+	@Test
+	public void refusesToActivateWhenTheSessionResolvesToADifferentStore() throws Exception
+	{
+		final BaseStoreModel otherStore = mock(BaseStoreModel.class);
+		when(otherStore.getPk()).thenReturn(OTHER_STORE_PK);
+		when(otherStore.getUid()).thenReturn("apparel");
+		when(baseStoreService.getCurrentBaseStore()).thenReturn(otherStore);
+		givenEntries(product(SUB_PRODUCT));
+
+		activator.activateFor(order);
+
+		verify(subscriptionBillingService, never()).activateSubscription(any(), any());
+		verify(attemptService).failed(eq(attempt), any(PreconditionFailedException.class));
+	}
+
+	@Test
+	public void refusesToActivateWhenNoStoreCanBeResolvedAtAll() throws Exception
+	{
+		when(baseStoreService.getCurrentBaseStore()).thenReturn(null);
+		givenEntries(product(SUB_PRODUCT));
+
+		activator.activateFor(order);
+
+		verify(subscriptionBillingService, never()).activateSubscription(any(), any());
+		verify(attemptService).failed(eq(attempt), any(PreconditionFailedException.class));
+	}
+
+	/**
+	 * The journal must not become a second way for the activation path to throw into a checkout.
+	 */
+	@Test
+	public void swallowsAFailureToWriteTheJournalItself() throws Exception
+	{
+		givenEntries(product(SUB_PRODUCT));
+		doThrow(new RetryableBillingException("Chargebee is down")).when(subscriptionBillingService)
 				.activateSubscription(any(), any());
+		doThrow(new IllegalStateException("the database is gone")).when(attemptService).failed(any(), any());
 
 		activator.activateFor(order);
 	}
@@ -208,16 +339,22 @@ public class DefaultSubscriptionOrderActivatorTest
 		activator.activateFor(order);
 	}
 
+	/**
+	 * A store selecting a platform nothing answers for is a misconfiguration, and one that stops every
+	 * subscription in that store. It is journalled rather than only logged, which does mean an ordinary
+	 * order in such a store acquires a record too — the intended noise.
+	 */
 	@Test
 	public void swallowsAMissingConnectorSoTheCheckoutStillSucceeds() throws Exception
 	{
 		givenEntries(product(SUB_PRODUCT));
-		when(connectorRegistry.getActiveConnector(store))
-				.thenThrow(new ConnectorNotConfiguredException("no connector for CHARGEBEE"));
+		final ConnectorNotConfiguredException failure = new ConnectorNotConfiguredException("no connector for CHARGEBEE");
+		when(connectorRegistry.getActiveConnector(store)).thenThrow(failure);
 
 		activator.activateFor(order);
 
-		verifyNoInteractions(subscriptionBillingService);
+		verify(subscriptionBillingService, never()).activateSubscription(any(), any());
+		verify(attemptService).failed(attempt, failure);
 	}
 
 	@Test

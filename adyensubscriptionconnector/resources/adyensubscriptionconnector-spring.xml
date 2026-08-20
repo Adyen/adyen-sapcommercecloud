@@ -40,6 +40,34 @@
     </bean>
 
     <!-- ============================================================= -->
+    <!-- Retry policy                                                  -->
+    <!-- the one answer to "try again, and when?", shared by the        -->
+    <!-- activation path (which owns its retries) and the webhook path  -->
+    <!-- (whose retries belong to the platform)                        -->
+    <!-- ============================================================= -->
+    <alias name="defaultBillingRetryPolicy" alias="billingRetryPolicy"/>
+    <bean id="defaultBillingRetryPolicy"
+          class="com.adyen.commerce.connector.retry.impl.DefaultBillingRetryPolicy">
+        <property name="maxAttempts" value="${adyen.subscription.retry.maxAttempts}"/>
+        <property name="initialBackoffSeconds" value="${adyen.subscription.retry.initialBackoffSeconds}"/>
+        <property name="backoffMultiplier" value="${adyen.subscription.retry.backoffMultiplier}"/>
+        <property name="maxBackoffSeconds" value="${adyen.subscription.retry.maxBackoffSeconds}"/>
+    </bean>
+
+    <!-- ============================================================= -->
+    <!-- Activation attempt journal                                    -->
+    <!-- one row per (order, platform): which idempotency key was sent  -->
+    <!-- and what became of it, including the failures                 -->
+    <!-- ============================================================= -->
+    <alias name="defaultBillingActivationAttemptService" alias="billingActivationAttemptService"/>
+    <bean id="defaultBillingActivationAttemptService"
+          class="com.adyen.commerce.connector.activation.impl.DefaultBillingActivationAttemptService">
+        <property name="modelService" ref="modelService"/>
+        <property name="flexibleSearchService" ref="flexibleSearchService"/>
+        <property name="retryPolicy" ref="billingRetryPolicy"/>
+    </bean>
+
+    <!-- ============================================================= -->
     <!-- Orchestration service (the single entry point / facade)       -->
     <!-- ============================================================= -->
     <alias name="defaultSubscriptionBillingService" alias="subscriptionBillingService"/>
@@ -63,6 +91,7 @@
         <property name="connectorRegistry" ref="subscriptionBillingConnectorRegistry"/>
         <property name="flexibleSearchService" ref="flexibleSearchService"/>
         <property name="modelService" ref="modelService"/>
+        <property name="retryPolicy" ref="billingRetryPolicy"/>
     </bean>
 
     <!-- ============================================================= -->
@@ -75,7 +104,34 @@
           class="com.adyen.commerce.connector.activation.impl.DefaultSubscriptionOrderActivator">
         <property name="subscriptionBillingService" ref="subscriptionBillingService"/>
         <property name="connectorRegistry" ref="subscriptionBillingConnectorRegistry"/>
+        <property name="attemptService" ref="billingActivationAttemptService"/>
+        <!-- The connectors' config services read credentials from the *current* base store, and neither an
+             Adyen notification thread nor a cron thread has one. These three are how the activator puts the
+             order's own store there before any connector is touched. -->
+        <property name="sessionService" ref="sessionService"/>
+        <property name="baseSiteService" ref="baseSiteService"/>
+        <property name="baseStoreService" ref="baseStoreService"/>
     </bean>
+
+    <!-- ============================================================= -->
+    <!-- Activation retry job                                          -->
+    <!-- created and triggered by essentialdata impex on system update -->
+    <!-- ============================================================= -->
+    <bean id="subscriptionActivationRetryJob"
+          class="com.adyen.commerce.connector.activation.job.SubscriptionActivationRetryJob"
+          parent="abstractJobPerformable">
+        <property name="attemptService" ref="billingActivationAttemptService"/>
+        <property name="subscriptionOrderActivator" ref="subscriptionOrderActivator"/>
+        <property name="batchSize" value="${adyen.subscription.retry.job.batchSize}"/>
+        <property name="stalePendingAfterSeconds" value="${adyen.subscription.retry.job.stalePendingAfterSeconds}"/>
+    </bean>
+
+    <!-- ============================================================= -->
+    <!-- Essential data                                                -->
+    <!-- ============================================================= -->
+    <bean id="adyensubscriptionconnectorSystemSetup"
+          class="com.adyen.commerce.connector.setup.AdyensubscriptionconnectorSystemSetup"
+          parent="abstractCoreSystemSetup"/>
 
     <!-- ============================================================= -->
     <!-- Activation trigger                                            -->

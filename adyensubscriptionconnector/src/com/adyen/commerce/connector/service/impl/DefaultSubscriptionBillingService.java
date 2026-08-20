@@ -64,6 +64,7 @@ import de.hybris.platform.core.model.product.ProductModel;
 import de.hybris.platform.core.model.user.AddressModel;
 import de.hybris.platform.core.model.user.CustomerModel;
 import de.hybris.platform.servicelayer.event.EventService;
+import de.hybris.platform.servicelayer.exceptions.ModelSavingException;
 import de.hybris.platform.servicelayer.model.ModelService;
 import de.hybris.platform.servicelayer.search.FlexibleSearchQuery;
 import de.hybris.platform.servicelayer.search.FlexibleSearchService;
@@ -121,7 +122,7 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 					+ " requires a network transaction id (NTID) but the captured Adyen token has none");
 		}
 
-		final String idempotencyKey = order.getCode();
+		final String idempotencyKey = idempotencyKeyFor(order);
 
 		final BillingCustomerRef customerRef = connector.ensureCustomer(buildCustomerSyncRequest(customer));
 		persistCustomerRef(customer, customerRef);
@@ -141,13 +142,43 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 
 		final BillingSubscriptionRef subscriptionRef = connector.createSubscription(createRequest);
 
-		final BillingSubscriptionRefModel model = persistSubscriptionRef(order, customer, subscriptionRef, customerRef,
-				paymentMethodRef, plan, idempotencyKey);
+		final BillingSubscriptionRefModel model;
+		try
+		{
+			model = persistSubscriptionRef(order, customer, subscriptionRef, customerRef, paymentMethodRef, plan,
+					idempotencyKey);
+		}
+		catch (final ModelSavingException e)
+		{
+			// Lost the race on the unique (order, platform) index: another thread activated this order while
+			// this one was talking to the platform. Nothing was double-created there — both threads sent the
+			// same idempotency key, so the platform returned one subscription to both — which is precisely why
+			// the winner's reference is the right answer to return rather than an error to propagate. Callers
+			// asked whether this order has a subscription; it does.
+			final Optional<BillingSubscriptionRefModel> winner = findSubscriptionRef(order, connector.platform());
+			if (winner.isEmpty())
+			{
+				// Not the race, then. A save that fails for any other reason has to stay a failure: pretending
+				// otherwise would report an activation that left no local record of itself.
+				throw e;
+			}
+			LOG.info("Subscription for order '{}' on platform {} was persisted by another thread; returning its "
+					+ "reference {}", order.getCode(), connector.platform(), winner.get().getExternalSubscriptionId());
+			return winner.get();
+		}
 
 		publishActivated(model);
 		LOG.info("Activated subscription {} for order '{}' on platform {}", subscriptionRef.externalId(),
 				order.getCode(), connector.platform());
 		return model;
+	}
+
+	@Override
+	public String idempotencyKeyFor(final AbstractOrderModel order)
+	{
+		// The order code. It is stable across redeliveries and across a retry hours later, which is the
+		// property that matters: the platform must recognise the second request as the first one.
+		return order == null ? null : order.getCode();
 	}
 
 	@Override

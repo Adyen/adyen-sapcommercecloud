@@ -53,6 +53,15 @@ public interface SubscriptionBillingService
 			throws BillingException;
 
 	/**
+	 * The key {@link #activateSubscription} will send to the platform for this order.
+	 *
+	 * <p>Part of the contract rather than an implementation detail because the attempt record written
+	 * before the call has to carry the very key the call then uses. Deriving it twice, once here and once
+	 * inside the service, is exactly how a record ends up naming a request that was never made.</p>
+	 */
+	String idempotencyKeyFor(AbstractOrderModel order);
+
+	/**
 	 * Cancel a subscription on its platform and update the local reference.
 	 */
 	void cancel(BillingSubscriptionRefModel subscription, CancelReason reason) throws BillingException;

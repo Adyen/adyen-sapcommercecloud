@@ -42,6 +42,8 @@ import com.adyen.commerce.connector.exception.BillingException;
 import com.adyen.commerce.connector.model.BillingSubscriptionRefModel;
 import com.adyen.commerce.connector.model.BillingWebhookEventModel;
 import com.adyen.commerce.connector.registry.SubscriptionBillingConnectorRegistry;
+import com.adyen.commerce.connector.retry.BillingRetryPolicy;
+import com.adyen.commerce.connector.retry.RetryVerdict;
 import com.adyen.commerce.connector.spi.SubscriptionBillingConnector;
 import com.adyen.commerce.connector.webhook.SubscriptionBillingWebhookDispatcher;
 
@@ -73,7 +75,20 @@ import de.hybris.platform.servicelayer.search.FlexibleSearchService;
  * which Chargebee's whole-second granularity makes realistic — this does not guess. It applies neither,
  * and clears {@code lastSyncedAt} so the pull-based reconciliation sweep re-fetches authoritative state.
  * That sweep does not exist yet; until it does, such a ref stays at the first-applied value and is
- * flagged in the log. Retry and dead-letter handling for {@code FAILED} events is likewise still to come.
+ * flagged in the log.
+ *
+ * <h3>Failure, retry and the dead letter</h3>
+ * <p>The retries on this path are the platform's, not ours: a delivery that fails is answered with an
+ * error and the platform sends it again. This class decides only how long that is allowed to go on, and
+ * it asks {@link com.adyen.commerce.connector.retry.BillingRetryPolicy} — the same policy the outbound
+ * activation path uses, so the two cannot drift on what counts as worth retrying.</p>
+ *
+ * <p>Two things end it. A terminal failure ends it at once, because a delivery that will fail the same
+ * way on replay gains nothing from being replayed. Otherwise the attempt count does, once it passes the
+ * policy's cut-off. Either way the delivery is marked {@code DEAD_LETTER} — a terminal outcome, so a
+ * later redelivery is dropped against it — and, crucially, the caller is <em>not</em> told it failed.
+ * Answering with an error would keep a platform that has been told nothing is wrong redelivering into a
+ * row that now discards it, which is a busy way of losing the event twice over.</p>
  */
 public class DefaultSubscriptionBillingWebhookDispatcher implements SubscriptionBillingWebhookDispatcher
 {
@@ -85,15 +100,20 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 	protected static final String PROCESSING_SKIPPED_AMBIGUOUS = "SKIPPED_AMBIGUOUS";
 	protected static final String PROCESSING_SKIPPED_UNKNOWN_SUBSCRIPTION = "SKIPPED_UNKNOWN_SUBSCRIPTION";
 	protected static final String PROCESSING_FAILED = "FAILED";
+	protected static final String PROCESSING_DEAD_LETTER = "DEAD_LETTER";
 
 	/**
 	 * Outcomes that mean "this delivery is finished, do not process it again". {@code RECEIVED} and
 	 * {@code FAILED} are deliberately absent: an attempt that never reached a verdict must stay eligible
 	 * for the platform's own redelivery, otherwise a transient failure would be silently swallowed
 	 * forever by the dedup check that was supposed to protect us.
+	 *
+	 * <p>{@code DEAD_LETTER} is present for the opposite reason. It is the deliberate decision to stop, so
+	 * a redelivery arriving after it must be dropped rather than restarting a series of attempts that has
+	 * already been given up on and reported.</p>
 	 */
 	private static final Set<String> TERMINAL_OUTCOMES = Set.of(PROCESSING_APPLIED, PROCESSING_SKIPPED_STALE,
-			PROCESSING_SKIPPED_AMBIGUOUS, PROCESSING_SKIPPED_UNKNOWN_SUBSCRIPTION);
+			PROCESSING_SKIPPED_AMBIGUOUS, PROCESSING_SKIPPED_UNKNOWN_SUBSCRIPTION, PROCESSING_DEAD_LETTER);
 
 	/** Weakest to strongest; see {@link #strongest(String, String)}. */
 	private static final List<String> OUTCOME_PRECEDENCE = List.of(PROCESSING_SKIPPED_UNKNOWN_SUBSCRIPTION,
@@ -102,6 +122,7 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 	private SubscriptionBillingConnectorRegistry connectorRegistry;
 	private FlexibleSearchService flexibleSearchService;
 	private ModelService modelService;
+	private BillingRetryPolicy retryPolicy;
 	private Clock clock = Clock.systemUTC();
 
 	@Override
@@ -146,15 +167,56 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 		}
 		catch (final RuntimeException | BillingException e)
 		{
-			// Left non-terminal on purpose so a redelivery is still processed. Turning repeated
-			// failures into a dead letter is still to come; today the platform's own retry is the
-			// recovery path.
-			LOG.error("Failed to apply {} event '{}' on platform {}", event.type(), dedupKey, event.platform(), e);
-			record.setProcessingStatus(PROCESSING_FAILED);
-			record.setLastError(describe(e));
-			modelService.save(record);
-			throw e;
+			recordFailure(event, record, dedupKey, e);
 		}
+	}
+
+	/**
+	 * Marks a failed delivery and decides whether the platform should be invited to send it again.
+	 *
+	 * @throws BillingException  rethrown unchanged when the delivery is still due a retry, so the caller
+	 *                           answers the platform with an error and the platform redelivers
+	 * @throws RuntimeException  likewise
+	 */
+	protected void recordFailure(final NormalizedBillingEvent event, final BillingWebhookEventModel record,
+			final String dedupKey, final Exception failure) throws BillingException
+	{
+		final RetryVerdict verdict = retryPolicy.decide(failure, attemptCount(record), clock.instant());
+		record.setLastError(describe(failure));
+
+		if (verdict.retry())
+		{
+			// Left non-terminal on purpose so the redelivery is processed rather than dropped as a duplicate.
+			LOG.error("Failed to apply {} event '{}' on platform {} ({}); leaving it open for redelivery.",
+					event.type(), dedupKey, event.platform(), verdict.reason(), failure);
+			record.setProcessingStatus(PROCESSING_FAILED);
+			modelService.save(record);
+			rethrow(failure);
+			return;
+		}
+
+		record.setProcessingStatus(PROCESSING_DEAD_LETTER);
+		record.setDeadLetteredAt(now());
+		modelService.save(record);
+		// Not rethrown. The caller answers the platform with a success it did not earn, on purpose: this
+		// delivery will never be processed now, and letting the platform keep sending it would only produce
+		// traffic that the dedup check discards. The row, and this line, are the record that it was lost.
+		LOG.error("DEAD LETTER: giving up on {} event '{}' for subscription {} on platform {} — {}. It will not be "
+				+ "applied and further redeliveries will be discarded; this needs an operator.", event.type(), dedupKey,
+				event.externalSubscriptionId(), event.platform(), verdict.reason(), failure);
+	}
+
+	/**
+	 * Rethrows the original failure with its own type intact, so the controller keeps mapping a retryable
+	 * {@link BillingException} to a different status than a terminal one.
+	 */
+	private static void rethrow(final Exception failure) throws BillingException
+	{
+		if (failure instanceof BillingException billingException)
+		{
+			throw billingException;
+		}
+		throw (RuntimeException) failure;
 	}
 
 	/**
@@ -503,6 +565,11 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 	public void setModelService(final ModelService modelService)
 	{
 		this.modelService = modelService;
+	}
+
+	public void setRetryPolicy(final BillingRetryPolicy retryPolicy)
+	{
+		this.retryPolicy = retryPolicy;
 	}
 
 	public void setClock(final Clock clock)
