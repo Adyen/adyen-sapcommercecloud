@@ -145,6 +145,25 @@ public class DefaultBillingActivationAttemptServiceTest
 	}
 
 	/**
+	 * More than one trigger reaches the same order: the place-order path announces an ordinary
+	 * authorization, the 3DS return announces its own, and Adyen redelivers notifications on top of both.
+	 * Once the activation has succeeded, a later one must not walk the record back to PENDING nor spend a
+	 * retry the policy is holding for a failure that has not happened.
+	 */
+	@Test
+	public void leavesASucceededRecordAloneWhenAnotherTriggerArrives()
+	{
+		final BillingActivationAttemptModel attempt = begin();
+		attempt.setStatus(BillingActivationAttemptService.STATUS_SUCCEEDED);
+
+		final BillingActivationAttemptModel again = begin();
+
+		assertSame(attempt, again);
+		assertEquals(BillingActivationAttemptService.STATUS_SUCCEEDED, again.getStatus());
+		assertEquals(Integer.valueOf(1), again.getAttemptCount());
+	}
+
+	/**
 	 * Two Adyen notification legs for one order genuinely overlap. The index picks a winner; the loser
 	 * carries on with the winner's row rather than failing or starting a second count.
 	 */

@@ -70,6 +70,16 @@ public class DefaultBillingActivationAttemptService implements BillingActivation
 			final String productCode, final String idempotencyKey)
 	{
 		final BillingActivationAttemptModel attempt = findOrCreate(order, platform);
+		if (STATUS_SUCCEEDED.equals(attempt.getStatus()))
+		{
+			// Already activated, and more than one trigger reaches this order: the place-order path announces
+			// an ordinary authorization, the 3DS return announces its own, and Adyen redelivers notifications
+			// on top of both. Reopening the record would walk a finished activation back to PENDING and spend
+			// one of the retries the policy is holding for a failure that has not happened. The caller runs on
+			// regardless; activateSubscription finds the existing subscription reference and returns it, so
+			// nothing is charged twice and succeeded() simply restamps what is already there.
+			return attempt;
+		}
 		attempt.setProductCode(productCode);
 		attempt.setIdempotencyKey(idempotencyKey);
 		attempt.setAttemptCount(Integer.valueOf(attemptCount(attempt) + 1));

@@ -45,6 +45,7 @@ import com.adyen.v6.enums.RecurringContractMode;
 import com.adyen.v6.exceptions.AdyenCheckoutConfigurationException;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
+import com.adyen.v6.event.AdyenPaymentAuthorizedEventPublisher;
 import com.adyen.v6.forms.AddressForm;
 import com.adyen.v6.forms.AdyenPaymentForm;
 import com.adyen.v6.forms.validation.AdyenPaymentFormValidator;
@@ -130,6 +131,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     private AdyenTransactionService adyenTransactionService;
     private OrderRepository orderRepository;
     private AdyenOrderService adyenOrderService;
+    private AdyenPaymentAuthorizedEventPublisher adyenPaymentAuthorizedEventPublisher;
     private CheckoutCustomerStrategy checkoutCustomerStrategy;
     private AdyenPaymentServiceFactory adyenPaymentServiceFactory;
     private ModelService modelService;
@@ -614,8 +616,39 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         // Cast so this binds to the single implemented method rather than to the deprecated OrderModel
         // forwarder that only exists for callers compiled against the old signature.
         getAdyenOrderService().updatePaymentInfo((AbstractOrderModel) orderModel, paymentType, additionalData);
+        announceAuthorization(orderModel, paymentsResponse);
         getAdyenOrderService().storeFraudReport(orderModel, paymentsResponse.getPspReference(), paymentsResponse.getFraudResult());
         return orderData;
+    }
+
+    /**
+     * Announces an authorization that this thread has just completed, for the listeners that act on one -
+     * subscription activation among them.
+     *
+     * <p>Here rather than off Adyen's AUTHORISATION notification because the notification loses the race: it
+     * comes back within a fraction of a second, while {@code placeOrder()} is still running, and looks the
+     * order up before it exists. This is the first moment on this path at which the order exists <em>and</em>
+     * its token is durable.</p>
+     *
+     * <p>Gated on the result code rather than on anything readable from the order, because the order cannot
+     * tell the two apart: {@code authorizePayment} routes PENDING into this same method and the authorization
+     * transaction entry it leaves behind is identical to an authorized one. The result code is the only thing
+     * here that separates a payment Adyen confirmed from one it has not, and announcing a merely pending
+     * payment would have a listener charge a shopper for a subscription the payment never funded.</p>
+     *
+     * <p>Failures are logged and swallowed. The shopper has been charged and the order placed by the time
+     * this runs, so nothing it does may turn a completed checkout into an error.</p>
+     */
+    protected void announceAuthorization(final OrderModel orderModel, final PaymentResponse paymentsResponse) {
+        if (PaymentResponse.ResultCodeEnum.AUTHORISED != paymentsResponse.getResultCode()) {
+            return;
+        }
+        try {
+            adyenPaymentAuthorizedEventPublisher.publishAuthorized(orderModel);
+        } catch (final RuntimeException e) {
+            LOGGER.error("Could not announce the authorization of order {}; anything waiting on it will not run.",
+                orderModel == null ? null : orderModel.getCode(), e);
+        }
     }
 
     /**
@@ -1366,6 +1399,11 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
 
     public void setAdyenOrderService(AdyenOrderService adyenOrderService) {
         this.adyenOrderService = adyenOrderService;
+    }
+
+    public void setAdyenPaymentAuthorizedEventPublisher(
+        final AdyenPaymentAuthorizedEventPublisher adyenPaymentAuthorizedEventPublisher) {
+        this.adyenPaymentAuthorizedEventPublisher = adyenPaymentAuthorizedEventPublisher;
     }
 
     public CheckoutCustomerStrategy getCheckoutCustomerStrategy() {
