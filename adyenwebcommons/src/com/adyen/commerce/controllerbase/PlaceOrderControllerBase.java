@@ -309,10 +309,13 @@ public abstract class PlaceOrderControllerBase {
             }
 
         } catch (TokenizationNotSupportedException e) {
-            // Defensive, and unreachable today: createPartialPaymentRequest does not run the payment request
-            // decorators at all - only createPaymentsRequest does - so nothing on the gift-card leg can raise
-            // this. Kept so that wiring the decorators into the partial leg later cannot silently turn the
-            // shopper's "pick a card" back into the authorization-failed default via the catch below.
+            // Unreachable today, and deliberately so rather than by omission: createPartialPaymentRequest does
+            // not run the payment request decorators, only createPaymentsRequest does. That is what makes a
+            // subscription payable with a gift card at all - the gift-card leg cannot leave a reusable token
+            // behind and the decorator would refuse it, while the remaining-amount leg goes through
+            // createPaymentsRequest and is tokenized there, which is the leg that funds the renewals. Do not
+            // "fix" this by wiring the decorators into the partial leg. The catch stays only so that a future
+            // caller which does raise it here is not flattened into the authorization-failed default below.
             throw e;
         } catch (AdyenControllerException e) {
             throw e;

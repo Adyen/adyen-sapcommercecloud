@@ -9,6 +9,11 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -70,6 +75,8 @@ public class SubscriptionReconciliationJobTest
 	@Mock
 	private BaseSiteModel site;
 
+	private static final Instant NOW = Instant.parse("2026-08-20T12:00:00Z");
+
 	private SubscriptionReconciliationJob job;
 
 	@Before
@@ -77,6 +84,7 @@ public class SubscriptionReconciliationJobTest
 	{
 		MockitoAnnotations.openMocks(this);
 		job = new SubscriptionReconciliationJob();
+		job.setClock(Clock.fixed(NOW, ZoneOffset.UTC));
 		job.setFlexibleSearchService(flexibleSearchService);
 		job.setReconciliationService(reconciliationService);
 		job.setConfigurationService(configurationService);
@@ -86,6 +94,7 @@ public class SubscriptionReconciliationJobTest
 		when(configurationService.getConfiguration()).thenReturn(configuration);
 		when(configuration.getInt(SubscriptionReconciliationJob.STALE_AFTER_MINUTES, 60)).thenReturn(60);
 		when(configuration.getInt(SubscriptionReconciliationJob.BATCH_SIZE, 100)).thenReturn(100);
+		when(configuration.getInt(SubscriptionReconciliationJob.EXPIRED_WINDOW_HOURS, 168)).thenReturn(168);
 		when(flexibleSearchService.<BillingSubscriptionRefModel>search(any(FlexibleSearchQuery.class)))
 				.thenReturn(searchResult);
 		when(searchResult.getResult()).thenReturn(List.of(subscription));
@@ -136,11 +145,55 @@ public class SubscriptionReconciliationJobTest
 		final FlexibleSearchQuery query = capturedQuery();
 		assertTrue("terminal statuses must be filtered out in SQL, not after the batch limit",
 				query.getQuery().contains("{status} NOT IN (?terminalStatuses)"));
-		assertEquals(List.of("CANCELLED", "EXPIRED", "FAILED"),
-				query.getQueryParameters().get("terminalStatuses"));
+		assertEquals("EXPIRED is bounded by a window instead of being excluded outright",
+				List.of("CANCELLED", "FAILED"), query.getQueryParameters().get("terminalStatuses"));
 		assertEquals("PAST_DUE", query.getQueryParameters().get("pastDue"));
 		assertTrue("a reference whose status was never written is exactly what the sweep is for",
 				query.getQuery().contains("{status} IS NULL OR"));
+	}
+
+	/**
+	 * "Ended" is not always final — Chargebee reactivates a {@code cancelled} subscription, Recurly one whose
+	 * term has not run out — so an EXPIRED reference stays readable for a window measured from the end of its
+	 * term. Without it a reactivation whose webhook was lost would never be repaired: the reference would not
+	 * be a candidate, so no later run would correct it.
+	 */
+	@Test
+	public void recentlyExpiredSubscriptionIsStillASweepCandidate()
+	{
+		job.perform(cronJob);
+
+		final FlexibleSearchQuery query = capturedQuery();
+		assertTrue("the window has to be applied in SQL, not after the batch limit",
+				query.getQuery().contains("{currentPeriodEnd} > ?endedAfter"));
+		assertEquals("EXPIRED", query.getQueryParameters().get("expired"));
+		assertEquals(Date.from(NOW.minus(168, ChronoUnit.HOURS)), query.getQueryParameters().get("endedAfter"));
+	}
+
+	/**
+	 * The window is configurable, and zero is the setting that means "only while the term has not actually
+	 * run out yet" — the strictest one that still catches a Recurly reactivation.
+	 */
+	@Test
+	public void expiredWindowIsConfigurableDownToTheTermEndItself()
+	{
+		when(configuration.getInt(SubscriptionReconciliationJob.EXPIRED_WINDOW_HOURS, 168)).thenReturn(0);
+
+		job.perform(cronJob);
+
+		assertEquals(Date.from(NOW), capturedQuery().getQueryParameters().get("endedAfter"));
+	}
+
+	/**
+	 * A reference with no term end cannot have the window applied to it, and admitting it anyway would put it
+	 * in every sweep for good — the unbounded growth the whole filter exists to prevent.
+	 */
+	@Test
+	public void expiredWithoutATermEndIsNotAdmittedByTheWindow()
+	{
+		job.perform(cronJob);
+
+		assertTrue(capturedQuery().getQuery().contains("{currentPeriodEnd} IS NOT NULL AND"));
 	}
 
 	/**

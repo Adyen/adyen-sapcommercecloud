@@ -200,7 +200,12 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 			// would revoke entitlement the customer has already paid for.
 			case "in_trial", "active", "non_renewing" -> NormalizedSubscriptionStatus.ACTIVE;
 			case "paused" -> NormalizedSubscriptionStatus.PAUSED;
-			case "cancelled" -> NormalizedSubscriptionStatus.CANCELLED;
+			// EXPIRED, not CANCELLED, and the word is worth explaining because Chargebee's own is different.
+			// By the time a subscription reaches Chargebee's "cancelled" it has stopped serving the customer,
+			// which is the one situation Recurly reports as "expired". One vocabulary, one word for it: a
+			// consumer asking "has this ended?" must not have to know which platform answered. CANCELLED is
+			// left unused by both shipped adapters — see NormalizedSubscriptionStatus.
+			case "cancelled" -> NormalizedSubscriptionStatus.EXPIRED;
 			// "transferred" (the subscription moved to another Chargebee site/entity) has no normalized
 			// equivalent: it is neither cancelled nor expired here. It stays UNKNOWN rather than being guessed
 			// at, so reconciliation leaves the local status alone instead of acting on an invented one.

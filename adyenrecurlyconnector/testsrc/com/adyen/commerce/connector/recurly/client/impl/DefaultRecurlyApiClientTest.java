@@ -548,8 +548,10 @@ public class DefaultRecurlyApiClientTest
     }
 
     /**
-     * CANCELLED now means "already stopped", and no Recurly state carries that meaning: {@code expired} is
-     * the one a subscription reaches once its term has actually run out, so "it ended" stays covered.
+     * "It ended" is EXPIRED, and it is EXPIRED on both adapters — Chargebee maps its own {@code cancelled},
+     * which is the state a stopped subscription reaches there, to the same value. CANCELLED is produced by
+     * neither, so a consumer asking whether a subscription has ended gets one answer whichever platform
+     * served it. Recurly's {@code expired} is the state a subscription reaches once its term has run out.
      */
     @Test
     public void onlyAnEndedTermMapsToATerminalStatus()
@@ -562,7 +564,7 @@ public class DefaultRecurlyApiClientTest
         assertEquals(NormalizedSubscriptionStatus.FAILED, client.mapStatus("failed"));
         // A state Recurly may add later is recorded as UNKNOWN rather than guessed at. UNKNOWN is not one
         // of the sweep's terminal statuses, so the reference keeps being re-read and a later mapping fixes
-        // it; guessing CANCELLED or EXPIRED would take it out of the sweep for good.
+        // it; guessing EXPIRED would take it out of the sweep for good.
         assertEquals(NormalizedSubscriptionStatus.UNKNOWN, client.mapStatus("a_state_we_do_not_know"));
         assertEquals(NormalizedSubscriptionStatus.UNKNOWN, client.mapStatus(null));
     }

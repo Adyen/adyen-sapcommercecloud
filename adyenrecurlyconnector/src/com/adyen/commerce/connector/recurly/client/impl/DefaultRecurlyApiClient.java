@@ -401,9 +401,10 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
      * CANCELLED would revoke entitlement the customer has already paid for, and it would give one
      * normalized vocabulary two words for one situation — the Chargebee adapter normalizes exactly this
      * state, {@code non_renewing}, to ACTIVE. So {@code canceled} is ACTIVE here too and the pending end
-     * travels as {@code cancelAtPeriodEnd}, which leaves CANCELLED to mean a subscription that has already
-     * stopped. Nothing is lost from the terminal end: {@code expired} is the state Recurly moves a
-     * subscription into once its term has actually run out.
+     * travels as {@code cancelAtPeriodEnd}. Nothing is lost from the terminal end: {@code expired} is the
+     * state Recurly moves a subscription into once its term has actually run out, and it maps to EXPIRED —
+     * the same value Chargebee's {@code cancelled} maps to, so "this has ended" is one word across both
+     * adapters. Neither of them produces CANCELLED; see {@code NormalizedSubscriptionStatus}.
      */
     protected NormalizedSubscriptionStatus mapStatus(final String recurlyState) {
         if (StringUtils.isBlank(recurlyState)) {

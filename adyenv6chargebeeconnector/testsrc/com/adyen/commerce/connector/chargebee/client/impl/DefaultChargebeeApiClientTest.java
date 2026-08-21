@@ -256,7 +256,7 @@ public class DefaultChargebeeApiClientTest
 	{
 		stubRetrieve(subscriptionJson("cancelled", ",\"due_invoices_count\":1"));
 
-		assertEquals(NormalizedSubscriptionStatus.CANCELLED, client.fetchSubscription("sub-1").status());
+		assertEquals(NormalizedSubscriptionStatus.EXPIRED, client.fetchSubscription("sub-1").status());
 	}
 
 	@Test
@@ -288,7 +288,9 @@ public class DefaultChargebeeApiClientTest
 		assertEquals(NormalizedSubscriptionStatus.ACTIVE, statusOf("in_trial"));
 		assertEquals(NormalizedSubscriptionStatus.ACTIVE, statusOf("active"));
 		assertEquals(NormalizedSubscriptionStatus.PAUSED, statusOf("paused"));
-		assertEquals(NormalizedSubscriptionStatus.CANCELLED, statusOf("cancelled"));
+		// EXPIRED rather than CANCELLED: Chargebee's "cancelled" means the subscription has stopped serving
+		// the customer, which is what Recurly calls "expired". One word per situation across both adapters.
+		assertEquals(NormalizedSubscriptionStatus.EXPIRED, statusOf("cancelled"));
 		// transferred moves the subscription to another Chargebee site: neither cancelled nor expired here,
 		// so it must stay UNKNOWN instead of being guessed at.
 		assertEquals(NormalizedSubscriptionStatus.UNKNOWN, statusOf("transferred"));

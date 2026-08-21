@@ -39,38 +39,56 @@ public class SubscriptionReconciliationJob extends AbstractJobPerformable<CronJo
 	static final String BATCH_SIZE = "adyen.subscription.reconciliation.batchSize";
 
 	/**
+	 * How long after its term ended an {@code EXPIRED} subscription is still re-read.
+	 *
+	 * <p>The window exists because a platform can bring one back: Chargebee reactivates a {@code cancelled}
+	 * subscription, Recurly one whose {@code current_period_ends_at} has not passed. Reconciling only on the
+	 * webhook would mean a lost delivery leaves the customer without access they have paid for, and nothing
+	 * would ever notice — the reference is not a candidate, so no later run corrects it.</p>
+	 *
+	 * <p>It is a window rather than "always" because the alternative does not converge. Every subscription
+	 * that ever ended would stay in the sweep for the lifetime of the store, its {@code lastSyncedAt} ageing
+	 * past the threshold forever, until a whole batch and the platform read budget behind it went on
+	 * re-confirming subscriptions that ended years ago while genuinely stale ones waited for a later run.
+	 * Measured from {@code currentPeriodEnd} rather than from the moment the status was written, because it is
+	 * the term's end that bounds reactivation on Recurly, and because a reference re-read many times must not
+	 * keep restarting its own window.</p>
+	 */
+	static final String EXPIRED_WINDOW_HOURS = "adyen.subscription.reconciliation.expiredWindowHours";
+
+	/**
 	 * Statuses excluded from the sweep because re-reading them is not expected to be worth the platform call.
 	 * Without this exclusion every subscription that ever ended stays in the sweep for the lifetime of the
 	 * store: {@code lastSyncedAt} keeps ageing past the staleness threshold, so the set only grows, and
 	 * eventually a whole batch — and the platform read-rate budget behind it — is spent re-confirming
 	 * subscriptions that ended months ago while genuinely stale ones wait for a later run.
 	 *
-	 * <p>{@code FAILED} is in here for the same reason as the other two, even though it reads like a
+	 * <p>{@code FAILED} is in here despite reading like a
 	 * transient error: it is the platform's terminal state for a subscription whose collection never
 	 * succeeded (Recurly's {@code failed}), not a retryable activation error. Retryable activation failures
 	 * live on {@code BillingActivationAttempt.status}, which is a different type with its own retry job.</p>
 	 *
-	 * <p>Excluding {@code CANCELLED} does not drop a subscription that is still serving its customer: no
-	 * connector maps one to it. A cancellation that is merely scheduled for the end of the term — Recurly's
-	 * {@code canceled}, Chargebee's {@code non_renewing} — normalizes to {@code ACTIVE} carrying
-	 * {@code cancelAtPeriodEnd}, so that reference stays a sweep candidate for the whole remainder of its
-	 * term and a dropped webhook on it is still repaired by a later run.</p>
+	 * <p>Neither drops a subscription that is still serving its customer. A cancellation that is
+	 * merely scheduled for the end of the term — Recurly's {@code canceled}, Chargebee's {@code non_renewing}
+	 * — normalizes to {@code ACTIVE} carrying {@code cancelAtPeriodEnd}, so that reference stays a sweep
+	 * candidate for the whole remainder of its term and a dropped webhook on it is still repaired by a later
+	 * run. {@code CANCELLED} is listed for completeness: no shipped adapter produces it, and rows that predate
+	 * the vocabulary settling are genuinely finished.</p>
 	 *
-	 * <p>One real gap survives that, on Chargebee only. Chargebee's {@code cancelled} maps to
-	 * {@code CANCELLED} and Chargebee can reactivate such a subscription, so the platform <em>does</em> leave
-	 * this status and a re-fetch could return something new — but the reference is no longer a candidate, so a
-	 * reactivation whose webhook is lost is never repaired here. Recurly is unaffected: nothing it reports maps
-	 * to {@code CANCELLED} at all. Closing it means either keeping {@code CANCELLED} eligible for some window
-	 * after {@code currentPeriodEnd} or leaning on the webhook alone; both are decisions, not oversights.</p>
+	 * <p>{@code EXPIRED} is deliberately <em>not</em> in here, because "ended" is not always final: Chargebee
+	 * can reactivate a subscription its API reports as {@code cancelled}, and Recurly one that has not yet
+	 * passed {@code current_period_ends_at}. Both normalize to {@code EXPIRED}, so excluding it outright would
+	 * leave a reactivation whose webhook was lost with nothing to repair it. It is bounded by a window instead
+	 * — see {@link #EXPIRED_WINDOW_HOURS}.</p>
 	 */
 	static final List<String> TERMINAL_STATUSES = List.of(
 			NormalizedSubscriptionStatus.CANCELLED.name(),
-			NormalizedSubscriptionStatus.EXPIRED.name(),
 			NormalizedSubscriptionStatus.FAILED.name());
 
 	private static final Logger LOG = LoggerFactory.getLogger(SubscriptionReconciliationJob.class);
 	private static final int DEFAULT_STALE_AFTER_MINUTES = 60;
 	private static final int DEFAULT_BATCH_SIZE = 100;
+	private static final int DEFAULT_EXPIRED_WINDOW_HOURS = 168;
 
 	private FlexibleSearchService flexibleSearchService;
 	private SubscriptionReconciliationService reconciliationService;
@@ -86,9 +104,16 @@ public class SubscriptionReconciliationJob extends AbstractJobPerformable<CronJo
 		final int staleAfterMinutes = Math.max(1,
 				configuration.getInt(STALE_AFTER_MINUTES, DEFAULT_STALE_AFTER_MINUTES));
 		final int batchSize = Math.max(1, configuration.getInt(BATCH_SIZE, DEFAULT_BATCH_SIZE));
-		final Instant staleBefore = clock.instant().minus(staleAfterMinutes, ChronoUnit.MINUTES);
+		final int expiredWindowHours = Math.max(0,
+				configuration.getInt(EXPIRED_WINDOW_HOURS, DEFAULT_EXPIRED_WINDOW_HOURS));
+		final Instant now = clock.instant();
+		final Instant staleBefore = now.minus(staleAfterMinutes, ChronoUnit.MINUTES);
+		// A term that ended before this is old enough to stop asking about. Zero hours means "only while the
+		// term has not actually run out yet", which is the strictest setting that still catches a Recurly
+		// reactivation, and is what an operator who wants the old behaviour back should reach for.
+		final Instant endedAfter = now.minus(expiredWindowHours, ChronoUnit.HOURS);
 		boolean failed = false;
-		for (final BillingSubscriptionRefModel subscription : findCandidates(staleBefore, batchSize))
+		for (final BillingSubscriptionRefModel subscription : findCandidates(staleBefore, endedAfter, batchSize))
 		{
 			if (clearAbortRequestedIfNeeded(cronJob))
 			{
@@ -165,17 +190,28 @@ public class SubscriptionReconciliationJob extends AbstractJobPerformable<CronJo
 	 * never-synced references the last thing a capped batch reaches on one deployment and the first on
 	 * another.</p>
 	 */
-	protected List<BillingSubscriptionRefModel> findCandidates(final Instant staleBefore, final int batchSize)
+	/**
+	 * @param endedAfter an {@code EXPIRED} reference stays a candidate while its {@code currentPeriodEnd} is
+	 *        later than this. A null {@code currentPeriodEnd} does not qualify: with no term end there is no
+	 *        way to bound the window, and admitting it would put the reference in every sweep for good —
+	 *        the unbounded growth this whole filter exists to prevent.
+	 */
+	protected List<BillingSubscriptionRefModel> findCandidates(final Instant staleBefore, final Instant endedAfter,
+			final int batchSize)
 	{
 		final FlexibleSearchQuery query = new FlexibleSearchQuery(
 				"SELECT {pk} FROM {BillingSubscriptionRef} "
 						+ "WHERE ({status} IS NULL OR {status} NOT IN (?terminalStatuses)) "
+						+ "AND ({status} IS NULL OR {status} <> ?expired "
+						+ "OR ({currentPeriodEnd} IS NOT NULL AND {currentPeriodEnd} > ?endedAfter)) "
 						+ "AND ({status} = ?pastDue "
 						+ "OR {lastSyncedAt} IS NULL "
 						+ "OR {lastSyncedAt} < ?staleBefore) "
 						+ "ORDER BY CASE WHEN {lastSyncedAt} IS NULL THEN 0 ELSE 1 END ASC, {lastSyncedAt} ASC");
 
 		query.addQueryParameter("terminalStatuses", TERMINAL_STATUSES);
+		query.addQueryParameter("expired", NormalizedSubscriptionStatus.EXPIRED.name());
+		query.addQueryParameter("endedAfter", Date.from(endedAfter));
 		query.addQueryParameter("pastDue", NormalizedSubscriptionStatus.PAST_DUE.name());
 		query.addQueryParameter("staleBefore", Date.from(staleBefore));
 		query.setCount(batchSize);
