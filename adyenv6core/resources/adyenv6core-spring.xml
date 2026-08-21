@@ -218,6 +218,7 @@
         <property name="adyenTransactionService" ref="adyenTransactionService"/>
         <property name="adyenOrderService" ref="adyenOrderService"/>
         <property name="adyenBusinessProcessService" ref="adyenBusinessProcessService"/>
+        <property name="eventService" ref="eventService"/>
         <property name="orderConverter" ref="orderConverter"/>
     </bean>
 

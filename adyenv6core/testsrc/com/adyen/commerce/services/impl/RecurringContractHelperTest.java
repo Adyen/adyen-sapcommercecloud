@@ -42,7 +42,8 @@ import static org.mockito.Mockito.when;
 
 /**
  * Covers the whole {@link RecurringContractMode} x payment path x shopper consent matrix and asserts
- * the fields of the outgoing {@link PaymentRequest}.
+ * the fields of the outgoing {@link PaymentRequest}, plus the second entry point - the subscription
+ * contract - and where it is and is not allowed to overrule what the handlers decided.
  */
 @UnitTest
 public class RecurringContractHelperTest {
@@ -339,6 +340,117 @@ public class RecurringContractHelperTest {
                 null, Boolean.FALSE);
 
         assertStored(request);
+    }
+
+    // ------------------------------------------------ subscription contract
+
+    @Test
+    public void subscriptionStoresRegardlessOfTheStoreConfiguration() {
+        PaymentRequest request = cardRequest();
+
+        RecurringContractHelper.applySubscriptionContract(request);
+
+        assertTrue("storePaymentMethod", request.getStorePaymentMethod());
+        assertEquals(PaymentRequest.RecurringProcessingModelEnum.SUBSCRIPTION, request.getRecurringProcessingModel());
+        assertEquals(PaymentRequest.ShopperInteractionEnum.ECOMMERCE, request.getShopperInteraction());
+        assertNoLegacyFields(request);
+    }
+
+    /**
+     * The handlers run first and decide against storing whenever the store is configured NONE. A cart that
+     * cannot be fulfilled without charging the shopper again overrules that, which is the whole reason this
+     * second entry point exists.
+     */
+    @Test
+    public void subscriptionOverrulesAHandlerThatDecidedNotToStore() {
+        PaymentRequest request = cardRequest();
+        RecurringContractHelper.applyRecurringContract(request, new CartData(), RecurringContractMode.NONE,
+                registeredCustomer(), Boolean.FALSE);
+        assertFalse(request.getStorePaymentMethod());
+
+        RecurringContractHelper.applySubscriptionContract(request);
+
+        assertTrue(request.getStorePaymentMethod());
+        assertEquals(PaymentRequest.RecurringProcessingModelEnum.SUBSCRIPTION, request.getRecurringProcessingModel());
+    }
+
+    /**
+     * Unlike the card-on-file default, this one is allowed to overwrite: CARDONFILE was chosen while the
+     * payment still looked like an ordinary one-off.
+     */
+    @Test
+    public void subscriptionOverwritesTheCardOnFileModelAHandlerPicked() {
+        PaymentRequest request = cardRequest();
+        RecurringContractHelper.applyRecurringContract(request, consentingCart(), RecurringContractMode.ONECLICK,
+                registeredCustomer(), Boolean.FALSE);
+        assertEquals(PaymentRequest.RecurringProcessingModelEnum.CARDONFILE, request.getRecurringProcessingModel());
+
+        RecurringContractHelper.applySubscriptionContract(request);
+
+        assertEquals(PaymentRequest.RecurringProcessingModelEnum.SUBSCRIPTION, request.getRecurringProcessingModel());
+    }
+
+    @Test
+    public void subscriptionOnAStoredCardDoesNotStoreItAgain() {
+        PaymentRequest request = storedCardRequest();
+
+        RecurringContractHelper.applySubscriptionContract(request);
+
+        assertFalse("storePaymentMethod", request.getStorePaymentMethod());
+        assertEquals(PaymentRequest.RecurringProcessingModelEnum.SUBSCRIPTION, request.getRecurringProcessingModel());
+        assertNoLegacyFields(request);
+    }
+
+    @Test
+    public void subscriptionClearsTheDeprecatedFields() {
+        PaymentRequest request = cardRequest();
+        request.setEnableRecurring(Boolean.TRUE);
+        request.setEnableOneClick(Boolean.TRUE);
+
+        RecurringContractHelper.applySubscriptionContract(request);
+
+        assertNoLegacyFields(request);
+        assertTrue(request.getStorePaymentMethod());
+    }
+
+    @Test
+    public void subscriptionKeepsAShopperInteractionSetUpstream() {
+        PaymentRequest request = cardRequest();
+        request.setShopperInteraction(PaymentRequest.ShopperInteractionEnum.CONTAUTH);
+
+        RecurringContractHelper.applySubscriptionContract(request);
+
+        assertEquals(PaymentRequest.ShopperInteractionEnum.CONTAUTH, request.getShopperInteraction());
+    }
+
+    @Test
+    public void applyingTheSubscriptionContractTwiceYieldsTheSameResult() {
+        PaymentRequest request = cardRequest();
+
+        RecurringContractHelper.applySubscriptionContract(request);
+        RecurringContractHelper.applySubscriptionContract(request);
+
+        assertTrue(request.getStorePaymentMethod());
+        assertEquals(PaymentRequest.RecurringProcessingModelEnum.SUBSCRIPTION, request.getRecurringProcessingModel());
+        assertEquals(PaymentRequest.ShopperInteractionEnum.ECOMMERCE, request.getShopperInteraction());
+        assertNoLegacyFields(request);
+    }
+
+    @Test
+    public void nullPaymentRequestIsIgnoredBySubscriptionContractToo() {
+        RecurringContractHelper.applySubscriptionContract(null);
+    }
+
+    @Test
+    public void tokenizationNotSupportedCarriesAPresentableErrorCode() {
+        RecurringContractHelper.TokenizationNotSupportedException exception =
+                new RecurringContractHelper.TokenizationNotSupportedException("klarna cannot be reused");
+
+        // Asserted as the literal rather than through the constant: the key is also spelled out in
+        // adyenv6b2ccheckoutaddon-locales_en.properties and in the checkout API addon's base_en.properties,
+        // and changing it here alone would put the shopper back in front of a raw code.
+        assertEquals("checkout.error.payment.not.supported", exception.getErrorCode());
+        assertEquals("klarna cannot be reused", exception.getMessage());
     }
 
     // -------------------------------------------------------------- helpers

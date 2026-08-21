@@ -21,6 +21,7 @@
 package com.adyen.commerce.connector.chargebee.client;
 
 import com.adyen.commerce.connector.dto.CardMetadata;
+import com.adyen.commerce.connector.dto.NormalizedSubscription;
 import com.adyen.commerce.connector.exception.BillingException;
 
 /**
@@ -55,6 +56,15 @@ public interface ChargebeeApiClient
 	 * @return the Chargebee subscription id
 	 */
 	String createSubscription(ChargebeeSubscriptionParams params) throws BillingException;
+
+	/**
+	 * Read back the subscription Chargebee currently holds. Reconciliation treats this as the
+	 * authoritative state, so the snapshot is built from the retrieve response alone — never from what a
+	 * webhook happened to say.
+	 *
+	 * @return a vendor-neutral snapshot of the Chargebee subscription
+	 */
+	NormalizedSubscription fetchSubscription(String subscriptionId) throws BillingException;
 
 	/**
 	 * Update an existing subscription. Null arguments are omitted (left unchanged).

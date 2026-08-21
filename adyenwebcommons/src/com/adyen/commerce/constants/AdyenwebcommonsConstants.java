@@ -29,7 +29,9 @@ public final class AdyenwebcommonsConstants extends GeneratedAdyenwebcommonsCons
 	public static final String CHECKOUT_ERROR_AUTHORIZATION_PAYMENT_REFUSED = "checkout.error.authorization.payment.refused";
 	public static final String CHECKOUT_ERROR_AUTHORIZATION_PAYMENT_CANCELLED = "checkout.error.authorization.payment.cancelled";
 	public static final String CHECKOUT_ERROR_AUTHORIZATION_PAYMENT_ERROR = "checkout.error.authorization.payment.error";
-	public static final String PAYMENT_NOT_SUPPORTED = "checkout.error.payment.not.supported";
+	// "checkout.error.payment.not.supported" is declared once, as
+	// RecurringContractHelper#PAYMENT_METHOD_NOT_SUPPORTED in adyenv6core. It cannot be owned here: this
+	// extension requires adyenv6core, so the extensions that raise the key cannot see this class.
 	public static final String CART_NOT_VALID = "checkout.error.cart.not.valid";
 
 	// Logging Messages

@@ -24,17 +24,21 @@ import com.adyen.model.checkout.PaymentDetailsRequest;
 import com.adyen.model.checkout.PaymentDetailsResponse;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.constants.Adyenv6coreConstants;
+import com.adyen.v6.event.AdyenPaymentAuthorizedEvent;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
 import com.adyen.v6.repository.OrderRepository;
 import de.hybris.platform.commercefacades.order.data.OrderData;
 import de.hybris.platform.core.enums.OrderStatus;
+import de.hybris.platform.core.model.order.AbstractOrderModel;
 import de.hybris.platform.core.model.order.OrderModel;
 import de.hybris.platform.order.InvalidCartException;
 import de.hybris.platform.servicelayer.dto.converter.Converter;
+import de.hybris.platform.servicelayer.event.EventService;
 import de.hybris.platform.servicelayer.model.ModelService;
 import de.hybris.platform.servicelayer.session.SessionService;
 import de.hybris.platform.store.services.BaseStoreService;
+import de.hybris.platform.tx.Transaction;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 
@@ -63,6 +67,7 @@ public class DefaultThreeDSAuthorizationService implements ThreeDSAuthorizationS
     private AdyenOrderService adyenOrderService;
     private AdyenBusinessProcessService adyenBusinessProcessService;
     private Converter<OrderModel, OrderData> orderConverter;
+    private EventService eventService;
 
     @Override
     public OrderData handle3DSResponse(PaymentDetailsRequest paymentsDetailsRequest) throws Exception {
@@ -136,9 +141,66 @@ public class DefaultThreeDSAuthorizationService implements ThreeDSAuthorizationS
 
         Map<String, String> additionalData = paymentDetailsResponse.getAdditionalData();
 
-        adyenOrderService.updatePaymentInfo(orderModel, paymentType, additionalData);
-        adyenOrderService.storeFraudReport(orderModel, paymentDetailsResponse.getPspReference(), 
+        // Cast so this binds to the single implemented method rather than to the deprecated OrderModel
+        // forwarder that only exists for callers compiled against the old signature.
+        adyenOrderService.updatePaymentInfo((AbstractOrderModel) orderModel, paymentType, additionalData);
+        if (PaymentDetailsResponse.ResultCodeEnum.AUTHORISED == paymentDetailsResponse.getResultCode()) {
+            // The place-order hook has already run for a 3DS/redirect order, so subscription activation has
+            // to be re-entered from here.
+            publishAuthorizedEvent(orderModel);
+        }
+        adyenOrderService.storeFraudReport(orderModel, paymentDetailsResponse.getPspReference(),
             paymentDetailsResponse.getFraudResult());
+    }
+
+    /**
+     * Announces the authorization, but only once the transaction that persisted it has committed.
+     *
+     * <p>EventService multicasts asynchronously by default, so the listeners run on another thread and read
+     * the order and its PaymentInfo back from the database. Publishing while this request's transaction is
+     * still open races that read: a listener can see the PaymentInfo as it was before the token and
+     * networkTxReference were written, or act on an authorization whose transaction then rolls back and
+     * leaves nothing behind. After-commit is the only point at which "the token is durable" is actually
+     * true, and a rollback simply drops the registration - which is the right outcome for an authorization
+     * the database never kept.</p>
+     *
+     * <p>With no transaction running every save above has already committed on its own, so there is nothing
+     * to wait for and the event goes out immediately, as it always did.</p>
+     */
+    protected void publishAuthorizedEvent(final OrderModel orderModel) {
+        final AdyenPaymentAuthorizedEvent event = new AdyenPaymentAuthorizedEvent(orderModel);
+        final Transaction transaction = runningTransaction();
+        if (transaction == null) {
+            eventService.publishEvent(event);
+            return;
+        }
+
+        transaction.executeOnCommit(new Transaction.TransactionAwareExecution() {
+            @Override
+            public void execute(final Transaction committed) {
+                eventService.publishEvent(event);
+            }
+
+            @Override
+            public Object getId() {
+                // The registrations live in a Set whose key is String.valueOf(getId()) + the execution's own
+                // class name. Returning the event itself would not separate two authorizations committing
+                // together: AbstractEvent.toString() is class + source + scope, and this event carries neither,
+                // so every instance stringifies identically and the second registration would be dropped.
+                return AdyenPaymentAuthorizedEvent.class.getName() + '@' + System.identityHashCode(event);
+            }
+        });
+    }
+
+    /**
+     * The transaction this thread is inside, or {@code null} when it is inside none.
+     *
+     * <p>A seam as much as a shorthand: {@code Transaction.current()} needs the platform's transaction
+     * factory to hand out a transaction at all, which a plain unit test has no way to provide.</p>
+     */
+    protected Transaction runningTransaction() {
+        final Transaction transaction = Transaction.current();
+        return transaction != null && transaction.isRunning() ? transaction : null;
     }
 
     @Override
@@ -228,6 +290,10 @@ public class DefaultThreeDSAuthorizationService implements ThreeDSAuthorizationS
 
     public void setAdyenBusinessProcessService(AdyenBusinessProcessService adyenBusinessProcessService) {
         this.adyenBusinessProcessService = adyenBusinessProcessService;
+    }
+
+    public void setEventService(EventService eventService) {
+        this.eventService = eventService;
     }
 
     public Converter<OrderModel, OrderData> getOrderConverter() {

@@ -40,6 +40,29 @@
     </bean>
 
     <!-- ============================================================= -->
+    <!-- "Is this a subscription product?"                             -->
+    <!-- Deliberately ONE bean, injected into both the payment          -->
+    <!-- decorator (before the shopper is charged) and the order        -->
+    <!-- activator (after). Two implementations of the same rule would  -->
+    <!-- agree only until somebody touched one of them, and disagreeing -->
+    <!-- means either a token nothing uses or a charge nothing can      -->
+    <!-- activate. Override this bean to change the rule for both.      -->
+    <!-- ============================================================= -->
+    <alias name="defaultSubscriptionProductRule" alias="subscriptionProductRule"/>
+    <bean id="defaultSubscriptionProductRule"
+          class="com.adyen.commerce.connector.product.impl.DefaultSubscriptionProductRule"/>
+
+    <!-- Runs while the Adyen /payments request is still being built, before the shopper can be
+         charged. It both forces tokenization for mapped subscription products and rejects payment
+         methods that the connector cannot safely reuse for renewals. -->
+    <bean id="subscriptionPaymentRequestDecorator"
+          class="com.adyen.commerce.connector.payment.SubscriptionPaymentRequestDecorator">
+        <property name="cartService" ref="cartService"/>
+        <property name="connectorRegistry" ref="subscriptionBillingConnectorRegistry"/>
+        <property name="subscriptionProductRule" ref="subscriptionProductRule"/>
+    </bean>
+
+    <!-- ============================================================= -->
     <!-- Retry policy                                                  -->
     <!-- the one answer to "try again, and when?", shared by the        -->
     <!-- activation path (which owns its retries) and the webhook path  -->
@@ -79,6 +102,46 @@
         <property name="modelService" ref="modelService"/>
         <property name="flexibleSearchService" ref="flexibleSearchService"/>
         <property name="eventService" ref="eventService"/>
+        <property name="reconciliationService"
+                  ref="subscriptionReconciliationService"/>
+    </bean>
+
+    <alias name="defaultSubscriptionReconciliationService" alias="subscriptionReconciliationService"/>
+    <bean id="defaultSubscriptionReconciliationService"
+          class="com.adyen.commerce.connector.reconciliation.impl.DefaultSubscriptionReconciliationService">
+        <property name="connectorRegistry" ref="subscriptionBillingConnectorRegistry"/>
+        <property name="modelService" ref="modelService"/>
+    </bean>
+
+    <!-- ============================================================= -->
+    <!-- Reconciliation sweep                                          -->
+    <!-- created and triggered by essentialdata impex on system update -->
+    <!-- ============================================================= -->
+    <bean id="subscriptionReconciliationJob"
+          class="com.adyen.commerce.connector.job.SubscriptionReconciliationJob"
+          parent="abstractJobPerformable">
+        <property name="flexibleSearchService" ref="flexibleSearchService"/>
+        <property name="reconciliationService" ref="subscriptionReconciliationService"/>
+        <property name="configurationService" ref="configurationService"/>
+        <property name="sessionService" ref="sessionService"/>
+        <property name="baseSiteService" ref="baseSiteService"/>
+    </bean>
+
+    <!-- Cron jobs have no storefront context. This selector reads the exact order store from a local
+         reconciliation session and otherwise yields to SAP's ordinary site-based selector. -->
+    <bean id="subscriptionBaseStoreSelectorStrategy"
+          class="com.adyen.commerce.connector.context.SubscriptionBaseStoreSelectorStrategy">
+        <property name="sessionService" ref="sessionService"/>
+    </bean>
+    <bean id="subscriptionBaseStoreSelectorStrategyMergeDirective"
+          depends-on="defaultBaseStoreService" parent="listMergeDirective">
+        <property name="add" ref="subscriptionBaseStoreSelectorStrategy"/>
+        <property name="fieldName" value="baseStoreSelectorStrategies"/>
+        <property name="beforeClasses">
+            <list value-type="java.lang.Class">
+                <value>de.hybris.platform.basecommerce.strategies.impl.DefaultBaseStoreSelectorStrategy</value>
+            </list>
+        </property>
     </bean>
 
     <!-- ============================================================= -->
@@ -92,6 +155,7 @@
         <property name="flexibleSearchService" ref="flexibleSearchService"/>
         <property name="modelService" ref="modelService"/>
         <property name="retryPolicy" ref="billingRetryPolicy"/>
+        <property name="reconciliationService" ref="subscriptionReconciliationService"/>
     </bean>
 
     <!-- ============================================================= -->
@@ -104,6 +168,8 @@
           class="com.adyen.commerce.connector.activation.impl.DefaultSubscriptionOrderActivator">
         <property name="subscriptionBillingService" ref="subscriptionBillingService"/>
         <property name="connectorRegistry" ref="subscriptionBillingConnectorRegistry"/>
+        <!-- The same instance the payment decorator uses; see the rule bean above. -->
+        <property name="subscriptionProductRule" ref="subscriptionProductRule"/>
         <property name="attemptService" ref="billingActivationAttemptService"/>
         <!-- The connectors' config services read credentials from the *current* base store, and neither an
              Adyen notification thread nor a cron thread has one. These three are how the activator puts the
@@ -144,6 +210,15 @@
           parent="abstractEventListener">
         <property name="subscriptionOrderActivator" ref="subscriptionOrderActivator"/>
         <property name="orderRepository" ref="adyenOrderRepository"/>
+    </bean>
+
+    <!-- A 3DS/redirect order is placed before its final token metadata exists, so the ordinary
+         place-order hook cannot activate it. Re-enter the same idempotent flow when adyenv6core
+         announces that authorization and PaymentInfo persistence have completed. -->
+    <bean id="adyenPaymentAuthorizedSubscriptionListener"
+          class="com.adyen.commerce.connector.listener.AdyenPaymentAuthorizedEventListener"
+          parent="abstractEventListener">
+        <property name="subscriptionOrderActivator" ref="subscriptionOrderActivator"/>
     </bean>
 
 </beans>

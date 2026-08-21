@@ -55,6 +55,8 @@ import com.adyen.commerce.connector.dto.CancelReason;
 import com.adyen.commerce.connector.dto.ConnectorCapabilities;
 import com.adyen.commerce.connector.dto.CustomerSyncRequest;
 import com.adyen.commerce.connector.dto.NormalizedBillingEvent;
+import com.adyen.commerce.connector.dto.NormalizedSubscription;
+import com.adyen.commerce.connector.dto.NormalizedSubscriptionStatus;
 import com.adyen.commerce.connector.dto.PlanRef;
 import com.adyen.commerce.connector.dto.PlanResolutionRequest;
 import com.adyen.commerce.connector.dto.RawWebhook;
@@ -188,6 +190,37 @@ public class ChargebeeSubscriptionBillingConnectorTest
 		assertEquals("price-1", params.itemPriceId());
 		assertEquals(2, params.quantity());
 		assertEquals("ORDER-1", params.subscriptionId());
+	}
+
+	@Test
+	public void fetchSubscriptionDelegatesToApiClient() throws Exception
+	{
+		final NormalizedSubscription snapshot = new NormalizedSubscription(
+				new BillingSubscriptionRef(BillingPlatform.CHARGEBEE, "sub-1"), NormalizedSubscriptionStatus.ACTIVE,
+				"price-1", 2, null, null, false, null);
+		when(apiClient.fetchSubscription("sub-1")).thenReturn(snapshot);
+
+		assertSame(snapshot,
+				connector.fetchSubscription(new BillingSubscriptionRef(BillingPlatform.CHARGEBEE, "sub-1")));
+	}
+
+	@Test
+	public void fetchSubscriptionRejectsNullReference() throws Exception
+	{
+		assertThrows(PreconditionFailedException.class, () -> connector.fetchSubscription(null));
+
+		verify(apiClient, never()).fetchSubscription(any());
+	}
+
+	@Test
+	public void fetchSubscriptionRejectsForeignPlatformReference() throws Exception
+	{
+		// A reference belonging to another platform must never be sent to Chargebee: subscription ids are
+		// caller-chosen here, so it could silently address an unrelated Chargebee subscription.
+		assertThrows(PreconditionFailedException.class,
+				() -> connector.fetchSubscription(new BillingSubscriptionRef(BillingPlatform.RECURLY, "sub-1")));
+
+		verify(apiClient, never()).fetchSubscription(any());
 	}
 
 	@Test

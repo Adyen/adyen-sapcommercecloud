@@ -33,13 +33,13 @@ import org.slf4j.LoggerFactory;
 
 import com.adyen.commerce.connector.activation.BillingActivationAttemptService;
 import com.adyen.commerce.connector.activation.SubscriptionOrderActivator;
-import com.adyen.commerce.connector.dto.PlanResolutionRequest;
 import com.adyen.commerce.connector.enums.BillingPlatform;
 import com.adyen.commerce.connector.exception.BillingException;
-import com.adyen.commerce.connector.exception.PlanNotMappedException;
 import com.adyen.commerce.connector.exception.PreconditionFailedException;
+import com.adyen.commerce.connector.exception.SubscriptionProductUndecidableException;
 import com.adyen.commerce.connector.model.BillingActivationAttemptModel;
 import com.adyen.commerce.connector.model.BillingSubscriptionRefModel;
+import com.adyen.commerce.connector.product.SubscriptionProductRule;
 import com.adyen.commerce.connector.registry.SubscriptionBillingConnectorRegistry;
 import com.adyen.commerce.connector.service.SubscriptionBillingService;
 import com.adyen.commerce.connector.spi.SubscriptionBillingConnector;
@@ -56,18 +56,27 @@ import de.hybris.platform.store.services.BaseStoreService;
 
 /**
  * <h3>What counts as a subscription product</h3>
- * <p>A product is one exactly when the active connector can resolve a plan for it. The rule lives in
- * {@link #isSubscriptionProduct} and nowhere else, so it can be replaced by overriding that one method.
- * Probing is safe and cheap: both shipped resolvers answer from a FlexibleSearch over their own mapping
- * table, with no remote call and no side effect. It does mean an unmapped product is indistinguishable
- * from a non-subscription one — the failure mode is "nothing happens", which is visible and harmless,
- * unlike the alternative below.</p>
+ * <p>Not this class's decision. It lives in {@link SubscriptionProductRule} and nowhere else, so it can
+ * be replaced by replacing that one bean — and, more to the point, so that this class and
+ * {@code SubscriptionPaymentRequestDecorator} cannot drift apart. The decorator asks the same rule before
+ * the shopper is charged, to decide whether the payment has to leave a reusable token behind; if the two
+ * disagreed, an order would be tokenized with nothing to activate or activated with nothing to charge.</p>
  *
- * <p>The tempting shortcut — call {@code activateSubscription} for every entry and treat
- * {@link PlanNotMappedException} as "not a subscription" — is wrong. Inside the service, plan resolution
- * runs <em>after</em> {@code ensureCustomer} and {@code importAdyenToken}, so every ordinary line item in
- * the cart would leave a real customer and an imported payment token behind on the billing platform
- * before being rejected.</p>
+ * <p>What this class owns is the answer to a rule that <em>cannot</em> answer, and it is the opposite of
+ * the decorator's. A {@link SubscriptionProductUndecidableException} means a resolver failed rather than
+ * said no, so the order may well be a subscription order — and this runs after the money has moved, where
+ * refusing to answer must not turn into a failed checkout. It is therefore journalled like any other
+ * activation failure and left to the retry job, rather than downgraded to "ordinary order". Downgrading is
+ * what used to happen, and it was the one path that produced a paid order with no journal row at all:
+ * nothing was attempted, so nothing was recorded, so nothing was ever retried.</p>
+ *
+ * <p>Such a row is not left to rot. When a later attempt does get an answer and the answer is "no
+ * subscription product here", the row is closed as {@code NOT_APPLICABLE} rather than left {@code FAILED},
+ * because the retry job abandons a stale {@code FAILED} into a dead letter announcing that a shopper was
+ * charged for a subscription — which for an ordinary order that met one resolver blip would be false. Note
+ * that {@code productCode == null} alone does <em>not</em> identify the undecidable case: a connector that
+ * is not configured, or a precondition failure, reaches the journal the same way. The {@code lastError} is
+ * what tells them apart, and only until a terminal outcome rewrites it.</p>
  *
  * <h3>One subscription per order</h3>
  * <p>The service is idempotent on {@code (order, platform)} and keys the remote call on the order code,
@@ -101,6 +110,7 @@ public class DefaultSubscriptionOrderActivator implements SubscriptionOrderActiv
 
 	private SubscriptionBillingService subscriptionBillingService;
 	private SubscriptionBillingConnectorRegistry connectorRegistry;
+	private SubscriptionProductRule subscriptionProductRule;
 	private BillingActivationAttemptService attemptService;
 	private SessionService sessionService;
 	private BaseSiteService baseSiteService;
@@ -160,8 +170,15 @@ public class DefaultSubscriptionOrderActivator implements SubscriptionOrderActiv
 			final ProductModel product = chooseSubscriptionProduct(order, connector);
 			if (product == null)
 			{
-				// Not a subscription order. Deliberately journalled as nothing at all: this is the ordinary
-				// case for most orders in a store that happens to sell subscriptions too.
+				// Not a subscription order, and now that really is what null means: the rule answered "no" for
+				// every entry rather than failing to answer for one of them, which arrives at the catch below
+				// instead. Nothing is journalled for the ordinary case — most orders in a store that happens to
+				// sell subscriptions come through here. But a row may already exist from an earlier run where the
+				// rule could not answer, and leaving it FAILED would let the retry job abandon it into a dead
+				// letter claiming a shopper was charged for a subscription this order never contained.
+				attemptService.notApplicable(order, platform,
+						"The subscription product rule answered for every entry on a later attempt and none of them "
+								+ "is a subscription product");
 				return;
 			}
 
@@ -214,8 +231,12 @@ public class DefaultSubscriptionOrderActivator implements SubscriptionOrderActiv
 
 	/**
 	 * The one subscription product to activate, or {@code null} if the order carries none.
+	 *
+	 * @throws SubscriptionProductUndecidableException if any entry could not be classified, which is not the
+	 *         same as {@code null} and must not become it — see the class javadoc
 	 */
 	protected ProductModel chooseSubscriptionProduct(final OrderModel order, final SubscriptionBillingConnector connector)
+			throws SubscriptionProductUndecidableException
 	{
 		final Map<String, ProductModel> products = subscriptionProducts(order, connector);
 		if (products.isEmpty())
@@ -237,9 +258,12 @@ public class DefaultSubscriptionOrderActivator implements SubscriptionOrderActiv
 	 * Writes the failure to the journal so it can be retried or found later.
 	 *
 	 * <p>A failure that happened before the product was known has no record open yet, and one is opened for
-	 * it here. That does mean an ordinary, non-subscription order in a subscription-selling store can
-	 * acquire a row when the store's own configuration is broken — which is the right noise to make: the
-	 * same breakage is stopping every genuine subscription in that store too.</p>
+	 * it here, with a {@code null} product code because there genuinely is not one. That does mean an
+	 * ordinary, non-subscription order in a subscription-selling store can acquire a row when the store's own
+	 * configuration is broken — which is the right noise to make: the same breakage is stopping every genuine
+	 * subscription in that store too, and a
+	 * {@link com.adyen.commerce.connector.exception.SubscriptionProductUndecidableException} in particular
+	 * means nobody can say whether this order was one of them.</p>
 	 */
 	protected void recordFailure(final OrderModel order, final BillingPlatform platform,
 			final BillingActivationAttemptModel openAttempt, final Exception failure)
@@ -268,9 +292,25 @@ public class DefaultSubscriptionOrderActivator implements SubscriptionOrderActiv
 	/**
 	 * Keyed by product code so the same product ordered on several entries counts once, and ordered so the
 	 * chosen one does not depend on map iteration order.
+	 *
+	 * <p>An entry the rule cannot classify stops the scan instead of being skipped. Skipping it was the old
+	 * behaviour and it is unsound: an order whose only subscription entry is the unclassifiable one then looks
+	 * like an ordinary order, and an ordinary order is journalled as nothing at all.</p>
+	 *
+	 * <p>The price is paid by the mixed order — one entry the rule cannot classify, another it can — whose
+	 * activation is now deferred to the retry instead of going ahead on the entry that did resolve. That is
+	 * the intended trade. Only one subscription per order is activated and the choice is positional — the
+	 * first match in entry order, see {@code chooseSubscriptionProduct} — so going ahead while one candidate
+	 * is invisible means the choice was made from an incomplete list, silently and unrepeatably. Deferring
+	 * costs a retry; choosing wrongly costs a subscription on the wrong plan, which a retry will not revisit
+	 * because the order already has one. In practice the resolvers are backed by one FlexibleSearch each, so a
+	 * failure that hits one entry has usually hit all of them anyway.</p>
+	 *
+	 * <p>{@code SubscriptionPaymentRequestDecorator} scans every entry for the same reason, so that the two
+	 * agree on a mixed cart regardless of the order its entries happen to be in.</p>
 	 */
 	protected Map<String, ProductModel> subscriptionProducts(final OrderModel order,
-			final SubscriptionBillingConnector connector)
+			final SubscriptionBillingConnector connector) throws SubscriptionProductUndecidableException
 	{
 		final Map<String, ProductModel> products = new LinkedHashMap<>();
 		// Tracked separately from the result: keying only on matches would re-query an ordinary product
@@ -283,35 +323,12 @@ public class DefaultSubscriptionOrderActivator implements SubscriptionOrderActiv
 			{
 				continue;
 			}
-			if (isSubscriptionProduct(connector, product))
+			if (subscriptionProductRule.isSubscriptionProduct(connector, product))
 			{
 				products.put(product.getCode(), product);
 			}
 		}
 		return products;
-	}
-
-	protected boolean isSubscriptionProduct(final SubscriptionBillingConnector connector, final ProductModel product)
-	{
-		try
-		{
-			connector.resolvePlan(new PlanResolutionRequest(product.getCode(), Map.of()));
-			return true;
-		}
-		catch (final PlanNotMappedException e)
-		{
-			return false;
-		}
-		catch (final BillingException | RuntimeException e)
-		{
-			// Resolution is a local lookup, so this is a broken resolver rather than an ordinary product.
-			// Skip it, but say so: silently treating it as "not a subscription" would hide the breakage.
-			// RuntimeException is caught here rather than left to the outer guard on purpose — FlexibleSearch
-			// throws unchecked, and letting it out would abandon every remaining entry instead of this one.
-			LOG.warn("Could not decide whether product '{}' is a {} subscription product; skipping it.",
-					product.getCode(), connector.platform(), e);
-			return false;
-		}
 	}
 
 	public void setSubscriptionBillingService(final SubscriptionBillingService subscriptionBillingService)
@@ -322,6 +339,11 @@ public class DefaultSubscriptionOrderActivator implements SubscriptionOrderActiv
 	public void setConnectorRegistry(final SubscriptionBillingConnectorRegistry connectorRegistry)
 	{
 		this.connectorRegistry = connectorRegistry;
+	}
+
+	public void setSubscriptionProductRule(final SubscriptionProductRule subscriptionProductRule)
+	{
+		this.subscriptionProductRule = subscriptionProductRule;
 	}
 
 	public void setAttemptService(final BillingActivationAttemptService attemptService)

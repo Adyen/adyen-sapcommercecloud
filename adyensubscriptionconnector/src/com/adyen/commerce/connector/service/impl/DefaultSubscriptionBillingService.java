@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import com.adyen.commerce.connector.reconciliation.SubscriptionReconciliationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,6 +40,7 @@ import com.adyen.commerce.connector.dto.BillingSubscriptionRef;
 import com.adyen.commerce.connector.dto.CancelReason;
 import com.adyen.commerce.connector.dto.ConnectorCapabilities;
 import com.adyen.commerce.connector.dto.CustomerSyncRequest;
+import com.adyen.commerce.connector.dto.NormalizedSubscriptionStatus;
 import com.adyen.commerce.connector.dto.PlanRef;
 import com.adyen.commerce.connector.dto.PlanResolutionRequest;
 import com.adyen.commerce.connector.dto.RecurringProcessingModel;
@@ -79,9 +81,6 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 {
 	private static final Logger LOG = LoggerFactory.getLogger(DefaultSubscriptionBillingService.class);
 
-	private static final String STATUS_ACTIVE = "ACTIVE";
-	private static final String STATUS_CANCELLED = "CANCELLED";
-
 	private SubscriptionBillingConnectorRegistry connectorRegistry;
 	private ConnectorMerchantAccountValidator merchantAccountValidator;
 	private AdyenTokenHandleFactory tokenHandleFactory;
@@ -89,6 +88,7 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 	private FlexibleSearchService flexibleSearchService;
 	private EventService eventService;
 	private Clock clock = Clock.systemUTC();
+	private SubscriptionReconciliationService reconciliationService;
 
 	@Override
 	public BillingSubscriptionRefModel activateSubscription(final AbstractOrderModel order, final ProductModel subProduct)
@@ -167,9 +167,17 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 			return winner.get();
 		}
 
+		// Do not perform an immediate platform read here. The external create cannot participate in
+		// the SAP transaction, so a reconciliation failure must not roll back the durable local
+		// reference after the subscription has already been created remotely. Webhooks and the
+		// reconciliation sweep promote the initial PENDING projection to its authoritative state.
 		publishActivated(model);
-		LOG.info("Activated subscription {} for order '{}' on platform {}", subscriptionRef.externalId(),
-				order.getCode(), connector.platform());
+		LOG.info(
+				"Created subscription {} for order '{}' on platform {} with local status {}",
+				subscriptionRef.externalId(),
+				order.getCode(),
+				connector.platform(),
+				model.getStatus());
 		return model;
 	}
 
@@ -193,9 +201,56 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 		final BillingSubscriptionRef ref = new BillingSubscriptionRef(subscription.getPlatform(),
 				subscription.getExternalSubscriptionId());
 		connector.cancelSubscription(
-				new SubscriptionCancelRequest(ref, effectiveReason, false, subscription.getIdempotencyKey()));
-		subscription.setStatus(STATUS_CANCELLED);
-		modelService.save(subscription);
+				new SubscriptionCancelRequest(
+						ref,
+						effectiveReason,
+						false,
+						subscription.getIdempotencyKey()));
+
+		try
+		{
+			reconciliationService.reconcile(subscription);
+		}
+		catch (final BillingException | RuntimeException e)
+		{
+			// The cancellation itself already happened on the platform, so everything after this point is a
+			// stale local projection and not a failed cancellation. RuntimeException is caught alongside
+			// BillingException for that reason and not out of caution: a ModelSavingException, or an NPE from
+			// a half-wired reconciliation bean, would otherwise reach the caller as if the subscription were
+			// still live — and a caller told the cancel failed will retry something that is already done.
+			LOG.warn(
+					"Subscription {} was cancelled on platform {}, but its authoritative state "
+							+ "could not be fetched immediately; reconciliation sweep will retry",
+					subscription.getExternalSubscriptionId(),
+					subscription.getPlatform(),
+					e);
+
+			flagForReconciliationSweep(subscription);
+		}
+	}
+
+	/**
+	 * Clears the sync watermark so the sweep treats this reference as never-synced and picks it up on its
+	 * next pass instead of waiting out the staleness window.
+	 *
+	 * <p>A failure to write that flag is itself only worth a warning. It is an optimisation, not the
+	 * recovery: the sweep revisits anything older than the window anyway, so the reference is still
+	 * reached, just later. Letting this throw would resurrect the very problem the caller was spared —
+	 * a completed cancellation reported as a failure.</p>
+	 */
+	protected void flagForReconciliationSweep(final BillingSubscriptionRefModel subscription)
+	{
+		try
+		{
+			subscription.setLastSyncedAt(null);
+			modelService.save(subscription);
+		}
+		catch (final RuntimeException e)
+		{
+			LOG.warn("Could not flag subscription {} on platform {} for the reconciliation sweep; it will be "
+					+ "picked up once its last sync goes stale instead", subscription.getExternalSubscriptionId(),
+					subscription.getPlatform(), e);
+		}
 	}
 
 	protected void validateActivationInputs(final AbstractOrderModel order, final ProductModel subProduct)
@@ -344,7 +399,9 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 		model.setIdempotencyKey(idempotencyKey);
 		model.setOrder(order);
 		model.setCustomer(customer);
-		model.setStatus(STATUS_ACTIVE);
+		// The status column holds the normalized vocabulary, so it is written from the enum here exactly
+		// as the reconciliation service writes it later. A literal would be a second place to keep in step.
+		model.setStatus(NormalizedSubscriptionStatus.PENDING.name());
 		modelService.save(model);
 		return model;
 	}
@@ -402,5 +459,11 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 	public void setClock(final Clock clock)
 	{
 		this.clock = clock;
+	}
+
+	public void setReconciliationService(
+			final SubscriptionReconciliationService reconciliationService)
+	{
+		this.reconciliationService = reconciliationService;
 	}
 }

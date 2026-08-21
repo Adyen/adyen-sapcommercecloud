@@ -38,6 +38,11 @@ public interface SubscriptionOrderActivator
 	 * billing platform. Never throws: callers sit on payment and checkout paths that must not fail because
 	 * a billing platform is unhappy.
 	 *
+	 * <p>"Carries no subscription product" and "we could not tell whether it does" are not the same answer
+	 * and are not treated as one. The first is the ordinary case and leaves no trace; the second leaves a
+	 * journalled attempt for the retry job, because the shopper has already paid and an order that quietly
+	 * turns out to have been a subscription after all would otherwise have nothing to retry from.</p>
+	 *
 	 * @param order the placed order; {@code null} is tolerated and does nothing
 	 */
 	void activateFor(OrderModel order);
