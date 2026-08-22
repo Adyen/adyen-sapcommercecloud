@@ -152,6 +152,46 @@ public class DefaultChargebeeApiClientTest
 		assertThrows(RetryableBillingException.class, () -> client.importPermanentToken("cust", "shopper/TOK-1", null));
 	}
 
+	/**
+	 * Chargebee's idempotency answering that the identical request is still in flight. Observed in
+	 * production when the place-order path and Adyen's notification announced one order at the same
+	 * moment: read as terminal it produced a dead letter saying the shopper was charged and has no
+	 * subscription, a second before the winning caller created that very subscription.
+	 */
+	@Test
+	public void mapsAnIdempotencyReplayInProgressToRetryable() throws Exception
+	{
+		when(httpClient.post(any(), any(), any(), any())).thenReturn(new ChargebeeHttpResponse(409,
+				"{\"message\":\"The previous request is still in progress. Please retry the request\","
+						+ "\"api_error_code\":\"invalid_state_for_request\"}"));
+
+		assertThrows(RetryableBillingException.class, () -> client.importPermanentToken("cust", "shopper/TOK-1", null));
+	}
+
+	/**
+	 * Other 409s are real conflicts about the state of a subscription; retrying those only postpones an
+	 * unavoidable dead letter, so the status alone must not be enough to be retried.
+	 */
+	@Test
+	public void mapsOtherConflictsToTerminal() throws Exception
+	{
+		when(httpClient.post(any(), any(), any(), any())).thenReturn(new ChargebeeHttpResponse(409,
+				"{\"message\":\"Subscription is already cancelled\",\"api_error_code\":\"invalid_state\"}"));
+
+		assertThrows(TerminalBillingException.class, () -> client.importPermanentToken("cust", "shopper/TOK-1", null));
+	}
+
+	/**
+	 * A 409 whose body says nothing usable cannot be assumed to be the in-flight case.
+	 */
+	@Test
+	public void mapsAConflictWithoutAnErrorCodeToTerminal() throws Exception
+	{
+		when(httpClient.post(any(), any(), any(), any())).thenReturn(new ChargebeeHttpResponse(409, ""));
+
+		assertThrows(TerminalBillingException.class, () -> client.importPermanentToken("cust", "shopper/TOK-1", null));
+	}
+
 	@Test
 	public void createSubscriptionEncodesItemPriceAndId() throws Exception
 	{

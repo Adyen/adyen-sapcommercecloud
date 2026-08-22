@@ -47,7 +47,9 @@ public class DefaultChargebeeConfigService implements ChargebeeConfigService
 	static final String P_CONNECTION_REQUEST_TIMEOUT_MILLIS = "chargebee.http.connectionRequestTimeoutMillis";
 	static final String P_MAX_CONNECTIONS = "chargebee.http.maxConnections";
 	static final int DEFAULT_CONNECT_TIMEOUT_MILLIS = 5000;
-	static final int DEFAULT_RESPONSE_TIMEOUT_MILLIS = 30000;
+	// Sized for the checkout: activation runs on the shopper's request thread and spends this three
+	// times over, once per sequential call. See the note in project.properties.
+	static final int DEFAULT_RESPONSE_TIMEOUT_MILLIS = 5000;
 	static final int DEFAULT_CONNECTION_REQUEST_TIMEOUT_MILLIS = 5000;
 	static final int DEFAULT_MAX_CONNECTIONS = 20;
 

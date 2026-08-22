@@ -54,6 +54,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  */
 public class DefaultChargebeeApiClient implements ChargebeeApiClient
 {
+	/**
+	 * Chargebee's answer when a request with this idempotency key is already being processed. Retryable
+	 * rather than terminal - see {@link #isRetryable}.
+	 */
+	protected static final String ERROR_CODE_REQUEST_IN_PROGRESS = "invalid_state_for_request";
+
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	private ChargebeeHttpClient httpClient;
@@ -353,11 +359,59 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 		final String detail = extractError(response.body());
 		final String message = "Chargebee " + action + " failed (HTTP " + response.statusCode() + ")"
 				+ (detail == null ? "" : ": " + detail);
-		if (response.statusCode() == 429 || response.statusCode() >= 500)
+		if (isRetryable(response))
 		{
 			return new RetryableBillingException(message);
 		}
 		return new TerminalBillingException(message);
+	}
+
+	/**
+	 * Whether Chargebee is saying "not now" rather than "not ever".
+	 *
+	 * <p>Beyond throttling and server faults there is one conflict that has to be read this way:
+	 * {@code 409 invalid_state_for_request} is Chargebee's own idempotency answering that a request
+	 * carrying this idempotency key is <em>still in flight</em>. That is not a rejection - it means some
+	 * other caller got there first and is finishing the very work this one wanted done. It happens
+	 * routinely, because an order is announced by both the place-order path and Adyen's notification and
+	 * the two can reach the connector at the same moment.</p>
+	 *
+	 * <p>Classifying it as terminal produced a dead letter announcing that the shopper was charged and has
+	 * no subscription, seconds before the winning caller created exactly that subscription. Retried
+	 * instead, the loser comes back after the backoff, finds the subscription reference the winner
+	 * persisted, and returns it without calling Chargebee at all.</p>
+	 *
+	 * <p>Matched on the error code rather than on the status alone: other 409s are genuine conflicts about
+	 * the state of a subscription, and retrying those only delays an unavoidable dead letter.</p>
+	 */
+	protected boolean isRetryable(final ChargebeeHttpResponse response)
+	{
+		if (response.statusCode() == 429 || response.statusCode() >= 500)
+		{
+			return true;
+		}
+		return response.statusCode() == 409 && ERROR_CODE_REQUEST_IN_PROGRESS.equals(errorCode(response.body()));
+	}
+
+	/**
+	 * The {@code api_error_code} Chargebee returns, or {@code null} when the body is absent or not the
+	 * error shape. Deliberately reads the code and not the message: the message is prose meant for a
+	 * human and is not a contract, the code is.
+	 */
+	protected String errorCode(final String body)
+	{
+		if (StringUtils.isBlank(body))
+		{
+			return null;
+		}
+		try
+		{
+			return objectMapper.readTree(body).path("api_error_code").asText(null);
+		}
+		catch (final IOException e)
+		{
+			return null;
+		}
 	}
 
 	protected String extractError(final String body)
