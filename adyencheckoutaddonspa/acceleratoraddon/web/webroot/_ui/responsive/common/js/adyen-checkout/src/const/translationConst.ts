@@ -87,5 +87,7 @@ export const translationKeys: string[] = [
     "address.line2.invalid",
     "address.townCity.invalid",
     "address.postcode.invalid",
-    "address.regionIso.invalid"
+    "address.regionIso.invalid",
+
+    "checkout.error.konbini.telephone.missing"
 ]

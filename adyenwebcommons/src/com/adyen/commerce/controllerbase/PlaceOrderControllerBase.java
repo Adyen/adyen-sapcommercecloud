@@ -29,6 +29,7 @@ import de.hybris.platform.order.InvalidCartException;
 import de.hybris.platform.order.exceptions.CalculationException;
 import de.hybris.platform.site.BaseSiteService;
 import jakarta.servlet.http.HttpServletRequest;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.log4j.Logger;
 import org.springframework.context.support.DefaultMessageSourceResolvable;
@@ -41,6 +42,8 @@ import static com.adyen.commerce.constants.AdyenwebcommonsConstants.CHECKOUT_ERR
 import static com.adyen.commerce.util.ErrorMessageUtil.getErrorMessageByRefusalReason;
 import static com.adyen.commerce.util.FieldValidationUtil.getFieldCodesFromValidation;
 import static com.adyen.model.checkout.PaymentResponse.ResultCodeEnum.*;
+import static com.adyen.v6.constants.Adyenv6coreConstants.CHECKOUT_ERROR_KONBINI_TELEPHONE_MISSING;
+import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_ECONTEXT_PREFIX;
 
 public abstract class PlaceOrderControllerBase {
     private static final Logger LOGGER = Logger.getLogger(PlaceOrderControllerBase.class);
@@ -135,6 +138,12 @@ public abstract class PlaceOrderControllerBase {
         if (sessionCart == null || sessionCart.getEntries().isEmpty()) {
             throw new AdyenControllerException();
         }
+
+        validateKonbiniTelephone(
+                placeOrderRequest,
+                adyenPaymentMethod,
+                sessionCart
+        );
 
         getAdyenCheckoutApiFacade().preHandlePlaceOrder(placeOrderRequest.getPaymentRequest(), adyenPaymentMethod,
                 placeOrderRequest.getBillingAddress(), placeOrderRequest.isUseAdyenDeliveryAddress());
@@ -391,6 +400,38 @@ public abstract class PlaceOrderControllerBase {
             }
         }
         return null;
+    }
+
+    protected void validateKonbiniTelephone(
+            PlaceOrderRequest placeOrderRequest,
+            String paymentMethod,
+            CartData cartData) {
+
+        if (paymentMethod == null
+                || !paymentMethod.startsWith(PAYMENT_METHOD_ECONTEXT_PREFIX)) {
+            return;
+        }
+
+        String submittedPhone =
+                placeOrderRequest.getPaymentRequest().getTelephoneNumber();
+
+        String billingPhone =
+                placeOrderRequest.getBillingAddress() != null
+                        ? placeOrderRequest.getBillingAddress().getPhoneNumber()
+                        : null;
+
+        String shippingPhone =
+                cartData.getDeliveryAddress() != null
+                        ? cartData.getDeliveryAddress().getPhone()
+                        : null;
+
+        if (StringUtils.isBlank(submittedPhone)
+                && StringUtils.isBlank(billingPhone)
+                && StringUtils.isBlank(shippingPhone)) {
+            throw new AdyenControllerException(
+                    CHECKOUT_ERROR_KONBINI_TELEPHONE_MISSING
+            );
+        }
     }
 
     public abstract String getPaymentRedirectReturnUrl();
