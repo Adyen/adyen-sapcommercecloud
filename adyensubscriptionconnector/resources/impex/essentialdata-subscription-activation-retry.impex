@@ -1,0 +1,25 @@
+# -----------------------------------------------------------------------
+# The retry half of the activation policy.
+#
+# Without this job a transient failure is recorded with a due date that
+# nothing ever comes back for, so the whole retry policy is inert. It is
+# therefore created active: a dead job here means paid orders quietly go
+# without their subscription, which is the failure this exists to stop.
+#
+# Every five minutes, because the backoff schedule starts at one minute and
+# ends around the hour mark — finer would poll for nothing, coarser would
+# blunt the first retry.
+#
+# logToDatabase is off on purpose. At this cadence a logging job writes
+# roughly three hundred rows a day whether or not it found anything to do,
+# and this one is silent by design when the queue is empty.
+# -----------------------------------------------------------------------
+
+INSERT_UPDATE ServicelayerJob ; code[unique=true]                   ; springId
+                              ; subscriptionActivationRetryJob      ; subscriptionActivationRetryJob
+
+INSERT_UPDATE CronJob ; code[unique=true]                   ; job(code)[default=subscriptionActivationRetryJob] ; active[default=true] ; logToDatabase[default=false] ; logToFile[default=true]
+                      ; subscriptionActivationRetryCronJob   ;                                                   ;                      ;                              ;
+
+INSERT_UPDATE Trigger ; cronJob(code)[unique=true]           ; cronExpression   ; active[default=true]
+                      ; subscriptionActivationRetryCronJob   ; 0 0/5 * * * ?    ;

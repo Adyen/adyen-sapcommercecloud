@@ -9,6 +9,8 @@ import static java.net.HttpURLConnection.HTTP_OK;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.LinkedHashSet;
@@ -17,10 +19,14 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import com.adyen.commerce.connector.dto.NormalizedSubscription;
+import com.adyen.commerce.connector.dto.NormalizedSubscriptionStatus;
 import org.apache.commons.lang3.StringUtils;
 
 import com.adyen.commerce.connector.dto.BillingAddress;
+import com.adyen.commerce.connector.dto.BillingSubscriptionRef;
 import com.adyen.commerce.connector.dto.CardMetadata;
+import com.adyen.commerce.connector.enums.BillingPlatform;
 import com.adyen.commerce.connector.exception.BillingException;
 import com.adyen.commerce.connector.exception.PreconditionFailedException;
 import com.adyen.commerce.connector.exception.RetryableBillingException;
@@ -41,6 +47,14 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
  * surfaces only normalized {@link BillingException} failures to the SPI layer.
  */
 public class DefaultRecurlyApiClient implements RecurlyApiClient {
+    /**
+     * Recurly's own name for a subscription that has been cancelled but keeps serving the customer until
+     * {@code current_period_ends_at}. Shared by the status mapping and the {@code cancelAtPeriodEnd}
+     * derivation so the literal lives in one place - it keeps the spelling in step, nothing more; the two
+     * readings of this state still have to be kept consistent by hand.
+     */
+    protected static final String STATE_CANCELED = "canceled";
+
     private static final int HTTP_TOO_MANY_REQUESTS = 429;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -262,6 +276,162 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
         return new ArrayList<>(subscriptionIds);
     }
 
+    @Override
+    public NormalizedSubscription fetchSubscription(final String subscriptionId)
+            throws BillingException
+    {
+        final RecurlyHttpResponse response = httpClient.get(
+                url("/subscriptions/" + pathSegment(subscriptionId)),
+                authHeader(),
+                acceptHeader());
+
+        requireSuccess(response, "retrieve subscription");
+        return mapSubscription(response.body(), subscriptionId);
+    }
+
+    protected NormalizedSubscription mapSubscription(final String body, final String requestedSubscriptionId)
+            throws BillingException {
+        final JsonNode subscription = readJson(body, "subscription");
+        final String subscriptionId = readSubscriptionId(subscription);
+        final NormalizedSubscriptionStatus lifecycleStatus = mapStatus(subscription.path("state").asText(null));
+        final NormalizedSubscriptionStatus status = isPastDueEligible(lifecycleStatus)
+                && hasPastDueInvoice(subscription, requestedSubscriptionId, subscriptionId)
+                ? NormalizedSubscriptionStatus.PAST_DUE
+                : lifecycleStatus;
+
+        return new NormalizedSubscription(
+                new BillingSubscriptionRef(BillingPlatform.RECURLY, subscriptionId),
+                status,
+                subscription.path("plan").path("code").asText(null),
+                subscription.path("quantity").asInt(1),
+                parseInstant(subscription.path("current_period_started_at")),
+                parseInstant(subscription.path("current_period_ends_at")),
+                isCancelAtPeriodEnd(subscription),
+                parseInstant(subscription.path("updated_at")));
+    }
+
+    /**
+     * The pending end is read from the state itself, not from {@code auto_renew} alone. A {@code canceled}
+     * subscription is by definition no longer renewing, and leaving the answer to {@code auto_renew} would
+     * make it depend on a second field being present: {@code asBoolean(true)} reads a missing flag as
+     * "renewing", which would contradict the state right next to it and hide the pending end from every
+     * caller that only looks at {@code cancelAtPeriodEnd}.
+     */
+    protected boolean isCancelAtPeriodEnd(final JsonNode subscription) {
+        return STATE_CANCELED.equalsIgnoreCase(subscription.path("state").asText(null))
+                || !subscription.path("auto_renew").asBoolean(true);
+    }
+
+    protected boolean hasPastDueInvoice(final JsonNode subscription, final String requestedSubscriptionId,
+                                        final String normalizedSubscriptionId) throws BillingException {
+        final String accountId = subscription.path("account").path("id").asText(null);
+        final String accountCode = subscription.path("account").path("code").asText(null);
+        final String accountReference = StringUtils.isNotBlank(accountId)
+                ? accountId
+                : StringUtils.isNotBlank(accountCode) ? "code-" + accountCode : null;
+        if (StringUtils.isBlank(accountReference)) {
+            throw new TerminalBillingException("Recurly subscription response missing account id and code");
+        }
+
+        // A page URL is now only required to sit under the configured base, so a cursor that points back
+        // at a page already read would keep this walk calling Recurly forever. No legitimate pagination
+        // repeats a page, so treat it as the malformed response it is instead of spinning.
+        final Set<String> visitedPages = new LinkedHashSet<>();
+        String nextUrl = url("/accounts/" + pathSegment(accountReference) + "/invoices?state=past_due&limit=200");
+        while (StringUtils.isNotBlank(nextUrl)) {
+            validateRecurlyPageUrl(nextUrl);
+            if (!visitedPages.add(nextUrl)) {
+                throw new TerminalBillingException("Recurly invoice pagination repeated a page");
+            }
+            final RecurlyHttpResponse response = httpClient.get(nextUrl, authHeader(), acceptHeader());
+            requireSuccess(response, "list past-due account invoices");
+            final JsonNode page = readJson(response.body(), "past-due invoices");
+            for (final JsonNode invoice : page.path("data")) {
+                final Set<String> invoiceSubscriptions = new LinkedHashSet<>();
+                collectSubscriptionIds(invoice, invoiceSubscriptions);
+                if (containsSubscription(invoiceSubscriptions, requestedSubscriptionId, normalizedSubscriptionId)) {
+                    return true;
+                }
+            }
+            nextUrl = page.path("has_more").asBoolean(false)
+                    ? resolvePageUrl(page.path("next").asText(null))
+                    : null;
+        }
+        return false;
+    }
+
+    /**
+     * Recurly returns {@code next} as a site-relative path, so it is only a usable URL once joined to the
+     * configured base. Resolution deliberately vouches for nothing: every page URL still goes through
+     * {@link #validateRecurlyPageUrl(String)} before it is called, so a spoofed or corrupted response
+     * cannot aim the credentialed request at a host other than the configured one.
+     */
+    protected String resolvePageUrl(final String next) throws BillingException {
+        // A protocol-relative reference ("//host/path") names its own authority, so it is not a
+        // site-relative path. Leaving it untouched lets the guard below reject it as the foreign
+        // host it is, instead of hiding it behind the configured base.
+        if (StringUtils.startsWith(next, "/") && !StringUtils.startsWith(next, "//")) {
+            return url(next);
+        }
+        return next;
+    }
+
+    protected void validateRecurlyPageUrl(final String pageUrl) throws BillingException {
+        final String baseUrl = configService.getApiBaseUrl();
+        if (!StringUtils.startsWith(pageUrl, baseUrl + "/")) {
+            throw new TerminalBillingException("Recurly invoice pagination returned an unexpected URL");
+        }
+    }
+
+    protected boolean containsSubscription(final Set<String> invoiceSubscriptions, final String requestedId,
+                                           final String normalizedId) {
+        final Set<String> expected = new LinkedHashSet<>();
+        addSubscriptionId(expected, requestedId);
+        addSubscriptionId(expected, normalizedId);
+        return invoiceSubscriptions.stream().anyMatch(expected::contains);
+    }
+
+    protected boolean isPastDueEligible(final NormalizedSubscriptionStatus status) {
+        return status == NormalizedSubscriptionStatus.ACTIVE || status == NormalizedSubscriptionStatus.PAUSED;
+    }
+
+    /**
+     * Recurly's {@code canceled} is not the end of a subscription: it stops renewing but keeps serving the
+     * customer until {@code current_period_ends_at}, and Recurly can reactivate it. Reporting it as
+     * CANCELLED would revoke entitlement the customer has already paid for, and it would give one
+     * normalized vocabulary two words for one situation — the Chargebee adapter normalizes exactly this
+     * state, {@code non_renewing}, to ACTIVE. So {@code canceled} is ACTIVE here too and the pending end
+     * travels as {@code cancelAtPeriodEnd}. Nothing is lost from the terminal end: {@code expired} is the
+     * state Recurly moves a subscription into once its term has actually run out, and it maps to EXPIRED —
+     * the same value Chargebee's {@code cancelled} maps to, so "this has ended" is one word across both
+     * adapters. Neither of them produces CANCELLED; see {@code NormalizedSubscriptionStatus}.
+     */
+    protected NormalizedSubscriptionStatus mapStatus(final String recurlyState) {
+        if (StringUtils.isBlank(recurlyState)) {
+            return NormalizedSubscriptionStatus.UNKNOWN;
+        }
+        return switch (recurlyState.toLowerCase(java.util.Locale.ROOT)) {
+            case "active", STATE_CANCELED -> NormalizedSubscriptionStatus.ACTIVE;
+            case "future" -> NormalizedSubscriptionStatus.PENDING;
+            case "paused" -> NormalizedSubscriptionStatus.PAUSED;
+            case "expired" -> NormalizedSubscriptionStatus.EXPIRED;
+            case "failed" -> NormalizedSubscriptionStatus.FAILED;
+            default -> NormalizedSubscriptionStatus.UNKNOWN;
+        };
+    }
+
+    protected Instant parseInstant(final JsonNode node) throws TerminalBillingException {
+        if (node == null || node.isMissingNode() || node.isNull() || StringUtils.isBlank(node.asText(null))) {
+            return null;
+        }
+        try {
+            return Instant.parse(node.asText());
+        } catch (final DateTimeParseException exception) {
+            throw new TerminalBillingException("Malformed Recurly subscription timestamp '" + node.asText() + "'",
+                    exception);
+        }
+    }
+
     protected String authHeader() throws BillingException {
         final String encoded = Base64.getEncoder()
                 .encodeToString((configService.getApiKey() + ":").getBytes(StandardCharsets.UTF_8));
@@ -324,24 +494,32 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
     }
 
     /**
-     * JSON subscription webhooks identify subscriptions by UUID. Persist the API-compatible
-     * {@code uuid-...} identifier so outbound lifecycle calls and inbound reconciliation use the same key.
+     * For callers holding only the raw body. Parsing is the sole reason this overload exists, so a caller
+     * that has already parsed the response must use {@link #readSubscriptionId(JsonNode)} rather than pay
+     * for a second parse of the same payload.
      */
     protected String readSubscriptionId(final String body) throws BillingException {
         try {
-            final JsonNode response = objectMapper.readTree(body);
-            final String uuid = response.path("uuid").asText(null);
-            if (StringUtils.isNotBlank(uuid)) {
-                return "uuid-" + uuid;
-            }
-            final String id = response.path("id").asText(null);
-            if (StringUtils.isNotBlank(id)) {
-                return id;
-            }
-            throw new TerminalBillingException("Recurly subscription response missing id and uuid");
+            return readSubscriptionId(objectMapper.readTree(body));
         } catch (final IOException e) {
             throw new TerminalBillingException("Malformed Recurly response: " + e.getMessage());
         }
+    }
+
+    /**
+     * JSON subscription webhooks identify subscriptions by UUID. Persist the API-compatible
+     * {@code uuid-...} identifier so outbound lifecycle calls and inbound reconciliation use the same key.
+     */
+    protected String readSubscriptionId(final JsonNode subscription) throws BillingException {
+        final String uuid = subscription.path("uuid").asText(null);
+        if (StringUtils.isNotBlank(uuid)) {
+            return "uuid-" + uuid;
+        }
+        final String id = subscription.path("id").asText(null);
+        if (StringUtils.isNotBlank(id)) {
+            return id;
+        }
+        throw new TerminalBillingException("Recurly subscription response missing id and uuid");
     }
 
     protected String writeJson(final JsonNode request) {

@@ -42,6 +42,7 @@ import com.adyen.commerce.connector.dto.BillingSubscriptionRef;
 import com.adyen.commerce.connector.dto.ConnectorCapabilities;
 import com.adyen.commerce.connector.dto.CustomerSyncRequest;
 import com.adyen.commerce.connector.dto.NormalizedBillingEvent;
+import com.adyen.commerce.connector.dto.NormalizedSubscription;
 import com.adyen.commerce.connector.dto.PlanRef;
 import com.adyen.commerce.connector.dto.PlanResolutionRequest;
 import com.adyen.commerce.connector.dto.RawWebhook;
@@ -63,7 +64,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * recurring payments, Chargebee only orchestrates the billing.
  *
  * <p>This first cut covers the outbound lifecycle (customer, token import, plan resolution,
- * subscription create/update/cancel) plus inbound webhook verification/normalization.
+ * subscription create/update/cancel), the authoritative read used by reconciliation, plus inbound
+ * webhook verification/normalization.
  * Pause is not supported ({@code supportsPause=false}, SPI default rejects it).</p>
  */
 public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillingConnector
@@ -136,6 +138,13 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 				request.metadata());
 		final String subscriptionId = apiClient.createSubscription(params);
 		return new BillingSubscriptionRef(BillingPlatform.CHARGEBEE, subscriptionId);
+	}
+
+	@Override
+	public NormalizedSubscription fetchSubscription(final BillingSubscriptionRef subscription) throws BillingException
+	{
+		verifyChargebeeSubscription(subscription);
+		return apiClient.fetchSubscription(subscription.externalId());
 	}
 
 	@Override
@@ -332,6 +341,25 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 		{
 			throw new PreconditionFailedException("Chargebee connector is bound to Adyen merchant account '" + configured
 					+ "' but the token was minted under '" + token.merchantAccount() + "'");
+		}
+	}
+
+	/**
+	 * Reconciliation resolves the connector from the stored reference's own platform, so a mismatch here means
+	 * the caller built the reference by hand. Refuse it instead of sending another platform's id to Chargebee,
+	 * where it would either 404 or — worse, ids being caller-chosen here — hit an unrelated subscription.
+	 */
+	protected void verifyChargebeeSubscription(final BillingSubscriptionRef subscription)
+			throws PreconditionFailedException
+	{
+		if (subscription == null)
+		{
+			throw new PreconditionFailedException("Cannot fetch a null subscription reference");
+		}
+		if (subscription.platform() != BillingPlatform.CHARGEBEE)
+		{
+			throw new PreconditionFailedException("Cannot fetch a " + subscription.platform()
+					+ " subscription reference using the Chargebee connector");
 		}
 	}
 

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="ISO-8859-1"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!--
 
  Vendor-neutral type-system extensions for the agnostic subscription billing
@@ -153,6 +153,18 @@
                     <description>End of the current billing period (from platform).</description>
                     <persistence type="property"/>
                 </attribute>
+                <attribute qualifier="cancelAtPeriodEnd" type="java.lang.Boolean">
+                    <description>Whether the platform will stop renewing this subscription at period end.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="platformUpdatedAt" type="java.util.Date">
+                    <description>Last modification timestamp reported by the billing platform.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="lastReconciledAt" type="java.util.Date">
+                    <description>Time of the last successful authoritative platform read.</description>
+                    <persistence type="property"/>
+                </attribute>
                 <attribute qualifier="idempotencyKey" type="java.lang.String">
                     <description>Idempotency key used when this subscription was activated.</description>
                     <persistence type="property"/>
@@ -167,21 +179,20 @@
                     <persistence type="property"/>
                 </attribute>
 
-                <!-- Event tracking. The platform is source-of-truth for status; these carry just
-                     enough history to decide whether an inbound event may be applied. -->
+                <!-- Event tracking. The platform is source-of-truth for status; these fields retain
+                     audit and change-version information after an authoritative reconciliation. -->
                 <attribute qualifier="lastAppliedEventId" type="java.lang.String">
-                    <description>Platform event id of the last event applied to this reference. Traceability, and
-                        the tie-break when two events carry the same lastAppliedEventAt.</description>
+                    <description>Platform event id of the last delivery reconciled for this reference.</description>
                     <persistence type="property"/>
                 </attribute>
                 <attribute qualifier="lastAppliedEventAt" type="java.util.Date">
-                    <description>Platform-side timestamp of the last applied event. An inbound event older than
-                        this is stale and must be discarded rather than applied.</description>
+                    <description>Platform-side timestamp carried by the last reconciled delivery. It is retained
+                        for audit only; delivery order never overrides the current platform snapshot.</description>
                     <persistence type="property"/>
                 </attribute>
                 <attribute qualifier="eventVersion" type="java.lang.Long">
-                    <description>Monotonic counter bumped on every applied event. Lets a reader detect that state
-                        moved on without comparing timestamps, and orders events whose platform timestamps collide.</description>
+                    <description>Monotonic counter bumped when authoritative reconciliation changes the local
+                        subscription projection.</description>
                     <persistence type="property"/>
                 </attribute>
                 <attribute qualifier="lastSyncedAt" type="java.util.Date">
@@ -212,7 +223,10 @@
                     <key attribute="order"/>
                     <key attribute="platform"/>
                 </index>
-                <!-- Backs the reconciliation sweep: "refs in status X not confirmed since T". -->
+                <!-- Backs the reconciliation sweep, which asks "refs in a non-terminal status not confirmed
+                     since T". lastSyncedAt is the confirmation timestamp the sweep filters on, and it is the
+                     only date in that predicate: lastReconciledAt exists for audit ("when did a platform read
+                     last happen") and is never a search criterion, so it deliberately has no index of its own. -->
                 <index name="idx_billingSubRef_sync">
                     <key attribute="status"/>
                     <key attribute="lastSyncedAt"/>
@@ -249,8 +263,7 @@
                     <persistence type="property"/>
                 </attribute>
                 <attribute qualifier="occurredAt" type="java.util.Date">
-                    <description>Platform-side timestamp of the event. Compared against
-                        BillingSubscriptionRef.lastAppliedEventAt to detect stale deliveries.</description>
+                    <description>Platform-side timestamp of the event, retained for delivery audit.</description>
                     <persistence type="property"/>
                 </attribute>
                 <attribute qualifier="receivedAt" type="java.util.Date">
@@ -258,9 +271,9 @@
                     <persistence type="property"/>
                 </attribute>
                 <attribute qualifier="processingStatus" type="java.lang.String">
-                    <description>Outcome of applying this event: RECEIVED, APPLIED, SKIPPED_STALE, SKIPPED_AMBIGUOUS,
-                        SKIPPED_UNKNOWN_SUBSCRIPTION, FAILED or DEAD_LETTER. A duplicate delivery gets no status of its
-                        own — it is dropped against the row already here, which is what makes it a no-op.</description>
+                    <description>Overall outcome of this delivery: RECEIVED, RECONCILED,
+                        SKIPPED_NO_SUBSCRIPTION, SKIPPED_UNSUPPORTED, FAILED or DEAD_LETTER. Per-subscription
+                        outcomes are stored in BillingWebhookEventApplication.</description>
                     <persistence type="property"/>
                 </attribute>
                 <attribute qualifier="attemptCount" type="java.lang.Integer">
@@ -289,10 +302,15 @@
                         </columntype>
                     </persistence>
                 </attribute>
+                <attribute qualifier="deadLetteredAt" type="java.util.Date">
+                    <description>When this delivery was given up on. Set exactly when processingStatus becomes
+                        DEAD_LETTER, so an operator can ask "what landed in the dead letter queue today" without
+                        inferring it from receivedAt, which is the time of the first delivery rather than the last.</description>
+                    <persistence type="property"/>
+                </attribute>
                 <attribute qualifier="subscriptionRef" type="BillingSubscriptionRef">
-                    <description>The local reference this event was applied to, when one was found. A plain reference
-                        rather than a relation: nothing needs to walk the events of a subscription in bulk, and the
-                        event record must outlive nothing in particular.</description>
+                    <description>The first local reference this event was applied to, retained for backwards
+                        compatibility. BillingWebhookEventApplication contains the complete per-subscription result.</description>
                     <persistence type="property"/>
                 </attribute>
             </attributes>
@@ -309,6 +327,183 @@
                 </index>
                 <!-- Event history for one subscription. -->
                 <index name="idx_billingWhEvent_sub">
+                    <key attribute="subscriptionRef"/>
+                </index>
+            </indexes>
+        </itemtype>
+
+        <!-- Every attempt to turn an order into a subscription, whatever became of it.
+             BillingSubscriptionRef only exists once a platform has actually created a subscription — it
+             requires an externalSubscriptionId — so it cannot record an activation that failed, and until
+             now a failure left no row at all: no idempotency key, no error, nothing to retry from and
+             nothing for an operator to look at. This type is that record. It is keyed on the same
+             (order, platform) pair the activation itself is idempotent on, so it is at most one row per
+             order per platform no matter how many times the attempt is repeated. -->
+        <itemtype code="BillingActivationAttempt" extends="GenericItem" autocreate="true" generate="true">
+            <deployment table="BillingActivationAttempt" typecode="22949"/>
+            <attributes>
+                <attribute qualifier="order" type="AbstractOrder">
+                    <description>The SAP order being activated. Mandatory, unlike on BillingSubscriptionRef: an
+                        attempt with no order could neither be retried nor explained.</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false" initial="true"/>
+                </attribute>
+                <attribute qualifier="platform" type="BillingPlatform">
+                    <description>The billing platform the activation was attempted against.</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false" initial="true"/>
+                </attribute>
+                <attribute qualifier="idempotencyKey" type="java.lang.String">
+                    <description>The key sent to the platform, so a support conversation about a half-created
+                        subscription can name the exact request. Held here rather than only on
+                        BillingSubscriptionRef because the failing case is the one that needs it.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="productCode" type="java.lang.String">
+                    <description>Code of the subscription product this attempt was for. A plain string, not a
+                        Product reference: the record must survive the product being deleted.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="status" type="java.lang.String">
+                    <description>Outcome of the attempt: PENDING while one is in flight, SUCCEEDED, FAILED for a
+                        transient failure that is still due a retry, DEAD_LETTER once it is terminal or out of
+                        retries, or NOT_APPLICABLE for a row opened because the subscription product rule could not
+                        answer, on an order that a later attempt established is not a subscription order at all.
+                        Only FAILED is picked up again; DEAD_LETTER is where an operator has to look, and
+                        NOT_APPLICABLE is closed and uninteresting.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="attemptCount" type="java.lang.Integer">
+                    <description>How many activations have been attempted for this order; drives the retry cut-off.</description>
+                    <persistence type="property"/>
+                    <defaultvalue>Integer.valueOf(0)</defaultvalue>
+                </attribute>
+                <attribute qualifier="firstAttemptAt" type="java.util.Date">
+                    <description>When the first attempt ran. With deadLetteredAt this is how long a subscription
+                        the shopper has already paid for went unactivated.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="lastAttemptAt" type="java.util.Date">
+                    <description>When the most recent attempt ran.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="nextAttemptAt" type="java.util.Date">
+                    <description>Earliest time the retry job may try again. Null once the attempt has reached a
+                        terminal state, which is what takes it out of the job's queue.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="deadLetteredAt" type="java.util.Date">
+                    <description>When this attempt was given up on.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="lastError" type="java.lang.String">
+                    <description>Failure detail from the most recent attempt. Long text for the same reason as
+                        BillingWebhookEvent.lastError — a remote error body does not fit 255 characters. Given the
+                        wide column type up front, because widening it later needs a real ALTER.</description>
+                    <persistence type="property">
+                        <columntype database="oracle">
+                            <value>CLOB</value>
+                        </columntype>
+                        <columntype database="sap">
+                            <value>NCLOB</value>
+                        </columntype>
+                        <columntype database="mysql">
+                            <value>TEXT</value>
+                        </columntype>
+                        <columntype database="sqlserver">
+                            <value>TEXT</value>
+                        </columntype>
+                        <columntype>
+                            <value>HYBRIS.LONG_STRING</value>
+                        </columntype>
+                    </persistence>
+                </attribute>
+                <attribute qualifier="subscriptionRef" type="BillingSubscriptionRef">
+                    <description>What the attempt produced, once it succeeded. This is the "outcome" half of the
+                        record: key in, reference out.</description>
+                    <persistence type="property"/>
+                </attribute>
+            </attributes>
+            <indexes>
+                <!-- One attempt record per order per platform — the same scope activation is idempotent on
+                     (idx_billingSubRef_order). Unique so two concurrent activations of one order cannot each
+                     start their own counter and between them run twice the intended number of attempts. -->
+                <index name="idx_billingActAttempt_order" unique="true">
+                    <key attribute="order"/>
+                    <key attribute="platform"/>
+                </index>
+                <!-- Backs the retry job's queue ("FAILED and due") and, on its leading column alone, the
+                     operator's dead-letter view. -->
+                <index name="idx_billingActAttempt_due">
+                    <key attribute="status"/>
+                    <key attribute="nextAttemptAt"/>
+                </index>
+            </indexes>
+        </itemtype>
+
+        <!-- Per-subscription result of applying one webhook. Invoice events can legitimately resolve to
+             several subscriptions, so a single reference and status on BillingWebhookEvent is not enough
+             for retry diagnostics or operator audit. -->
+        <itemtype code="BillingWebhookEventApplication" extends="GenericItem" autocreate="true" generate="true">
+            <!-- 22950 is RecurlyPlanMapping in adyenrecurlyconnector, hence 22951: typecodes are global
+                 across every extension in the deployment, not per extension. -->
+            <deployment table="BillingWhEventApp" typecode="22951"/>
+            <attributes>
+                <attribute qualifier="event" type="BillingWebhookEvent">
+                    <description>The deduplicated delivery this application belongs to.</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false" initial="true"/>
+                </attribute>
+                <attribute qualifier="externalSubscriptionId" type="java.lang.String">
+                    <description>The external subscription id resolved from the delivery.</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false" initial="true"/>
+                </attribute>
+                <attribute qualifier="subscriptionRef" type="BillingSubscriptionRef">
+                    <description>The matching local subscription reference, if it existed.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="processingStatus" type="java.lang.String">
+                    <description>RECEIVED, RECONCILED, SKIPPED_UNKNOWN_SUBSCRIPTION,
+                        RETRYABLE_UNKNOWN_SUBSCRIPTION or FAILED. SKIPPED_UNKNOWN_SUBSCRIPTION covers two
+                        different situations, so read lastError before acting on it: an empty lastError means the
+                        delivery was simply not about a subscription of ours and there is nothing to do, while a
+                        lastError means we did expect a local reference, waited for it across the whole retry
+                        budget and then gave up. Only the second one needs an operator, since the reference it
+                        was waiting for was never created. They are deliberately not separate status values:
+                        splitting them would be a schema change with a migration cost, for a distinction
+                        lastError already carries.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="attemptCount" type="java.lang.Integer">
+                    <description>Number of attempts made for this event/subscription pair.</description>
+                    <persistence type="property"/>
+                    <defaultvalue>Integer.valueOf(0)</defaultvalue>
+                </attribute>
+                <attribute qualifier="lastError" type="java.lang.String">
+                    <description>Failure detail from the most recent attempt.</description>
+                    <persistence type="property">
+                        <columntype database="oracle"><value>CLOB</value></columntype>
+                        <columntype database="sap"><value>NCLOB</value></columntype>
+                        <columntype database="mysql"><value>TEXT</value></columntype>
+                        <columntype database="sqlserver"><value>TEXT</value></columntype>
+                        <columntype><value>HYBRIS.LONG_STRING</value></columntype>
+                    </persistence>
+                </attribute>
+                <attribute qualifier="reconciledAt" type="java.util.Date">
+                    <description>When the authoritative subscription snapshot was successfully applied.</description>
+                    <persistence type="property"/>
+                </attribute>
+            </attributes>
+            <indexes>
+                <index name="idx_billingWhApp_eventSub" unique="true">
+                    <key attribute="event"/>
+                    <key attribute="externalSubscriptionId"/>
+                </index>
+                <index name="idx_billingWhApp_status">
+                    <key attribute="processingStatus"/>
+                </index>
+                <index name="idx_billingWhApp_sub">
                     <key attribute="subscriptionRef"/>
                 </index>
             </indexes>

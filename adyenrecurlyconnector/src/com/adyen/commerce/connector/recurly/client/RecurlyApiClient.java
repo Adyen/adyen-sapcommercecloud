@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.adyen.commerce.connector.dto.BillingAddress;
 import com.adyen.commerce.connector.dto.CardMetadata;
+import com.adyen.commerce.connector.dto.NormalizedSubscription;
 import com.adyen.commerce.connector.exception.BillingException;
 
 public interface RecurlyApiClient {
@@ -31,4 +32,7 @@ public interface RecurlyApiClient {
      * Resolves subscription UUIDs for lightweight Recurly invoice/payment JSON webhooks.
      */
     List<String> resolveWebhookSubscriptionIds(String resourceType, String resourceId) throws BillingException;
+
+    NormalizedSubscription fetchSubscription(String subscriptionId)
+            throws BillingException;
 }

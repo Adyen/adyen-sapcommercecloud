@@ -79,7 +79,7 @@ public class DefaultChargebeeConfigServiceTest
 	public void transportTuningIsReadFromProperties()
 	{
 		when(configuration.getInt("chargebee.http.connectTimeoutMillis", 5000)).thenReturn(1234);
-		when(configuration.getInt("chargebee.http.responseTimeoutMillis", 30000)).thenReturn(4321);
+		when(configuration.getInt("chargebee.http.responseTimeoutMillis", 5000)).thenReturn(4321);
 		when(configuration.getInt("chargebee.http.connectionRequestTimeoutMillis", 5000)).thenReturn(999);
 		when(configuration.getInt("chargebee.http.maxConnections", 20)).thenReturn(50);
 
@@ -97,12 +97,12 @@ public class DefaultChargebeeConfigServiceTest
 	public void nonPositiveTransportOverridesFallBackToTheDefault()
 	{
 		when(configuration.getInt("chargebee.http.connectTimeoutMillis", 5000)).thenReturn(0);
-		when(configuration.getInt("chargebee.http.responseTimeoutMillis", 30000)).thenReturn(-1);
+		when(configuration.getInt("chargebee.http.responseTimeoutMillis", 5000)).thenReturn(-1);
 		when(configuration.getInt("chargebee.http.connectionRequestTimeoutMillis", 5000)).thenReturn(-100);
 		when(configuration.getInt("chargebee.http.maxConnections", 20)).thenReturn(0);
 
 		assertEquals(5000, service.getConnectTimeoutMillis());
-		assertEquals(30000, service.getResponseTimeoutMillis());
+		assertEquals(5000, service.getResponseTimeoutMillis());
 		assertEquals(5000, service.getConnectionRequestTimeoutMillis());
 		assertEquals(20, service.getMaxConnections());
 	}

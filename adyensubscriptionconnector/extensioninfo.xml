@@ -19,6 +19,9 @@
              AdyenMerchantAccountStrategy) and the standard commerce services. -->
         <requires-extension name="adyenv6core"/>
         <requires-extension name="commerceservices"/>
+        <!-- The activation retry job: AbstractJobPerformable and the abstractJobPerformable bean. Reached
+             transitively through commerceservices already, but named because this extension uses it directly. -->
+        <requires-extension name="processing"/>
         <!-- OCC webapp host for the inbound webhook endpoint -->
         <requires-extension name="commercewebservices"/>
 
