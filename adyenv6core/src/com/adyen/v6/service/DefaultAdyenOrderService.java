@@ -23,6 +23,7 @@ package com.adyen.v6.service;
 import com.adyen.model.checkout.FraudCheckResult;
 import com.adyen.model.checkout.FraudResult;
 import de.hybris.platform.basecommerce.enums.FraudStatus;
+import de.hybris.platform.core.model.order.AbstractOrderModel;
 import de.hybris.platform.core.model.order.OrderModel;
 import de.hybris.platform.core.model.order.payment.PaymentInfoModel;
 import de.hybris.platform.fraud.model.FraudReportModel;
@@ -116,13 +117,21 @@ public class DefaultAdyenOrderService implements AdyenOrderService {
     }
 
     @Override
-    public void updatePaymentInfo(OrderModel order, String paymentMethodType, Map<String, String> additionalData) {
+    public void updatePaymentInfo(AbstractOrderModel order, String paymentMethodType, Map<String, String> additionalData) {
         if (order == null) {
             LOG.error("Order is null");
             return;
         }
 
         PaymentInfoModel paymentInfo = order.getPaymentInfo();
+        if (paymentInfo == null) {
+            // Reachable from the pre-place-order write: a cart can still carry no payment info at all, for
+            // instance when an express flow attaches it later. There is nothing to write the token onto yet,
+            // and this must not throw - the payment it describes has already been authorized.
+            LOG.warn("No payment info on '" + order.getCode() + "', skipping the Adyen payment info update");
+            return;
+        }
+
         if(StringUtils.isNotEmpty(paymentMethodType)) {
             paymentInfo.setAdyenPaymentMethod(paymentMethodType);
         }else {

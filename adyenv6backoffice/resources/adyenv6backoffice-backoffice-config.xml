@@ -128,6 +128,55 @@
 		</editorArea:editorArea>
 	</context>
 
+	<!-- Create wizards for the subscription platform configurations.
+
+	     These are created from the base store editor above, through the recurlyConfig/chargebeeConfig
+	     reference. Without an explicit wizard Backoffice offers only the attributes the type system marks
+	     mandatory, which silently drops adyenGatewayMerchantAccount from the form: it is optional at type
+	     level on purpose, so that ZuoraConfig can inherit it and so that an update system does not make
+	     pre-existing rows unsaveable. The connectors, though, refuse to import a token without it - fail
+	     closed, and only once the shopper has already been charged. Listing it here is what puts it in
+	     front of the operator at the one moment they are filling the form.
+
+	     The encrypted fields get the password editor for the same reason the base store's API key does:
+	     nobody should have to type a full-access key into a field that shows it in the clear. -->
+	<context merge-by="type" type="ChargebeeConfig" component="create-wizard">
+		<wz:flow xmlns:wz="http://www.hybris.com/cockpitng/config/wizard-config"
+				 id="AdyenChargebeeConfigWizard" title="create.title(ctx.TYPE_CODE)">
+			<wz:step id="step1" label="hmc.adyen.subscriptionConfig.step">
+				<wz:content id="step1.content" merge-mode="replace">
+					<wz:property qualifier="newObject.subscriptionSiteId"/>
+					<wz:property qualifier="newObject.subscriptionApiKey"
+								 editor="com.hybris.cockpitng.editor.defaultpassword"/>
+					<wz:property qualifier="newObject.subscriptionGatewayAccountId"/>
+					<wz:property qualifier="newObject.adyenGatewayMerchantAccount"/>
+					<wz:property qualifier="newObject.chargebeeWebhookUsername"/>
+					<wz:property qualifier="newObject.chargebeeWebhookPassword"
+								 editor="com.hybris.cockpitng.editor.defaultpassword"/>
+				</wz:content>
+			</wz:step>
+		</wz:flow>
+	</context>
+
+	<context merge-by="type" type="RecurlyConfig" component="create-wizard">
+		<wz:flow xmlns:wz="http://www.hybris.com/cockpitng/config/wizard-config"
+				 id="AdyenRecurlyConfigWizard" title="create.title(ctx.TYPE_CODE)">
+			<wz:step id="step1" label="hmc.adyen.subscriptionConfig.step">
+				<wz:content id="step1.content" merge-mode="replace">
+					<wz:property qualifier="newObject.subscriptionSiteId"/>
+					<wz:property qualifier="newObject.subscriptionApiKey"
+								 editor="com.hybris.cockpitng.editor.defaultpassword"/>
+					<wz:property qualifier="newObject.subscriptionGatewayAccountId"/>
+					<wz:property qualifier="newObject.adyenGatewayMerchantAccount"/>
+					<wz:property qualifier="newObject.recurlyWebhookSigningKey"
+								 editor="com.hybris.cockpitng.editor.defaultpassword"/>
+					<wz:property qualifier="newObject.walletEnabled"/>
+					<wz:property qualifier="newObject.externalNtidFeatureEnabled"/>
+				</wz:content>
+			</wz:step>
+		</wz:flow>
+	</context>
+
 	<context merge-by="type" type="AdyenInstallmentConfig" component="editor-area">
 		<editorArea:editorArea xmlns:editorArea="http://www.hybris.com/cockpitng/component/editorArea">
 			<editorArea:tab name="hmc.adyen.installments.config">
@@ -170,6 +219,150 @@
 	<context merge-by="type" type="Order" component="listview">
 		<lv:list-view>
 			<lv:column qualifier="adyenRiskScore"/>
+		</lv:list-view>
+	</context>
+
+	<!-- ===================================================================================
+	     Subscription billing: the operator's view of what the connector stack is doing.
+
+	     These types belong to adyensubscriptionconnector, which this extension does not
+	     require — the same arrangement, and the same trade-off, as the activeBillingPlatform
+	     field above. With that extension disabled the type nodes below resolve to nothing and
+	     Backoffice logs about them; the alternative was a whole extra backoffice extension
+	     for three list views, or leaving the dead-letter queue with no UI at all, which is
+	     what this is here to fix.
+
+	     BillingActivationAttempt comes first on purpose. It is the one an operator is woken
+	     up for: a row in DEAD_LETTER there means a shopper paid and has no subscription.
+	     ==================================================================================== -->
+	<context merge-by="module" parent="auto" component="explorer-tree">
+		<explorer-tree:explorer-tree xmlns:explorer-tree="http://www.hybris.com/cockpitng/config/explorertree">
+			<explorer-tree:navigation-node id="hmc_treenode_system" merge-mode="append">
+				<explorer-tree:navigation-node id="adyen.subscriptionBilling">
+					<explorer-tree:type-node code="BillingActivationAttempt" id="adyen.billingActivationAttempt"/>
+					<explorer-tree:type-node code="BillingWebhookEvent" id="adyen.billingWebhookEvent"/>
+					<explorer-tree:type-node code="BillingSubscriptionRef" id="adyen.billingSubscriptionRef"/>
+				</explorer-tree:navigation-node>
+			</explorer-tree:navigation-node>
+		</explorer-tree:explorer-tree>
+	</context>
+
+	<context merge-by="type" parent="GenericItem" type="BillingActivationAttempt" component="listview">
+		<lv:list-view>
+			<!-- Status first, then how hard we tried and when we stop trying: the three columns that
+			     answer "is anything wrong and is anything still going to happen about it". -->
+			<lv:column qualifier="status"/>
+			<lv:column qualifier="attemptCount"/>
+			<lv:column qualifier="nextAttemptAt"/>
+			<lv:column qualifier="deadLetteredAt"/>
+			<lv:column qualifier="order"/>
+			<lv:column qualifier="platform"/>
+			<lv:column qualifier="productCode"/>
+			<lv:column qualifier="subscriptionRef"/>
+			<lv:column qualifier="lastError"/>
+		</lv:list-view>
+	</context>
+
+	<context merge-by="type" parent="GenericItem" type="BillingActivationAttempt" component="advanced-search">
+		<as:advanced-search>
+			<as:field-list>
+				<as:field name="status" selected="true"/>
+				<as:field name="platform" selected="true"/>
+				<as:field name="deadLetteredAt" selected="true"/>
+				<as:field name="attemptCount"/>
+				<as:field name="nextAttemptAt"/>
+				<as:field name="idempotencyKey"/>
+				<as:field name="productCode"/>
+			</as:field-list>
+		</as:advanced-search>
+	</context>
+
+	<context merge-by="type" type="BillingActivationAttempt" component="editor-area">
+		<editorArea:editorArea xmlns:editorArea="http://www.hybris.com/cockpitng/component/editorArea">
+			<editorArea:tab name="hmc.adyen.subscriptionBilling.attempt">
+				<editorArea:section name="hmc.adyen.subscriptionBilling.outcome">
+					<editorArea:attribute qualifier="status"/>
+					<editorArea:attribute qualifier="subscriptionRef"/>
+					<editorArea:attribute qualifier="lastError"/>
+				</editorArea:section>
+				<editorArea:section name="hmc.adyen.subscriptionBilling.request">
+					<editorArea:attribute qualifier="order"/>
+					<editorArea:attribute qualifier="platform"/>
+					<editorArea:attribute qualifier="productCode"/>
+					<editorArea:attribute qualifier="idempotencyKey"/>
+				</editorArea:section>
+				<editorArea:section name="hmc.adyen.subscriptionBilling.retry">
+					<editorArea:attribute qualifier="attemptCount"/>
+					<editorArea:attribute qualifier="firstAttemptAt"/>
+					<editorArea:attribute qualifier="lastAttemptAt"/>
+					<editorArea:attribute qualifier="nextAttemptAt"/>
+					<editorArea:attribute qualifier="deadLetteredAt"/>
+				</editorArea:section>
+			</editorArea:tab>
+		</editorArea:editorArea>
+	</context>
+
+	<context merge-by="type" parent="GenericItem" type="BillingWebhookEvent" component="listview">
+		<lv:list-view>
+			<lv:column qualifier="processingStatus"/>
+			<lv:column qualifier="attemptCount"/>
+			<lv:column qualifier="deadLetteredAt"/>
+			<lv:column qualifier="platform"/>
+			<lv:column qualifier="eventType"/>
+			<lv:column qualifier="eventId"/>
+			<lv:column qualifier="externalSubscriptionId"/>
+			<lv:column qualifier="occurredAt"/>
+			<lv:column qualifier="receivedAt"/>
+			<lv:column qualifier="lastError"/>
+		</lv:list-view>
+	</context>
+
+	<context merge-by="type" parent="GenericItem" type="BillingWebhookEvent" component="advanced-search">
+		<as:advanced-search>
+			<as:field-list>
+				<as:field name="processingStatus" selected="true"/>
+				<as:field name="platform" selected="true"/>
+				<as:field name="deadLetteredAt" selected="true"/>
+				<as:field name="eventType"/>
+				<as:field name="eventId"/>
+				<as:field name="externalSubscriptionId"/>
+				<as:field name="receivedAt"/>
+			</as:field-list>
+		</as:advanced-search>
+	</context>
+
+	<context merge-by="type" type="BillingWebhookEvent" component="editor-area">
+		<editorArea:editorArea xmlns:editorArea="http://www.hybris.com/cockpitng/component/editorArea">
+			<editorArea:tab name="hmc.adyen.subscriptionBilling.event">
+				<editorArea:section name="hmc.adyen.subscriptionBilling.outcome">
+					<editorArea:attribute qualifier="processingStatus"/>
+					<editorArea:attribute qualifier="attemptCount"/>
+					<editorArea:attribute qualifier="deadLetteredAt"/>
+					<editorArea:attribute qualifier="subscriptionRef"/>
+					<editorArea:attribute qualifier="lastError"/>
+				</editorArea:section>
+				<editorArea:section name="hmc.adyen.subscriptionBilling.delivery">
+					<editorArea:attribute qualifier="platform"/>
+					<editorArea:attribute qualifier="eventId"/>
+					<editorArea:attribute qualifier="eventType"/>
+					<editorArea:attribute qualifier="externalSubscriptionId"/>
+					<editorArea:attribute qualifier="occurredAt"/>
+					<editorArea:attribute qualifier="receivedAt"/>
+				</editorArea:section>
+			</editorArea:tab>
+		</editorArea:editorArea>
+	</context>
+
+	<context merge-by="type" parent="GenericItem" type="BillingSubscriptionRef" component="listview">
+		<lv:list-view>
+			<lv:column qualifier="status"/>
+			<lv:column qualifier="platform"/>
+			<lv:column qualifier="externalSubscriptionId"/>
+			<lv:column qualifier="customer"/>
+			<lv:column qualifier="order"/>
+			<lv:column qualifier="planCode"/>
+			<lv:column qualifier="currentPeriodEnd"/>
+			<lv:column qualifier="lastSyncedAt"/>
 		</lv:list-view>
 	</context>
 

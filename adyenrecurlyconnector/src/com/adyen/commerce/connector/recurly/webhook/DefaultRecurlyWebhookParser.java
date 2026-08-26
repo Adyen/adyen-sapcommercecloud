@@ -87,7 +87,6 @@ public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser {
 
             final Map<String, String> attributes = new HashMap<>();
             putIfNotBlank(attributes, "eventType", eventType);
-            putIfNotBlank(attributes, "objectType", objectType);
             putIfNotBlank(attributes, "siteId", text(payload, "site_id"));
             putIfNotBlank(attributes, "resourceType", objectType);
             putIfNotBlank(attributes, "resourceId", resourceId);
@@ -190,30 +189,37 @@ public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser {
     protected BillingEventType mapEvent(final String objectType, final String eventType) {
         if ("payment".equals(objectType)) {
             return switch (StringUtils.defaultString(eventType)) {
-                case "succeeded" -> BillingEventType.INVOICE_PAID;
-                case "failed" -> BillingEventType.INVOICE_PAYMENT_FAILED;
+                case "succeeded" -> BillingEventType.PAYMENT_SUCCEEDED;
+                case "failed" -> BillingEventType.PAYMENT_FAILED;
                 default -> BillingEventType.UNKNOWN;
             };
         }
         if ("charge_invoice".equals(objectType)) {
             return switch (StringUtils.defaultString(eventType)) {
                 case "paid" -> BillingEventType.INVOICE_PAID;
-                case "failed", "past_due" -> BillingEventType.INVOICE_PAYMENT_FAILED;
+                case "past_due" -> BillingEventType.INVOICE_PAST_DUE;
+                case "failed" -> BillingEventType.INVOICE_FAILED;
                 default -> BillingEventType.UNKNOWN;
             };
         }
         if ("invoice".equals(objectType) && "past_due".equals(eventType)) {
-            return BillingEventType.INVOICE_PAYMENT_FAILED;
+            return BillingEventType.INVOICE_PAST_DUE;
         }
         if (!"subscription".equals(objectType)) {
             return BillingEventType.UNKNOWN;
         }
         return switch (StringUtils.defaultString(eventType)) {
-            case "created" -> BillingEventType.SUBSCRIPTION_ACTIVATED;
+            case "created" -> BillingEventType.SUBSCRIPTION_CREATED;
+            case "updated" -> BillingEventType.SUBSCRIPTION_UPDATED;
             case "renewed" -> BillingEventType.SUBSCRIPTION_RENEWED;
-            case "canceled", "expired" -> BillingEventType.SUBSCRIPTION_CANCELLED;
+            case "canceled" -> BillingEventType.SUBSCRIPTION_CANCELLED;
+            case "expired" -> BillingEventType.SUBSCRIPTION_EXPIRED;
             case "paused" -> BillingEventType.SUBSCRIPTION_PAUSED;
             case "resumed", "reactivated" -> BillingEventType.SUBSCRIPTION_RESUMED;
+            case "pending_change.scheduled" -> BillingEventType.SUBSCRIPTION_CHANGE_SCHEDULED;
+            case "pause.scheduled" -> BillingEventType.SUBSCRIPTION_PAUSE_SCHEDULED;
+            case "pause.modified" -> BillingEventType.SUBSCRIPTION_PAUSE_UPDATED;
+            case "pause.canceled" -> BillingEventType.SUBSCRIPTION_PAUSE_CANCELLED;
             default -> BillingEventType.UNKNOWN;
         };
     }

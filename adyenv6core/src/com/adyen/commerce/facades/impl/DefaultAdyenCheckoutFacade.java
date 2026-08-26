@@ -45,6 +45,7 @@ import com.adyen.v6.enums.RecurringContractMode;
 import com.adyen.v6.exceptions.AdyenCheckoutConfigurationException;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
+import com.adyen.v6.event.AdyenPaymentAuthorizedEventPublisher;
 import com.adyen.v6.forms.AddressForm;
 import com.adyen.v6.forms.AdyenPaymentForm;
 import com.adyen.v6.forms.validation.AdyenPaymentFormValidator;
@@ -74,6 +75,7 @@ import de.hybris.platform.converters.Populator;
 import de.hybris.platform.core.enums.OrderStatus;
 import de.hybris.platform.core.model.c2l.CountryModel;
 import de.hybris.platform.core.model.order.AbstractOrderEntryModel;
+import de.hybris.platform.core.model.order.AbstractOrderModel;
 import de.hybris.platform.core.model.order.CartModel;
 import de.hybris.platform.core.model.order.OrderModel;
 import de.hybris.platform.core.model.order.payment.PaymentInfoModel;
@@ -129,6 +131,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     private AdyenTransactionService adyenTransactionService;
     private OrderRepository orderRepository;
     private AdyenOrderService adyenOrderService;
+    private AdyenPaymentAuthorizedEventPublisher adyenPaymentAuthorizedEventPublisher;
     private CheckoutCustomerStrategy checkoutCustomerStrategy;
     private AdyenPaymentServiceFactory adyenPaymentServiceFactory;
     private ModelService modelService;
@@ -573,7 +576,16 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         if (additionalData != null) {
             String recurringDetailReference = additionalData.get(RECURRING_RECURRING_DETAIL_REFERENCE);
             if (recurringDetailReference != null) {
-                cartModel.getPaymentInfo().setAdyenSelectedReference(recurringDetailReference);
+                PaymentInfoModel paymentInfo = cartModel.getPaymentInfo();
+                if (paymentInfo == null) {
+                    // Same cart-with-no-PaymentInfo case that DefaultAdyenOrderService.updatePaymentInfo
+                    // guards against. This runs only after Adyen accepted the payment, so losing the stored
+                    // reference must not be allowed to abort the order that is about to be placed.
+                    LOGGER.warn("No payment info on '{}', skipping the Adyen selected reference update",
+                            cartModel.getCode());
+                    return;
+                }
+                paymentInfo.setAdyenSelectedReference(recurringDetailReference);
             }
         }
     }
@@ -584,10 +596,6 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     protected OrderData createOrderFromPaymentResponse(final PaymentResponse paymentsResponse) throws InvalidCartException {
         LOGGER.debug("Create order from paymentsResponse: {}", paymentsResponse.getPspReference());
 
-        OrderData orderData = getCheckoutFacade().placeOrder();
-
-        OrderModel orderModel = orderRepository.getOrderModel(orderData.getCode());
-
         String paymentType = "";
         if (paymentsResponse.getPaymentMethod() != null) {
             paymentType = paymentsResponse.getPaymentMethod().getType();
@@ -595,9 +603,75 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
 
         Map<String, String> additionalData = paymentsResponse.getAdditionalData();
 
-        getAdyenOrderService().updatePaymentInfo(orderModel, paymentType, additionalData);
+        // CommercePlaceOrderMethodHook.afterPlaceOrder runs inside placeOrder(). Persist the token and
+        // networkTxReference on the cart first so the PaymentInfo copied to the new order is complete
+        // when subscription activation executes. Keep the post-order update below as a defensive write
+        // for order-cloning strategies that replace PaymentInfo rather than copying its attributes.
+        storePaymentInfoOnSessionCart(paymentType, additionalData);
+
+        OrderData orderData = getCheckoutFacade().placeOrder();
+
+        OrderModel orderModel = orderRepository.getOrderModel(orderData.getCode());
+
+        // Cast so this binds to the single implemented method rather than to the deprecated OrderModel
+        // forwarder that only exists for callers compiled against the old signature.
+        getAdyenOrderService().updatePaymentInfo((AbstractOrderModel) orderModel, paymentType, additionalData);
+        announceAuthorization(orderModel, paymentsResponse);
         getAdyenOrderService().storeFraudReport(orderModel, paymentsResponse.getPspReference(), paymentsResponse.getFraudResult());
         return orderData;
+    }
+
+    /**
+     * Announces an authorization that this thread has just completed, for the listeners that act on one -
+     * subscription activation among them.
+     *
+     * <p>Here rather than off Adyen's AUTHORISATION notification because the notification loses the race: it
+     * comes back within a fraction of a second, while {@code placeOrder()} is still running, and looks the
+     * order up before it exists. This is the first moment on this path at which the order exists <em>and</em>
+     * its token is durable.</p>
+     *
+     * <p>Gated on the result code rather than on anything readable from the order, because the order cannot
+     * tell the two apart: {@code authorizePayment} routes PENDING into this same method and the authorization
+     * transaction entry it leaves behind is identical to an authorized one. The result code is the only thing
+     * here that separates a payment Adyen confirmed from one it has not, and announcing a merely pending
+     * payment would have a listener charge a shopper for a subscription the payment never funded.</p>
+     *
+     * <p>Failures are logged and swallowed. The shopper has been charged and the order placed by the time
+     * this runs, so nothing it does may turn a completed checkout into an error.</p>
+     */
+    protected void announceAuthorization(final OrderModel orderModel, final PaymentResponse paymentsResponse) {
+        if (PaymentResponse.ResultCodeEnum.AUTHORISED != paymentsResponse.getResultCode()) {
+            return;
+        }
+        try {
+            adyenPaymentAuthorizedEventPublisher.publishAuthorized(orderModel);
+        } catch (final RuntimeException e) {
+            LOGGER.error("Could not announce the authorization of order {}; anything waiting on it will not run.",
+                orderModel == null ? null : orderModel.getCode(), e);
+        }
+    }
+
+    /**
+     * The pre-place-order half of the two writes, and the optional one.
+     *
+     * <p>By the time this runs the shopper has been charged, so nothing it does may cost the order: an
+     * unusable session cart is a reason to log and carry on, never a reason to leave money taken and no
+     * order placed. The write is worth attempting all the same, because it is the only version of the
+     * PaymentInfo that the place-order hooks get to see; when it fails, the post-order write still puts the
+     * token where anything reading the finished order will look for it.</p>
+     */
+    protected void storePaymentInfoOnSessionCart(final String paymentType, final Map<String, String> additionalData) {
+        try {
+            final CartModel cartModel = getCartService().getSessionCart();
+            if (cartModel == null) {
+                LOGGER.warn("No session cart to store the Adyen payment info on before placing the order");
+                return;
+            }
+            getAdyenOrderService().updatePaymentInfo(cartModel, paymentType, additionalData);
+        } catch (RuntimeException e) {
+            LOGGER.error("Failed to store the Adyen payment info on the session cart; placing the order anyway, "
+                    + "the payment behind it is already authorized", e);
+        }
     }
 
     protected OrderData placePendingOrder(String resultCode) throws InvalidCartException {
@@ -1325,6 +1399,11 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
 
     public void setAdyenOrderService(AdyenOrderService adyenOrderService) {
         this.adyenOrderService = adyenOrderService;
+    }
+
+    public void setAdyenPaymentAuthorizedEventPublisher(
+        final AdyenPaymentAuthorizedEventPublisher adyenPaymentAuthorizedEventPublisher) {
+        this.adyenPaymentAuthorizedEventPublisher = adyenPaymentAuthorizedEventPublisher;
     }
 
     public CheckoutCustomerStrategy getCheckoutCustomerStrategy() {

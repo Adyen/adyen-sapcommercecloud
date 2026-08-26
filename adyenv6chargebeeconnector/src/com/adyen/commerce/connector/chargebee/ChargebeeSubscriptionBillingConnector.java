@@ -20,10 +20,37 @@
  */
 package com.adyen.commerce.connector.chargebee;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.Instant;
+import java.util.Base64;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+import org.apache.commons.lang3.StringUtils;
+
 import com.adyen.commerce.connector.chargebee.client.ChargebeeApiClient;
 import com.adyen.commerce.connector.chargebee.client.ChargebeeSubscriptionParams;
 import com.adyen.commerce.connector.chargebee.config.ChargebeeConfigService;
 import com.adyen.commerce.connector.chargebee.plan.ChargebeePlanResolver;
+import com.adyen.commerce.connector.dto.AdyenTokenHandle;
+import com.adyen.commerce.connector.dto.BillingCustomerRef;
+import com.adyen.commerce.connector.dto.BillingEventType;
+import com.adyen.commerce.connector.dto.BillingPaymentMethodRef;
+import com.adyen.commerce.connector.dto.BillingSubscriptionRef;
+import com.adyen.commerce.connector.dto.ConnectorCapabilities;
+import com.adyen.commerce.connector.dto.CustomerSyncRequest;
+import com.adyen.commerce.connector.dto.NormalizedBillingEvent;
+import com.adyen.commerce.connector.dto.NormalizedSubscription;
+import com.adyen.commerce.connector.dto.PlanRef;
+import com.adyen.commerce.connector.dto.PlanResolutionRequest;
+import com.adyen.commerce.connector.dto.RawWebhook;
+import com.adyen.commerce.connector.dto.SubscriptionCancelRequest;
+import com.adyen.commerce.connector.dto.SubscriptionCreateRequest;
+import com.adyen.commerce.connector.dto.SubscriptionUpdateRequest;
+import com.adyen.commerce.connector.dto.TokenImportRequest;
+import com.adyen.commerce.connector.dto.TokenImportStyle;
 import com.adyen.commerce.connector.dto.*;
 import com.adyen.commerce.connector.enums.BillingPlatform;
 import com.adyen.commerce.connector.exception.BillingException;
@@ -49,7 +76,8 @@ import java.util.Map;
  * recurring payments, Chargebee only orchestrates the billing.
  *
  * <p>This first cut covers the outbound lifecycle (customer, token import, plan resolution,
- * subscription create/update/cancel) plus inbound webhook verification/normalization.
+ * subscription create/update/cancel), the authoritative read used by reconciliation, plus inbound
+ * webhook verification/normalization.
  * Pause is not supported ({@code supportsPause=false}, SPI default rejects it).</p>
  */
 public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillingConnector
@@ -194,6 +222,13 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 				+ "start_epoch_seconds={} payment_source_id={}", elapsedMillis(startedAt), subscriptionId,
 				itemPriceId(request.plan()), request.quantity(), startEpochSeconds, request.paymentMethod().externalId());
 		return new BillingSubscriptionRef(BillingPlatform.CHARGEBEE, subscriptionId);
+	}
+
+	@Override
+	public NormalizedSubscription fetchSubscription(final BillingSubscriptionRef subscription) throws BillingException
+	{
+		verifyChargebeeSubscription(subscription);
+		return apiClient.fetchSubscription(subscription.externalId());
 	}
 
 	@Override
@@ -466,6 +501,25 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 					+ "token_merchant_account={}", configured, token.merchantAccount());
 			throw new PreconditionFailedException("Chargebee connector is bound to Adyen merchant account '" + configured
 					+ "' but the token was minted under '" + token.merchantAccount() + "'");
+		}
+	}
+
+	/**
+	 * Reconciliation resolves the connector from the stored reference's own platform, so a mismatch here means
+	 * the caller built the reference by hand. Refuse it instead of sending another platform's id to Chargebee,
+	 * where it would either 404 or — worse, ids being caller-chosen here — hit an unrelated subscription.
+	 */
+	protected void verifyChargebeeSubscription(final BillingSubscriptionRef subscription)
+			throws PreconditionFailedException
+	{
+		if (subscription == null)
+		{
+			throw new PreconditionFailedException("Cannot fetch a null subscription reference");
+		}
+		if (subscription.platform() != BillingPlatform.CHARGEBEE)
+		{
+			throw new PreconditionFailedException("Cannot fetch a " + subscription.platform()
+					+ " subscription reference using the Chargebee connector");
 		}
 	}
 

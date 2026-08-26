@@ -1,5 +1,29 @@
 package com.adyen.commerce.connector.recurly;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.commons.lang3.StringUtils;
+
+import com.adyen.commerce.connector.dto.AdyenTokenHandle;
+import com.adyen.commerce.connector.dto.BillingCustomerRef;
+import com.adyen.commerce.connector.dto.BillingPaymentMethodRef;
+import com.adyen.commerce.connector.dto.BillingSubscriptionRef;
+import com.adyen.commerce.connector.dto.ConnectorCapabilities;
+import com.adyen.commerce.connector.dto.CustomerSyncRequest;
+import com.adyen.commerce.connector.dto.NormalizedBillingEvent;
+import com.adyen.commerce.connector.dto.NormalizedSubscription;
+import com.adyen.commerce.connector.dto.PlanRef;
+import com.adyen.commerce.connector.dto.PlanResolutionRequest;
+import com.adyen.commerce.connector.dto.RawWebhook;
+import com.adyen.commerce.connector.dto.RecurringProcessingModel;
+import com.adyen.commerce.connector.dto.SubscriptionCancelRequest;
+import com.adyen.commerce.connector.dto.SubscriptionCreateRequest;
+import com.adyen.commerce.connector.dto.SubscriptionUpdateRequest;
+import com.adyen.commerce.connector.dto.TokenImportRequest;
+import com.adyen.commerce.connector.dto.TokenImportStyle;
 import com.adyen.commerce.connector.dto.*;
 import com.adyen.commerce.connector.enums.BillingPlatform;
 import com.adyen.commerce.connector.exception.BillingException;
@@ -188,6 +212,13 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
     }
 
     @Override
+    public NormalizedSubscription fetchSubscription(final BillingSubscriptionRef subscription)
+            throws BillingException {
+        verifyRecurlySubscription(subscription);
+        return apiClient.fetchSubscription(subscription.externalId());
+    }
+
+    @Override
     public void updateSubscription(final SubscriptionUpdateRequest request) throws BillingException {
         final long startedAt = System.nanoTime();
         final String planCode = request.plan() == null ? null : planCode(request.plan());
@@ -229,9 +260,10 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
      * The core issues one idempotency key per subscription (the order code) and replays it for the whole
      * lifecycle, so create, update and cancel would otherwise arrive at Recurly under the same key.
      * Recurly answers a repeated key with the <em>first</em> response it recorded, which would let a
-     * cancel be acknowledged with the stored 201 from the create — the local status would flip to
-     * CANCELLED while Recurly kept billing. Namespacing by operation keeps each one independently
-     * idempotent under retry while making them distinct from each other.
+     * cancel be acknowledged with the stored 201 from the create — the caller would take the cancellation
+     * for done while Recurly kept billing, and the next reconciliation would read the subscription back as
+     * still serving. Namespacing by operation keeps each one independently idempotent under retry while
+     * making them distinct from each other.
      */
     protected static String operationKey(final String idempotencyKey, final String operation) {
         return StringUtils.isBlank(idempotencyKey) ? null : idempotencyKey + "/" + operation;
@@ -299,6 +331,17 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
                             + "received_platform={}", customer.platform());
             throw new PreconditionFailedException("Cannot import an Adyen token into a " + customer.platform()
                     + " customer reference using the Recurly connector");
+        }
+    }
+
+    protected void verifyRecurlySubscription(final BillingSubscriptionRef subscription)
+            throws PreconditionFailedException {
+        if (subscription == null) {
+            throw new PreconditionFailedException("Cannot fetch a null subscription reference");
+        }
+        if (subscription.platform() != BillingPlatform.RECURLY) {
+            throw new PreconditionFailedException("Cannot fetch a " + subscription.platform()
+                    + " subscription reference using the Recurly connector");
         }
     }
 

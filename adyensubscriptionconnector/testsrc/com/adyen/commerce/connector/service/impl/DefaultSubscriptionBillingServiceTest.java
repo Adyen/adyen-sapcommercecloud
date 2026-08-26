@@ -28,6 +28,8 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isA;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -54,15 +56,18 @@ import com.adyen.commerce.connector.dto.BillingPaymentMethodRef;
 import com.adyen.commerce.connector.dto.BillingSubscriptionRef;
 import com.adyen.commerce.connector.dto.CancelReason;
 import com.adyen.commerce.connector.dto.ConnectorCapabilities;
+import com.adyen.commerce.connector.dto.NormalizedSubscriptionStatus;
 import com.adyen.commerce.connector.dto.PlanRef;
 import com.adyen.commerce.connector.dto.TokenImportStyle;
 import com.adyen.commerce.connector.dto.TokenImportRequest;
 import com.adyen.commerce.connector.enums.BillingPlatform;
 import com.adyen.commerce.connector.event.SubscriptionActivatedEvent;
+import com.adyen.commerce.connector.exception.BillingException;
 import com.adyen.commerce.connector.exception.PreconditionFailedException;
 import com.adyen.commerce.connector.model.BillingCustomerRefModel;
 import com.adyen.commerce.connector.model.BillingPaymentMethodRefModel;
 import com.adyen.commerce.connector.model.BillingSubscriptionRefModel;
+import com.adyen.commerce.connector.reconciliation.SubscriptionReconciliationService;
 import com.adyen.commerce.connector.registry.SubscriptionBillingConnectorRegistry;
 import com.adyen.commerce.connector.spi.SubscriptionBillingConnector;
 import com.adyen.commerce.connector.token.AdyenTokenHandleFactory;
@@ -79,6 +84,7 @@ import de.hybris.platform.core.model.user.CustomerModel;
 import de.hybris.platform.core.model.user.AddressModel;
 import de.hybris.platform.core.model.user.UserModel;
 import de.hybris.platform.servicelayer.event.EventService;
+import de.hybris.platform.servicelayer.exceptions.ModelSavingException;
 import de.hybris.platform.servicelayer.model.ModelService;
 import de.hybris.platform.servicelayer.search.FlexibleSearchQuery;
 import de.hybris.platform.servicelayer.search.FlexibleSearchService;
@@ -104,6 +110,8 @@ public class DefaultSubscriptionBillingServiceTest
 	private FlexibleSearchService flexibleSearchService;
 	@Mock
 	private EventService eventService;
+	@Mock
+	private SubscriptionReconciliationService reconciliationService;
 	@Mock
 	private SubscriptionBillingConnector connector;
 	@Mock
@@ -135,6 +143,7 @@ public class DefaultSubscriptionBillingServiceTest
 		service.setModelService(modelService);
 		service.setFlexibleSearchService(flexibleSearchService);
 		service.setEventService(eventService);
+		service.setReconciliationService(reconciliationService);
 		service.setClock(Clock.fixed(Instant.parse("2026-06-25T10:00:00Z"), ZoneOffset.UTC));
 
 		when(order.getStore()).thenReturn(store);
@@ -188,6 +197,7 @@ public class DefaultSubscriptionBillingServiceTest
 
 		verify(result).setExternalSubscriptionId("sub-ext");
 		verify(modelService).save(result);
+		verify(reconciliationService, never()).reconcile(any());
 		verify(eventService).publishEvent(any(SubscriptionActivatedEvent.class));
 	}
 
@@ -242,6 +252,49 @@ public class DefaultSubscriptionBillingServiceTest
 		verify(connector, never()).createSubscription(any());
 	}
 
+	/**
+	 * The idempotency check is a read followed by a write with no lock in between, and Adyen sends one
+	 * notification per payment leg, so two activations of one order really do overlap. The loser is not a
+	 * failure to report: both sent the same idempotency key, so the platform returned one subscription to
+	 * both, and the winner's reference is the right answer to the question the caller asked.
+	 */
+	@Test
+	public void shouldReturnTheWinnersRefWhenTheIdempotencyRaceIsLost() throws Exception
+	{
+		final BillingSubscriptionRefModel winner = mock(BillingSubscriptionRefModel.class);
+		// Missing on the way in, present by the time the unique index rejects our own insert.
+		when(searchResult.getResult()).thenReturn(List.of(), List.of(winner));
+		doThrow(new ModelSavingException("unique index violated")).when(modelService)
+				.save(isA(BillingSubscriptionRefModel.class));
+
+		final BillingSubscriptionRefModel result = service.activateSubscription(order, subProduct);
+
+		assertSame(winner, result);
+		// The winner already published it; publishing again would double-count the activation.
+		verify(eventService, never()).publishEvent(any(SubscriptionActivatedEvent.class));
+	}
+
+	/**
+	 * A save that fails for any other reason has to stay a failure — reporting success would claim an
+	 * activation that left no local record of itself.
+	 */
+	@Test
+	public void shouldPropagateASaveFailureThatIsNotTheRace() throws Exception
+	{
+		when(searchResult.getResult()).thenReturn(List.of());
+		doThrow(new ModelSavingException("the database is gone")).when(modelService)
+				.save(isA(BillingSubscriptionRefModel.class));
+
+		assertThrows(ModelSavingException.class, () -> service.activateSubscription(order, subProduct));
+	}
+
+	@Test
+	public void shouldKeyTheRemoteCallOnTheOrderCode() throws Exception
+	{
+		assertEquals(order.getCode(), service.idempotencyKeyFor(order));
+		assertNull(service.idempotencyKeyFor(null));
+	}
+
 	@Test
 	public void shouldRejectActivationWhenOrderNotOwnedByCustomer()
 	{
@@ -260,6 +313,79 @@ public class DefaultSubscriptionBillingServiceTest
 	public void shouldRejectCancelOfNullSubscription()
 	{
 		assertThrows(PreconditionFailedException.class, () -> service.cancel(null, CancelReason.OTHER));
+	}
+
+	/**
+	 * The projection the sweep and the webhooks later promote. Asserted against the enum rather than the
+	 * literal so a rename of the normalized vocabulary cannot leave this one writer behind.
+	 */
+	@Test
+	public void shouldProjectTheNormalizedPendingStatusOnActivation() throws Exception
+	{
+		final BillingSubscriptionRefModel result = service.activateSubscription(order, subProduct);
+
+		verify(result).setStatus(NormalizedSubscriptionStatus.PENDING.name());
+	}
+
+	@Test
+	public void shouldReconcileAfterASuccessfulCancelWithoutFlaggingForTheSweep() throws Exception
+	{
+		final BillingSubscriptionRefModel subscription = cancellableSubscription();
+
+		service.cancel(subscription, CancelReason.OTHER);
+
+		verify(reconciliationService).reconcile(subscription);
+		verify(subscription, never()).setLastSyncedAt(null);
+		verify(modelService, never()).save(subscription);
+	}
+
+	@Test
+	public void shouldNotReportAFailedCancelWhenTheFollowUpReadFails() throws Exception
+	{
+		final BillingSubscriptionRefModel subscription = cancellableSubscription();
+		when(reconciliationService.reconcile(subscription)).thenThrow(new BillingException("platform read timed out"));
+
+		service.cancel(subscription, CancelReason.OTHER);
+
+		verify(connector).cancelSubscription(any());
+		verify(subscription).setLastSyncedAt(null);
+		verify(modelService).save(subscription);
+	}
+
+	/**
+	 * The cancellation already happened on the platform, so an unchecked failure on the way back — a save
+	 * that blows up, an NPE out of a half-wired reconciliation bean — describes a stale local projection
+	 * and not a live subscription. A caller told the cancel failed retries something that is already done.
+	 */
+	@Test
+	public void shouldNotReportAFailedCancelWhenTheFollowUpReadThrowsUnchecked() throws Exception
+	{
+		final BillingSubscriptionRefModel subscription = cancellableSubscription();
+		when(reconciliationService.reconcile(subscription))
+				.thenThrow(new ModelSavingException("could not persist the reconciled state"));
+
+		service.cancel(subscription, CancelReason.OTHER);
+
+		verify(connector).cancelSubscription(any());
+		verify(subscription).setLastSyncedAt(null);
+		verify(modelService).save(subscription);
+	}
+
+	/**
+	 * Clearing the watermark is an optimisation, not the recovery: the sweep revisits anything past its
+	 * staleness window regardless. Losing that write must not undo the point of catching in the first place.
+	 */
+	@Test
+	public void shouldNotReportAFailedCancelWhenFlaggingForTheSweepAlsoFails() throws Exception
+	{
+		final BillingSubscriptionRefModel subscription = cancellableSubscription();
+		when(reconciliationService.reconcile(subscription))
+				.thenThrow(new IllegalStateException("no connector configured for this store"));
+		doThrow(new ModelSavingException("the database is gone")).when(modelService).save(subscription);
+
+		service.cancel(subscription, CancelReason.OTHER);
+
+		verify(modelService).save(subscription);
 	}
 
 	@Test
@@ -311,6 +437,15 @@ public class DefaultSubscriptionBillingServiceTest
 		when(order.getDeliveryAddress()).thenReturn(null);
 
 		assertNull(service.buildBillingAddress(order));
+	}
+
+	private BillingSubscriptionRefModel cancellableSubscription() throws Exception
+	{
+		final BillingSubscriptionRefModel subscription = mock(BillingSubscriptionRefModel.class);
+		when(subscription.getPlatform()).thenReturn(BillingPlatform.CHARGEBEE);
+		when(subscription.getExternalSubscriptionId()).thenReturn("sub-ext");
+		when(connectorRegistry.getConnector(BillingPlatform.CHARGEBEE)).thenReturn(connector);
+		return subscription;
 	}
 
 	private static AddressModel address(final String first, final String last, final String town, final String postal)
