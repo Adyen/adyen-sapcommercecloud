@@ -11,9 +11,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-
 @ControllerAdvice
 public class AdyenControllerExceptionHandler {
     private static final Logger LOG = Logger.getLogger(AdyenControllerExceptionHandler.class);
