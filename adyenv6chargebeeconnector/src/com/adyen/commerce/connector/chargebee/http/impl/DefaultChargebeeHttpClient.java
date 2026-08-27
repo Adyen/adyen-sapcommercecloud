@@ -22,6 +22,7 @@ package com.adyen.commerce.connector.chargebee.http.impl;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
@@ -37,11 +38,15 @@ import org.apache.hc.core5.http.HttpHeaders;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.apache.hc.core5.util.Timeout;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.adyen.commerce.connector.chargebee.config.ChargebeeConfigService;
 import com.adyen.commerce.connector.chargebee.http.ChargebeeHttpClient;
 import com.adyen.commerce.connector.chargebee.http.ChargebeeHttpResponse;
+import com.adyen.commerce.connector.enums.BillingPlatform;
 import com.adyen.commerce.connector.exception.RetryableBillingException;
+import com.adyen.commerce.connector.log.ConnectorLogEvent;
 
 /**
  * httpclient5-based transport (reuses the client jar provided by adyenv6core). IOExceptions are
@@ -49,6 +54,10 @@ import com.adyen.commerce.connector.exception.RetryableBillingException;
  */
 public class DefaultChargebeeHttpClient implements ChargebeeHttpClient
 {
+	private static final Logger LOG = LoggerFactory.getLogger(DefaultChargebeeHttpClient.class);
+	private static final String EVENT_CONNECTOR_CALL = "connector_call";
+	private static final String IDEMPOTENCY_KEY_HEADER = "chargebee-idempotency-key";
+
 	private volatile CloseableHttpClient httpClient;
 	private ChargebeeConfigService configService;
 
@@ -63,7 +72,7 @@ public class DefaultChargebeeHttpClient implements ChargebeeHttpClient
 		post.setEntity(new StringEntity(formBody == null ? "" : formBody, FORM_UTF8));
 		if (StringUtils.isNotBlank(idempotencyKey))
 		{
-			post.setHeader("chargebee-idempotency-key", idempotencyKey);
+			post.setHeader(IDEMPOTENCY_KEY_HEADER, idempotencyKey);
 		}
 		return execute(post, url, authorizationHeader);
 	}
@@ -79,18 +88,58 @@ public class DefaultChargebeeHttpClient implements ChargebeeHttpClient
 	{
 		request.setHeader(HttpHeaders.AUTHORIZATION, authorizationHeader);
 		request.setHeader(HttpHeaders.ACCEPT, "application/json");
+		final long startedAt = System.nanoTime();
 		try
 		{
-			return getHttpClient().execute(request, response -> {
+			final ChargebeeHttpResponse result = getHttpClient().execute(request, response -> {
 				final String body = response.getEntity() == null ? ""
 						: EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
 				return new ChargebeeHttpResponse(response.getCode(), body);
 			});
+			// No retryable= here: whether this call will be retried is decided one layer up, by the API
+			// client, on the status *and* the vendor error code. A second opinion formed from the status
+			// alone would contradict it on exactly the interesting case (409 invalid_state_for_request).
+			transportEvent(request)
+					.outcome(result.isSuccess()
+							? ConnectorLogEvent.OUTCOME_SUCCESS
+							: ConnectorLogEvent.OUTCOME_FAILURE)
+					.durationSince(startedAt)
+					.field("http_status", Integer.valueOf(result.statusCode()))
+					.field("error_class", ConnectorLogEvent.httpErrorClass(result.statusCode()))
+					.log(LOG, !result.isSuccess());
+			return result;
 		}
 		catch (final IOException e)
 		{
-			throw new RetryableBillingException("Chargebee HTTP call to " + url + " failed: " + e.getMessage(), e);
+			transportEvent(request)
+					.outcome(ConnectorLogEvent.OUTCOME_FAILURE)
+					.durationSince(startedAt)
+					.field("error_class", classifyException(e))
+					.field("exception_class", e.getClass().getName())
+					.warn(LOG);
+			throw new RetryableBillingException("Chargebee HTTP call to " + url + " failed", e);
 		}
+	}
+
+	/**
+	 * The transport deliberately does not name the business operation: it cannot know one, and the
+	 * surrounding {@code ConnectorLogContext} scope already supplies it. Earlier this was inferred from
+	 * the URL shape, which is a guess that is usually right - and nothing downstream can tell those apart
+	 * from the times it is wrong.
+	 */
+	private ConnectorLogEvent transportEvent(final HttpUriRequestBase request)
+	{
+		return ConnectorLogEvent.of(EVENT_CONNECTOR_CALL)
+				.platform(BillingPlatform.CHARGEBEE)
+				.field("method", request.getMethod())
+				.field("idempotency_key_present",
+						Boolean.valueOf(request.containsHeader(IDEMPOTENCY_KEY_HEADER)));
+	}
+
+	private static String classifyException(final IOException error)
+	{
+		return error.getClass().getSimpleName().toLowerCase(Locale.ROOT).contains("timeout")
+				? "timeout" : "connection";
 	}
 
 	protected CloseableHttpClient getHttpClient()

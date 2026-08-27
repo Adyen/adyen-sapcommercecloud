@@ -2,6 +2,7 @@ package com.adyen.commerce.connector.recurly.http.impl;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hc.client5.http.classic.methods.HttpDelete;
@@ -20,8 +21,12 @@ import org.apache.hc.core5.http.HttpHeaders;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.apache.hc.core5.util.Timeout;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import com.adyen.commerce.connector.enums.BillingPlatform;
 import com.adyen.commerce.connector.exception.RetryableBillingException;
+import com.adyen.commerce.connector.log.ConnectorLogEvent;
 import com.adyen.commerce.connector.recurly.config.RecurlyConfigService;
 import com.adyen.commerce.connector.recurly.http.RecurlyHttpClient;
 import com.adyen.commerce.connector.recurly.http.RecurlyHttpResponse;
@@ -31,6 +36,8 @@ import com.adyen.commerce.connector.recurly.http.RecurlyHttpResponse;
  * {@link RetryableBillingException}.
  */
 public class DefaultRecurlyHttpClient implements RecurlyHttpClient {
+    private static final Logger LOG = LoggerFactory.getLogger(DefaultRecurlyHttpClient.class);
+    private static final String EVENT_CONNECTOR_CALL = "connector_call";
     private static final String IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
 
     private volatile CloseableHttpClient httpClient;
@@ -90,17 +97,54 @@ public class DefaultRecurlyHttpClient implements RecurlyHttpClient {
         if (StringUtils.isNotBlank(idempotencyKey)) {
             request.setHeader(IDEMPOTENCY_KEY_HEADER, idempotencyKey);
         }
+        final long startedAt = System.nanoTime();
         try {
-            return getHttpClient().execute(request, response ->
+            final RecurlyHttpResponse result = getHttpClient().execute(request, response ->
             {
                 final String body = response.getEntity() == null
                         ? ""
                         : EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
                 return new RecurlyHttpResponse(response.getCode(), body);
             });
+            // No retryable= here: whether this call will be retried is decided one layer up, by the API
+            // client, on the status *and* the vendor error code. A second opinion formed from the status
+            // alone would contradict it on exactly the interesting cases.
+            transportEvent(request, idempotencyKey)
+                    .outcome(result.isSuccess()
+                            ? ConnectorLogEvent.OUTCOME_SUCCESS
+                            : ConnectorLogEvent.OUTCOME_FAILURE)
+                    .durationSince(startedAt)
+                    .field("http_status", Integer.valueOf(result.statusCode()))
+                    .field("error_class", ConnectorLogEvent.httpErrorClass(result.statusCode()))
+                    .log(LOG, !result.isSuccess());
+            return result;
         } catch (final IOException e) {
-            throw new RetryableBillingException("Recurly HTTP call to " + url + " failed: " + e.getMessage(), e);
+            transportEvent(request, idempotencyKey)
+                    .outcome(ConnectorLogEvent.OUTCOME_FAILURE)
+                    .durationSince(startedAt)
+                    .field("error_class", classifyException(e))
+                    .field("exception_class", e.getClass().getName())
+                    .warn(LOG);
+            throw new RetryableBillingException("Recurly HTTP call to " + url + " failed", e);
         }
+    }
+
+    /**
+     * The transport deliberately does not name the business operation: it cannot know one, and the
+     * surrounding {@code ConnectorLogContext} scope already supplies it. Earlier this was inferred from
+     * the URL shape, which mislabelled a billing-info read as a token import and swept every unmatched
+     * subscription path into {@code cancel_subscription}.
+     */
+    private ConnectorLogEvent transportEvent(final HttpUriRequestBase request, final String idempotencyKey) {
+        return ConnectorLogEvent.of(EVENT_CONNECTOR_CALL)
+                .platform(BillingPlatform.RECURLY)
+                .field("method", request.getMethod())
+                .field("idempotency_key_present", Boolean.valueOf(StringUtils.isNotBlank(idempotencyKey)));
+    }
+
+    private static String classifyException(final IOException error) {
+        final String type = error.getClass().getSimpleName().toLowerCase(Locale.ROOT);
+        return type.contains("timeout") ? "timeout" : "connection";
     }
 
     protected CloseableHttpClient getHttpClient() {

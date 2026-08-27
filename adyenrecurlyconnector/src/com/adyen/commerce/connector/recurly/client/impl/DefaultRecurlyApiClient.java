@@ -19,18 +19,21 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-import com.adyen.commerce.connector.dto.NormalizedSubscription;
-import com.adyen.commerce.connector.dto.NormalizedSubscriptionStatus;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.adyen.commerce.connector.dto.BillingAddress;
 import com.adyen.commerce.connector.dto.BillingSubscriptionRef;
 import com.adyen.commerce.connector.dto.CardMetadata;
+import com.adyen.commerce.connector.dto.NormalizedSubscription;
+import com.adyen.commerce.connector.dto.NormalizedSubscriptionStatus;
 import com.adyen.commerce.connector.enums.BillingPlatform;
 import com.adyen.commerce.connector.exception.BillingException;
 import com.adyen.commerce.connector.exception.PreconditionFailedException;
 import com.adyen.commerce.connector.exception.RetryableBillingException;
 import com.adyen.commerce.connector.exception.TerminalBillingException;
+import com.adyen.commerce.connector.log.ConnectorLogEvent;
 import com.adyen.commerce.connector.recurly.client.RecurlyApiClient;
 import com.adyen.commerce.connector.recurly.client.RecurlySubscriptionParams;
 import com.adyen.commerce.connector.recurly.config.RecurlyConfigService;
@@ -55,6 +58,8 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
      */
     protected static final String STATE_CANCELED = "canceled";
 
+    private static final Logger LOG = LoggerFactory.getLogger(DefaultRecurlyApiClient.class);
+    private static final String EVENT_VENDOR_API_ERROR = "vendor_api_error";
     private static final int HTTP_TOO_MANY_REQUESTS = 429;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -452,30 +457,75 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
         }
     }
 
+    /**
+     * Builds - never throws. Nothing in here may fail: it runs on the path that is already handling a
+     * failure, and an exception raised while classifying one would replace the HTTP status and the
+     * vendor's own explanation with an unrelated message, and lose the retryable/terminal decision the
+     * core's retry policy is about to read.
+     */
     protected BillingException toBillingException(final RecurlyHttpResponse response, final String action) {
         final String detail = extractError(response.body());
         final String message = "Recurly " + action + " failed (HTTP " + response.statusCode() + ")"
                 + (detail == null ? "" : ": " + detail);
-        if (response.statusCode() == HTTP_CLIENT_TIMEOUT || response.statusCode() == HTTP_CONFLICT
+        final boolean retryable = response.statusCode() == HTTP_CLIENT_TIMEOUT || response.statusCode() == HTTP_CONFLICT
                 || response.statusCode() == HTTP_TOO_MANY_REQUESTS || response.statusCode() >= HTTP_INTERNAL_ERROR
-                || StringUtils.containsIgnoreCase(detail, "simultaneous_request")) {
+                || StringUtils.containsIgnoreCase(detail, "simultaneous_request");
+        // The vendor's error code only. The prose that comes with it can echo submitted values back, so
+        // it stays in the exception - which travels to the dead letter - and out of the log line.
+        ConnectorLogEvent.of(EVENT_VENDOR_API_ERROR)
+                .platform(BillingPlatform.RECURLY)
+                .outcome(ConnectorLogEvent.OUTCOME_FAILURE)
+                .field("vendor_action", action.replace(' ', '_'))
+                .field("http_status", Integer.valueOf(response.statusCode()))
+                .field("error_class", ConnectorLogEvent.httpErrorClass(response.statusCode()))
+                .field("vendor_error_code", errorCode(response.body()))
+                .field("retryable", Boolean.valueOf(retryable))
+                .warn(LOG);
+        if (retryable) {
             return new RetryableBillingException(message);
         }
         return new TerminalBillingException(message);
     }
 
+    /**
+     * The error as a human reads it: {@code [type] message}. The message is the only part that says
+     * <em>which</em> field or value Recurly refused, so dropping it leaves a bare code that cannot be
+     * acted on without reproducing the call.
+     */
     protected String extractError(final String body) {
+        final JsonNode node = readErrorTree(body);
+        if (node == null) {
+            return null;
+        }
+        final String message = node.path("message").asText(node.path("error").path("message").asText(null));
+        final String type = errorType(node);
+        if (message == null && type == null) {
+            return null;
+        }
+        return (type == null ? "" : "[" + type + "] ") + StringUtils.defaultString(message);
+    }
+
+    /**
+     * Just the machine-readable error type, for log labels: bounded cardinality and no shopper data.
+     */
+    protected String errorCode(final String body) {
+        final JsonNode node = readErrorTree(body);
+        return node == null ? null : errorType(node);
+    }
+
+    /**
+     * Recurly returns some errors at the top level and wraps others in {@code error}.
+     */
+    protected static String errorType(final JsonNode node) {
+        return node.path("type").asText(node.path("error").path("type").asText(null));
+    }
+
+    protected JsonNode readErrorTree(final String body) {
         if (StringUtils.isBlank(body)) {
             return null;
         }
         try {
-            final JsonNode node = objectMapper.readTree(body);
-            final String message = node.path("message").asText(node.path("error").path("message").asText(null));
-            final String type = node.path("type").asText(node.path("error").path("type").asText(null));
-            if (message == null && type == null) {
-                return null;
-            }
-            return (type == null ? "" : "[" + type + "] ") + StringUtils.defaultString(message);
+            return objectMapper.readTree(body);
         } catch (final IOException e) {
             return null;
         }
@@ -502,7 +552,7 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
         try {
             return readSubscriptionId(objectMapper.readTree(body));
         } catch (final IOException e) {
-            throw new TerminalBillingException("Malformed Recurly response: " + e.getMessage());
+            throw new TerminalBillingException("Malformed Recurly response", e);
         }
     }
 
@@ -647,7 +697,7 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
         try {
             return objectMapper.readTree(body);
         } catch (final IOException e) {
-            throw new TerminalBillingException("Malformed Recurly " + resource + " response: " + e.getMessage());
+            throw new TerminalBillingException("Malformed Recurly " + resource + " response", e);
         }
     }
 
@@ -700,5 +750,4 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
         return prefix + "/" + UUID.nameUUIDFromBytes(
                 StringUtils.defaultString(sensitiveValue).getBytes(StandardCharsets.UTF_8));
     }
-
 }
