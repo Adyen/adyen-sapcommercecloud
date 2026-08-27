@@ -20,10 +20,10 @@
  */
 package com.adyen.commerce.connector.chargebee.http.impl;
 
-import com.adyen.commerce.connector.chargebee.config.ChargebeeConfigService;
-import com.adyen.commerce.connector.chargebee.http.ChargebeeHttpClient;
-import com.adyen.commerce.connector.chargebee.http.ChargebeeHttpResponse;
-import com.adyen.commerce.connector.exception.RetryableBillingException;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Locale;
+
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
@@ -41,9 +41,12 @@ import org.apache.hc.core5.util.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.Locale;
+import com.adyen.commerce.connector.chargebee.config.ChargebeeConfigService;
+import com.adyen.commerce.connector.chargebee.http.ChargebeeHttpClient;
+import com.adyen.commerce.connector.chargebee.http.ChargebeeHttpResponse;
+import com.adyen.commerce.connector.enums.BillingPlatform;
+import com.adyen.commerce.connector.exception.RetryableBillingException;
+import com.adyen.commerce.connector.log.ConnectorLogEvent;
 
 /**
  * httpclient5-based transport (reuses the client jar provided by adyenv6core). IOExceptions are
@@ -52,6 +55,9 @@ import java.util.Locale;
 public class DefaultChargebeeHttpClient implements ChargebeeHttpClient
 {
 	private static final Logger LOG = LoggerFactory.getLogger(DefaultChargebeeHttpClient.class);
+	private static final String EVENT_CONNECTOR_CALL = "connector_call";
+	private static final String IDEMPOTENCY_KEY_HEADER = "chargebee-idempotency-key";
+
 	private volatile CloseableHttpClient httpClient;
 	private ChargebeeConfigService configService;
 
@@ -66,7 +72,7 @@ public class DefaultChargebeeHttpClient implements ChargebeeHttpClient
 		post.setEntity(new StringEntity(formBody == null ? "" : formBody, FORM_UTF8));
 		if (StringUtils.isNotBlank(idempotencyKey))
 		{
-			post.setHeader("chargebee-idempotency-key", idempotencyKey);
+			post.setHeader(IDEMPOTENCY_KEY_HEADER, idempotencyKey);
 		}
 		return execute(post, url, authorizationHeader);
 	}
@@ -82,8 +88,6 @@ public class DefaultChargebeeHttpClient implements ChargebeeHttpClient
 	{
 		request.setHeader(HttpHeaders.AUTHORIZATION, authorizationHeader);
 		request.setHeader(HttpHeaders.ACCEPT, "application/json");
-		final String operation = operation(request);
-		final boolean idempotent = request.containsHeader("chargebee-idempotency-key");
 		final long startedAt = System.nanoTime();
 		try
 		{
@@ -92,65 +96,50 @@ public class DefaultChargebeeHttpClient implements ChargebeeHttpClient
 						: EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
 				return new ChargebeeHttpResponse(response.getCode(), body);
 			});
-			final long durationMs = elapsedMillis(startedAt);
-			final String outcome = result.isSuccess() ? "success" : "failure";
-			final String errorClass = classifyStatus(result.statusCode());
-			final boolean retryable = result.statusCode() == 429 || result.statusCode() >= 500;
-			if (result.isSuccess())
-			{
-				LOG.info("event=connector_call platform=CHARGEBEE operation={} method={} outcome={} duration_ms={} "
-						+ "http_status={} error_class={} retryable={} idempotency_key_present={}",
-						operation, request.getMethod(), outcome, durationMs, result.statusCode(), errorClass, retryable,
-						idempotent);
-			}
-			else
-			{
-				LOG.warn("event=connector_call platform=CHARGEBEE operation={} method={} outcome={} duration_ms={} "
-						+ "http_status={} error_class={} retryable={} idempotency_key_present={}",
-						operation, request.getMethod(), outcome, durationMs, result.statusCode(), errorClass, retryable,
-						idempotent);
-			}
+			// No retryable= here: whether this call will be retried is decided one layer up, by the API
+			// client, on the status *and* the vendor error code. A second opinion formed from the status
+			// alone would contradict it on exactly the interesting case (409 invalid_state_for_request).
+			transportEvent(request)
+					.outcome(result.isSuccess()
+							? ConnectorLogEvent.OUTCOME_SUCCESS
+							: ConnectorLogEvent.OUTCOME_FAILURE)
+					.durationSince(startedAt)
+					.field("http_status", Integer.valueOf(result.statusCode()))
+					.field("error_class", ConnectorLogEvent.httpErrorClass(result.statusCode()))
+					.log(LOG, !result.isSuccess());
 			return result;
 		}
 		catch (final IOException e)
 		{
-			LOG.warn("event=connector_call platform=CHARGEBEE operation={} method={} outcome=failure duration_ms={} "
-					+ "http_status=none error_class={} exception_class={} retryable=true "
-					+ "idempotency_key_present={}", operation, request.getMethod(), elapsedMillis(startedAt),
-					classifyException(e), e.getClass().getName(), idempotent);
-			throw new RetryableBillingException("Chargebee HTTP operation '" + operation + "' failed", e);
+			transportEvent(request)
+					.outcome(ConnectorLogEvent.OUTCOME_FAILURE)
+					.durationSince(startedAt)
+					.field("error_class", classifyException(e))
+					.field("exception_class", e.getClass().getName())
+					.warn(LOG);
+			throw new RetryableBillingException("Chargebee HTTP call to " + url + " failed", e);
 		}
 	}
 
-	protected String operation(final HttpUriRequestBase request)
+	/**
+	 * The transport deliberately does not name the business operation: it cannot know one, and the
+	 * surrounding {@code ConnectorLogContext} scope already supplies it. Earlier this was inferred from
+	 * the URL shape, which is a guess that is usually right - and nothing downstream can tell those apart
+	 * from the times it is wrong.
+	 */
+	private ConnectorLogEvent transportEvent(final HttpUriRequestBase request)
 	{
-		final String path = StringUtils.defaultString(request.getPath()).toLowerCase(Locale.ROOT);
-		if (path.contains("/payment_sources/create_using_permanent_token")) return "import_token";
-		if (path.contains("/subscription_for_items")) return "create_subscription";
-		if (path.contains("/update_for_items")) return "update_subscription";
-		if (path.contains("/cancel_for_items")) return "cancel_subscription";
-		if (path.contains("/customers")) return "ensure_customer";
-		return "http_" + request.getMethod().toLowerCase(Locale.ROOT);
-	}
-
-	private static String classifyStatus(final int status)
-	{
-		if (status >= 200 && status < 300) return "none";
-		if (status == 429) return "rate_limit";
-		if (status >= 500) return "remote_5xx";
-		if (status >= 400) return "remote_4xx";
-		return "unexpected_status";
+		return ConnectorLogEvent.of(EVENT_CONNECTOR_CALL)
+				.platform(BillingPlatform.CHARGEBEE)
+				.field("method", request.getMethod())
+				.field("idempotency_key_present",
+						Boolean.valueOf(request.containsHeader(IDEMPOTENCY_KEY_HEADER)));
 	}
 
 	private static String classifyException(final IOException error)
 	{
 		return error.getClass().getSimpleName().toLowerCase(Locale.ROOT).contains("timeout")
 				? "timeout" : "connection";
-	}
-
-	private static long elapsedMillis(final long startedAt)
-	{
-		return (System.nanoTime() - startedAt) / 1_000_000L;
 	}
 
 	protected CloseableHttpClient getHttpClient()

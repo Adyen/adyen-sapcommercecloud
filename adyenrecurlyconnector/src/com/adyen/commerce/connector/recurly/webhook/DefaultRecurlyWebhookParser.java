@@ -1,21 +1,5 @@
 package com.adyen.commerce.connector.recurly.webhook;
 
-import com.adyen.commerce.connector.dto.BillingEventType;
-import com.adyen.commerce.connector.dto.NormalizedBillingEvent;
-import com.adyen.commerce.connector.dto.RawWebhook;
-import com.adyen.commerce.connector.enums.BillingPlatform;
-import com.adyen.commerce.connector.exception.BillingException;
-import com.adyen.commerce.connector.exception.TerminalBillingException;
-import com.adyen.commerce.connector.recurly.config.RecurlyConfigService;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
@@ -27,11 +11,31 @@ import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.Map;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.adyen.commerce.connector.dto.BillingEventType;
+import com.adyen.commerce.connector.dto.NormalizedBillingEvent;
+import com.adyen.commerce.connector.dto.RawWebhook;
+import com.adyen.commerce.connector.enums.BillingPlatform;
+import com.adyen.commerce.connector.exception.BillingException;
+import com.adyen.commerce.connector.exception.TerminalBillingException;
+import com.adyen.commerce.connector.log.ConnectorLogEvent;
+import com.adyen.commerce.connector.recurly.config.RecurlyConfigService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 /**
  * Verifies and normalizes Recurly's signed JSON webhook format.
  */
 public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser {
     private static final Logger LOG = LoggerFactory.getLogger(DefaultRecurlyWebhookParser.class);
+    private static final String EVENT_WEBHOOK_PROCESSING = "webhook_processing";
     private static final String SIGNATURE_HEADER = "recurly-signature";
     private static final String NOTIFICATION_ID_HEADER = "recurly-notification-id";
     private static final String HMAC_SHA_256 = "HmacSHA256";
@@ -53,12 +57,12 @@ public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser {
     public NormalizedBillingEvent parse(final RawWebhook raw) throws BillingException {
         final long startedAt = System.nanoTime();
         if (raw == null) {
-            logFailure(startedAt, "webhook_missing", "none", 0);
+            logFailure(startedAt, "webhook_missing", null, 0, false);
             throw new TerminalBillingException("Recurly webhook is missing");
         }
-        final int payloadBytes = raw.payload() == null ? 0 : raw.payload().getBytes(StandardCharsets.UTF_8).length;
+        final int payloadChars = raw.payload() == null ? 0 : raw.payload().length();
         if (StringUtils.isBlank(raw.payload())) {
-            logFailure(startedAt, "payload_missing", "none", payloadBytes);
+            logFailure(startedAt, "payload_missing", null, payloadChars, false);
             throw new TerminalBillingException("Recurly webhook payload is missing");
         }
 
@@ -66,7 +70,7 @@ public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser {
         try {
             verifySignature(signature, raw.payload());
         } catch (final BillingException e) {
-            logFailure(startedAt, signatureFailureReason(e), "none", payloadBytes);
+            logFailure(startedAt, signatureFailureReason(e), null, payloadChars, false);
             throw e;
         }
 
@@ -79,7 +83,9 @@ public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser {
             if (StringUtils.isBlank(eventTime)) {
                 // Without it there is no ordering signal, and Instant.parse(null) would throw an NPE
                 // straight through the SPI boundary, which the caller has no way to classify.
-                logFailure(startedAt, "event_time_missing", notificationId(payload, raw), payloadBytes);
+                // The signature did verify - saying otherwise here would put a malformed payload on the
+                // same alert as a forged one.
+                logFailure(startedAt, "event_time_missing", notificationId(payload, raw), payloadChars, true);
                 throw new TerminalBillingException("Recurly webhook has no event_time");
             }
             final Instant occurredAt = Instant.parse(eventTime);
@@ -96,41 +102,65 @@ public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser {
                     : null;
             final BillingEventType normalizedType = mapEvent(objectType, eventType);
             final String eventId = notificationId(payload, raw);
+            // Negative when Recurly's clock is ahead of ours; the sign is the skew signal, so it travels
+            // as the value rather than as a second derived flag.
             final long lagMs = clock.instant().toEpochMilli() - occurredAt.toEpochMilli();
-            LOG.info("event=webhook_processing platform=RECURLY operation=parse_webhook outcome={} duration_ms={} "
-                            + "error_class=none reason=none event_id={} subscription_id={} "
-                            + "vendor_event_type={} object_type={} normalized_event_type={} resource_id={} "
-                            + "webhook_lag_ms={} clock_skew={} payload_bytes={} signature_verified=true",
-                    normalizedType == BillingEventType.UNKNOWN ? "ignored" : "success", elapsedMillis(startedAt),
-                     eventId, subscriptionId, eventType, objectType, normalizedType, resourceId,
-                    lagMs, lagMs < 0L, payloadBytes);
+            webhookEvent()
+                    .outcome(normalizedType == BillingEventType.UNKNOWN
+                            ? ConnectorLogEvent.OUTCOME_IGNORED
+                            : ConnectorLogEvent.OUTCOME_SUCCESS)
+                    .durationSince(startedAt)
+                    .field("error_class", ConnectorLogEvent.ERROR_CLASS_NONE)
+                    .field("event_id", eventId)
+                    .field("subscription_id", subscriptionId)
+                    .field("vendor_event_type", eventType)
+                    .field("object_type", objectType)
+                    .field("normalized_event_type", normalizedType)
+                    .field("resource_id", resourceId)
+                    .field("webhook_lag_ms", Long.valueOf(lagMs))
+                    .field("payload_chars", Integer.valueOf(payloadChars))
+                    .field("signature_verified", Boolean.TRUE)
+                    .info(LOG);
             return new NormalizedBillingEvent(BillingPlatform.RECURLY, normalizedType, eventId, subscriptionId,
                     text(payload, "account_code"), occurredAt, attributes);
         } catch (final JsonProcessingException | DateTimeException e) {
-            logFailure(startedAt, "payload_parsing_failed", "none", payloadBytes);
+            logFailure(startedAt, "payload_parsing_failed", null, payloadChars, true);
             throw new TerminalBillingException("Malformed Recurly JSON webhook", e);
         }
     }
 
-    private void logFailure(final long startedAt, final String reason, final String eventId, final int payloadBytes) {
-        LOG.warn("event=webhook_processing platform=RECURLY operation=parse_webhook outcome=failure duration_ms={} "
-                        + "error_class=validation reason={} event_id={} payload_bytes={} "
-                        + "signature_verified=false", elapsedMillis(startedAt), reason, eventId,
-                payloadBytes);
+    private void logFailure(final long startedAt, final String reason, final String eventId, final int payloadChars,
+                            final boolean signatureVerified) {
+        webhookEvent()
+                .outcome(ConnectorLogEvent.OUTCOME_FAILURE)
+                .durationSince(startedAt)
+                .field("error_class", ConnectorLogEvent.ERROR_CLASS_VALIDATION)
+                .reason(reason)
+                .field("event_id", eventId)
+                .field("payload_chars", Integer.valueOf(payloadChars))
+                .field("signature_verified", Boolean.valueOf(signatureVerified))
+                .warn(LOG);
     }
 
+    /**
+     * Platform and operation are stated here as a fallback for a parser used on its own; when the
+     * connector's scope is open its values win and the line reads identically.
+     */
+    private ConnectorLogEvent webhookEvent() {
+        return ConnectorLogEvent.of(EVENT_WEBHOOK_PROCESSING)
+                .platform(BillingPlatform.RECURLY)
+                .operation("parse_webhook");
+    }
+
+    /**
+     * The reason is carried by the exception rather than recovered from its wording. Matching on
+     * {@code getMessage()} makes every reason label hostage to a copy edit: reword "invalid format" and
+     * the dashboard silently starts counting a different bucket.
+     */
     private static String signatureFailureReason(final BillingException error) {
-        final String message = StringUtils.defaultString(error.getMessage());
-        if (message.contains("missing")) return "signature_missing";
-        if (message.contains("timestamp") && message.contains("tolerance")) return "signature_expired";
-        if (message.contains("timestamp")) return "signature_timestamp_invalid";
-        if (message.contains("format")) return "signature_format_invalid";
-        if (message.contains("invalid")) return "signature_invalid";
-        return "signature_verification_failed";
-    }
-
-    private static long elapsedMillis(final long startedAt) {
-        return (System.nanoTime() - startedAt) / 1_000_000L;
+        return error instanceof WebhookSignatureException signatureFailure
+                ? signatureFailure.reason()
+                : "signature_verification_failed";
     }
 
     /**
@@ -145,16 +175,18 @@ public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser {
 
     protected void verifySignature(final String header, final String payload) throws BillingException {
         if (StringUtils.isBlank(header)) {
-            throw new TerminalBillingException("Recurly webhook signature is missing");
+            throw new WebhookSignatureException("signature_missing", "Recurly webhook signature is missing");
         }
         final String[] parts = header.split(",");
         if (parts.length < 2 || StringUtils.isBlank(parts[0])) {
-            throw new TerminalBillingException("Recurly webhook signature has an invalid format");
+            throw new WebhookSignatureException("signature_format_invalid",
+                    "Recurly webhook signature has an invalid format");
         }
 
         final Instant signedAt = parseTimestamp(parts[0]);
         if (Duration.between(signedAt, clock.instant()).abs().getSeconds() > configService.getWebhookToleranceSeconds()) {
-            throw new TerminalBillingException("Recurly webhook signature timestamp is outside the accepted tolerance");
+            throw new WebhookSignatureException("signature_expired",
+                    "Recurly webhook signature timestamp is outside the accepted tolerance");
         }
 
         try {
@@ -171,9 +203,10 @@ public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser {
                     // A malformed candidate does not prevent a second rotation signature from matching.
                 }
             }
-            throw new TerminalBillingException("Recurly webhook signature is invalid");
+            throw new WebhookSignatureException("signature_invalid", "Recurly webhook signature is invalid");
         } catch (final GeneralSecurityException e) {
-            throw new TerminalBillingException("Could not verify Recurly webhook signature", e);
+            throw new WebhookSignatureException("signature_verification_failed",
+                    "Could not verify Recurly webhook signature", e);
         }
     }
 
@@ -182,7 +215,33 @@ public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser {
             final long timestamp = Long.parseLong(value);
             return value.length() > 10 ? Instant.ofEpochMilli(timestamp) : Instant.ofEpochSecond(timestamp);
         } catch (final NumberFormatException | DateTimeException e) {
-            throw new TerminalBillingException("Recurly webhook signature timestamp is invalid");
+            throw new WebhookSignatureException("signature_timestamp_invalid",
+                    "Recurly webhook signature timestamp is invalid");
+        }
+    }
+
+    /**
+     * A signature rejection that names its own reason. Still a {@link TerminalBillingException}, so
+     * nothing outside this class has to know it exists - callers keep classifying it as they always did,
+     * while the observability line gets a label that survives a reworded message.
+     */
+    protected static class WebhookSignatureException extends TerminalBillingException {
+        private static final long serialVersionUID = 1L;
+
+        private final String reason;
+
+        public WebhookSignatureException(final String reason, final String message) {
+            super(message);
+            this.reason = reason;
+        }
+
+        public WebhookSignatureException(final String reason, final String message, final Throwable cause) {
+            super(message, cause);
+            this.reason = reason;
+        }
+
+        public String reason() {
+            return reason;
         }
     }
 

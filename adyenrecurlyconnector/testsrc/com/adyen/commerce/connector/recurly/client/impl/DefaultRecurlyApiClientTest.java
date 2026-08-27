@@ -29,6 +29,8 @@ import com.adyen.commerce.connector.dto.BillingAddress;
 import com.adyen.commerce.connector.dto.CardMetadata;
 import com.adyen.commerce.connector.dto.NormalizedSubscription;
 import com.adyen.commerce.connector.dto.NormalizedSubscriptionStatus;
+import com.adyen.commerce.connector.exception.BillingException;
+import com.adyen.commerce.connector.exception.RetryableBillingException;
 import com.adyen.commerce.connector.exception.TerminalBillingException;
 import com.adyen.commerce.connector.recurly.client.RecurlySubscriptionParams;
 import com.adyen.commerce.connector.recurly.config.RecurlyConfigService;
@@ -567,6 +569,70 @@ public class DefaultRecurlyApiClientTest
         // it; guessing EXPIRED would take it out of the sweep for good.
         assertEquals(NormalizedSubscriptionStatus.UNKNOWN, client.mapStatus("a_state_we_do_not_know"));
         assertEquals(NormalizedSubscriptionStatus.UNKNOWN, client.mapStatus(null));
+    }
+
+    /**
+     * The error path had no coverage at all, which is how a throwing call could be added to the middle
+     * of the exception factory without anything going red. These four pin the contract the core's retry
+     * policy reads: a failed call produces a classified exception carrying the status and the vendor's
+     * explanation - never an exception about the response not looking like a subscription.
+     */
+    @Test
+    public void rateLimitBecomesRetryable() throws Exception
+    {
+        when(httpClient.get(BASE + "/accounts/code-customer", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(429, "{\"error\":{\"type\":\"rate_limited\","
+                        + "\"message\":\"You have exceeded the rate limit\"}}"));
+
+        final BillingException thrown = assertThrows(BillingException.class,
+                () -> client.ensureCustomer("customer", null, null, null));
+
+        assertTrue(thrown instanceof RetryableBillingException);
+        assertTrue(thrown.isRetryable());
+        assertTrue(thrown.getMessage().contains("429"));
+        assertTrue(thrown.getMessage().contains("rate_limited"));
+    }
+
+    @Test
+    public void serverErrorBecomesRetryableEvenWithAnEmptyBody() throws Exception
+    {
+        when(httpClient.get(BASE + "/accounts/code-customer", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(503, ""));
+
+        final BillingException thrown = assertThrows(BillingException.class,
+                () -> client.ensureCustomer("customer", null, null, null));
+
+        assertTrue(thrown.isRetryable());
+        assertTrue(thrown.getMessage().contains("503"));
+    }
+
+    @Test
+    public void unprocessableRequestStaysTerminalAndKeepsTheVendorExplanation() throws Exception
+    {
+        when(httpClient.get(BASE + "/accounts/code-customer", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(422, "{\"error\":{\"type\":\"validation\","
+                        + "\"message\":\"email is invalid\"}}"));
+
+        final BillingException thrown = assertThrows(BillingException.class,
+                () -> client.ensureCustomer("customer", null, null, null));
+
+        assertTrue(thrown instanceof TerminalBillingException);
+        assertFalse(thrown.isRetryable());
+        // The code alone would not say which field Recurly refused.
+        assertTrue(thrown.getMessage().contains("[validation] email is invalid"));
+    }
+
+    @Test
+    public void aNonJsonErrorBodyStillProducesTheStatusClassifiedException() throws Exception
+    {
+        when(httpClient.get(BASE + "/accounts/code-customer", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(502, "<html>gateway timeout</html>"));
+
+        final BillingException thrown = assertThrows(BillingException.class,
+                () -> client.ensureCustomer("customer", null, null, null));
+
+        assertTrue(thrown.isRetryable());
+        assertTrue(thrown.getMessage().contains("502"));
     }
 
     private String pastDueInvoicePage(final boolean hasMore, final String next, final String subscriptionId)

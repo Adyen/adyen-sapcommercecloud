@@ -30,6 +30,8 @@ import java.util.Locale;
 import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.adyen.commerce.connector.chargebee.client.ChargebeeApiClient;
 import com.adyen.commerce.connector.chargebee.client.ChargebeeSubscriptionParams;
@@ -46,18 +48,9 @@ import com.adyen.commerce.connector.exception.BillingException;
 import com.adyen.commerce.connector.exception.PreconditionFailedException;
 import com.adyen.commerce.connector.exception.RetryableBillingException;
 import com.adyen.commerce.connector.exception.TerminalBillingException;
+import com.adyen.commerce.connector.log.ConnectorLogEvent;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
-import java.util.LinkedHashMap;
-import java.util.Map;
 
 /**
  * Default Chargebee client. See {@link ChargebeeApiClient} for the contract.
@@ -71,6 +64,8 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 	protected static final String ERROR_CODE_REQUEST_IN_PROGRESS = "invalid_state_for_request";
 
 	private static final Logger LOG = LoggerFactory.getLogger(DefaultChargebeeApiClient.class);
+	private static final String EVENT_VENDOR_API_ERROR = "vendor_api_error";
+
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	private ChargebeeHttpClient httpClient;
@@ -365,15 +360,33 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 		}
 	}
 
+	/**
+	 * Builds - never throws. It runs on the path that is already handling a failure, so anything raised
+	 * in here would replace the vendor's own explanation and lose the retryable/terminal decision the
+	 * core's retry policy is about to read.
+	 *
+	 * <p>The decision comes from {@link #isRetryable} rather than from the status alone. That method
+	 * exists precisely because {@code 409 invalid_state_for_request} is Chargebee's idempotency saying
+	 * "already in flight" - and until it was called from here it was dead code, so the one conflict this
+	 * connector is documented to retry was being turned into a dead letter.</p>
+	 */
 	protected BillingException toBillingException(final ChargebeeHttpResponse response, final String action)
 	{
 		final String detail = extractError(response.body());
 		final String message = "Chargebee " + action + " failed (HTTP " + response.statusCode() + ")"
 				+ (detail == null ? "" : ": " + detail);
-		final boolean retryable = response.statusCode() == 429 || response.statusCode() >= 500;
-		LOG.warn("event=vendor_api_error platform=CHARGEBEE operation={} outcome=failure http_status={} "
-				+ "error_class={} vendor_error_code={} retryable={}", action.replace(' ', '_'),
-				response.statusCode(), classifyStatus(response.statusCode()), detail, retryable);
+		final boolean retryable = isRetryable(response);
+		// The vendor's error code only. The prose that comes with it can echo submitted values back, so
+		// it stays in the exception - which travels to the dead letter - and out of the log line.
+		ConnectorLogEvent.of(EVENT_VENDOR_API_ERROR)
+				.platform(BillingPlatform.CHARGEBEE)
+				.outcome(ConnectorLogEvent.OUTCOME_FAILURE)
+				.field("vendor_action", action.replace(' ', '_'))
+				.field("http_status", Integer.valueOf(response.statusCode()))
+				.field("error_class", ConnectorLogEvent.httpErrorClass(response.statusCode()))
+				.field("vendor_error_code", errorCode(response.body()))
+				.field("retryable", Boolean.valueOf(retryable))
+				.warn(LOG);
 		if (retryable)
 		{
 			return new RetryableBillingException(message);
@@ -415,21 +428,33 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 	 */
 	protected String errorCode(final String body)
 	{
-		if (StringUtils.isBlank(body))
-		{
-			return null;
-		}
-		try
-		{
-			return objectMapper.readTree(body).path("api_error_code").asText(null);
-		}
-		catch (final IOException e)
-		{
-			return null;
-		}
+		final JsonNode node = readErrorTree(body);
+		return node == null ? null : node.path("api_error_code").asText(node.path("type").asText(null));
 	}
 
+	/**
+	 * The error as a human reads it: {@code [code] message}. The message is the only part that says
+	 * <em>which</em> field or value Chargebee refused, so dropping it leaves a bare code that cannot be
+	 * acted on without reproducing the call. It belongs in the exception - which is what reaches the dead
+	 * letter - and not in the log line, where it would be unbounded and could echo shopper data.
+	 */
 	protected String extractError(final String body)
+	{
+		final JsonNode node = readErrorTree(body);
+		if (node == null)
+		{
+			return null;
+		}
+		final String message = node.path("message").asText(null);
+		final String code = node.path("api_error_code").asText(node.path("type").asText(null));
+		if (message == null && code == null)
+		{
+			return null;
+		}
+		return (code == null ? "" : "[" + code + "] ") + StringUtils.defaultString(message);
+	}
+
+	protected JsonNode readErrorTree(final String body)
 	{
 		if (StringUtils.isBlank(body))
 		{
@@ -437,9 +462,7 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 		}
 		try
 		{
-			final JsonNode node = objectMapper.readTree(body);
-			final String code = node.path("api_error_code").asText(node.path("type").asText(null));
-			return code;
+			return objectMapper.readTree(body);
 		}
 		catch (final IOException e)
 		{
@@ -470,7 +493,7 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 		}
 		catch (final IOException e)
 		{
-			throw new TerminalBillingException("Malformed Chargebee " + resource + " response: " + e.getMessage());
+			throw new TerminalBillingException("Malformed Chargebee " + resource + " response", e);
 		}
 	}
 
@@ -511,11 +534,4 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 		this.configService = configService;
 	}
 
-	private static String classifyStatus(final int status)
-	{
-		if (status == 429) return "rate_limit";
-		if (status >= 500) return "remote_5xx";
-		if (status >= 400) return "remote_4xx";
-		return "unexpected_status";
-	}
 }

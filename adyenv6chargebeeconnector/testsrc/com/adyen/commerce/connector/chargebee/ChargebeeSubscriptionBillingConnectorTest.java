@@ -32,7 +32,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.Map;
 
@@ -295,6 +297,26 @@ public class ChargebeeSubscriptionBillingConnectorTest
 				Map.of("authorization", basicAuth("cb-user", "cb-pass")), unrecognizedEventPayload(), null));
 
 		assertNull(event);
+	}
+
+	/**
+	 * The fallback timestamp for an event Chargebee sent without {@code occurred_at} has to come from
+	 * the injected clock, not from {@code Instant.now()}: otherwise nothing about the connector's
+	 * sense of time - including the webhook lag it reports - can be asserted.
+	 */
+	@Test
+	public void anEventWithoutOccurredAtIsStampedFromTheInjectedClock() throws Exception
+	{
+		stubWebhookCredentials("cb-user", "cb-pass");
+		final Instant now = Instant.parse("2026-08-27T10:15:30Z");
+		connector.setClock(Clock.fixed(now, ZoneOffset.UTC));
+		final String payload = "{\"id\":\"ev_2\",\"event_type\":\"subscription_activated\","
+				+ "\"content\":{\"subscription\":{\"id\":\"sub-9\",\"customer_id\":\"cust-9\"}}}";
+
+		final NormalizedBillingEvent event = connector
+				.parseWebhook(new RawWebhook(Map.of(AUTHORIZATION, basicAuth("cb-user", "cb-pass")), payload, null));
+
+		assertEquals(now, event.occurredAt());
 	}
 
 	@Test

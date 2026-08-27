@@ -5,6 +5,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -12,6 +13,7 @@ import static org.mockito.Mockito.when;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.HashMap;
 import java.util.Map;
 
 import com.adyen.commerce.connector.exception.ConnectorNotConfiguredException;
@@ -39,6 +41,7 @@ import com.adyen.commerce.connector.dto.SubscriptionUpdateRequest;
 import com.adyen.commerce.connector.dto.TokenImportRequest;
 import com.adyen.commerce.connector.dto.TokenImportStyle;
 import com.adyen.commerce.connector.enums.BillingPlatform;
+import com.adyen.commerce.connector.log.ConnectorLogContext;
 import com.adyen.commerce.connector.exception.PreconditionFailedException;
 import com.adyen.commerce.connector.recurly.client.RecurlyApiClient;
 import com.adyen.commerce.connector.recurly.client.RecurlySubscriptionParams;
@@ -105,6 +108,31 @@ public class RecurlySubscriptionBillingConnectorTest
         assertTrue(capabilities.requiresPreConfiguredPlan());
         assertFalse(capabilities.liveTokenValidationOnImport());
         assertEquals(TokenImportStyle.SEPARATE_FIELDS, capabilities.tokenImportStyle());
+    }
+
+    /**
+     * The HTTP transport labels its own lines from this scope rather than guessing the operation from
+     * the URL shape, so the scope has to be open while the delegate runs - and closed after, since the
+     * thread goes back to a pool.
+     */
+    @Test
+    public void anSpiCallPublishesItsOperationForTheLayersUnderneath() throws Exception
+    {
+        final Map<String, String> observed = new HashMap<>();
+        when(apiClient.ensureCustomer(any(), any(), any(), any())).thenAnswer(invocation ->
+        {
+            observed.put(ConnectorLogContext.PLATFORM,
+                    ConnectorLogContext.current(ConnectorLogContext.PLATFORM));
+            observed.put(ConnectorLogContext.OPERATION,
+                    ConnectorLogContext.current(ConnectorLogContext.OPERATION));
+            return "code-customer";
+        });
+
+        connector.ensureCustomer(new CustomerSyncRequest("customer", "customer@example.com", "Ada", "Lovelace", Map.of()));
+
+        assertEquals("RECURLY", observed.get(ConnectorLogContext.PLATFORM));
+        assertEquals("ensure_customer", observed.get(ConnectorLogContext.OPERATION));
+        assertNull(ConnectorLogContext.current(ConnectorLogContext.OPERATION));
     }
 
     @Test
