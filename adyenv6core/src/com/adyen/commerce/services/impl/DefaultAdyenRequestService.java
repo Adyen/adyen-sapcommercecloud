@@ -23,6 +23,7 @@ import org.apache.log4j.Logger;
 import java.math.BigDecimal;
 import java.util.*;
 
+import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_ECONTEXT_PREFIX;
 import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_SCHEME;
 
 public class DefaultAdyenRequestService implements AdyenRequestService {
@@ -398,18 +399,33 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
     protected void handlePaymentMethodSpecificLogic(PaymentRequest paymentRequest, CartData cartData,
                                                 PaymentRequest originPaymentsRequest, RecurringContractMode recurringContractMode,
                                                 CustomerModel customerModel, Boolean guestUserTokenizationEnabled) {
-        
+
         String paymentMethod = cartData.getAdyenPaymentMethod();
         Boolean is3DS2Allowed = is3DS2Allowed();
 
-        // Copy payment method from origin request if available
-        if (originPaymentsRequest != null && paymentRequest.getPaymentMethod() == null) {
-            paymentRequest.setPaymentMethod(originPaymentsRequest.getPaymentMethod());
+        if (originPaymentsRequest != null
+                && paymentRequest.getPaymentMethod() == null) {
+            paymentRequest.setPaymentMethod(
+                    originPaymentsRequest.getPaymentMethod()
+            );
         }
 
-        // Handle scheme payments specially
-        if (PAYMENT_METHOD_SCHEME.equals(paymentMethod) && originPaymentsRequest != null) {
-            copySchemePaymentSettings(paymentRequest, originPaymentsRequest);
+        if (paymentMethod != null
+                && paymentMethod.startsWith(PAYMENT_METHOD_ECONTEXT_PREFIX)) {
+            populateEcontextShopperDetails(
+                    paymentRequest,
+                    cartData,
+                    originPaymentsRequest,
+                    customerModel
+            );
+        }
+
+        if (PAYMENT_METHOD_SCHEME.equals(paymentMethod)
+                && originPaymentsRequest != null) {
+            copySchemePaymentSettings(
+                    paymentRequest,
+                    originPaymentsRequest
+            );
         }
 
         // Use payment method handler
@@ -491,6 +507,72 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
         if (StringUtils.isEmpty(recurringReference)) {
             throw new IllegalArgumentException("Recurring reference cannot be null or empty");
         }
+    }
+
+    protected void populateEcontextShopperDetails(
+            PaymentRequest paymentRequest,
+            CartData cartData,
+            PaymentRequest originPaymentsRequest,
+            CustomerModel customerModel) {
+
+        AddressData billingAddress = getBillingAddress(cartData);
+        AddressData shippingAddress = cartData.getDeliveryAddress();
+        ShopperName submittedShopperName = originPaymentsRequest != null
+                ? originPaymentsRequest.getShopperName()
+                : null;
+
+        String firstName = firstNonBlank(
+                billingAddress != null ? billingAddress.getFirstName() : null,
+                shippingAddress != null ? shippingAddress.getFirstName() : null,
+                submittedShopperName != null ? submittedShopperName.getFirstName() : null
+        );
+
+        String lastName = firstNonBlank(
+                billingAddress != null ? billingAddress.getLastName() : null,
+                shippingAddress != null ? shippingAddress.getLastName() : null,
+                submittedShopperName != null ? submittedShopperName.getLastName() : null
+        );
+
+        if (StringUtils.isNotBlank(firstName)
+                && StringUtils.isNotBlank(lastName)) {
+            paymentRequest.setShopperName(
+                    new ShopperName()
+                            .firstName(firstName)
+                            .lastName(lastName)
+            );
+        }
+
+        String telephoneNumber = firstNonBlank(
+                billingAddress != null ? billingAddress.getPhone() : null,
+                shippingAddress != null ? shippingAddress.getPhone() : null,
+                originPaymentsRequest != null
+                        ? originPaymentsRequest.getTelephoneNumber()
+                        : null
+        );
+
+        if (StringUtils.isNotBlank(telephoneNumber)) {
+            paymentRequest.setTelephoneNumber(telephoneNumber);
+        }
+
+        String shopperEmail = firstNonBlank(
+                billingAddress != null ? billingAddress.getEmail() : null,
+                shippingAddress != null ? shippingAddress.getEmail() : null,
+                originPaymentsRequest != null
+                        ? originPaymentsRequest.getShopperEmail()
+                        : null,
+                customerModel != null ? customerModel.getContactEmail() : null
+        );
+
+        if (StringUtils.isNotBlank(shopperEmail)) {
+            paymentRequest.setShopperEmail(shopperEmail);
+        }
+    }
+
+    protected String firstNonBlank(String... values) {
+        return Arrays.stream(values)
+                .filter(StringUtils::isNotBlank)
+                .findFirst()
+                .orElse(null);
     }
 
     // Getter for configuration service (for testing)
