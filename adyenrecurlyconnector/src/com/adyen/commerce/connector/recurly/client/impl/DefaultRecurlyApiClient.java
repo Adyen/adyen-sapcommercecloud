@@ -608,8 +608,11 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
 
     protected boolean billingInfoMatches(final JsonNode billingInfo, final String shopperReference,
                                          final String storedPaymentMethodId) {
-        if (!StringUtils.equals(shopperReference,
-                billingInfo.path("gateway_attributes").path("account_reference").asText(null))) {
+        JsonNode gatewayAttributes = billingInfo.path("payment_method").path("gateway_attributes");
+        if (gatewayAttributes.isMissingNode()) {
+            gatewayAttributes = billingInfo.path("gateway_attributes");
+        }
+        if (!StringUtils.equals(shopperReference, gatewayAttributes.path("account_reference").asText(null))) {
             return false;
         }
         for (final JsonNode reference : billingInfo.path("payment_gateway_references")) {

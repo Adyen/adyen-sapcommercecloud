@@ -248,7 +248,7 @@ public class DefaultRecurlyApiClientTest
                 .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"id\":\"account-1\"}"));
         when(httpClient.get(BASE + "/accounts/code-customer/billing_info", auth, ACCEPT))
                 .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"id\":\"billing-1\","
-                        + "\"gateway_attributes\":{\"account_reference\":\"shopper-1\"},"
+                        + "\"payment_method\":{\"gateway_attributes\":{\"account_reference\":\"shopper-1\"}},"
                         + "\"payment_gateway_references\":[{\"token\":\"token-1\"}]}"));
 
         assertEquals("billing-1",
@@ -264,7 +264,7 @@ public class DefaultRecurlyApiClientTest
         when(configService.getGatewayCode()).thenReturn("adyen-gateway");
         when(httpClient.get(BASE + "/accounts/code-customer/billing_infos", auth, ACCEPT))
                 .thenReturn(new RecurlyHttpResponse(HTTP_OK, "[{\"id\":\"billing-old\","
-                        + "\"gateway_attributes\":{\"account_reference\":\"shopper-1\"},"
+                        + "\"payment_method\":{\"gateway_attributes\":{\"account_reference\":\"shopper-1\"}},"
                         + "\"payment_gateway_references\":[{\"token\":\"token-old\"}]}]"));
         when(httpClient.post(eq(BASE + "/accounts/code-customer/billing_infos"), eq(auth), eq(ACCEPT), any(),
                 any()))
