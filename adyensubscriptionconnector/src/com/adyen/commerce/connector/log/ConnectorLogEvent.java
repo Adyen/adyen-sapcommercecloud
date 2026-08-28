@@ -178,6 +178,23 @@ public final class ConnectorLogEvent
 		}
 	}
 
+	/**
+	 * For the line that describes the expected, high-frequency outcome.
+	 *
+	 * <p>The orchestration layer has decisions whose ordinary answer is "nothing to do here" and which
+	 * are reached once per order: a store that sells subscriptions still sells mostly other things. Those
+	 * lines are worth having - not seeing them is exactly what made a silent skip look like a broken
+	 * trigger twice - but not at the price of one INFO per order forever. At DEBUG they cost nothing
+	 * until somebody is actually looking, and the surrounding failures stay visible at their own levels.</p>
+	 */
+	public void debug(final Logger log)
+	{
+		if (log.isDebugEnabled())
+		{
+			log.debug(pattern(), values());
+		}
+	}
+
 	public void warn(final Logger log)
 	{
 		if (log.isWarnEnabled())

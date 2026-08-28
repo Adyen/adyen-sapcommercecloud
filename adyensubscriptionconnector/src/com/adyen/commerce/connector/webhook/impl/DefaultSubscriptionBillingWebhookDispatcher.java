@@ -41,6 +41,8 @@ import com.adyen.commerce.connector.dto.RawWebhook;
 import com.adyen.commerce.connector.enums.BillingPlatform;
 import com.adyen.commerce.connector.exception.BillingException;
 import com.adyen.commerce.connector.exception.RetryableBillingException;
+import com.adyen.commerce.connector.log.ConnectorLogContext;
+import com.adyen.commerce.connector.log.ConnectorLogEvent;
 import com.adyen.commerce.connector.model.BillingSubscriptionRefModel;
 import com.adyen.commerce.connector.model.BillingWebhookEventApplicationModel;
 import com.adyen.commerce.connector.model.BillingWebhookEventModel;
@@ -94,6 +96,12 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 {
 	private static final Logger LOG = LoggerFactory.getLogger(DefaultSubscriptionBillingWebhookDispatcher.class);
 
+	/** One event name for every delivery, so accepted, ignored and failed can be counted against each other. */
+	private static final String EVENT_DISPATCH = "webhook_dispatched";
+
+	/** Enough for any real webhook body; a cap rather than a size anyone should be aiming at. */
+	protected static final int MAX_STORED_PAYLOAD_LENGTH = 8000;
+
 	protected static final String PROCESSING_RECEIVED = "RECEIVED";
 	protected static final String PROCESSING_RECONCILED = "RECONCILED";
 	protected static final String PROCESSING_SKIPPED_NO_SUBSCRIPTION = "SKIPPED_NO_SUBSCRIPTION";
@@ -140,10 +148,68 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 	@Override
 	public NormalizedBillingEvent dispatch(final BillingPlatform platform, final RawWebhook raw) throws BillingException
 	{
+		final long startedAt = System.nanoTime();
 		final SubscriptionBillingConnector connector = connectorRegistry.getConnector(platform);
 		final NormalizedBillingEvent event = connector.parseWebhook(raw);
-		reconcile(event, connector, raw);
-		return event;
+
+		// Correlated on the platform's own event id, which is also what the delivery is deduplicated on, so a
+		// redelivery and the original it repeats share one identifier across every line either produced.
+		try (ConnectorLogContext correlation = ConnectorLogContext.correlate(event == null ? null : event.eventId()))
+		{
+			try
+			{
+				reconcile(event, connector, raw);
+				dispatchOutcome(platform, event).success(startedAt).info(LOG);
+				return event;
+			}
+			catch (final BillingException | RuntimeException e)
+			{
+				// The methods underneath say what went wrong; this says that a delivery ended in failure, which
+				// is the thing that has to be countable against the deliveries that did not.
+				final BillingException billingFailure = e instanceof BillingException billing ? billing : null;
+				dispatchOutcome(platform, event)
+						.field("exception_class", e.getClass().getName())
+						.failure(startedAt, billingFailure)
+						.warn(LOG);
+				throw e;
+			}
+		}
+	}
+
+	/**
+	 * The stored body, bounded.
+	 *
+	 * <p>An unbounded copy of whatever a third party chose to send is how one pathological delivery fills
+	 * a table, and the diagnosis this is kept for lives in the first few thousand characters. The cut is
+	 * marked rather than silent, so nobody reads a truncated body as the whole of what arrived.</p>
+	 */
+	protected String truncatePayload(final String payload)
+	{
+		if (payload == null || payload.length() <= MAX_STORED_PAYLOAD_LENGTH)
+		{
+			return payload;
+		}
+		return payload.substring(0, MAX_STORED_PAYLOAD_LENGTH) + "... [truncated, " + payload.length() + " chars]";
+	}
+
+	/**
+	 * The shared half of the one line every delivery produces, whichever way it ends.
+	 *
+	 * <p>A {@code null} event is the connector saying the vendor sent something it does not act on. That is
+	 * a successful delivery - the platform is told so, and must be, or it retries forever - but it is not a
+	 * subscription change, and a dashboard that cannot separate the two would read every heartbeat as work
+	 * done.</p>
+	 */
+	protected ConnectorLogEvent dispatchOutcome(final BillingPlatform platform, final NormalizedBillingEvent event)
+	{
+		final ConnectorLogEvent line = ConnectorLogEvent.of(EVENT_DISPATCH).platform(platform);
+		if (event == null)
+		{
+			return line.outcome(ConnectorLogEvent.OUTCOME_IGNORED).reason("event type not acted on by the connector");
+		}
+		return line.field("normalized_event_type", ConnectorLogContext.code(event.type()))
+				.field("event_id", event.eventId())
+				.field("external_subscription_id", event.externalSubscriptionId());
 	}
 
 	protected void reconcile(final NormalizedBillingEvent event, final SubscriptionBillingConnector connector,
@@ -167,6 +233,9 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 		record.setAttemptCount(attemptCount(record) + 1);
 		record.setProcessingStatus(PROCESSING_RECEIVED);
 		record.setLastError(null);
+		// Cleared with the error it belongs to. A redelivery that succeeds leaves no body behind, which is
+		// both the privacy answer and the honest one: the row no longer describes a problem.
+		record.setPayload(null);
 		if (!claim(record, event, dedupKey))
 		{
 			return;
@@ -178,7 +247,7 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 		}
 		catch (final RuntimeException | BillingException e)
 		{
-			recordFailure(event, record, dedupKey, e);
+			recordFailure(event, record, dedupKey, raw, e);
 		}
 	}
 
@@ -190,10 +259,13 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 	 * @throws RuntimeException  likewise
 	 */
 	protected void recordFailure(final NormalizedBillingEvent event, final BillingWebhookEventModel record,
-			final String dedupKey, final Exception failure) throws BillingException
+			final String dedupKey, final RawWebhook raw, final Exception failure) throws BillingException
 	{
 		final RetryVerdict verdict = retryPolicy.decide(failure, attemptCount(record), clock.instant());
 		record.setLastError(describe(failure));
+		// Kept only here, and only now. See the attribute's own description for why the successes are not
+		// worth the personal data they would carry.
+		record.setPayload(truncatePayload(raw == null ? null : raw.payload()));
 
 		if (verdict.retry())
 		{

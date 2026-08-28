@@ -302,6 +302,40 @@
                         </columntype>
                     </persistence>
                 </attribute>
+                <attribute qualifier="payload" type="java.lang.String">
+                    <description>The body the platform sent, kept only for deliveries that failed.
+
+                        Deliberately not kept for the ones that worked. A webhook body carries the shopper's
+                        email, name, address, card last four and amounts, so storing every one of them turns
+                        this table into a store of personal data that nothing reads. The successes also do not
+                        need it: this dispatcher never projects the body onto local state, it treats the event
+                        as "something may have changed" and then reads the authoritative snapshot back from the
+                        platform. What decided the outcome is therefore the snapshot, not the body — and both
+                        Chargebee and Recurly keep their own copy and can replay it.
+
+                        A failure is the one case where that reasoning breaks: the diagnosis is usually "what
+                        exactly did they send us", and by the time anyone asks, the platform's own delivery log
+                        may have aged out. Truncated on write, because the first few thousand characters carry
+                        the diagnosis and an unbounded body is how one pathological delivery fills a table.
+                        Cleared again if a later redelivery of the same event succeeds.</description>
+                    <persistence type="property">
+                        <columntype database="oracle">
+                            <value>CLOB</value>
+                        </columntype>
+                        <columntype database="sap">
+                            <value>NCLOB</value>
+                        </columntype>
+                        <columntype database="mysql">
+                            <value>TEXT</value>
+                        </columntype>
+                        <columntype database="sqlserver">
+                            <value>TEXT</value>
+                        </columntype>
+                        <columntype>
+                            <value>HYBRIS.LONG_STRING</value>
+                        </columntype>
+                    </persistence>
+                </attribute>
                 <attribute qualifier="deadLetteredAt" type="java.util.Date">
                     <description>When this delivery was given up on. Set exactly when processingStatus becomes
                         DEAD_LETTER, so an operator can ask "what landed in the dead letter queue today" without

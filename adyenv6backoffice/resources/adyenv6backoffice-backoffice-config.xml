@@ -241,7 +241,19 @@
 				<explorer-tree:navigation-node id="adyen.subscriptionBilling">
 					<explorer-tree:type-node code="BillingActivationAttempt" id="adyen.billingActivationAttempt"/>
 					<explorer-tree:type-node code="BillingWebhookEvent" id="adyen.billingWebhookEvent"/>
+					<!-- Directly after the delivery it breaks down, because one delivery can name several
+					     subscriptions and the delivery's own status only says whether the whole thing was
+					     handled. Which subscription actually got the update, and which one is still waiting
+					     for a local reference that may never arrive, is only visible here. -->
+					<explorer-tree:type-node code="BillingWebhookEventApplication" id="adyen.billingWebhookEventApplication"/>
 					<explorer-tree:type-node code="BillingSubscriptionRef" id="adyen.billingSubscriptionRef"/>
+					<!-- Configuration rather than activity, and last for that reason. They are here at all
+					     because a plan mapping is the one row an operator has to create by hand before any
+					     of the three above can ever appear: with no mapping the activator classifies every
+					     order as non-subscription and exits without a trace. Until now the only way to
+					     create one was an ImpEx script, which is a poor answer to "how do I sell this". -->
+					<explorer-tree:type-node code="ChargebeePlanMapping" id="adyen.chargebeePlanMapping"/>
+					<explorer-tree:type-node code="RecurlyPlanMapping" id="adyen.recurlyPlanMapping"/>
 				</explorer-tree:navigation-node>
 			</explorer-tree:navigation-node>
 		</explorer-tree:explorer-tree>
@@ -340,6 +352,10 @@
 					<editorArea:attribute qualifier="deadLetteredAt"/>
 					<editorArea:attribute qualifier="subscriptionRef"/>
 					<editorArea:attribute qualifier="lastError"/>
+					<!-- Next to the error it belongs to, and empty on every delivery that worked: the body is
+					     kept only when one failed. Read together they answer the question an operator actually
+					     has, which is "what did they send us and what did we make of it". -->
+					<editorArea:attribute qualifier="payload"/>
 				</editorArea:section>
 				<editorArea:section name="hmc.adyen.subscriptionBilling.delivery">
 					<editorArea:attribute qualifier="platform"/>
@@ -364,6 +380,173 @@
 			<lv:column qualifier="currentPeriodEnd"/>
 			<lv:column qualifier="lastSyncedAt"/>
 		</lv:list-view>
+	</context>
+
+	<!-- ===================================================================================
+	     Per-subscription outcome of one delivery.
+
+	     An invoice can name several subscriptions, so a delivery fans out and each subscription
+	     succeeds or fails on its own. The delivery's own row says only whether the fan-out as a
+	     whole was handled; this is where an operator sees which subscription was actually updated.
+
+	     lastError sits next to processingStatus in every view here, and that is not decoration.
+	     SKIPPED_UNKNOWN_SUBSCRIPTION means two different things and only lastError separates them:
+	     empty, the delivery was not about a subscription of ours and there is nothing to do; set,
+	     we did expect a local reference, waited out the whole retry budget and gave up - and that
+	     one needs somebody, because the reference it waited for was never created.
+	     ==================================================================================== -->
+	<context merge-by="type" parent="GenericItem" type="BillingWebhookEventApplication" component="listview">
+		<lv:list-view>
+			<lv:column qualifier="processingStatus"/>
+			<lv:column qualifier="lastError"/>
+			<lv:column qualifier="externalSubscriptionId"/>
+			<lv:column qualifier="subscriptionRef"/>
+			<lv:column qualifier="attemptCount"/>
+			<lv:column qualifier="reconciledAt"/>
+			<lv:column qualifier="event"/>
+		</lv:list-view>
+	</context>
+
+	<context merge-by="type" parent="GenericItem" type="BillingWebhookEventApplication" component="advanced-search">
+		<as:advanced-search>
+			<as:field-list>
+				<as:field name="processingStatus" selected="true"/>
+				<as:field name="externalSubscriptionId" selected="true"/>
+				<!-- Selected by default because it is the field that turns an ambiguous skip into a decision:
+				     searching it non-empty is how an operator finds the ones that need them. -->
+				<as:field name="lastError" selected="true"/>
+				<as:field name="subscriptionRef"/>
+				<as:field name="reconciledAt"/>
+				<as:field name="attemptCount"/>
+			</as:field-list>
+		</as:advanced-search>
+	</context>
+
+	<context merge-by="type" type="BillingWebhookEventApplication" component="editor-area">
+		<editorArea:editorArea xmlns:editorArea="http://www.hybris.com/cockpitng/component/editorArea">
+			<editorArea:tab name="hmc.adyen.subscriptionBilling.application">
+				<editorArea:section name="hmc.adyen.subscriptionBilling.outcome">
+					<editorArea:attribute qualifier="processingStatus"/>
+					<editorArea:attribute qualifier="lastError"/>
+					<editorArea:attribute qualifier="attemptCount"/>
+					<editorArea:attribute qualifier="reconciledAt"/>
+				</editorArea:section>
+				<editorArea:section name="hmc.adyen.subscriptionBilling.subject">
+					<editorArea:attribute qualifier="externalSubscriptionId"/>
+					<editorArea:attribute qualifier="subscriptionRef"/>
+					<editorArea:attribute qualifier="event"/>
+				</editorArea:section>
+			</editorArea:tab>
+		</editorArea:editorArea>
+	</context>
+
+	<!-- ===================================================================================
+	     Plan mappings: which SAP product is sold as which plan on the billing platform.
+
+	     This is the row that decides whether an order is a subscription order at all. The
+	     resolver looks the product code up here and nowhere else - not at the product type,
+	     not at a subscription term - so a missing mapping is not an error anywhere, it is
+	     simply an order that quietly is not a subscription. That makes this the single most
+	     important thing an operator can get wrong silently, and until now it had no UI.
+
+	     productCode is unique on the type, so the list is effectively one row per sellable
+	     subscription product and is meant to be read top to bottom during setup.
+	     ==================================================================================== -->
+	<context merge-by="type" parent="GenericItem" type="ChargebeePlanMapping" component="listview">
+		<lv:list-view>
+			<lv:column qualifier="productCode"/>
+			<lv:column qualifier="itemPriceId"/>
+			<lv:column qualifier="priceId"/>
+			<lv:column qualifier="baseStore"/>
+		</lv:list-view>
+	</context>
+
+	<context merge-by="type" parent="GenericItem" type="ChargebeePlanMapping" component="advanced-search">
+		<as:advanced-search>
+			<as:field-list>
+				<!-- The product code is how anyone arrives here: "this order did not become a
+				     subscription, is the product mapped?" -->
+				<as:field name="productCode" selected="true"/>
+				<as:field name="itemPriceId" selected="true"/>
+				<as:field name="baseStore"/>
+			</as:field-list>
+		</as:advanced-search>
+	</context>
+
+	<context merge-by="type" type="ChargebeePlanMapping" component="editor-area">
+		<editorArea:editorArea xmlns:editorArea="http://www.hybris.com/cockpitng/component/editorArea">
+			<editorArea:tab name="hmc.adyen">
+				<editorArea:section name="hmc.adyen.planMapping">
+					<editorArea:attribute qualifier="productCode"/>
+					<editorArea:attribute qualifier="itemPriceId"/>
+					<editorArea:attribute qualifier="priceId"/>
+					<editorArea:attribute qualifier="baseStore"/>
+				</editorArea:section>
+			</editorArea:tab>
+		</editorArea:editorArea>
+	</context>
+
+	<!-- Spelled out rather than left to the default wizard for the same reason as the platform
+	     configurations above: the default offers only the attributes the type system marks mandatory,
+	     which would silently drop priceId and baseStore from the form. -->
+	<context merge-by="type" type="ChargebeePlanMapping" component="create-wizard">
+		<wz:flow xmlns:wz="http://www.hybris.com/cockpitng/config/wizard-config"
+				 id="AdyenChargebeePlanMappingWizard" title="create.title(ctx.TYPE_CODE)">
+			<wz:step id="step1" label="hmc.adyen.planMapping">
+				<wz:content id="step1.content" merge-mode="replace">
+					<wz:property qualifier="newObject.productCode"/>
+					<wz:property qualifier="newObject.itemPriceId"/>
+					<wz:property qualifier="newObject.priceId"/>
+					<wz:property qualifier="newObject.baseStore"/>
+				</wz:content>
+			</wz:step>
+		</wz:flow>
+	</context>
+
+	<context merge-by="type" parent="GenericItem" type="RecurlyPlanMapping" component="listview">
+		<lv:list-view>
+			<lv:column qualifier="productCode"/>
+			<lv:column qualifier="planCode"/>
+			<lv:column qualifier="priceId"/>
+			<lv:column qualifier="baseStore"/>
+		</lv:list-view>
+	</context>
+
+	<context merge-by="type" parent="GenericItem" type="RecurlyPlanMapping" component="advanced-search">
+		<as:advanced-search>
+			<as:field-list>
+				<as:field name="productCode" selected="true"/>
+				<as:field name="planCode" selected="true"/>
+				<as:field name="baseStore"/>
+			</as:field-list>
+		</as:advanced-search>
+	</context>
+
+	<context merge-by="type" type="RecurlyPlanMapping" component="editor-area">
+		<editorArea:editorArea xmlns:editorArea="http://www.hybris.com/cockpitng/component/editorArea">
+			<editorArea:tab name="hmc.adyen">
+				<editorArea:section name="hmc.adyen.planMapping">
+					<editorArea:attribute qualifier="productCode"/>
+					<editorArea:attribute qualifier="planCode"/>
+					<editorArea:attribute qualifier="priceId"/>
+					<editorArea:attribute qualifier="baseStore"/>
+				</editorArea:section>
+			</editorArea:tab>
+		</editorArea:editorArea>
+	</context>
+
+	<context merge-by="type" type="RecurlyPlanMapping" component="create-wizard">
+		<wz:flow xmlns:wz="http://www.hybris.com/cockpitng/config/wizard-config"
+				 id="AdyenRecurlyPlanMappingWizard" title="create.title(ctx.TYPE_CODE)">
+			<wz:step id="step1" label="hmc.adyen.planMapping">
+				<wz:content id="step1.content" merge-mode="replace">
+					<wz:property qualifier="newObject.productCode"/>
+					<wz:property qualifier="newObject.planCode"/>
+					<wz:property qualifier="newObject.priceId"/>
+					<wz:property qualifier="newObject.baseStore"/>
+				</wz:content>
+			</wz:step>
+		</wz:flow>
 	</context>
 
 </config>

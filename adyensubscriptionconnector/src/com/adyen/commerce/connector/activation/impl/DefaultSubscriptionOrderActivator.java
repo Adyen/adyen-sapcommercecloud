@@ -37,6 +37,8 @@ import com.adyen.commerce.connector.enums.BillingPlatform;
 import com.adyen.commerce.connector.exception.BillingException;
 import com.adyen.commerce.connector.exception.PreconditionFailedException;
 import com.adyen.commerce.connector.exception.SubscriptionProductUndecidableException;
+import com.adyen.commerce.connector.log.ConnectorLogContext;
+import com.adyen.commerce.connector.log.ConnectorLogEvent;
 import com.adyen.commerce.connector.model.BillingActivationAttemptModel;
 import com.adyen.commerce.connector.model.BillingSubscriptionRefModel;
 import com.adyen.commerce.connector.product.SubscriptionProductRule;
@@ -108,6 +110,9 @@ public class DefaultSubscriptionOrderActivator implements SubscriptionOrderActiv
 {
 	private static final Logger LOG = LoggerFactory.getLogger(DefaultSubscriptionOrderActivator.class);
 
+	/** One event name for all three outcomes, so success, skip and failure can be counted against each other. */
+	private static final String EVENT_ACTIVATION = "subscription_activation";
+
 	private SubscriptionBillingService subscriptionBillingService;
 	private SubscriptionBillingConnectorRegistry connectorRegistry;
 	private SubscriptionProductRule subscriptionProductRule;
@@ -162,35 +167,72 @@ public class DefaultSubscriptionOrderActivator implements SubscriptionOrderActiv
 	{
 		final BillingPlatform platform = store.getActiveBillingPlatform();
 		BillingActivationAttemptModel attempt = null;
-		try
+		final long startedAt = System.nanoTime();
+		// Names the business action that every connector line logged underneath belongs to. Without it a
+		// transport timeout three layers down is an anonymous HTTP failure; with it, it is traceable back to
+		// the order that caused it, which is the question anyone reading these logs actually has.
+		try (ConnectorLogContext correlation = ConnectorLogContext.correlate(order.getCode()))
 		{
-			establishStoreContext(order, store);
-
-			final SubscriptionBillingConnector connector = connectorRegistry.getActiveConnector(store);
-			final ProductModel product = chooseSubscriptionProduct(order, connector);
-			if (product == null)
+			try
 			{
-				// Not a subscription order, and now that really is what null means: the rule answered "no" for
-				// every entry rather than failing to answer for one of them, which arrives at the catch below
-				// instead. Nothing is journalled for the ordinary case — most orders in a store that happens to
-				// sell subscriptions come through here. But a row may already exist from an earlier run where the
-				// rule could not answer, and leaving it FAILED would let the retry job abandon it into a dead
-				// letter claiming a shopper was charged for a subscription this order never contained.
-				attemptService.notApplicable(order, platform,
-						"The subscription product rule answered for every entry on a later attempt and none of them "
-								+ "is a subscription product");
-				return;
+				establishStoreContext(order, store);
+
+				final SubscriptionBillingConnector connector = connectorRegistry.getActiveConnector(store);
+				final ProductModel product = chooseSubscriptionProduct(order, connector);
+				if (product == null)
+				{
+					// Not a subscription order, and now that really is what null means: the rule answered "no" for
+					// every entry rather than failing to answer for one of them, which arrives at the catch below
+					// instead. Nothing is journalled for the ordinary case — most orders in a store that happens to
+					// sell subscriptions come through here. But a row may already exist from an earlier run where the
+					// rule could not answer, and leaving it FAILED would let the retry job abandon it into a dead
+					// letter claiming a shopper was charged for a subscription this order never contained.
+					attemptService.notApplicable(order, platform,
+							"The subscription product rule answered for every entry on a later attempt and none of them "
+									+ "is a subscription product");
+					// DEBUG, not INFO: this is the ordinary answer for most orders in a store that happens to sell
+					// subscriptions, so it is one line per order and would drown the ones that mean something. It is
+					// logged at all because its absence is indistinguishable from a broken trigger - twice this exit
+					// was diagnosed as "activation never ran" when it had run and correctly decided to do nothing.
+					ConnectorLogEvent.of(EVENT_ACTIVATION)
+							.platform(platform)
+							.field("order_code", order.getCode())
+							.outcome(ConnectorLogEvent.OUTCOME_IGNORED)
+							.reason("no subscription product on the order")
+							.durationSince(startedAt)
+							.debug(LOG);
+					return;
+				}
+
+				attempt = attemptService.begin(order, platform, product.getCode(),
+						subscriptionBillingService.idempotencyKeyFor(order));
+
+				final BillingSubscriptionRefModel ref = subscriptionBillingService.activateSubscription(order, product);
+				attemptService.succeeded(attempt, ref);
+
+				ConnectorLogEvent.of(EVENT_ACTIVATION)
+						.platform(platform)
+						.field("order_code", order.getCode())
+						.field("product_code", product.getCode())
+						.field("subscription_id", ref == null ? null : ref.getExternalSubscriptionId())
+						.success(startedAt)
+						.info(LOG);
 			}
-
-			attempt = attemptService.begin(order, platform, product.getCode(),
-					subscriptionBillingService.idempotencyKeyFor(order));
-
-			final BillingSubscriptionRefModel ref = subscriptionBillingService.activateSubscription(order, product);
-			attemptService.succeeded(attempt, ref);
-		}
-		catch (final BillingException | RuntimeException e)
-		{
-			recordFailure(order, platform, attempt, e);
+			catch (final BillingException | RuntimeException e)
+			{
+				// One line per activation regardless of how it ended, so the three outcomes can be counted against
+				// each other. recordFailure below writes the journal and only speaks up when it cannot; an ordinary
+				// retryable failure was previously invisible here and left the connector's own line as the only
+				// trace, with nothing tying it to a decision about an order.
+				final BillingException billingFailure = e instanceof BillingException billing ? billing : null;
+				ConnectorLogEvent.of(EVENT_ACTIVATION)
+						.platform(platform)
+						.field("order_code", order.getCode())
+						.field("exception_class", e.getClass().getName())
+						.failure(startedAt, billingFailure)
+						.warn(LOG);
+				recordFailure(order, platform, attempt, e);
+			}
 		}
 	}
 

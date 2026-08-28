@@ -192,6 +192,18 @@
         <property name="stalePendingAfterSeconds" value="${adyen.subscription.retry.job.stalePendingAfterSeconds}"/>
     </bean>
 
+    <!-- Retention for both journals. Nothing removed them before, and the webhook bodies now kept on
+         failed deliveries make each row heavier; two windows so a dead letter outlives a quiet success. -->
+    <bean id="subscriptionBillingRetentionJob"
+          class="com.adyen.commerce.connector.job.SubscriptionBillingRetentionJob"
+          parent="abstractJobPerformable">
+        <property name="flexibleSearchService" ref="flexibleSearchService"/>
+        <property name="modelService" ref="modelService"/>
+        <property name="batchSize" value="${adyen.subscription.retention.job.batchSize}"/>
+        <property name="settledAfterDays" value="${adyen.subscription.retention.settledAfterDays}"/>
+        <property name="troubledAfterDays" value="${adyen.subscription.retention.troubledAfterDays}"/>
+    </bean>
+
     <!-- ============================================================= -->
     <!-- Essential data                                                -->
     <!-- ============================================================= -->

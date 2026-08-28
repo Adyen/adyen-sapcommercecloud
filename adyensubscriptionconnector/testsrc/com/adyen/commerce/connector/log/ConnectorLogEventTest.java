@@ -267,6 +267,32 @@ public class ConnectorLogEventTest
 		verify(log, never()).info(anyString(), ArgumentMatchers.<Object[]> any());
 	}
 
+	/**
+	 * The level the orchestration layer's once-per-order lines use, so the same guard has to hold: a
+	 * disabled level must not pay for building the line.
+	 */
+	@Test
+	public void buildsNothingWhenDebugIsOff()
+	{
+		final Logger log = mock(Logger.class);
+		when(log.isDebugEnabled()).thenReturn(Boolean.FALSE.booleanValue());
+
+		ConnectorLogEvent.of("subscription_activation").debug(log);
+
+		verify(log, never()).debug(anyString(), ArgumentMatchers.<Object[]> any());
+	}
+
+	@Test
+	public void emitsAtDebugWhenEnabled()
+	{
+		final Logger log = mock(Logger.class);
+		when(log.isDebugEnabled()).thenReturn(Boolean.TRUE.booleanValue());
+
+		ConnectorLogEvent.of("subscription_activation").debug(log);
+
+		verify(log).debug(anyString(), ArgumentMatchers.<Object[]> any());
+	}
+
 	@Test
 	public void logRoutesByOutcome()
 	{

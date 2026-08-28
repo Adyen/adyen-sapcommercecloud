@@ -51,12 +51,14 @@ public class AdyensubscriptionconnectorSystemSetup extends AbstractSystemSetup
 {
 	protected static final String RETRY_JOB_IMPEX = "/impex/essentialdata-subscription-activation-retry.impex";
 	protected static final String RECONCILIATION_JOB_IMPEX = "/impex/essentialdata-subscription-reconciliation-cronjob.impex";
+	protected static final String RETENTION_JOB_IMPEX = "/impex/essentialdata-subscription-retention.impex";
 
 	@SystemSetup(type = Type.ESSENTIAL, process = Process.ALL)
 	public void createEssentialData(final SystemSetupContext context)
 	{
 		importImpexFile(context, RETRY_JOB_IMPEX);
 		importImpexFile(context, RECONCILIATION_JOB_IMPEX);
+		importImpexFile(context, RETENTION_JOB_IMPEX);
 	}
 
 	@Override
