@@ -21,6 +21,7 @@
 package com.adyen.commerce.connector.occ.controllers;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -167,6 +168,47 @@ public class SubscriptionBillingWebhookControllerTest
 		final ResponseEntity<String> response = controller.receive(SITE_UID, "chargebee", "{}", request);
 
 		assertEquals(HttpStatus.SERVICE_UNAVAILABLE, response.getStatusCode());
+	}
+
+	/**
+	 * The endpoint is public and unauthenticated, so its error bodies must be constant. Echoing the path
+	 * variables back made every 404 a reflected-XSS sink and a probe oracle for site/platform names; echoing
+	 * the exception message leaked connector-side detail such as "bad signature".
+	 */
+	@Test
+	public void rejectionBodiesEchoNothingBackToTheCaller() throws Exception
+	{
+		final String script = "<script>alert(1)</script>";
+
+		final ResponseEntity<String> badPlatform = controller.receive(SITE_UID, script, "{}", request);
+		assertEquals(HttpStatus.NOT_FOUND, badPlatform.getStatusCode());
+		assertFalse(badPlatform.getBody().contains(script));
+
+		when(baseSiteService.getBaseSiteForUID(script)).thenReturn(null);
+		final ResponseEntity<String> unknownSite = controller.receive(script, "chargebee", "{}", request);
+		assertEquals(HttpStatus.NOT_FOUND, unknownSite.getStatusCode());
+		assertFalse(unknownSite.getBody().contains(script));
+
+		when(baseSiteService.getBaseSiteForUID("boom")).thenThrow(new UnknownIdentifierException(script));
+		final ResponseEntity<String> lookupFailure = controller.receive("boom", "chargebee", "{}", request);
+		assertEquals(HttpStatus.NOT_FOUND, lookupFailure.getStatusCode());
+		assertFalse(lookupFailure.getBody().contains(script));
+	}
+
+	@Test
+	public void terminalFailureBodyDoesNotLeakTheExceptionMessage() throws Exception
+	{
+		when(webhookDispatcher.dispatch(any(), any())).thenThrow(new TerminalBillingException("bad signature"));
+
+		assertFalse(controller.receive(SITE_UID, "chargebee", "{}", request).getBody().contains("bad signature"));
+	}
+
+	@Test
+	public void retryableFailureBodyDoesNotLeakTheExceptionMessage() throws Exception
+	{
+		when(webhookDispatcher.dispatch(any(), any())).thenThrow(new RetryableBillingException("upstream down"));
+
+		assertFalse(controller.receive(SITE_UID, "chargebee", "{}", request).getBody().contains("upstream down"));
 	}
 
 	@Test

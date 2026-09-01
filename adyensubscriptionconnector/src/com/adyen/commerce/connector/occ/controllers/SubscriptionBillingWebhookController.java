@@ -69,6 +69,21 @@ public class SubscriptionBillingWebhookController
 {
 	private static final Logger LOG = LoggerFactory.getLogger(SubscriptionBillingWebhookController.class);
 
+	/**
+	 * Nothing the caller sends is echoed back. This endpoint is public and unauthenticated, and its clients
+	 * are billing platforms reading a status code out of a delivery log — not humans who need the offending
+	 * value spelled back at them. Reflecting the path variables or an exception message would only hand an
+	 * anonymous caller a probe oracle (and a reflected-XSS sink, since the body is rendered as whatever the
+	 * request's Accept header asks for). The detail goes to the log instead, where operators can see it.
+	 */
+	private static final String UNKNOWN_PLATFORM_BODY = "Unknown billing platform";
+	private static final String UNKNOWN_BASE_SITE_BODY = "Unknown base site";
+	private static final String REJECTED_BODY = "Webhook rejected";
+	private static final String TEMPORARILY_UNAVAILABLE_BODY = "Webhook temporarily unavailable";
+
+	/** Cap on how much of an untrusted value reaches the log, and a guard against CRLF forging log lines. */
+	private static final int MAX_LOGGED_VALUE_LENGTH = 100;
+
 	@Autowired
 	private SubscriptionBillingWebhookDispatcher webhookDispatcher;
 
@@ -85,7 +100,8 @@ public class SubscriptionBillingWebhookController
 		final BillingPlatform billingPlatform = resolvePlatform(platform);
 		if (billingPlatform == null)
 		{
-			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Unknown billing platform: " + platform);
+			LOG.warn("Webhook for unknown billing platform [{}] rejected", forLog(platform));
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(UNKNOWN_PLATFORM_BODY);
 		}
 
 		// The connectors read their credentials off the current base store, and this request carries no
@@ -99,11 +115,13 @@ public class SubscriptionBillingWebhookController
 		}
 		catch (final UnknownIdentifierException e)
 		{
-			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Unknown base site: " + baseSiteId);
+			LOG.warn("Webhook for unknown base site [{}] rejected", forLog(baseSiteId));
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(UNKNOWN_BASE_SITE_BODY);
 		}
 		if (baseSite == null)
 		{
-			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Unknown base site: " + baseSiteId);
+			LOG.warn("Webhook for unknown base site [{}] rejected", forLog(baseSiteId));
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(UNKNOWN_BASE_SITE_BODY);
 		}
 		baseSiteService.setCurrentBaseSite(baseSite, false);
 
@@ -124,9 +142,29 @@ public class SubscriptionBillingWebhookController
 			LOG.warn("Webhook rejected for platform {}: {}", billingPlatform, e.getMessage());
 			// Chargebee retries on any non-2xx regardless of the exact code (its own documented backoff),
 			// so this distinction is for delivery-log readability, not to influence retry behavior.
-			final HttpStatus status = e.isRetryable() ? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.BAD_REQUEST;
-			return ResponseEntity.status(status).body(e.getMessage());
+			// The message itself stays out of the response — a rejection reason such as "bad signature" or a
+			// connector's upstream error tells an anonymous caller more about our configuration than it does
+			// the billing platform, which only ever acts on the status code.
+			return e.isRetryable()
+					? ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(TEMPORARILY_UNAVAILABLE_BODY)
+					: ResponseEntity.status(HttpStatus.BAD_REQUEST).body(REJECTED_BODY);
 		}
+	}
+
+	/**
+	 * Renders an untrusted request value safe to put in a log line: newlines and carriage returns would let a
+	 * caller forge extra entries, and an unbounded path variable would let them flood the log.
+	 */
+	private static String forLog(final String value)
+	{
+		if (value == null)
+		{
+			return "null";
+		}
+		final String singleLine = value.replaceAll("[\\r\\n]", "_");
+		return singleLine.length() > MAX_LOGGED_VALUE_LENGTH
+				? singleLine.substring(0, MAX_LOGGED_VALUE_LENGTH) + "..."
+				: singleLine;
 	}
 
 	/**
