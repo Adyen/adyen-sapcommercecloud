@@ -1,0 +1,13 @@
+<!-- Copyright (c) 2026 Adyen B.V. - MIT license. -->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>de.hybris.platform</groupId>
+    <artifactId>adyenv6chargebeeconnector</artifactId>
+    <version>2211.3</version>
+    <packaging>jar</packaging>
+    <!-- No own maven dependencies: httpclient5 comes from adyenv6core/lib and
+         jackson-databind from the platform core, both via requires-extension. -->
+    <dependencies>
+    </dependencies>
+</project>

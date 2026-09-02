@@ -57,9 +57,6 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
                 paymentInfo.setCardBrand(cardDetails.getBrand());
                 paymentInfo.setAdyenSelectedReference(cardDetails.getStoredPaymentMethodId());
                 paymentInfo.setAdyenRememberTheseDetails(paymentRequest.getStorePaymentMethod());
-                paymentInfo.setAdyenSelectedReference(cardDetails.getStoredPaymentMethodId());
-                paymentInfo.setAdyenRememberTheseDetails(paymentRequest.getEnableOneClick());
-                paymentInfo.setAdyenSelectedReference(cardDetails.getStoredPaymentMethodId());
             } else if (CardDetails.TypeEnum.GIFTCARD.equals(cardDetails.getType())) {
                 // Gift card
                 paymentInfo.setAdyenGiftCardBrand(cardDetails.getBrand());

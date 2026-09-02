@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+ The vendor-neutral domain model (AdyenTokenHandle, the *Request records,
+ ConnectorCapabilities, NormalizedBillingEvent, ...) is expressed as immutable
+ Java records under com.adyen.commerce.connector.dto, not as generated beans,
+ so this file is intentionally minimal.
+-->
+<beans xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="beans.xsd">
+</beans>

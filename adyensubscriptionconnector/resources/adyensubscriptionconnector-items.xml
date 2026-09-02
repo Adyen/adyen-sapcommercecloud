@@ -1,0 +1,548 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+ Vendor-neutral type-system extensions for the agnostic subscription billing
+ connector. Nothing here references a concrete platform; the BillingPlatform
+ enum simply enumerates the supported adapters. Persisted external references
+ let a single shopper carry credentials/subscriptions for more than one
+ platform simultaneously (useful for migration / A-B).
+-->
+<items xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="items.xsd">
+
+    <enumtypes>
+        <!-- One value per supported connector adapter. ADYEN_NATIVE represents the
+             built-in, no-external-platform billing path (existing adyenv6subscription). -->
+        <enumtype code="BillingPlatform" generate="true" autocreate="true" dynamic="true">
+            <description>External subscription billing platform driven through a connector adapter.</description>
+            <value code="RECURLY"/>
+            <value code="CHARGEBEE"/>
+            <value code="ZUORA"/>
+            <value code="ADYEN_NATIVE"/>
+        </enumtype>
+    </enumtypes>
+
+    <relations>
+        <!-- A shopper can hold one external customer reference per platform. -->
+        <relation code="Customer2BillingCustomerRef" localized="false" generate="true" autocreate="true">
+            <sourceElement type="Customer" qualifier="customer" cardinality="one">
+                <modifiers read="true" write="true" search="true" optional="true"/>
+            </sourceElement>
+            <targetElement type="BillingCustomerRef" qualifier="billingCustomerRefs" cardinality="many">
+                <modifiers read="true" write="true" search="true" optional="true" partof="true"/>
+            </targetElement>
+        </relation>
+
+        <!-- A stored payment method can be imported into one or more platforms. -->
+        <relation code="PaymentInfo2BillingPaymentMethodRef" localized="false" generate="true" autocreate="true">
+            <sourceElement type="PaymentInfo" qualifier="paymentInfo" cardinality="one">
+                <modifiers read="true" write="true" search="true" optional="true"/>
+            </sourceElement>
+            <targetElement type="BillingPaymentMethodRef" qualifier="billingPaymentMethodRefs" cardinality="many">
+                <modifiers read="true" write="true" search="true" optional="true" partof="true"/>
+            </targetElement>
+        </relation>
+    </relations>
+
+    <itemtypes>
+
+        <!-- BaseStore: which connector is active for this store. -->
+        <itemtype code="BaseStore" autocreate="false" generate="false">
+            <attributes>
+                <attribute qualifier="activeBillingPlatform" type="BillingPlatform">
+                    <description>Active subscription billing connector for this store (one active connector per BaseStore).</description>
+                    <persistence type="property"/>
+                    <modifiers optional="true"/>
+                </attribute>
+            </attributes>
+        </itemtype>
+
+        <!-- Opaque external customer reference {platform, externalId}. -->
+        <itemtype code="BillingCustomerRef" extends="GenericItem" autocreate="true" generate="true">
+            <deployment table="BillingCustomerRef" typecode="22944"/>
+            <attributes>
+                <attribute qualifier="platform" type="BillingPlatform">
+                    <description>The billing platform this reference belongs to.</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false" initial="true"/>
+                </attribute>
+                <attribute qualifier="externalId" type="java.lang.String">
+                    <description>The customer/account id on the external platform.</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false"/>
+                </attribute>
+            </attributes>
+            <indexes>
+                <!-- At most one external customer reference per shopper per platform. -->
+                <index name="idx_billingCustRef_owner" unique="true">
+                    <key attribute="customer"/>
+                    <key attribute="platform"/>
+                </index>
+            </indexes>
+        </itemtype>
+
+        <!-- Opaque external payment-method reference {platform, externalId}. -->
+        <itemtype code="BillingPaymentMethodRef" extends="GenericItem" autocreate="true" generate="true">
+            <deployment table="BillingPaymtMethodRef" typecode="22945"/>
+            <attributes>
+                <attribute qualifier="platform" type="BillingPlatform">
+                    <description>The billing platform this reference belongs to.</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false" initial="true"/>
+                </attribute>
+                <attribute qualifier="externalId" type="java.lang.String">
+                    <description>The payment-source/billing-info id on the external platform.</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false"/>
+                </attribute>
+            </attributes>
+            <indexes>
+                <!-- At most one payment-method reference per stored payment info per platform. -->
+                <index name="idx_billingPmRef_owner" unique="true">
+                    <key attribute="paymentInfo"/>
+                    <key attribute="platform"/>
+                </index>
+            </indexes>
+        </itemtype>
+
+        <!-- Persisted record of an external subscription created via a connector.
+             Kept connector-owned and lightweight so the core does not hard-depend on
+             SAP subscriptionservices (D2 may later wire SAP Subscription reuse). -->
+        <itemtype code="BillingSubscriptionRef" extends="GenericItem" autocreate="true" generate="true">
+            <deployment table="BillingSubscriptionRef" typecode="22946"/>
+            <attributes>
+                <attribute qualifier="platform" type="BillingPlatform">
+                    <description>The billing platform this subscription runs on.</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false" initial="true"/>
+                </attribute>
+                <attribute qualifier="externalSubscriptionId" type="java.lang.String">
+                    <description>The subscription id on the external platform.</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false"/>
+                </attribute>
+                <attribute qualifier="externalCustomerId" type="java.lang.String">
+                    <description>The external customer id this subscription belongs to.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="externalPaymentMethodId" type="java.lang.String">
+                    <description>The external payment-method id charged for this subscription.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="status" type="java.lang.String">
+                    <description>Normalized subscription status as last synced from the platform.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="planCode" type="java.lang.String">
+                    <description>Resolved platform plan/price code.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="quantity" type="java.lang.Integer">
+                    <description>Subscribed quantity.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="currencyIsoCode" type="java.lang.String">
+                    <description>ISO currency code of the subscription.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="currentPeriodStart" type="java.util.Date">
+                    <description>Start of the current billing period (from platform).</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="currentPeriodEnd" type="java.util.Date">
+                    <description>End of the current billing period (from platform).</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="cancelAtPeriodEnd" type="java.lang.Boolean">
+                    <description>Whether the platform will stop renewing this subscription at period end.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="platformUpdatedAt" type="java.util.Date">
+                    <description>Last modification timestamp reported by the billing platform.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="lastReconciledAt" type="java.util.Date">
+                    <description>Time of the last successful authoritative platform read.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="idempotencyKey" type="java.lang.String">
+                    <description>Idempotency key used when this subscription was activated.</description>
+                    <persistence type="property"/>
+                    <modifiers initial="true"/>
+                </attribute>
+                <attribute qualifier="order" type="AbstractOrder">
+                    <description>The SAP order this subscription was activated from.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="customer" type="Customer">
+                    <description>The SAP shopper that owns this subscription.</description>
+                    <persistence type="property"/>
+                </attribute>
+
+                <!-- Event tracking. The platform is source-of-truth for status; these fields retain
+                     audit and change-version information after an authoritative reconciliation. -->
+                <attribute qualifier="lastAppliedEventId" type="java.lang.String">
+                    <description>Platform event id of the last delivery reconciled for this reference.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="lastAppliedEventAt" type="java.util.Date">
+                    <description>Platform-side timestamp carried by the last reconciled delivery. It is retained
+                        for audit only; delivery order never overrides the current platform snapshot.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="eventVersion" type="java.lang.Long">
+                    <description>Monotonic counter bumped when authoritative reconciliation changes the local
+                        subscription projection.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="lastSyncedAt" type="java.util.Date">
+                    <description>When this projection was last confirmed against the platform, whether by an applied
+                        webhook or by a pull re-fetch. Drives the staleness sweep that backstops dropped webhooks.</description>
+                    <persistence type="property"/>
+                </attribute>
+            </attributes>
+            <indexes>
+                <!-- An external subscription id is unique within a platform (backs findByExternalId). -->
+                <index name="idx_billingSubRef_extId" unique="true">
+                    <key attribute="platform"/>
+                    <key attribute="externalSubscriptionId"/>
+                </index>
+                <!-- Backs the per-order idempotency lookup findSubscriptionRef(order, platform), and
+                     enforces it. The service checks for an existing ref before creating one, but that is a
+                     read followed by a write with no lock in between: an order can be activated from two
+                     threads at once, because Adyen sends one AUTHORISATION notification per payment leg and
+                     redelivers on top of that. Without the constraint both callers pass the check and the
+                     second one only fails later, on the external-id index, after it has already created a
+                     customer and imported a token on the billing platform.
+
+                     Note for SQL Server: `order` is optional, and SQL Server treats NULLs in a unique index
+                     as equal, so there it also means "at most one ref with no order per platform". Every
+                     writer today sets the order; revisit if a reconciliation sweep ever needs to record
+                     platform-side subscriptions that have none. -->
+                <index name="idx_billingSubRef_order" unique="true">
+                    <key attribute="order"/>
+                    <key attribute="platform"/>
+                </index>
+                <!-- Backs the reconciliation sweep, which asks "refs in a non-terminal status not confirmed
+                     since T". lastSyncedAt is the confirmation timestamp the sweep filters on, and it is the
+                     only date in that predicate: lastReconciledAt exists for audit ("when did a platform read
+                     last happen") and is never a search criterion, so it deliberately has no index of its own. -->
+                <index name="idx_billingSubRef_sync">
+                    <key attribute="status"/>
+                    <key attribute="lastSyncedAt"/>
+                </index>
+            </indexes>
+        </itemtype>
+
+        <!-- Every inbound webhook delivery, keyed on the platform's own event id. Two jobs:
+             duplicate suppression (the unique index below is what makes a redelivery a no-op) and
+             an operator-visible record of what happened to each delivery, including terminal
+             failures that need intervention. -->
+        <itemtype code="BillingWebhookEvent" extends="GenericItem" autocreate="true" generate="true">
+            <deployment table="BillingWebhookEvent" typecode="22948"/>
+            <attributes>
+                <attribute qualifier="platform" type="BillingPlatform">
+                    <description>The billing platform that emitted this event.</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false" initial="true"/>
+                </attribute>
+                <attribute qualifier="eventId" type="java.lang.String">
+                    <description>The platform's own event id — the dedup key. Event ids are only unique within a
+                        platform, so the uniqueness constraint is on (platform, eventId).</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false" initial="true"/>
+                </attribute>
+                <attribute qualifier="eventType" type="java.lang.String">
+                    <description>Normalized BillingEventType name as produced by parseWebhook. Held as a String, not
+                        an enum type, so persisted history survives renamed or removed enum values.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="externalSubscriptionId" type="java.lang.String">
+                    <description>Subscription id carried by the event. Recorded even when no local reference matches,
+                        so an event for an unknown subscription is still auditable.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="occurredAt" type="java.util.Date">
+                    <description>Platform-side timestamp of the event, retained for delivery audit.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="receivedAt" type="java.util.Date">
+                    <description>When we received the delivery. Together with occurredAt this is the webhook lag.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="processingStatus" type="java.lang.String">
+                    <description>Overall outcome of this delivery: RECEIVED, RECONCILED,
+                        SKIPPED_NO_SUBSCRIPTION, SKIPPED_UNSUPPORTED, FAILED or DEAD_LETTER. Per-subscription
+                        outcomes are stored in BillingWebhookEventApplication.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="attemptCount" type="java.lang.Integer">
+                    <description>How many times application of this event has been attempted; drives the retry cut-off.</description>
+                    <persistence type="property"/>
+                    <defaultvalue>Integer.valueOf(0)</defaultvalue>
+                </attribute>
+                <attribute qualifier="lastError" type="java.lang.String">
+                    <description>Failure detail from the most recent attempt. Long text — a stack trace or remote
+                        error body does not fit the default 255 characters.</description>
+                    <persistence type="property">
+                        <columntype database="oracle">
+                            <value>CLOB</value>
+                        </columntype>
+                        <columntype database="sap">
+                            <value>NCLOB</value>
+                        </columntype>
+                        <columntype database="mysql">
+                            <value>TEXT</value>
+                        </columntype>
+                        <columntype database="sqlserver">
+                            <value>TEXT</value>
+                        </columntype>
+                        <columntype>
+                            <value>HYBRIS.LONG_STRING</value>
+                        </columntype>
+                    </persistence>
+                </attribute>
+                <attribute qualifier="payload" type="java.lang.String">
+                    <description>The body the platform sent, kept only for deliveries that failed.
+
+                        Deliberately not kept for the ones that worked. A webhook body carries the shopper's
+                        email, name, address, card last four and amounts, so storing every one of them turns
+                        this table into a store of personal data that nothing reads. The successes also do not
+                        need it: this dispatcher never projects the body onto local state, it treats the event
+                        as "something may have changed" and then reads the authoritative snapshot back from the
+                        platform. What decided the outcome is therefore the snapshot, not the body — and both
+                        Chargebee and Recurly keep their own copy and can replay it.
+
+                        A failure is the one case where that reasoning breaks: the diagnosis is usually "what
+                        exactly did they send us", and by the time anyone asks, the platform's own delivery log
+                        may have aged out. Truncated on write, because the first few thousand characters carry
+                        the diagnosis and an unbounded body is how one pathological delivery fills a table.
+                        Cleared again if a later redelivery of the same event succeeds.</description>
+                    <persistence type="property">
+                        <columntype database="oracle">
+                            <value>CLOB</value>
+                        </columntype>
+                        <columntype database="sap">
+                            <value>NCLOB</value>
+                        </columntype>
+                        <columntype database="mysql">
+                            <value>TEXT</value>
+                        </columntype>
+                        <columntype database="sqlserver">
+                            <value>TEXT</value>
+                        </columntype>
+                        <columntype>
+                            <value>HYBRIS.LONG_STRING</value>
+                        </columntype>
+                    </persistence>
+                </attribute>
+                <attribute qualifier="deadLetteredAt" type="java.util.Date">
+                    <description>When this delivery was given up on. Set exactly when processingStatus becomes
+                        DEAD_LETTER, so an operator can ask "what landed in the dead letter queue today" without
+                        inferring it from receivedAt, which is the time of the first delivery rather than the last.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="subscriptionRef" type="BillingSubscriptionRef">
+                    <description>The first local reference this event was applied to, retained for backwards
+                        compatibility. BillingWebhookEventApplication contains the complete per-subscription result.</description>
+                    <persistence type="property"/>
+                </attribute>
+            </attributes>
+            <indexes>
+                <!-- The whole point of the type: a redelivery of the same platform event id collides here
+                     instead of being applied twice. -->
+                <index name="idx_billingWhEvent_dedup" unique="true">
+                    <key attribute="platform"/>
+                    <key attribute="eventId"/>
+                </index>
+                <!-- Operator view: everything currently failed or dead-lettered. -->
+                <index name="idx_billingWhEvent_status">
+                    <key attribute="processingStatus"/>
+                </index>
+                <!-- Event history for one subscription. -->
+                <index name="idx_billingWhEvent_sub">
+                    <key attribute="subscriptionRef"/>
+                </index>
+            </indexes>
+        </itemtype>
+
+        <!-- Every attempt to turn an order into a subscription, whatever became of it.
+             BillingSubscriptionRef only exists once a platform has actually created a subscription — it
+             requires an externalSubscriptionId — so it cannot record an activation that failed, and until
+             now a failure left no row at all: no idempotency key, no error, nothing to retry from and
+             nothing for an operator to look at. This type is that record. It is keyed on the same
+             (order, platform) pair the activation itself is idempotent on, so it is at most one row per
+             order per platform no matter how many times the attempt is repeated. -->
+        <itemtype code="BillingActivationAttempt" extends="GenericItem" autocreate="true" generate="true">
+            <deployment table="BillingActivationAttempt" typecode="22949"/>
+            <attributes>
+                <attribute qualifier="order" type="AbstractOrder">
+                    <description>The SAP order being activated. Mandatory, unlike on BillingSubscriptionRef: an
+                        attempt with no order could neither be retried nor explained.</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false" initial="true"/>
+                </attribute>
+                <attribute qualifier="platform" type="BillingPlatform">
+                    <description>The billing platform the activation was attempted against.</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false" initial="true"/>
+                </attribute>
+                <attribute qualifier="idempotencyKey" type="java.lang.String">
+                    <description>The key sent to the platform, so a support conversation about a half-created
+                        subscription can name the exact request. Held here rather than only on
+                        BillingSubscriptionRef because the failing case is the one that needs it.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="productCode" type="java.lang.String">
+                    <description>Code of the subscription product this attempt was for. A plain string, not a
+                        Product reference: the record must survive the product being deleted.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="status" type="java.lang.String">
+                    <description>Outcome of the attempt: PENDING while one is in flight, SUCCEEDED, FAILED for a
+                        transient failure that is still due a retry, DEAD_LETTER once it is terminal or out of
+                        retries, or NOT_APPLICABLE for a row opened because the subscription product rule could not
+                        answer, on an order that a later attempt established is not a subscription order at all.
+                        Only FAILED is picked up again; DEAD_LETTER is where an operator has to look, and
+                        NOT_APPLICABLE is closed and uninteresting.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="attemptCount" type="java.lang.Integer">
+                    <description>How many activations have been attempted for this order; drives the retry cut-off.</description>
+                    <persistence type="property"/>
+                    <defaultvalue>Integer.valueOf(0)</defaultvalue>
+                </attribute>
+                <attribute qualifier="firstAttemptAt" type="java.util.Date">
+                    <description>When the first attempt ran. With deadLetteredAt this is how long a subscription
+                        the shopper has already paid for went unactivated.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="lastAttemptAt" type="java.util.Date">
+                    <description>When the most recent attempt ran.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="nextAttemptAt" type="java.util.Date">
+                    <description>Earliest time the retry job may try again. Null once the attempt has reached a
+                        terminal state, which is what takes it out of the job's queue.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="deadLetteredAt" type="java.util.Date">
+                    <description>When this attempt was given up on.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="lastError" type="java.lang.String">
+                    <description>Failure detail from the most recent attempt. Long text for the same reason as
+                        BillingWebhookEvent.lastError — a remote error body does not fit 255 characters. Given the
+                        wide column type up front, because widening it later needs a real ALTER.</description>
+                    <persistence type="property">
+                        <columntype database="oracle">
+                            <value>CLOB</value>
+                        </columntype>
+                        <columntype database="sap">
+                            <value>NCLOB</value>
+                        </columntype>
+                        <columntype database="mysql">
+                            <value>TEXT</value>
+                        </columntype>
+                        <columntype database="sqlserver">
+                            <value>TEXT</value>
+                        </columntype>
+                        <columntype>
+                            <value>HYBRIS.LONG_STRING</value>
+                        </columntype>
+                    </persistence>
+                </attribute>
+                <attribute qualifier="subscriptionRef" type="BillingSubscriptionRef">
+                    <description>What the attempt produced, once it succeeded. This is the "outcome" half of the
+                        record: key in, reference out.</description>
+                    <persistence type="property"/>
+                </attribute>
+            </attributes>
+            <indexes>
+                <!-- One attempt record per order per platform — the same scope activation is idempotent on
+                     (idx_billingSubRef_order). Unique so two concurrent activations of one order cannot each
+                     start their own counter and between them run twice the intended number of attempts. -->
+                <index name="idx_billingActAttempt_order" unique="true">
+                    <key attribute="order"/>
+                    <key attribute="platform"/>
+                </index>
+                <!-- Backs the retry job's queue ("FAILED and due") and, on its leading column alone, the
+                     operator's dead-letter view. -->
+                <index name="idx_billingActAttempt_due">
+                    <key attribute="status"/>
+                    <key attribute="nextAttemptAt"/>
+                </index>
+            </indexes>
+        </itemtype>
+
+        <!-- Per-subscription result of applying one webhook. Invoice events can legitimately resolve to
+             several subscriptions, so a single reference and status on BillingWebhookEvent is not enough
+             for retry diagnostics or operator audit. -->
+        <itemtype code="BillingWebhookEventApplication" extends="GenericItem" autocreate="true" generate="true">
+            <!-- 22950 is RecurlyPlanMapping in adyenrecurlyconnector, hence 22951: typecodes are global
+                 across every extension in the deployment, not per extension. -->
+            <deployment table="BillingWhEventApp" typecode="22951"/>
+            <attributes>
+                <attribute qualifier="event" type="BillingWebhookEvent">
+                    <description>The deduplicated delivery this application belongs to.</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false" initial="true"/>
+                </attribute>
+                <attribute qualifier="externalSubscriptionId" type="java.lang.String">
+                    <description>The external subscription id resolved from the delivery.</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false" initial="true"/>
+                </attribute>
+                <attribute qualifier="subscriptionRef" type="BillingSubscriptionRef">
+                    <description>The matching local subscription reference, if it existed.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="processingStatus" type="java.lang.String">
+                    <description>RECEIVED, RECONCILED, SKIPPED_UNKNOWN_SUBSCRIPTION,
+                        RETRYABLE_UNKNOWN_SUBSCRIPTION or FAILED. SKIPPED_UNKNOWN_SUBSCRIPTION covers two
+                        different situations, so read lastError before acting on it: an empty lastError means the
+                        delivery was simply not about a subscription of ours and there is nothing to do, while a
+                        lastError means we did expect a local reference, waited for it across the whole retry
+                        budget and then gave up. Only the second one needs an operator, since the reference it
+                        was waiting for was never created. They are deliberately not separate status values:
+                        splitting them would be a schema change with a migration cost, for a distinction
+                        lastError already carries.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="attemptCount" type="java.lang.Integer">
+                    <description>Number of attempts made for this event/subscription pair.</description>
+                    <persistence type="property"/>
+                    <defaultvalue>Integer.valueOf(0)</defaultvalue>
+                </attribute>
+                <attribute qualifier="lastError" type="java.lang.String">
+                    <description>Failure detail from the most recent attempt.</description>
+                    <persistence type="property">
+                        <columntype database="oracle"><value>CLOB</value></columntype>
+                        <columntype database="sap"><value>NCLOB</value></columntype>
+                        <columntype database="mysql"><value>TEXT</value></columntype>
+                        <columntype database="sqlserver"><value>TEXT</value></columntype>
+                        <columntype><value>HYBRIS.LONG_STRING</value></columntype>
+                    </persistence>
+                </attribute>
+                <attribute qualifier="reconciledAt" type="java.util.Date">
+                    <description>When the authoritative subscription snapshot was successfully applied.</description>
+                    <persistence type="property"/>
+                </attribute>
+            </attributes>
+            <indexes>
+                <index name="idx_billingWhApp_eventSub" unique="true">
+                    <key attribute="event"/>
+                    <key attribute="externalSubscriptionId"/>
+                </index>
+                <index name="idx_billingWhApp_status">
+                    <key attribute="processingStatus"/>
+                </index>
+                <index name="idx_billingWhApp_sub">
+                    <key attribute="subscriptionRef"/>
+                </index>
+            </indexes>
+        </itemtype>
+
+    </itemtypes>
+
+</items>

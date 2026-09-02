@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Copyright (c) 2026 Adyen B.V. - MIT license. -->
+<extensioninfo xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="extensioninfo.xsd">
+
+    <extension abstractclassprefix="Generated" classprefix="Adyenrecurlyconnector" jaloLogicFree="true"
+               managername="AdyenrecurlyconnectorManager"
+               managersuperclass="de.hybris.platform.jalo.extension.Extension"
+               name="adyenrecurlyconnector" usemaven="false">
+
+        <!-- The SPI + normalized model come from the core; httpclient5 + jackson come
+             transitively from adyenv6core (usemaven=false: no own maven deps needed). -->
+        <requires-extension name="adyensubscriptionconnector"/>
+        <requires-extension name="adyenv6core"/>
+        <!-- RestSessionFilter / SessionHidingFilter for the webhook webapp. -->
+        <requires-extension name="webservicescommons"/>
+
+        <coremodule generated="true"
+                    manager="com.adyen.commerce.connector.recurly.jalo.AdyenrecurlyconnectorManager"
+                    packageroot="com.adyen.commerce.connector.recurly"/>
+
+        <!-- No web module: the inbound webhook is the base-site-aware OCC endpoint
+             POST /occ/v2/subscription-billing/webhooks/{baseSiteId}/{platform} in
+             adyensubscriptionconnector. A second, base-site-less controller lived here and could only
+             ever answer 400 (no current base store means no credentials); worse, it gave operators a
+             second plausible URL to point Recurly at, where every event would be dropped silently. -->
+    </extension>
+
+</extensioninfo>
