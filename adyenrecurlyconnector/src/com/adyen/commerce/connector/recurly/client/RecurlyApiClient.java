@@ -26,7 +26,26 @@ public interface RecurlyApiClient {
     void updateSubscription(String subscriptionId, String planCode, Integer quantity, String idempotencyKey)
             throws BillingException;
 
-    void cancelSubscription(String subscriptionId, boolean atPeriodEnd, String idempotencyKey) throws BillingException;
+    /**
+     * Stops the subscription renewing and lets it serve out the period the customer has paid for
+     * ({@code PUT /subscriptions/{id}/cancel} with {@code timeframe=bill_date}).
+     *
+     * <p>Separate from {@link #terminate} rather than the two sharing one method and a flag, because Recurly
+     * draws the line between them at the HTTP verb: this one is reversible until the term ends, and the
+     * other one is not. A boolean argument would have made the destructive call look like a value.</p>
+     */
+    void cancelAtNextBillDate(String subscriptionId, String idempotencyKey) throws BillingException;
+
+    /**
+     * Ends the subscription immediately, forfeiting the remainder of the paid period
+     * ({@code DELETE /subscriptions/{id}}).
+     *
+     * <p>Recurly's own word for this is <em>terminate</em>, and it is not a cancellation in a hurry: it
+     * stops service at once and settles the unused period according to the {@code refund} parameter, which
+     * this client does not send — so the account's own default decides what happens to the customer's
+     * money. Reserve it for operator and system decisions.</p>
+     */
+    void terminate(String subscriptionId, String idempotencyKey) throws BillingException;
 
     /**
      * Resolves subscription UUIDs for lightweight Recurly invoice/payment JSON webhooks.

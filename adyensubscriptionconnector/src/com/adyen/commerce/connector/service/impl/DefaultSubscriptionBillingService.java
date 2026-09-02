@@ -24,11 +24,13 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
 import com.adyen.commerce.connector.reconciliation.SubscriptionReconciliationService;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,7 +39,7 @@ import com.adyen.commerce.connector.dto.BillingAddress;
 import com.adyen.commerce.connector.dto.BillingCustomerRef;
 import com.adyen.commerce.connector.dto.BillingPaymentMethodRef;
 import com.adyen.commerce.connector.dto.BillingSubscriptionRef;
-import com.adyen.commerce.connector.dto.CancelReason;
+import com.adyen.commerce.connector.dto.CancellationTiming;
 import com.adyen.commerce.connector.dto.ConnectorCapabilities;
 import com.adyen.commerce.connector.dto.CustomerSyncRequest;
 import com.adyen.commerce.connector.dto.NormalizedSubscriptionStatus;
@@ -45,6 +47,7 @@ import com.adyen.commerce.connector.dto.PlanRef;
 import com.adyen.commerce.connector.dto.PlanResolutionRequest;
 import com.adyen.commerce.connector.dto.RecurringProcessingModel;
 import com.adyen.commerce.connector.dto.SubscriptionCancelRequest;
+import com.adyen.commerce.connector.dto.SubscriptionCancellation;
 import com.adyen.commerce.connector.dto.SubscriptionCreateRequest;
 import com.adyen.commerce.connector.dto.TokenImportRequest;
 import com.adyen.commerce.connector.enums.BillingPlatform;
@@ -190,22 +193,29 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 	}
 
 	@Override
-	public void cancel(final BillingSubscriptionRefModel subscription, final CancelReason reason) throws BillingException
+	public void cancel(final BillingSubscriptionRefModel subscription, final SubscriptionCancellation cancellation)
+			throws BillingException
 	{
 		if (subscription == null)
 		{
 			throw new PreconditionFailedException("Cannot cancel a null subscription reference");
 		}
-		final CancelReason effectiveReason = reason == null ? CancelReason.OTHER : reason;
+		// Not defaulted. A missing timing used to be answered with `false`, which on Recurly is a terminate;
+		// refusing is the only answer that cannot quietly destroy a paid period on a caller's behalf.
+		if (cancellation == null)
+		{
+			throw new PreconditionFailedException("Cannot cancel subscription "
+					+ subscription.getExternalSubscriptionId() + " without a reason and a cancellation timing");
+		}
 		final SubscriptionBillingConnector connector = connectorRegistry.getConnector(subscription.getPlatform());
 		final BillingSubscriptionRef ref = new BillingSubscriptionRef(subscription.getPlatform(),
 				subscription.getExternalSubscriptionId());
 		connector.cancelSubscription(
 				new SubscriptionCancelRequest(
 						ref,
-						effectiveReason,
-						false,
-						subscription.getIdempotencyKey()));
+						cancellation.reason(),
+						cancellation.timing(),
+						cancellationKey(subscription.getIdempotencyKey(), cancellation.timing())));
 
 		try
 		{
@@ -227,6 +237,26 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 
 			flagForReconciliationSweep(subscription);
 		}
+	}
+
+	/**
+	 * The idempotency key sent with a cancellation, discriminated by its timing.
+	 *
+	 * <p>Both timings would otherwise travel under the subscription's single stored key. Recurly answers a
+	 * repeated key with the <em>first</em> response it recorded, so a shopper who cancels at period end and
+	 * is then escalated to an immediate cancellation would have the second request acknowledged with the
+	 * stored answer to the first: the terminate never reaches Recurly, the connector logs a success, and the
+	 * next reconciliation reads the subscription back as still serving. The connector namespaces this key
+	 * again by operation, which separates a cancel from a create but not one cancel from another.</p>
+	 *
+	 * <p>A blank key is passed through untouched rather than turned into a bare timing: a key that names
+	 * only "at_period_end" would be shared by every subscription that ever cancelled.</p>
+	 */
+	protected String cancellationKey(final String idempotencyKey, final CancellationTiming timing)
+	{
+		return StringUtils.isBlank(idempotencyKey)
+				? idempotencyKey
+				: idempotencyKey + "/" + timing.name().toLowerCase(Locale.ROOT);
 	}
 
 	/**

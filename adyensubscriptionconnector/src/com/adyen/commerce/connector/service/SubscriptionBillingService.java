@@ -20,7 +20,7 @@
  */
 package com.adyen.commerce.connector.service;
 
-import com.adyen.commerce.connector.dto.CancelReason;
+import com.adyen.commerce.connector.dto.SubscriptionCancellation;
 import com.adyen.commerce.connector.exception.BillingException;
 import com.adyen.commerce.connector.model.BillingSubscriptionRefModel;
 
@@ -63,6 +63,12 @@ public interface SubscriptionBillingService
 
 	/**
 	 * Cancel a subscription on its platform and update the local reference.
+	 *
+	 * <p>The timing is part of the request rather than a default, because the two timings are different
+	 * acts and one of them is destructive: on Recurly an immediate cancellation is a <em>terminate</em>,
+	 * which ends service at once and leaves the shopper's remaining paid period unaccounted for. See
+	 * {@link com.adyen.commerce.connector.dto.CancellationTiming}.</p>
 	 */
-	void cancel(BillingSubscriptionRefModel subscription, CancelReason reason) throws BillingException;
+	void cancel(BillingSubscriptionRefModel subscription, SubscriptionCancellation cancellation)
+			throws BillingException;
 }

@@ -22,6 +22,7 @@ package com.adyen.commerce.connector.service.impl;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
@@ -33,6 +34,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -55,9 +57,12 @@ import com.adyen.commerce.connector.dto.BillingCustomerRef;
 import com.adyen.commerce.connector.dto.BillingPaymentMethodRef;
 import com.adyen.commerce.connector.dto.BillingSubscriptionRef;
 import com.adyen.commerce.connector.dto.CancelReason;
+import com.adyen.commerce.connector.dto.CancellationTiming;
 import com.adyen.commerce.connector.dto.ConnectorCapabilities;
 import com.adyen.commerce.connector.dto.NormalizedSubscriptionStatus;
 import com.adyen.commerce.connector.dto.PlanRef;
+import com.adyen.commerce.connector.dto.SubscriptionCancelRequest;
+import com.adyen.commerce.connector.dto.SubscriptionCancellation;
 import com.adyen.commerce.connector.dto.TokenImportStyle;
 import com.adyen.commerce.connector.dto.TokenImportRequest;
 import com.adyen.commerce.connector.enums.BillingPlatform;
@@ -312,7 +317,97 @@ public class DefaultSubscriptionBillingServiceTest
 	@Test
 	public void shouldRejectCancelOfNullSubscription()
 	{
-		assertThrows(PreconditionFailedException.class, () -> service.cancel(null, CancelReason.OTHER));
+		assertThrows(PreconditionFailedException.class,
+				() -> service.cancel(null, SubscriptionCancellation.endOfPeriod(CancelReason.OTHER)));
+	}
+
+	/**
+	 * There is no sensible thing to assume here. Treating an absent request as "cancel now" is how the
+	 * hard-coded flag this replaced used to behave, and on one of the two platforms that is a terminate.
+	 */
+	@Test
+	public void shouldRefuseToCancelWithoutBeingToldWhenItTakesEffect() throws Exception
+	{
+		final BillingSubscriptionRefModel subscription = cancellableSubscription();
+
+		assertThrows(PreconditionFailedException.class, () -> service.cancel(subscription, null));
+
+		verify(connector, never()).cancelSubscription(any());
+	}
+
+	/**
+	 * The timing the SPI carries has to be the one that was asked for. Nothing asserted this before, which
+	 * is exactly how a literal {@code false} survived in the one place it mattered.
+	 */
+	@Test
+	public void shouldAskForAnEndOfPeriodCancellationWhenThatIsTheTimingRequested() throws Exception
+	{
+		final BillingSubscriptionRefModel subscription = cancellableSubscription();
+
+		service.cancel(subscription, SubscriptionCancellation.endOfPeriod(CancelReason.REQUESTED_BY_CUSTOMER));
+
+		final ArgumentCaptor<SubscriptionCancelRequest> sent = ArgumentCaptor
+				.forClass(SubscriptionCancelRequest.class);
+		verify(connector).cancelSubscription(sent.capture());
+		assertEquals("an end-of-period cancellation must not reach the platform as an immediate one",
+				CancellationTiming.AT_PERIOD_END, sent.getValue().timing());
+		assertEquals(CancelReason.REQUESTED_BY_CUSTOMER, sent.getValue().reason());
+	}
+
+	@Test
+	public void shouldCancelImmediatelyOnlyWhenThatIsTheTimingRequested() throws Exception
+	{
+		final BillingSubscriptionRefModel subscription = cancellableSubscription();
+
+		service.cancel(subscription, SubscriptionCancellation.immediately(CancelReason.FRAUD));
+
+		final ArgumentCaptor<SubscriptionCancelRequest> sent = ArgumentCaptor
+				.forClass(SubscriptionCancelRequest.class);
+		verify(connector).cancelSubscription(sent.capture());
+		assertEquals(CancellationTiming.IMMEDIATELY, sent.getValue().timing());
+	}
+
+	/**
+	 * Recurly answers a repeated idempotency key with the first response it recorded. Sharing one key
+	 * between the two timings would let an escalation from "at period end" to "now" be acknowledged with
+	 * the stored answer to the first request — the platform never hears the second one, and the caller is
+	 * told it succeeded.
+	 */
+	@Test
+	public void shouldGiveTheTwoTimingsDifferentIdempotencyKeys() throws Exception
+	{
+		final BillingSubscriptionRefModel subscription = cancellableSubscription();
+		when(subscription.getIdempotencyKey()).thenReturn("00140001");
+
+		service.cancel(subscription, SubscriptionCancellation.endOfPeriod(CancelReason.REQUESTED_BY_CUSTOMER));
+		service.cancel(subscription, SubscriptionCancellation.immediately(CancelReason.REQUESTED_BY_CUSTOMER));
+
+		final ArgumentCaptor<SubscriptionCancelRequest> sent = ArgumentCaptor
+				.forClass(SubscriptionCancelRequest.class);
+		verify(connector, times(2)).cancelSubscription(sent.capture());
+		final String endOfPeriodKey = sent.getAllValues().get(0).idempotencyKey();
+		final String immediateKey = sent.getAllValues().get(1).idempotencyKey();
+		assertNotEquals("the two cancellations must not share an idempotency key", endOfPeriodKey, immediateKey);
+		assertTrue("the key must still identify the subscription it belongs to",
+				endOfPeriodKey.startsWith("00140001") && immediateKey.startsWith("00140001"));
+	}
+
+	/**
+	 * A subscription activated before the key was recorded has none. Inventing one from the timing alone
+	 * would hand every such cancellation the same key, which is worse than sending none at all.
+	 */
+	@Test
+	public void shouldNotInventAnIdempotencyKeyForASubscriptionThatHasNone() throws Exception
+	{
+		final BillingSubscriptionRefModel subscription = cancellableSubscription();
+		when(subscription.getIdempotencyKey()).thenReturn(null);
+
+		service.cancel(subscription, SubscriptionCancellation.endOfPeriod(CancelReason.OTHER));
+
+		final ArgumentCaptor<SubscriptionCancelRequest> sent = ArgumentCaptor
+				.forClass(SubscriptionCancelRequest.class);
+		verify(connector).cancelSubscription(sent.capture());
+		assertNull(sent.getValue().idempotencyKey());
 	}
 
 	/**
@@ -332,7 +427,7 @@ public class DefaultSubscriptionBillingServiceTest
 	{
 		final BillingSubscriptionRefModel subscription = cancellableSubscription();
 
-		service.cancel(subscription, CancelReason.OTHER);
+		service.cancel(subscription, SubscriptionCancellation.endOfPeriod(CancelReason.OTHER));
 
 		verify(reconciliationService).reconcile(subscription);
 		verify(subscription, never()).setLastSyncedAt(null);
@@ -345,7 +440,7 @@ public class DefaultSubscriptionBillingServiceTest
 		final BillingSubscriptionRefModel subscription = cancellableSubscription();
 		when(reconciliationService.reconcile(subscription)).thenThrow(new BillingException("platform read timed out"));
 
-		service.cancel(subscription, CancelReason.OTHER);
+		service.cancel(subscription, SubscriptionCancellation.endOfPeriod(CancelReason.OTHER));
 
 		verify(connector).cancelSubscription(any());
 		verify(subscription).setLastSyncedAt(null);
@@ -364,7 +459,7 @@ public class DefaultSubscriptionBillingServiceTest
 		when(reconciliationService.reconcile(subscription))
 				.thenThrow(new ModelSavingException("could not persist the reconciled state"));
 
-		service.cancel(subscription, CancelReason.OTHER);
+		service.cancel(subscription, SubscriptionCancellation.endOfPeriod(CancelReason.OTHER));
 
 		verify(connector).cancelSubscription(any());
 		verify(subscription).setLastSyncedAt(null);
@@ -383,7 +478,7 @@ public class DefaultSubscriptionBillingServiceTest
 				.thenThrow(new IllegalStateException("no connector configured for this store"));
 		doThrow(new ModelSavingException("the database is gone")).when(modelService).save(subscription);
 
-		service.cancel(subscription, CancelReason.OTHER);
+		service.cancel(subscription, SubscriptionCancellation.endOfPeriod(CancelReason.OTHER));
 
 		verify(modelService).save(subscription);
 	}

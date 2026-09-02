@@ -7,6 +7,7 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -28,6 +29,7 @@ import com.adyen.commerce.connector.dto.BillingCustomerRef;
 import com.adyen.commerce.connector.dto.BillingPaymentMethodRef;
 import com.adyen.commerce.connector.dto.BillingSubscriptionRef;
 import com.adyen.commerce.connector.dto.CancelReason;
+import com.adyen.commerce.connector.dto.CancellationTiming;
 import com.adyen.commerce.connector.dto.ConnectorCapabilities;
 import com.adyen.commerce.connector.dto.CustomerSyncRequest;
 import com.adyen.commerce.connector.dto.NormalizedBillingEvent;
@@ -215,13 +217,45 @@ public class RecurlySubscriptionBillingConnectorTest
                 null, Map.of(), "update-key"));
         connector.cancelSubscription(new SubscriptionCancelRequest(
                 new BillingSubscriptionRef(BillingPlatform.RECURLY, "uuid-sub"),
-                CancelReason.REQUESTED_BY_CUSTOMER, true, "cancel-key"));
+                CancelReason.REQUESTED_BY_CUSTOMER, CancellationTiming.AT_PERIOD_END, "cancel-key"));
 
         // Namespaced per operation: the core reuses one key for a subscription's whole lifecycle, and
         // Recurly answers a repeated key with the first response it recorded — so a cancel sharing the
         // create's key could be acknowledged with the stored 201 while billing continued.
         verify(apiClient).updateSubscription("uuid-sub", "annual", 2, "update-key/update");
-        verify(apiClient).cancelSubscription("uuid-sub", true, "cancel-key/cancel");
+        verify(apiClient).cancelAtNextBillDate("uuid-sub", "cancel-key/cancel");
+    }
+
+    /**
+     * The two timings are different Recurly endpoints with different consequences, so they must not be able
+     * to reach each other: an end-of-period cancellation that arrived as a terminate would end service in
+     * the middle of a period the customer has paid for.
+     */
+    @Test
+    public void endOfPeriodCancellationNeverTerminates() throws Exception
+    {
+        connector.cancelSubscription(new SubscriptionCancelRequest(
+                new BillingSubscriptionRef(BillingPlatform.RECURLY, "uuid-sub"),
+                CancelReason.REQUESTED_BY_CUSTOMER, CancellationTiming.AT_PERIOD_END, "cancel-key"));
+
+        verify(apiClient).cancelAtNextBillDate("uuid-sub", "cancel-key/cancel");
+        verify(apiClient, never()).terminate(any(), any());
+    }
+
+    /**
+     * The keys are namespaced apart here as well as in the core. Recurly answers a repeated key with the
+     * first response it recorded, and being told a terminate succeeded when Recurly never saw it is the one
+     * failure on this path that looks like success from every angle.
+     */
+    @Test
+    public void immediateCancellationTerminatesUnderItsOwnIdempotencyKey() throws Exception
+    {
+        connector.cancelSubscription(new SubscriptionCancelRequest(
+                new BillingSubscriptionRef(BillingPlatform.RECURLY, "uuid-sub"),
+                CancelReason.FRAUD, CancellationTiming.IMMEDIATELY, "cancel-key"));
+
+        verify(apiClient).terminate("uuid-sub", "cancel-key/terminate");
+        verify(apiClient, never()).cancelAtNextBillDate(any(), any());
     }
 
     @Test

@@ -40,9 +40,11 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -593,6 +595,54 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 		final SearchResult<Object> result = mock(SearchResult.class);
 		when(result.getResult()).thenReturn(rows);
 		return result;
+	}
+
+	/**
+	 * Every normalized event type is classified here on purpose, one way or the other.
+	 *
+	 * <p>The set the dispatcher consults decides whether a delivery naming a subscription we hold no
+	 * reference for is worth waiting for — an error answer and a redelivery — or is simply not ours. Its own
+	 * javadoc asks for each new type to be classified, and until this test nothing checked that anyone had:
+	 * a value added to the enum and forgotten here defaulted to "not ours", quietly, which is the right
+	 * answer often enough that the omission would not show.</p>
+	 *
+	 * <p>Adding a value to {@link BillingEventType} therefore breaks this test. That is the point. Decide
+	 * which list it belongs on and say so.</p>
+	 */
+	@Test
+	public void everyNormalizedEventTypeIsDeliberatelyClassifiedAsSubscriptionScopedOrNot()
+	{
+		final Set<BillingEventType> expectedScoped = EnumSet.of(
+				BillingEventType.SUBSCRIPTION_CREATED, BillingEventType.SUBSCRIPTION_ACTIVATED,
+				BillingEventType.SUBSCRIPTION_UPDATED, BillingEventType.SUBSCRIPTION_RENEWED,
+				BillingEventType.SUBSCRIPTION_CANCELLED, BillingEventType.SUBSCRIPTION_EXPIRED,
+				BillingEventType.SUBSCRIPTION_PAUSED, BillingEventType.SUBSCRIPTION_RESUMED,
+				BillingEventType.SUBSCRIPTION_CHANGE_SCHEDULED, BillingEventType.SUBSCRIPTION_PAUSE_SCHEDULED,
+				BillingEventType.SUBSCRIPTION_PAUSE_UPDATED, BillingEventType.SUBSCRIPTION_PAUSE_CANCELLED);
+
+		// Deliberately outside. The invoice- and payment-shaped ones because their subject is not the
+		// subscription; PAYMENT_METHOD_UPDATED because it is customer-shaped and no parser emits it yet; and
+		// the two cancellation-schedule types because nobody schedules a cancellation on a subscription
+		// created moments ago, so there is no create/webhook race for membership to protect.
+		final Set<BillingEventType> expectedUnscoped = EnumSet.of(
+				BillingEventType.SUBSCRIPTION_CANCELLATION_SCHEDULED,
+				BillingEventType.SUBSCRIPTION_CANCELLATION_REMOVED,
+				BillingEventType.INVOICE_PAID, BillingEventType.INVOICE_PAST_DUE, BillingEventType.INVOICE_FAILED,
+				BillingEventType.INVOICE_PAYMENT_FAILED, BillingEventType.PAYMENT_SUCCEEDED,
+				BillingEventType.PAYMENT_FAILED, BillingEventType.PAYMENT_METHOD_UPDATED,
+				BillingEventType.UNKNOWN);
+
+		for (final BillingEventType type : BillingEventType.values())
+		{
+			assertTrue("BillingEventType." + type + " is not classified in this test; decide whether a delivery "
+					+ "naming an unknown subscription should be waited for and add it to one of the two sets",
+					expectedScoped.contains(type) != expectedUnscoped.contains(type));
+
+			final boolean scoped = dispatcher
+					.isDirectSubscriptionEvent(eventOf(type, "ev-" + type, "sub-1", Instant.EPOCH));
+			assertEquals("BillingEventType." + type + " is classified one way in this test and the other way in "
+					+ "the dispatcher", Boolean.valueOf(expectedScoped.contains(type)), Boolean.valueOf(scoped));
+		}
 	}
 
 	private static NormalizedBillingEvent eventOf(final BillingEventType type, final String eventId,

@@ -324,7 +324,7 @@ public class DefaultRecurlyApiClientTest
         when(httpClient.put(eq(BASE + "/subscriptions/uuid-123/cancel"), eq(auth), eq(ACCEPT), any(), eq("key")))
                 .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{}"));
 
-        client.cancelSubscription("uuid-123", true, "key");
+        client.cancelAtNextBillDate("uuid-123", "key");
 
         final ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
         verify(httpClient).put(eq(BASE + "/subscriptions/uuid-123/cancel"), eq(auth), eq(ACCEPT), body.capture(),
@@ -332,13 +332,17 @@ public class DefaultRecurlyApiClientTest
         assertEquals("{\"timeframe\":\"bill_date\"}", body.getValue());
     }
 
+    /**
+     * Recurly's terminate is a DELETE on the subscription itself, not a variant of the cancel endpoint —
+     * which is the whole reason the two are separate methods here rather than one with a flag.
+     */
     @Test
-    public void immediateCancelTerminatesWithDelete() throws Exception
+    public void terminateEndsTheSubscriptionWithDelete() throws Exception
     {
         when(httpClient.delete(BASE + "/subscriptions/uuid-123", auth, ACCEPT, "key"))
                 .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{}"));
 
-        client.cancelSubscription("uuid-123", false, "key");
+        client.terminate("uuid-123", "key");
 
         verify(httpClient).delete(BASE + "/subscriptions/uuid-123", auth, ACCEPT, "key");
     }

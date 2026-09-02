@@ -129,6 +129,16 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 	 * merely mentions one. Enumerated rather than derived from the constant's name, so that a type added
 	 * later has to be classified on purpose: landing in here makes the dispatcher wait for a local
 	 * reference to appear, which is the wrong answer for anything invoice- or payment-shaped.
+	 *
+	 * <p>The membership test is not "is this about a subscription" but "could the local reference still be
+	 * on its way". That is why {@code SUBSCRIPTION_CANCELLATION_SCHEDULED} and
+	 * {@code SUBSCRIPTION_CANCELLATION_REMOVED} are deliberately absent although both are plainly
+	 * subscription-shaped: nobody schedules a cancellation on a subscription that was created moments ago,
+	 * so there is no create/webhook race to protect, and membership would buy nothing while costing a run
+	 * of forced errors and a stored webhook body for every subscription on the platform that is not ours —
+	 * demo data and subscriptions created in the vendor's own panel included. Where the reference does
+	 * exist, which is the case this pair is mapped for, absence changes nothing: reconciliation is not
+	 * gated on the type.</p>
 	 */
 	private static final Set<BillingEventType> SUBSCRIPTION_SCOPED_TYPES = EnumSet.of(
 			BillingEventType.SUBSCRIPTION_CREATED, BillingEventType.SUBSCRIPTION_ACTIVATED,

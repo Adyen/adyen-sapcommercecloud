@@ -48,6 +48,7 @@ import com.adyen.commerce.connector.model.BillingWebhookEventModel;
 
 import de.hybris.bootstrap.annotations.UnitTest;
 import de.hybris.platform.cronjob.enums.CronJobResult;
+import de.hybris.platform.cronjob.enums.CronJobStatus;
 import de.hybris.platform.cronjob.model.CronJobModel;
 import de.hybris.platform.servicelayer.cronjob.PerformResult;
 import de.hybris.platform.servicelayer.model.ModelService;
@@ -82,15 +83,10 @@ public class SubscriptionBillingRetentionJobTest
 	{
 		MockitoAnnotations.openMocks(this);
 
-		job = new SubscriptionBillingRetentionJob()
-		{
-			@Override
-			protected boolean isAbortRequested(final CronJobModel ignored)
-			{
-				// The platform's abort check needs a booted cron engine; the ordering tests are not about it.
-				return false;
-			}
-		};
+		// No subclass override here on purpose: the real isAbortRequested runs, so these tests also cover
+		// AbstractJobPerformable.clearAbortRequestedIfNeeded reading the inherited modelService. Stubbing it
+		// out is what let a null inherited field go unnoticed.
+		job = new SubscriptionBillingRetentionJob();
 		job.setFlexibleSearchService(flexibleSearchService);
 		job.setModelService(modelService);
 		job.setClock(Clock.fixed(NOW, ZoneOffset.UTC));
@@ -111,6 +107,24 @@ public class SubscriptionBillingRetentionJobTest
 		final PerformResult result = job.perform(cronJob);
 
 		assertEquals(CronJobResult.SUCCESS, result.getResult());
+		verify(modelService, never()).remove(any());
+	}
+
+	/**
+	 * The inherited abort check dereferences AbstractJobPerformable's own modelService field. A subclass field
+	 * of the same name leaves that one null, and the sweep then dies here before touching a single row.
+	 */
+	@Test
+	public void stopsAndReportsAbortedWhenAnAbortIsRequested()
+	{
+		final BillingWebhookEventModel event = mock(BillingWebhookEventModel.class);
+		final SearchResult<Object> events = result(List.of(event));
+		when(flexibleSearchService.search(any(FlexibleSearchQuery.class))).thenReturn(events);
+		when(cronJob.getRequestAbort()).thenReturn(Boolean.TRUE);
+
+		final PerformResult result = job.perform(cronJob);
+
+		assertEquals(CronJobStatus.ABORTED, result.getStatus());
 		verify(modelService, never()).remove(any());
 	}
 

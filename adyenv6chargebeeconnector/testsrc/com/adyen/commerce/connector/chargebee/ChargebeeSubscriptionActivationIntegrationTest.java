@@ -41,6 +41,7 @@ import com.adyen.commerce.connector.dto.BillingCustomerRef;
 import com.adyen.commerce.connector.dto.BillingPaymentMethodRef;
 import com.adyen.commerce.connector.dto.BillingSubscriptionRef;
 import com.adyen.commerce.connector.dto.CancelReason;
+import com.adyen.commerce.connector.dto.CancellationTiming;
 import com.adyen.commerce.connector.dto.PlanRef;
 import com.adyen.commerce.connector.dto.SubscriptionCancelRequest;
 import com.adyen.commerce.connector.dto.SubscriptionCreateRequest;
@@ -331,6 +332,7 @@ public class ChargebeeSubscriptionActivationIntegrationTest extends Servicelayer
 
 		// Cancel immediately (atPeriodEnd=false -> cancel_option=immediately). No exception == Chargebee 2xx.
 		chargebeeConnector.cancelSubscription(
-				new SubscriptionCancelRequest(created, CancelReason.REQUESTED_BY_CUSTOMER, false, idem));
+				new SubscriptionCancelRequest(created, CancelReason.REQUESTED_BY_CUSTOMER,
+						CancellationTiming.IMMEDIATELY, idem));
 	}
 }

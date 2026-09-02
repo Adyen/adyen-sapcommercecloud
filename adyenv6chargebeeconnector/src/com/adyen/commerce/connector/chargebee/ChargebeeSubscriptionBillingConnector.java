@@ -322,23 +322,33 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 		final long startedAt = System.nanoTime();
 		try (ConnectorLogContext scope = ConnectorLogContext.open(platform(), "cancel_subscription"))
 		{
+			// A switch expression, not a statement: only the expression form is checked for exhaustiveness,
+			// so this is what makes a third timing a compile error instead of one that quietly cancels a
+			// subscription at whichever moment the surviving branch happens to mean. Chargebee reaches the
+			// same endpoint either way and differs only in cancel_option, which is why the choice can stay a
+			// flag here where on Recurly it could not.
+			final boolean atPeriodEnd = switch (request.timing())
+			{
+				case AT_PERIOD_END -> true;
+				case IMMEDIATELY -> false;
+			};
 			try
 			{
-				apiClient.cancelSubscription(request.subscription().externalId(), request.atPeriodEnd());
+				apiClient.cancelSubscription(request.subscription().externalId(), atPeriodEnd);
 			}
 			catch (final BillingException e)
 			{
 				ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
 						.failure(startedAt, e)
 						.field("subscription_id", externalIdOrNull(request.subscription()))
-						.field("at_period_end", Boolean.valueOf(request.atPeriodEnd()))
+						.field("cancellation_timing", ConnectorLogContext.code(request.timing()))
 						.warn(LOG);
 				throw e;
 			}
 			ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
 					.success(startedAt)
 					.field("subscription_id", request.subscription().externalId())
-					.field("at_period_end", Boolean.valueOf(request.atPeriodEnd()))
+					.field("cancellation_timing", ConnectorLogContext.code(request.timing()))
 					.info(LOG);
 		}
 	}
@@ -515,6 +525,28 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 	 * Maps a Chargebee {@code event_type} to the normalized vocabulary. Unrecognized types return
 	 * {@code null} (see {@link #parseWebhook}) rather than throwing, since Chargebee sends many event
 	 * types this connector doesn't act on.
+	 *
+	 * <h3>What is mapped, and what is left alone</h3>
+	 * <p>An event earns a place here only if the state it announces is one the local projection actually
+	 * holds — status, plan, quantity, period, {@code cancelAtPeriodEnd} — and this is the moment that state
+	 * changes. Everything else costs a live subscription read per delivery to write back the values that
+	 * were already there. That rule is what keeps reminders, invoice and payment-source events, and the
+	 * scheduled-plan-change family out: none of them has anywhere to land.</p>
+	 *
+	 * <p>Renewal is the instructive omission. It looks like the most obviously useful event of all, and it
+	 * is already covered: a renewal charges the card, and {@code payment_succeeded} carries the
+	 * subscription id and is mapped below. Mapping the renewal event as well would reconcile the same
+	 * moment twice, and — because the renewal maps onto a subscription-scoped type while the payment does
+	 * not — it would do so through the path that answers with an error and asks for a redelivery when the
+	 * subscription is not one of ours. Every subscription on the site that this store did not create, once
+	 * per billing cycle, forever.</p>
+	 *
+	 * <h3>Two spellings for one event</h3>
+	 * <p>Chargebee announces a backdated operation under a separate event type and does not also send the
+	 * plain one, so an unmapped variant is a silent gap in an otherwise mapped lifecycle rather than a
+	 * missing extra. They are listed alongside their base events; a site with backdating switched off
+	 * simply never sends them. Note that Chargebee spells the cancellation variant with one {@code l}
+	 * where the base event has two — its inconsistency, not a typo here.</p>
 	 */
 	protected BillingEventType mapEventType(final String chargebeeEventType)
 	{
@@ -522,19 +554,32 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 		{
 			return null;
 		}
-		switch (chargebeeEventType)
+		return switch (chargebeeEventType)
 		{
-			case "subscription_activated":
-				return BillingEventType.SUBSCRIPTION_ACTIVATED;
-			case "subscription_cancelled":
-				return BillingEventType.SUBSCRIPTION_CANCELLED;
-			case "payment_succeeded":
-				return BillingEventType.INVOICE_PAID;
-			case "payment_failed":
-				return BillingEventType.INVOICE_PAYMENT_FAILED;
-			default:
-				return null;
-		}
+			// subscription_started, not subscription_activated, is what a subscription this connector
+			// created actually announces: it is booked with a start date and Chargebee's own scheduler
+			// begins it, whereas subscription_activated marks a trial ending — which this integration
+			// never sets up. Both are mapped so neither configuration has a blind spot.
+			case "subscription_started", "subscription_activated", "subscription_activated_with_backdating",
+					"subscription_reactivated", "subscription_reactivated_with_backdating"
+					-> BillingEventType.SUBSCRIPTION_ACTIVATED;
+			case "subscription_changed", "subscription_changed_with_backdating"
+					-> BillingEventType.SUBSCRIPTION_UPDATED;
+			// The hosted portal's cancel button. Without this the local projection keeps promising a
+			// renewal that Chargebee has already been told not to make.
+			case "subscription_cancellation_scheduled" -> BillingEventType.SUBSCRIPTION_CANCELLATION_SCHEDULED;
+			case "subscription_scheduled_cancellation_removed" -> BillingEventType.SUBSCRIPTION_CANCELLATION_REMOVED;
+			case "subscription_cancelled", "subscription_canceled_with_backdating"
+					-> BillingEventType.SUBSCRIPTION_CANCELLED;
+			// Pausing is refused on the way out (supportsPause=false), which says nothing about the way in:
+			// an operator can pause in Chargebee's own panel, and the normalized status vocabulary already
+			// has a word for the result.
+			case "subscription_paused" -> BillingEventType.SUBSCRIPTION_PAUSED;
+			case "subscription_resumed" -> BillingEventType.SUBSCRIPTION_RESUMED;
+			case "payment_succeeded" -> BillingEventType.INVOICE_PAID;
+			case "payment_failed" -> BillingEventType.INVOICE_PAYMENT_FAILED;
+			default -> null;
+		};
 	}
 
 	private static String firstNonBlank(final String... values)

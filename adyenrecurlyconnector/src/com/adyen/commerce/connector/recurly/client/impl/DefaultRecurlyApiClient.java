@@ -233,20 +233,21 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
     }
 
     @Override
-    public void cancelSubscription(final String subscriptionId, final boolean atPeriodEnd, final String idempotencyKey)
+    public void cancelAtNextBillDate(final String subscriptionId, final String idempotencyKey)
             throws BillingException {
-        final String subscriptionPath = "/subscriptions/" + pathSegment(subscriptionId);
-        if (atPeriodEnd) {
-            final ObjectNode request = objectMapper.createObjectNode();
-            request.put("timeframe", "bill_date");
-            final RecurlyHttpResponse response = httpClient.put(url(subscriptionPath + "/cancel"), authHeader(),
-                    acceptHeader(), writeJson(request), idempotencyKey);
-            requireSuccess(response, "cancel subscription at next bill date");
-        } else {
-            final RecurlyHttpResponse response = httpClient.delete(url(subscriptionPath), authHeader(), acceptHeader(),
-                    idempotencyKey);
-            requireSuccess(response, "terminate subscription");
-        }
+        final ObjectNode request = objectMapper.createObjectNode();
+        request.put("timeframe", "bill_date");
+        final RecurlyHttpResponse response = httpClient.put(
+                url("/subscriptions/" + pathSegment(subscriptionId) + "/cancel"), authHeader(), acceptHeader(),
+                writeJson(request), idempotencyKey);
+        requireSuccess(response, "cancel subscription at next bill date");
+    }
+
+    @Override
+    public void terminate(final String subscriptionId, final String idempotencyKey) throws BillingException {
+        final RecurlyHttpResponse response = httpClient.delete(url("/subscriptions/" + pathSegment(subscriptionId)),
+                authHeader(), acceptHeader(), idempotencyKey);
+        requireSuccess(response, "terminate subscription");
     }
 
     @Override

@@ -299,23 +299,42 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
     public void cancelSubscription(final SubscriptionCancelRequest request) throws BillingException {
         final long startedAt = System.nanoTime();
         try (ConnectorLogContext scope = ConnectorLogContext.open(platform(), "cancel_subscription")) {
+            // Which of Recurly's two endpoints this becomes is decided here, by name, and carried no
+            // further as a flag: past this point the destructive one is called `terminate` and says so in
+            // the stack trace, the log and the diff.
+            final CancellationCall call = switch (request.timing()) {
+                case AT_PERIOD_END -> (id, key) -> apiClient.cancelAtNextBillDate(id, operationKey(key, "cancel"));
+                case IMMEDIATELY -> (id, key) -> apiClient.terminate(id, operationKey(key, "terminate"));
+            };
             try {
-                apiClient.cancelSubscription(request.subscription().externalId(), request.atPeriodEnd(),
-                        operationKey(request.idempotencyKey(), "cancel"));
+                call.execute(request.subscription().externalId(), request.idempotencyKey());
             } catch (final BillingException e) {
                 ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
                         .failure(startedAt, e)
                         .field("subscription_id", externalIdOrNull(request.subscription()))
-                        .field("at_period_end", Boolean.valueOf(request.atPeriodEnd()))
+                        .field("cancellation_timing", ConnectorLogContext.code(request.timing()))
                         .warn(LOG);
                 throw e;
             }
             ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
                     .success(startedAt)
                     .field("subscription_id", request.subscription().externalId())
-                    .field("at_period_end", Boolean.valueOf(request.atPeriodEnd()))
+                    .field("cancellation_timing", ConnectorLogContext.code(request.timing()))
                     .info(LOG);
         }
+    }
+
+    /**
+     * One of Recurly's two cancellation endpoints, already bound to its own idempotency-key namespace.
+     *
+     * <p>It exists so that choosing between them can be a switch <em>expression</em>. Only the expression
+     * form is checked for exhaustiveness — a switch statement over an enum compiles happily with a constant
+     * missing — and of the two calls behind this interface, one ends a subscription immediately. A third
+     * timing has to be a build failure here, not a branch nobody notices it fell into.</p>
+     */
+    @FunctionalInterface
+    protected interface CancellationCall {
+        void execute(String subscriptionId, String idempotencyKey) throws BillingException;
     }
 
     /**
@@ -326,6 +345,11 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
      * for done while Recurly kept billing, and the next reconciliation would read the subscription back as
      * still serving. Namespacing by operation keeps each one independently idempotent under retry while
      * making them distinct from each other.
+     *
+     * <p>The two cancellation timings are namespaced apart too, {@code cancel} against {@code terminate}.
+     * The core already discriminates them when it builds the key it passes down, so this is the second of
+     * two independent defences rather than the only one — deliberately, because the failure it prevents is
+     * a terminate that Recurly never receives and the caller is told succeeded.</p>
      */
     protected static String operationKey(final String idempotencyKey, final String operation) {
         return StringUtils.isBlank(idempotencyKey) ? null : idempotencyKey + "/" + operation;

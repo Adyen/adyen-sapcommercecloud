@@ -39,7 +39,6 @@ import de.hybris.platform.cronjob.enums.CronJobStatus;
 import de.hybris.platform.cronjob.model.CronJobModel;
 import de.hybris.platform.servicelayer.cronjob.AbstractJobPerformable;
 import de.hybris.platform.servicelayer.cronjob.PerformResult;
-import de.hybris.platform.servicelayer.model.ModelService;
 import de.hybris.platform.servicelayer.search.FlexibleSearchQuery;
 import de.hybris.platform.servicelayer.search.FlexibleSearchService;
 
@@ -75,7 +74,6 @@ public class SubscriptionBillingRetentionJob extends AbstractJobPerformable<Cron
 	private static final Logger LOG = LoggerFactory.getLogger(SubscriptionBillingRetentionJob.class);
 
 	private FlexibleSearchService flexibleSearchService;
-	private ModelService modelService;
 	private Clock clock = Clock.systemUTC();
 	private int batchSize = 500;
 	private Duration settledAfter = Duration.ofDays(30);
@@ -204,11 +202,6 @@ public class SubscriptionBillingRetentionJob extends AbstractJobPerformable<Cron
 	public void setFlexibleSearchService(final FlexibleSearchService flexibleSearchService)
 	{
 		this.flexibleSearchService = flexibleSearchService;
-	}
-
-	public void setModelService(final ModelService modelService)
-	{
-		this.modelService = modelService;
 	}
 
 	public void setClock(final Clock clock)

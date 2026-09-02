@@ -54,6 +54,7 @@ import com.adyen.commerce.connector.dto.BillingEventType;
 import com.adyen.commerce.connector.dto.BillingPaymentMethodRef;
 import com.adyen.commerce.connector.dto.BillingSubscriptionRef;
 import com.adyen.commerce.connector.dto.CancelReason;
+import com.adyen.commerce.connector.dto.CancellationTiming;
 import com.adyen.commerce.connector.dto.ConnectorCapabilities;
 import com.adyen.commerce.connector.dto.CustomerSyncRequest;
 import com.adyen.commerce.connector.dto.NormalizedBillingEvent;
@@ -249,9 +250,25 @@ public class ChargebeeSubscriptionBillingConnectorTest
 	public void cancelSubscriptionMapsAtPeriodEnd() throws Exception
 	{
 		connector.cancelSubscription(new SubscriptionCancelRequest(
-				new BillingSubscriptionRef(BillingPlatform.CHARGEBEE, "sub-1"), CancelReason.REQUESTED_BY_CUSTOMER, true, "k"));
+				new BillingSubscriptionRef(BillingPlatform.CHARGEBEE, "sub-1"), CancelReason.REQUESTED_BY_CUSTOMER,
+				CancellationTiming.AT_PERIOD_END, "k"));
 
 		verify(apiClient).cancelSubscription("sub-1", true);
+	}
+
+	/**
+	 * The two timings reach the same Chargebee endpoint and differ only in {@code cancel_option}, so the
+	 * flag survives one layer further down here than it does on Recurly. It still must not be reachable
+	 * from the wrong timing.
+	 */
+	@Test
+	public void cancelSubscriptionMapsImmediateCancellation() throws Exception
+	{
+		connector.cancelSubscription(new SubscriptionCancelRequest(
+				new BillingSubscriptionRef(BillingPlatform.CHARGEBEE, "sub-1"), CancelReason.FRAUD,
+				CancellationTiming.IMMEDIATELY, "k"));
+
+		verify(apiClient).cancelSubscription("sub-1", false);
 	}
 
 	@Test
@@ -404,7 +421,107 @@ public class ChargebeeSubscriptionBillingConnectorTest
 		assertEquals("sub-4", event.externalSubscriptionId());
 	}
 
+	/**
+	 * The event a subscription this connector creates actually announces. Chargebee books it with a start
+	 * date and its own scheduler begins it, so {@code subscription_activated} — which marks a trial ending —
+	 * never arrives, and for a long time this was the only lifecycle event mapped.
+	 */
+	@Test
+	public void parseWebhookTreatsSubscriptionStartedAsAnActivation() throws Exception
+	{
+		assertEquals(BillingEventType.SUBSCRIPTION_ACTIVATED, typeOf("subscription_started"));
+	}
+
+	@Test
+	public void parseWebhookTreatsReactivationAsAnActivation() throws Exception
+	{
+		assertEquals(BillingEventType.SUBSCRIPTION_ACTIVATED, typeOf("subscription_reactivated"));
+	}
+
+	@Test
+	public void parseWebhookNormalizesSubscriptionChanged() throws Exception
+	{
+		assertEquals(BillingEventType.SUBSCRIPTION_UPDATED, typeOf("subscription_changed"));
+	}
+
+	/**
+	 * The hosted portal's cancel button. Its own normalized type rather than the scheduled-plan-change one:
+	 * the stored event type is the only trace of a delivery an operator sees, and these are different facts.
+	 */
+	@Test
+	public void parseWebhookNormalizesAScheduledCancellation() throws Exception
+	{
+		assertEquals(BillingEventType.SUBSCRIPTION_CANCELLATION_SCHEDULED,
+				typeOf("subscription_cancellation_scheduled"));
+	}
+
+	@Test
+	public void parseWebhookNormalizesAWithdrawnScheduledCancellation() throws Exception
+	{
+		assertEquals(BillingEventType.SUBSCRIPTION_CANCELLATION_REMOVED,
+				typeOf("subscription_scheduled_cancellation_removed"));
+	}
+
+	@Test
+	public void parseWebhookNormalizesPauseAndResumeAlthoughPausingIsRefusedOnTheWayOut() throws Exception
+	{
+		assertEquals(BillingEventType.SUBSCRIPTION_PAUSED, typeOf("subscription_paused"));
+		assertEquals(BillingEventType.SUBSCRIPTION_RESUMED, typeOf("subscription_resumed"));
+	}
+
+	/**
+	 * A backdated operation is announced under its own event type instead of the plain one, so an unmapped
+	 * variant is a hole in a lifecycle that otherwise looks covered. Note the spelling: Chargebee writes the
+	 * backdated cancellation with one {@code l} where the base event has two.
+	 */
+	@Test
+	public void parseWebhookRecognisesTheBackdatedSpellingsOfTheEventsItAlreadyMaps() throws Exception
+	{
+		assertEquals(BillingEventType.SUBSCRIPTION_CANCELLED, typeOf("subscription_canceled_with_backdating"));
+		assertEquals(BillingEventType.SUBSCRIPTION_ACTIVATED, typeOf("subscription_activated_with_backdating"));
+		assertEquals(BillingEventType.SUBSCRIPTION_ACTIVATED, typeOf("subscription_reactivated_with_backdating"));
+		assertEquals(BillingEventType.SUBSCRIPTION_UPDATED, typeOf("subscription_changed_with_backdating"));
+	}
+
+	/**
+	 * These are left unmapped on purpose, and saying so here is the only thing that tells the difference
+	 * between a decision and an oversight.
+	 *
+	 * <p>The renewal is the one worth explaining: it is already covered, because a renewal charges the card
+	 * and {@code payment_succeeded} carries the subscription id. Mapping it too would reconcile the same
+	 * moment twice — and it maps onto a subscription-scoped type, so for every subscription on the site that
+	 * this store did not create it would take the path that answers with an error and asks to be sent
+	 * again, once per billing cycle. The rest have nowhere to land: the local projection holds no payment
+	 * method, no scheduled plan change and no shipping address.</p>
+	 */
+	@Test
+	public void parseWebhookStillIgnoresTheEventsWithNothingToProjectOnto() throws Exception
+	{
+		assertNull(typeOf("subscription_renewed"));
+		assertNull(typeOf("subscription_items_renewed"));
+		assertNull(typeOf("subscription_created"));
+		assertNull(typeOf("subscription_changes_scheduled"));
+		assertNull(typeOf("payment_source_updated"));
+		assertNull(typeOf("customer_changed"));
+	}
+
 	private static final String AUTHORIZATION = "Authorization";
+
+	/**
+	 * Parses a minimal delivery of one vendor event type and returns the normalized type, or {@code null}
+	 * where the connector acknowledges the delivery without acting on it.
+	 */
+	private BillingEventType typeOf(final String chargebeeEventType) throws Exception
+	{
+		stubWebhookCredentials("cb-user", "cb-pass");
+		final String payload = "{\"id\":\"ev_" + chargebeeEventType + "\",\"occurred_at\":1784628635,"
+				+ "\"event_type\":\"" + chargebeeEventType + "\","
+				+ "\"content\":{\"subscription\":{\"id\":\"sub-1\",\"customer_id\":\"cust-1\"}}}";
+
+		final NormalizedBillingEvent event = connector
+				.parseWebhook(new RawWebhook(Map.of(AUTHORIZATION, basicAuth("cb-user", "cb-pass")), payload, null));
+		return event == null ? null : event.type();
+	}
 
 	private void stubWebhookCredentials(final String username, final String password)
 	{
