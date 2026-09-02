@@ -250,7 +250,7 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
     }
 
     @Override
-    public void updatePartialPaymentAfterAuthorization(String pspReference, String newPspReference, AdyenPartialPaymentStatus status, BigDecimal remainingAmount) {
+    public void updatePartialPaymentAfterAuthorization(String pspReference, AdyenPartialPaymentStatus status, BigDecimal remainingAmount) {
         AdyenPartialPaymentOrderModel partialPayment = adyenPartialPaymentOrderRepository.findPartialPaymentOrderByPspReference(pspReference);
         if (partialPayment != null) {
             partialPayment.setStatus(status);
@@ -302,9 +302,10 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
             java.math.BigDecimal remainingAmount = totalAmount.subtract(giftCardAmount);
 
             // Update the partial payment through facade
+            // Keyed on the balance-check pspReference: that is what the stored partial payment carries and
+            // what the storefront sends back on the follow-up call for the remaining amount.
             updatePartialPaymentAfterAuthorization(
                     partialPaymentData.getPspReference(),
-                    paymentResponse.getPspReference(),
                     AdyenPartialPaymentStatus.AUTHORIZED,
                     remainingAmount
             );

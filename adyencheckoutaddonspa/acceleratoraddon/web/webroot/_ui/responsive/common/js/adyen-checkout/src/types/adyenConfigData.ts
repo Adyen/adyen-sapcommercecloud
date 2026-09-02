@@ -1,7 +1,7 @@
-import {PaymentMethod} from "@adyen/adyen-web";
+import {RawPaymentMethod} from "@adyen/adyen-web";
 
 export interface AdyenConfigData {
-    paymentMethods: PaymentMethod[];
+    paymentMethods: RawPaymentMethod[];
     storedPaymentMethodList: StoredPaymentMethodData[];
     issuerLists: Map<string, string>;
     creditCardLabel: string;
