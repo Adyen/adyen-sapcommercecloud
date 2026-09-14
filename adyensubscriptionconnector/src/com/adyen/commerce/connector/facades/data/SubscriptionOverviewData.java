@@ -92,6 +92,49 @@ public class SubscriptionOverviewData implements Serializable
 				: paymentMethodChangeScope;
 	}
 
+	/**
+	 * Whether anything on this page can have its payment method changed — by the control above the list or
+	 * by one in a row.
+	 *
+	 * <p>Separate from {@link #paymentMethodChangeScope}, which describes only the page-level control. With
+	 * both, "no control above the list" stops meaning "cannot be done here": a shopper whose subscriptions
+	 * are all on a platform that pins the method per subscription has no control above the list and is
+	 * certainly not to be told the change is unavailable.</p>
+	 */
+	private boolean anyPaymentMethodChangeable;
+
+	/**
+	 * Whether any subscription on this page is on a platform that offers the change <em>at all</em>,
+	 * regardless of whether today's state or data allow it right now.
+	 *
+	 * <p>The page-wide "we can't do this online" sentence keys off this and not off
+	 * {@link #anyPaymentMethodChangeable}. A subscription bought minutes ago has not been confirmed by its
+	 * platform yet and is not changeable this second, but its provider certainly can change cards — telling
+	 * that shopper the change is impossible would be wrong, and wrong in a way that fixes itself an hour
+	 * later without anyone learning why they were told otherwise.</p>
+	 */
+	private boolean paymentMethodChangeSupportedSomewhere;
+
+	public boolean isPaymentMethodChangeSupportedSomewhere()
+	{
+		return paymentMethodChangeSupportedSomewhere;
+	}
+
+	public void setPaymentMethodChangeSupportedSomewhere(final boolean paymentMethodChangeSupportedSomewhere)
+	{
+		this.paymentMethodChangeSupportedSomewhere = paymentMethodChangeSupportedSomewhere;
+	}
+
+	public boolean isAnyPaymentMethodChangeable()
+	{
+		return anyPaymentMethodChangeable;
+	}
+
+	public void setAnyPaymentMethodChangeable(final boolean anyPaymentMethodChangeable)
+	{
+		this.anyPaymentMethodChangeable = anyPaymentMethodChangeable;
+	}
+
 	public String getPaymentMethodSubscriptionCode()
 	{
 		return paymentMethodSubscriptionCode;

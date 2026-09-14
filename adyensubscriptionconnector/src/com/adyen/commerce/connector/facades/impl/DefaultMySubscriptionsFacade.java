@@ -112,7 +112,9 @@ public class DefaultMySubscriptionsFacade implements MySubscriptionsFacade
 		}
 		overview.setSubscriptions(entries);
 		overview.setOrdersAwaitingSetup(findOrdersAwaitingSetup(customer));
-		applyPaymentMethodChangeOffer(overview, customer);
+		// Reads the entries just built rather than querying again: the offer has to describe the rows the
+		// shopper is looking at, and a second query is a second answer that can disagree with the first.
+		applyPaymentMethodChangeOffer(overview);
 		return overview;
 	}
 
@@ -376,63 +378,116 @@ public class DefaultMySubscriptionsFacade implements MySubscriptionsFacade
 	}
 
 	/**
-	 * Decides whether the page offers a payment-method change at all, and on what terms.
+	 * Decides what the page says about changing payment methods, from the rows it is about to show.
 	 *
-	 * <p>Capability-driven, and the platform's name never appears. A row qualifies when three things hold:
-	 * its connector declares a scope other than {@code NOT_SUPPORTED}, the row is in a state where the
-	 * change could achieve something, and it carries a public identifier — a reference created before that
-	 * column existed has none, and a form built on it posts an empty code the facade can only refuse.</p>
+	 * <p>Two separate answers, because they are separate questions.</p>
 	 *
-	 * <p>Where a shopper has rows on more than one platform the first qualifying one wins, which is exactly
-	 * as far as a single control above the list can go. A per-row control belongs with the first connector
-	 * that declares {@code SUBSCRIPTION} scope, because until then it would be a form nothing can produce.</p>
+	 * <p><b>The control above the list</b> is offered only for a {@code CUSTOMER}-scoped row. That scope
+	 * means the change moves every subscription the customer has on that platform, so one control for the
+	 * whole page is the honest shape and a control per row would be a lie told several times over — press
+	 * it on the third row and the first two move with it. A {@code SUBSCRIPTION}-scoped row gets its
+	 * control in the row instead, where what it affects is what it sits next to.</p>
 	 *
-	 * <p><b>Every way of not offering it is written down.</b> The first version of this guard turned a form
-	 * that failed on submission into a form that was simply absent, and absent for a reason nothing in the
-	 * log explained — which is the same defect in a quieter costume. The missing-identifier case in
-	 * particular is a data gap with a known remedy, so it says so rather than leaving somebody to diff a
-	 * JSP against a database.</p>
+	 * <p><b>Whether anything at all can be changed</b> is tracked separately, because without it the page
+	 * cannot tell "there is no control above the list" apart from "this cannot be done here" — and a
+	 * shopper whose subscriptions are all pinned per subscription would be told the change is unavailable
+	 * while a working control sat in every row.</p>
+	 *
+	 * <p>Every way of offering nothing is written down. The first version of this guard turned a form that
+	 * failed on submission into a form that was simply absent, absent for a reason nothing in the log
+	 * explained — the same defect in a quieter costume. The missing-identifier case is a data gap with a
+	 * known remedy, so it names it.</p>
 	 */
-	protected void applyPaymentMethodChangeOffer(final SubscriptionOverviewData overview,
-			final CustomerModel customer)
+	protected void applyPaymentMethodChangeOffer(final SubscriptionOverviewData overview)
 	{
 		int unsupportedPlatform = 0;
 		int wrongState = 0;
 		int missingCode = 0;
 
-		for (final BillingSubscriptionRefModel ref : findSubscriptions(customer))
+		for (final SubscriptionEntryData entry : overview.getSubscriptions())
 		{
-			if (!declaredScopeFor(ref).isSupported())
+			if (entry.getPaymentMethodChangeScope().isSupported())
+			{
+				// Asked of the platform, not of today's data: a row that is merely too new to act on says
+				// nothing about whether its provider can change cards.
+				overview.setPaymentMethodChangeSupportedSomewhere(true);
+			}
+
+			if (entry.isPaymentMethodChangeable())
+			{
+				overview.setAnyPaymentMethodChangeable(true);
+				// The first customer-scoped row wins the page-level control; any of them identifies the
+				// customer and the platform, which is all that scope needs.
+				if (entry.getPaymentMethodChangeScope() == PaymentMethodChangeScope.CUSTOMER
+						&& overview.getPaymentMethodSubscriptionCode() == null)
+				{
+					overview.setPaymentMethodChangeScope(PaymentMethodChangeScope.CUSTOMER);
+					overview.setPaymentMethodSubscriptionCode(entry.getCode());
+				}
+				continue;
+			}
+
+			if (!entry.getPaymentMethodChangeScope().isSupported())
 			{
 				unsupportedPlatform++;
-				continue;
 			}
-			if (!displayState(ref).isPaymentMethodChangeable())
+			else if (entry.getState() == null || !entry.getState().isPaymentMethodChangeable())
 			{
 				wrongState++;
-				continue;
 			}
-			if (StringUtils.isBlank(ref.getCode()))
+			else
 			{
 				missingCode++;
-				continue;
 			}
-			overview.setPaymentMethodChangeScope(declaredScopeFor(ref));
-			overview.setPaymentMethodSubscriptionCode(ref.getCode());
-			return;
 		}
 
+		markRowsCoveredByThePageControl(overview);
+		reportWhatWasNotOffered(overview, unsupportedPlatform, wrongState, missingCode);
+	}
+
+	/**
+	 * Marks which rows a control on this page will actually move.
+	 *
+	 * <p>A row the shopper can act on directly is covered by definition. So is any customer-scoped row once
+	 * the control above the list exists, <em>whether or not that row could be named in a form itself</em>:
+	 * the change is sent at the platform's customer, and every unpinned subscription of theirs moves with
+	 * it. Reading a row's own "can I be named" flag as "will I be changed" is what produced a page telling
+	 * a shopper one subscription's card could not be changed online, directly beneath a control that was
+	 * about to change it.</p>
+	 */
+	protected void markRowsCoveredByThePageControl(final SubscriptionOverviewData overview)
+	{
+		final boolean pageControlOffered = overview.getPaymentMethodSubscriptionCode() != null;
+		for (final SubscriptionEntryData entry : overview.getSubscriptions())
+		{
+			entry.setPaymentMethodChangeCovered(entry.isPaymentMethodChangeable()
+					|| (pageControlOffered
+							&& entry.getPaymentMethodChangeScope() == PaymentMethodChangeScope.CUSTOMER));
+		}
+	}
+
+	/**
+	 * Writes down every way of offering nothing.
+	 *
+	 * <p>The first version of this guard turned a form that failed on submission into a form that was
+	 * simply absent, absent for a reason nothing in the log explained — the same defect in a quieter
+	 * costume. The missing-identifier case is a data gap with a known remedy, so it names it.</p>
+	 *
+	 * <p>The missing-code warning is emitted even when the page did offer something, which an earlier
+	 * version suppressed. That is precisely the case an operator needs told: rows that could be offered are
+	 * being left out while others work, so nothing on screen looks wrong and nobody goes looking.</p>
+	 */
+	protected void reportWhatWasNotOffered(final SubscriptionOverviewData overview, final int unsupportedPlatform,
+			final int wrongState, final int missingCode)
+	{
 		if (missingCode > 0)
 		{
-			// The one cause that is fixable by an operator and invisible from the outside, so it names the
-			// remedy. These rows bill perfectly well; they just predate the public identifier, and the
-			// connector's essential data mints one for each of them on the next system update.
-			LOG.warn("Not offering a payment-method change: {} of this shopper's subscription(s) are on a "
-					+ "platform that supports it and in a state that allows it, but carry no public code. "
-					+ "Run a system update with essential data for the subscription connector, which assigns "
-					+ "one to every reference predating the column.", Integer.valueOf(missingCode));
+			LOG.warn("{} of this shopper's subscription(s) are on a platform that supports a payment-method "
+					+ "change and in a state that allows it, but carry no public code. Run a system update "
+					+ "with essential data for the subscription connector, which assigns one to every "
+					+ "reference predating the column.", Integer.valueOf(missingCode));
 		}
-		else if (unsupportedPlatform > 0 || wrongState > 0)
+		if (!overview.isAnyPaymentMethodChangeable() && (unsupportedPlatform > 0 || wrongState > 0))
 		{
 			// Not a problem, and said at INFO for that reason: this is the feature working. The counts are
 			// there so "why is there no control" has an answer without a debugger.
@@ -507,6 +562,14 @@ public class DefaultMySubscriptionsFacade implements MySubscriptionsFacade
 		entry.setState(state);
 		entry.setEffectiveDate(effectiveDate(ref, state));
 		entry.setQuantity(ref.getQuantity());
+
+		// Asked of this row's own connector, not of the store's active one: after a store migrates from one
+		// platform to another its older subscriptions still live on the old one, and describing them with
+		// the new platform's abilities would offer an operation on the wrong system.
+		final PaymentMethodChangeScope scope = declaredScopeFor(ref);
+		entry.setPaymentMethodChangeScope(scope);
+		entry.setPaymentMethodChangeable(scope.isSupported() && state.isPaymentMethodChangeable()
+				&& StringUtils.isNotBlank(ref.getCode()));
 
 		final AbstractOrderModel order = ref.getOrder();
 		if (order != null)

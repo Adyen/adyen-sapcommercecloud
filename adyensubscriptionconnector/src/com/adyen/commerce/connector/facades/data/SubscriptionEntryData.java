@@ -23,6 +23,8 @@ package com.adyen.commerce.connector.facades.data;
 import java.io.Serializable;
 import java.util.Date;
 
+import com.adyen.commerce.connector.dto.PaymentMethodChangeScope;
+
 /**
  * One row of the shopper's subscription list.
  *
@@ -74,6 +76,73 @@ public class SubscriptionEntryData implements Serializable
 	 * the payment source belongs to the customer rather than to one subscription.</p>
 	 */
 	private String paymentMethodSummary;
+
+	/**
+	 * What a payment-method change would move <em>for this row</em>, as its own connector declares it.
+	 *
+	 * <p>Per row rather than per page because a shopper can hold subscriptions on more than one platform at
+	 * once, and the platforms do not agree: one moves every subscription the customer has, another moves
+	 * only the one it was asked about, a third cannot do it at all. A single page-level answer describes
+	 * whichever row happened to be found first and silently misdescribes the rest — which is exactly how a
+	 * row on a platform that cannot change its card came to sit under a control promising it could.</p>
+	 */
+	private PaymentMethodChangeScope paymentMethodChangeScope = PaymentMethodChangeScope.NOT_SUPPORTED;
+
+	/**
+	 * Whether the shopper can change this row's payment method right now: its platform offers it, the row
+	 * is in a state where it would achieve something, and it carries a public identifier to name it by.
+	 *
+	 * <p>All three, because any one of them missing produces a control that can only be refused. Read by
+	 * the page to decide whether to render it and re-derived by the facade when a request arrives, for the
+	 * same reason the cancellation is: a page rendered minutes ago is not evidence about now.</p>
+	 */
+	private boolean paymentMethodChangeable;
+
+	/**
+	 * Whether some control on this page will actually move this row's payment method.
+	 *
+	 * <p>Not the same question as {@link #paymentMethodChangeable}, and conflating the two put a false
+	 * sentence on the page. A row can be impossible to <em>name</em> in a form — it has no public code —
+	 * and still be moved by the control above the list, because a customer-scoped change goes at the
+	 * platform's customer record and takes every unpinned subscription with it. Such a row is not an
+	 * exception to explain; it is covered, silently and correctly.</p>
+	 *
+	 * <p>It therefore depends on what the rest of the page offers, and is filled in after every row has
+	 * been examined rather than while each one is built.</p>
+	 */
+	private boolean paymentMethodChangeCovered;
+
+	public boolean isPaymentMethodChangeCovered()
+	{
+		return paymentMethodChangeCovered;
+	}
+
+	public void setPaymentMethodChangeCovered(final boolean paymentMethodChangeCovered)
+	{
+		this.paymentMethodChangeCovered = paymentMethodChangeCovered;
+	}
+
+	public PaymentMethodChangeScope getPaymentMethodChangeScope()
+	{
+		return paymentMethodChangeScope;
+	}
+
+	public void setPaymentMethodChangeScope(final PaymentMethodChangeScope paymentMethodChangeScope)
+	{
+		this.paymentMethodChangeScope = paymentMethodChangeScope == null
+				? PaymentMethodChangeScope.NOT_SUPPORTED
+				: paymentMethodChangeScope;
+	}
+
+	public boolean isPaymentMethodChangeable()
+	{
+		return paymentMethodChangeable;
+	}
+
+	public void setPaymentMethodChangeable(final boolean paymentMethodChangeable)
+	{
+		this.paymentMethodChangeable = paymentMethodChangeable;
+	}
 
 	public String getCode()
 	{

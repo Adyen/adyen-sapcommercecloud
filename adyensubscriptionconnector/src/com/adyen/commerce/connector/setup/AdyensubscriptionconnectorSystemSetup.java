@@ -71,7 +71,8 @@ public class AdyensubscriptionconnectorSystemSetup extends AbstractSystemSetup
 	}
 
 	/**
-	 * Gives a public identifier to any reference created before the column existed.
+	 * Gives a public identifier to any reference that has none - created before the column existed, or
+	 * imported with the column blank.
 	 *
 	 * <p>Here rather than in an impex because the value is a UUID and impex has no way to generate one, and
 	 * here rather than in the reading code because minting on a read races itself — two tabs on the
@@ -84,8 +85,11 @@ public class AdyensubscriptionconnectorSystemSetup extends AbstractSystemSetup
 	 */
 	protected void mintMissingSubscriptionCodes(final SystemSetupContext context)
 	{
+		// Blank as well as null, and TRIM because the reading side uses isBlank: a code of one space would
+		// otherwise be a row the page can never offer and the minting can never reach - a gap that looks
+		// exactly like "essential data was not run" and cannot be told apart from it from outside.
 		final FlexibleSearchQuery query = new FlexibleSearchQuery(
-				"SELECT {pk} FROM {BillingSubscriptionRef} WHERE {code} IS NULL");
+				"SELECT {pk} FROM {BillingSubscriptionRef} WHERE {code} IS NULL OR TRIM({code}) = ''");
 		final List<BillingSubscriptionRefModel> missing = flexibleSearchService
 				.<BillingSubscriptionRefModel> search(query).getResult();
 		if (missing.isEmpty())

@@ -93,6 +93,16 @@ public class MySubscriptionsPageController extends AbstractSearchPageController
 		// The scope, not the platform's name. It decides which sentence under the control is true; the view
 		// never learns which billing platform is behind the page.
 		model.addAttribute("paymentMethodChangeScope", overview.getPaymentMethodChangeScope().name());
+		// Distinct from the scope above, which describes only the control above the list. Without this the
+		// page cannot tell "no control up here" from "cannot be done at all", and a shopper whose
+		// subscriptions are all changed per row would read that the change is unavailable.
+		model.addAttribute("anyPaymentMethodChangeable",
+				Boolean.valueOf(overview.isAnyPaymentMethodChangeable()));
+		// Whether any provider on this page can do it at all, as opposed to whether anything can be done
+		// right now. The page-wide "we can't do this online" sentence keys off this one: a subscription too
+		// new to act on must not be described as one whose provider is incapable.
+		model.addAttribute("paymentMethodChangeSupportedSomewhere",
+				Boolean.valueOf(overview.isPaymentMethodChangeSupportedSomewhere()));
 		model.addAttribute("breadcrumbs", accountBreadcrumbBuilder.getBreadcrumbs("text.account.subscriptions"));
 		// A page listing what somebody is paying for every month has no business in a search index.
 		model.addAttribute("metaRobots", "no-index,no-follow");

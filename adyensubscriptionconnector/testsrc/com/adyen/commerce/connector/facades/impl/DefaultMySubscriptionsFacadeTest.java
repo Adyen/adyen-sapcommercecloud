@@ -455,13 +455,11 @@ public class DefaultMySubscriptionsFacadeTest
 		givenSubscriptionOnAPlatformThatSupportsTheChange(NormalizedSubscriptionStatus.ACTIVE);
 		when(connector.capabilities()).thenReturn(capabilities(PaymentMethodChangeScope.NOT_SUPPORTED));
 
-		// The offer alone. Going through getSubscriptionsForCurrentCustomer would also run the
-		// orders-awaiting-setup query, which this fixture's single search stub cannot answer.
-		final SubscriptionOverviewData overview = new SubscriptionOverviewData();
-		facade.applyPaymentMethodChangeOffer(overview, customer);
+		final SubscriptionOverviewData overview = offerFor(findTheOnlySubscription());
 
 		assertNull(overview.getPaymentMethodSubscriptionCode());
 		assertEquals(PaymentMethodChangeScope.NOT_SUPPORTED, overview.getPaymentMethodChangeScope());
+		assertFalse(overview.isAnyPaymentMethodChangeable());
 	}
 
 	/**
@@ -476,11 +474,166 @@ public class DefaultMySubscriptionsFacadeTest
 		givenSubscriptionOnAPlatformThatSupportsTheChange(NormalizedSubscriptionStatus.ACTIVE);
 		when(findTheOnlySubscription().getCode()).thenReturn(null);
 
-		final SubscriptionOverviewData overview = new SubscriptionOverviewData();
-		facade.applyPaymentMethodChangeOffer(overview, customer);
+		final SubscriptionOverviewData overview = offerFor(findTheOnlySubscription());
 
 		assertNull(overview.getPaymentMethodSubscriptionCode());
-		assertEquals(PaymentMethodChangeScope.NOT_SUPPORTED, overview.getPaymentMethodChangeScope());
+		assertFalse(overview.isAnyPaymentMethodChangeable());
+	}
+
+	/**
+	 * A platform that pins the method to one subscription gets its control in the row, so there is nothing
+	 * above the list — and the page must NOT conclude from that emptiness that the change is unavailable.
+	 * That conflation is the bug this separation exists to prevent.
+	 */
+	@Test
+	public void putsTheControlInTheRowWithoutClaimingTheChangeIsUnavailable() throws Exception
+	{
+		givenSubscriptionOnAPlatformThatSupportsTheChange(NormalizedSubscriptionStatus.ACTIVE);
+		when(connector.capabilities()).thenReturn(capabilities(PaymentMethodChangeScope.SUBSCRIPTION));
+
+		final SubscriptionEntryData entry = facade.toEntry(findTheOnlySubscription());
+		final SubscriptionOverviewData overview = offerFor(findTheOnlySubscription());
+
+		assertTrue(entry.isPaymentMethodChangeable());
+		assertEquals(PaymentMethodChangeScope.SUBSCRIPTION, entry.getPaymentMethodChangeScope());
+		// Something can be changed...
+		assertTrue(overview.isAnyPaymentMethodChangeable());
+		// ...but not from a control above the list, because that control would move only this one row while
+		// looking like it governed the page.
+		assertNull(overview.getPaymentMethodSubscriptionCode());
+	}
+
+	/** The customer-scoped case keeps its single control above the list. */
+	@Test
+	public void keepsOneControlAboveTheListForACustomerScopedPlatform() throws Exception
+	{
+		givenSubscriptionOnAPlatformThatSupportsTheChange(NormalizedSubscriptionStatus.ACTIVE);
+
+		final SubscriptionOverviewData overview = offerFor(findTheOnlySubscription());
+
+		assertTrue(overview.isAnyPaymentMethodChangeable());
+		assertEquals(PaymentMethodChangeScope.CUSTOMER, overview.getPaymentMethodChangeScope());
+		assertEquals("code-1", overview.getPaymentMethodSubscriptionCode());
+	}
+
+	/**
+	 * The row a shopper actually complained about: it bills on a platform that cannot change its card,
+	 * while sitting in a list under a control that can. It has to carry that fact itself.
+	 */
+	@Test
+	public void marksTheRowWhosePlatformCannotChangeItsCard() throws Exception
+	{
+		givenSubscriptionOnAPlatformThatSupportsTheChange(NormalizedSubscriptionStatus.ACTIVE);
+		when(connector.capabilities()).thenReturn(capabilities(PaymentMethodChangeScope.NOT_SUPPORTED));
+
+		final SubscriptionEntryData entry = facade.toEntry(findTheOnlySubscription());
+
+		assertFalse(entry.isPaymentMethodChangeable());
+		assertEquals(PaymentMethodChangeScope.NOT_SUPPORTED, entry.getPaymentMethodChangeScope());
+		// The state still allows it - which is what tells the page this row is an exception worth
+		// explaining rather than one that simply has nothing left to bill.
+		assertTrue(entry.getState().isPaymentMethodChangeable());
+	}
+
+	/**
+	 * The defect an adversarial review found before anyone shipped it. Two subscriptions on the same
+	 * customer-scoped platform; one has no public code so it cannot be NAMED in a form, but the control
+	 * above the list changes the customer's payment source and moves it anyway. Reading "cannot be named"
+	 * as "will not be changed" put "The card for this subscription can't be changed online" underneath a
+	 * control that was about to change it.
+	 */
+	@Test
+	public void doesNotSingleOutACodelessRowThatThePageControlChangesAnyway() throws Exception
+	{
+		givenConnectorDeclaring(PaymentMethodChangeScope.CUSTOMER);
+		final SubscriptionEntryData named = facade.toEntry(chargebeeRef("code-a"));
+		final SubscriptionEntryData codeless = facade.toEntry(chargebeeRef(null));
+
+		final SubscriptionOverviewData overview = offerFor(named, codeless);
+
+		assertEquals("code-a", overview.getPaymentMethodSubscriptionCode());
+		// It cannot be offered a control of its own...
+		assertFalse(codeless.isPaymentMethodChangeable());
+		// ...and it is still moved by the one above the list, so the page must say nothing about it.
+		assertTrue(codeless.isPaymentMethodChangeCovered());
+	}
+
+	/** With no control above the list, the same codeless row is genuinely left out and must say so. */
+	@Test
+	public void singlesOutACodelessRowWhenNoControlCoversIt() throws Exception
+	{
+		givenConnectorDeclaring(PaymentMethodChangeScope.CUSTOMER);
+		final SubscriptionEntryData codeless = facade.toEntry(chargebeeRef(null));
+
+		offerFor(codeless);
+
+		assertFalse(codeless.isPaymentMethodChangeCovered());
+	}
+
+	/**
+	 * The mixed page this whole change exists for: a row whose platform cannot do it at all, beside one
+	 * that can. The customer-scoped control does not reach across platforms, so that row is uncovered.
+	 */
+	@Test
+	public void doesNotClaimToCoverARowOnAPlatformThatCannotChangeItsCard() throws Exception
+	{
+		givenConnectorDeclaring(PaymentMethodChangeScope.CUSTOMER);
+		final SubscriptionEntryData chargebee = facade.toEntry(chargebeeRef("code-a"));
+		givenConnectorDeclaring(PaymentMethodChangeScope.NOT_SUPPORTED);
+		final SubscriptionEntryData other = facade.toEntry(chargebeeRef("code-b"));
+
+		final SubscriptionOverviewData overview = offerFor(chargebee, other);
+
+		assertTrue(overview.isAnyPaymentMethodChangeable());
+		assertTrue(chargebee.isPaymentMethodChangeCovered());
+		assertFalse(other.isPaymentMethodChangeCovered());
+	}
+
+	/**
+	 * A subscription too new to have been confirmed by its platform is not changeable today, but its
+	 * provider is perfectly capable — so the page must not print "we can't change the card for these
+	 * subscriptions online", a sentence that would quietly stop being true after the first reconciliation.
+	 */
+	@Test
+	public void doesNotCallAProviderIncapableWhenOnlyTodaysStateSaysNo() throws Exception
+	{
+		givenConnectorDeclaring(PaymentMethodChangeScope.CUSTOMER);
+		final BillingSubscriptionRefModel ref = chargebeeRef("code-a");
+		when(ref.getPlatformUpdatedAt()).thenReturn(null);
+
+		final SubscriptionOverviewData overview = offerFor(facade.toEntry(ref));
+
+		assertEquals(SubscriptionDisplayState.SETTING_UP, overview.getSubscriptions().get(0).getState());
+		assertFalse(overview.isAnyPaymentMethodChangeable());
+		assertTrue(overview.isPaymentMethodChangeSupportedSomewhere());
+	}
+
+	private void givenConnectorDeclaring(final PaymentMethodChangeScope scope) throws Exception
+	{
+		when(connectorRegistry.getConnector(BillingPlatform.CHARGEBEE)).thenReturn(connector);
+		when(connector.capabilities()).thenReturn(capabilities(scope));
+	}
+
+	private BillingSubscriptionRefModel chargebeeRef(final String code)
+	{
+		final BillingSubscriptionRefModel ref = ref(NormalizedSubscriptionStatus.ACTIVE);
+		when(ref.getPlatform()).thenReturn(BillingPlatform.CHARGEBEE);
+		when(ref.getCode()).thenReturn(code);
+		return ref;
+	}
+
+	/** Builds the page-level offer from one row, the way the overview does. */
+	private SubscriptionOverviewData offerFor(final BillingSubscriptionRefModel ref)
+	{
+		return offerFor(facade.toEntry(ref));
+	}
+
+	private SubscriptionOverviewData offerFor(final SubscriptionEntryData... entries)
+	{
+		final SubscriptionOverviewData overview = new SubscriptionOverviewData();
+		overview.setSubscriptions(List.of(entries));
+		facade.applyPaymentMethodChangeOffer(overview);
+		return overview;
 	}
 
 	/** The row the single-result search stub is returning, so a test can change its mind about it. */

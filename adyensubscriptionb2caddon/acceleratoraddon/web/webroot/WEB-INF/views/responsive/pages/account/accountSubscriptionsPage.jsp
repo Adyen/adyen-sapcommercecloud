@@ -47,7 +47,8 @@
         <div class="subscription-payment-method-title">
             <spring:theme code="text.account.subscriptions.paymentMethod"/>
         </div>
-        <form:form action="${request.contextPath}/my-account/subscriptions/payment-method" method="post">
+        <form:form action="${request.contextPath}/my-account/subscriptions/payment-method" method="post"
+                    id="subscriptionPaymentMethodAll">
             <input type="hidden" name="${CSRFToken.parameterName}" value="${CSRFToken.token}"/>
             <%-- Chosen by the facade: it has to be a row whose connector offers the change, which is in a
                  state where the change means something, and which carries a public identifier. "First on
@@ -70,10 +71,17 @@
     </div>
 </c:if>
 
-<%-- The honest third state. A shopper with subscriptions on a platform that cannot do this reads one
-     sentence instead of looking at a blank space and wondering, and is never shown a control that would
-     fail. Not rendered when there is nothing on the page to change. --%>
-<c:if test="${paymentMethodChangeScope eq 'NOT_SUPPORTED' and not empty subscriptions}">
+<%-- One flag for "somewhere on this page there is a control the shopper can press". Both controls are
+     additionally gated on the vault, so a shopper with no saved cards has none of them - and without the
+     vault in this flag the page would single out one row as the exception while offering nothing at all. --%>
+<c:set var="changeOfferedSomewhere" value="${anyPaymentMethodChangeable and not empty storedCards}"/>
+
+<%-- The honest third state, said once and only when no provider on this page can do it at all. It keys off
+     paymentMethodChangeSupportedSomewhere and NOT off what is changeable today: a subscription bought
+     minutes ago has not been confirmed by its platform yet, and telling that shopper their provider cannot
+     change cards would be false and would quietly stop being false an hour later. Where only some rows are
+     excluded, each says so itself, below. --%>
+<c:if test="${not paymentMethodChangeSupportedSomewhere and not empty subscriptions}">
     <div class="account-section-content subscription-payment-method-unavailable">
         <spring:theme code="text.account.subscriptions.paymentMethod.unsupported"/>
     </div>
@@ -83,7 +91,7 @@
     <c:when test="${not empty subscriptions}">
         <div class="account-section-content account-list">
             <div class="account-orders-history">
-                <c:forEach items="${subscriptions}" var="subscription">
+                <c:forEach items="${subscriptions}" var="subscription" varStatus="row">
                     <div class="account-cards card-select subscription-entry">
                         <div class="row">
                             <div class="col-xs-12 col-sm-7">
@@ -140,9 +148,11 @@
                                     </div>
                                 </c:if>
 
-                                <%-- Recognition only, and it names the card the order was paid with rather
-                                     than the one billing uses now: the change is offered once above the
-                                     list, not per row, so nothing here invites the shopper to act on it. --%>
+                                <%-- Recognition only, and it names the card the ORDER was paid with rather
+                                     than the one billing uses now - so after any change it still shows the
+                                     old one. Where the change is offered it has its own control, above the
+                                     list or in this row depending on what the platform's change moves;
+                                     nothing on this line invites the shopper to act. --%>
                                 <c:if test="${not empty subscription.paymentMethodSummary}">
                                     <div class="subscription-payment">
                                         <spring:theme code="text.account.subscriptions.paidWith"
@@ -154,8 +164,10 @@
                             <div class="col-xs-12 col-sm-5 subscription-actions">
                                 <c:if test="${subscription.cancellable}">
                                     <ycommerce:testId code="subscription_cancel_button">
+                                        <%-- An explicit id per row: form:form defaults it to the model attribute name, so without
+                                                 this every form on the page ships as id="command". --%>
                                         <form:form action="${request.contextPath}/my-account/subscriptions/cancel"
-                                                   method="post">
+                                                   method="post" id="subscriptionCancel-${row.index}">
                                             <%-- Added by hand. This storefront configures its own CSRF
                                                  parameter name, so Spring's form tag does not supply it,
                                                  and POST is the only method the matcher checks - omitting
@@ -173,6 +185,54 @@
                                             </div>
                                         </form:form>
                                     </ycommerce:testId>
+                                </c:if>
+
+                                <%-- Per row, and only where the platform pins the method to one
+                                     subscription. A customer-scoped platform gets one control above the
+                                     list instead: the change moves everything the shopper has there, and
+                                     a button in each row would promise otherwise once per row. --%>
+                                <c:if test="${subscription.paymentMethodChangeable
+                                        and subscription.paymentMethodChangeScope eq 'SUBSCRIPTION'
+                                        and not empty storedCards}">
+                                    <ycommerce:testId code="subscription_payment_method_row">
+                                        <form:form action="${request.contextPath}/my-account/subscriptions/payment-method"
+                                                   method="post" cssClass="subscription-payment-method-row"
+                                                   id="subscriptionPaymentMethod-${row.index}">
+                                            <input type="hidden" name="${CSRFToken.parameterName}"
+                                                   value="${CSRFToken.token}"/>
+                                            <input type="hidden" name="code"
+                                                   value="${fn:escapeXml(subscription.code)}"/>
+                                            <div class="subscription-payment-method-row-title">
+                                                <spring:theme code="text.account.subscriptions.paymentMethod.row"/>
+                                            </div>
+                                            <select name="storedPaymentMethodId" class="form-control">
+                                                <c:forEach items="${storedCards}" var="storedCard">
+                                                    <option value="${fn:escapeXml(storedCard.id)}">
+                                                        ${fn:escapeXml(storedCard.brand)}&nbsp;&bull;&bull;&bull;&bull;&nbsp;${fn:escapeXml(storedCard.lastFour)}
+                                                    </option>
+                                                </c:forEach>
+                                            </select>
+                                            <button type="submit" class="btn btn-default btn-block">
+                                                <spring:theme code="text.account.subscriptions.paymentMethod.row.submit"/>
+                                            </button>
+                                            <div class="subscription-payment-method-note">
+                                                <spring:theme code="text.account.subscriptions.paymentMethod.note.SUBSCRIPTION"/>
+                                            </div>
+                                        </form:form>
+                                    </ycommerce:testId>
+                                </c:if>
+
+                                <%-- The row that stands out: the page offers the change somewhere, this
+                                     subscription is in a state where a working card would matter, and it
+                                     still cannot be changed here. Silence would leave it sitting under a
+                                     control that does not apply to it. Not repeated when nothing on the
+                                     page can be changed - the single sentence above already says it. --%>
+                                <c:if test="${changeOfferedSomewhere
+                                        and subscription.state.paymentMethodChangeable
+                                        and not subscription.paymentMethodChangeCovered}">
+                                    <div class="subscription-payment-method-unavailable">
+                                        <spring:theme code="text.account.subscriptions.paymentMethod.row.unavailable"/>
+                                    </div>
                                 </c:if>
                             </div>
                         </div>
