@@ -65,10 +65,12 @@ public enum SubscriptionDisplayState
 	ENDED(false, false),
 
 	/**
-	 * The status could not be interpreted, the platform's adapter is not installed or configured, or the
-	 * store this subscription belongs to could not be determined. Shown rather than hidden — a subscription
-	 * that is billing somebody must appear on their page even when we cannot describe it — but never with a
-	 * button, because acting on it would be acting on a guess.
+	 * The status could not be interpreted — the platform sent a value this integration has no sentence for,
+	 * or none at all. Shown rather than hidden, because a subscription that is billing somebody must appear
+	 * on their page even when we cannot describe it, but never with a button: acting on it would be acting
+	 * on a guess.
+	 *
+	 * {@link com.adyen.commerce.connector.facades.data.SubscriptionEntryData#isManageable()}.</p>
 	 */
 	UNAVAILABLE(false, false);
 

@@ -235,15 +235,21 @@ public class DefaultMySubscriptionsFacadeTest
 
 	/**
 	 * Without the originating store there are no credentials with which to reach the platform, so nothing
-	 * can be said and nothing can be done — but the row still appears, because it is billing somebody.
+	 * can be done — but the row still appears, because it is billing somebody, and it is described
+	 * truthfully, because its status is known.
+	 *
+	 * <p>This used to assert UNAVAILABLE. That conflated the two halves and made the page say "we can't
+	 * show the status of this subscription right now" about a subscription whose status it was holding. The
+	 * half that mattered — no button — is kept, and now hangs off {@code manageable} instead.</p>
 	 */
 	@Test
-	public void aSubscriptionWhoseStoreCannotBeDeterminedIsShownWithoutAButton()
+	public void aSubscriptionWhoseStoreCannotBeDeterminedIsDescribedButNotActedOn()
 	{
 		final BillingSubscriptionRefModel ref = ref(NormalizedSubscriptionStatus.ACTIVE);
 		when(ref.getOrder()).thenReturn(null);
 
-		assertEquals(SubscriptionDisplayState.UNAVAILABLE, facade.displayState(ref));
+		assertEquals(SubscriptionDisplayState.ACTIVE, facade.displayState(ref));
+		assertFalse(facade.toEntry(ref).isCancellable());
 	}
 
 	/**
@@ -606,6 +612,45 @@ public class DefaultMySubscriptionsFacadeTest
 		assertEquals(SubscriptionDisplayState.SETTING_UP, overview.getSubscriptions().get(0).getState());
 		assertFalse(overview.isAnyPaymentMethodChangeable());
 		assertTrue(overview.isPaymentMethodChangeSupportedSomewhere());
+	}
+
+	/**
+	 * A row we cannot reach the platform for is describable and unbuttoned — not undescribable. It used to
+	 * be reported as UNAVAILABLE, which put "We can't show the status of this subscription right now" in
+	 * front of a shopper whose subscription was plainly ACTIVE and whose renewal date we were holding.
+	 */
+	@Test
+	public void describesASubscriptionItCannotActOnInsteadOfCallingItUnknown() throws Exception
+	{
+		givenConnectorDeclaring(PaymentMethodChangeScope.CUSTOMER);
+		final BillingSubscriptionRefModel ref = chargebeeRef("code-a");
+		when(ref.getOrder()).thenReturn(null);
+
+		final SubscriptionEntryData entry = facade.toEntry(ref);
+
+		assertEquals(SubscriptionDisplayState.ACTIVE, entry.getState());
+		// ...and offers nothing, because every action needs the store the missing order would have named.
+		assertFalse(entry.isManageable());
+		assertFalse(entry.isCancellable());
+		assertFalse(entry.isPaymentMethodChangeable());
+	}
+
+	/** And the POST path refuses it in its own right rather than failing somewhere deeper. */
+	@Test
+	public void refusesToActOnASubscriptionWithNoOriginatingStore() throws Exception
+	{
+		givenConnectorDeclaring(PaymentMethodChangeScope.CUSTOMER);
+		final BillingSubscriptionRefModel ref = chargebeeRef("code-1");
+		when(ref.getOrder()).thenReturn(null);
+		givenSingleResult(ref);
+		givenVaultHolding("card-mine");
+
+		assertFalse(facade.cancelForCurrentCustomer("code-1"));
+		assertEquals(PaymentMethodChangeResult.FAILED,
+				facade.changePaymentMethodForCurrentCustomer("code-1", "card-mine"));
+
+		verify(subscriptionBillingService, never()).cancel(any(), any());
+		verify(subscriptionBillingService, never()).changePaymentMethod(any(), any());
 	}
 
 	private void givenConnectorDeclaring(final PaymentMethodChangeScope scope) throws Exception

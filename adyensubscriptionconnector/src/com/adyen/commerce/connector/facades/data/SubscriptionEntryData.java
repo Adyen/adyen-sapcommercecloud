@@ -112,6 +112,33 @@ public class SubscriptionEntryData implements Serializable
 	 */
 	private boolean paymentMethodChangeCovered;
 
+	/**
+	 * Whether anything can be <em>done</em> to this subscription from here — as opposed to whether it can
+	 * be described.
+	 *
+	 * <p>The two used to be one answer, and the page paid for it. Every action has to be sent to the
+	 * subscription's own platform, and the credentials for that come from the base store its originating
+	 * order belongs to; a reference with no order has no store and therefore nothing to reach the platform
+	 * with. That was expressed by describing the row as {@code UNAVAILABLE}, which reads to the shopper as
+	 * "we can't show the status of this subscription" — untrue whenever the status is perfectly well known
+	 * and only the buttons are impossible.</p>
+	 *
+	 * <p>So the store gates this flag, and this flag gates the buttons; the state describes. Set by the
+	 * facade for every row it builds, and never assumed: the default is false, because a row nobody has
+	 * established a store for is a row nobody should be offering actions on.</p>
+	 */
+	private boolean manageable;
+
+	public boolean isManageable()
+	{
+		return manageable;
+	}
+
+	public void setManageable(final boolean manageable)
+	{
+		this.manageable = manageable;
+	}
+
 	public boolean isPaymentMethodChangeCovered()
 	{
 		return paymentMethodChangeCovered;
@@ -232,9 +259,12 @@ public class SubscriptionEntryData implements Serializable
 	 * identifier existed carries none until the extension's essential data has been imported, and a button
 	 * that posts an empty code cannot do anything but fail — which reads to the shopper as a subscription
 	 * they are unable to cancel rather than as a deployment step somebody skipped.</p>
+	 *
+	 * <p>{@link #manageable} is part of it too, and is why the state no longer has to carry that job: a row
+	 * we cannot reach the platform for is not describable-but-broken, it is describable and unbuttoned.</p>
 	 */
 	public boolean isCancellable()
 	{
-		return state != null && state.isCancellable() && code != null && !code.isBlank();
+		return manageable && state != null && state.isCancellable() && code != null && !code.isBlank();
 	}
 }

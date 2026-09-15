@@ -143,6 +143,15 @@ public class DefaultMySubscriptionsFacade implements MySubscriptionsFacade
 			LOG.info("Subscription '{}' is not in a state that can be cancelled by the shopper; refusing.", code);
 			return false;
 		}
+		// Explicit since displayState stopped carrying it. A reference with no originating store has no
+		// credentials to reach its platform with, and the attempt would fail deeper down with an exception
+		// the shopper reads as a generic error.
+		if (storeOf(ref) == null)
+		{
+			LOG.warn("Subscription '{}' has no originating store, so its platform cannot be reached; "
+					+ "refusing to cancel.", code);
+			return false;
+		}
 
 		try
 		{
@@ -200,6 +209,14 @@ public class DefaultMySubscriptionsFacade implements MySubscriptionsFacade
 			LOG.info("The billing platform behind subscription '{}' does not offer a payment-method change.",
 					subscriptionCode);
 			return PaymentMethodChangeResult.NOT_SUPPORTED_HERE;
+		}
+		// Same reason as the cancellation: no store, no credentials, and failing here says so in the log
+		// instead of surfacing as an unexplained error.
+		if (storeOf(ref) == null)
+		{
+			LOG.warn("Subscription '{}' has no originating store, so its platform cannot be reached; "
+					+ "refusing to change the payment method.", subscriptionCode);
+			return PaymentMethodChangeResult.FAILED;
 		}
 
 		try
@@ -566,10 +583,15 @@ public class DefaultMySubscriptionsFacade implements MySubscriptionsFacade
 		// Asked of this row's own connector, not of the store's active one: after a store migrates from one
 		// platform to another its older subscriptions still live on the old one, and describing them with
 		// the new platform's abilities would offer an operation on the wrong system.
+		// Every action is sent to the row's own platform with the originating store's credentials, so a
+		// reference with no store can be described but not acted on. Both buttons hang off this.
+		final boolean manageable = storeOf(ref) != null;
+		entry.setManageable(manageable);
+
 		final PaymentMethodChangeScope scope = declaredScopeFor(ref);
 		entry.setPaymentMethodChangeScope(scope);
-		entry.setPaymentMethodChangeable(scope.isSupported() && state.isPaymentMethodChangeable()
-				&& StringUtils.isNotBlank(ref.getCode()));
+		entry.setPaymentMethodChangeable(manageable && scope.isSupported()
+				&& state.isPaymentMethodChangeable() && StringUtils.isNotBlank(ref.getCode()));
 
 		final AbstractOrderModel order = ref.getOrder();
 		if (order != null)
@@ -620,12 +642,6 @@ public class DefaultMySubscriptionsFacade implements MySubscriptionsFacade
 	 */
 	protected SubscriptionDisplayState displayState(final BillingSubscriptionRefModel ref)
 	{
-		if (storeOf(ref) == null)
-		{
-			// Nothing can be said, and more importantly nothing can be done: without the store there are no
-			// credentials with which to reach the platform this belongs to.
-			return SubscriptionDisplayState.UNAVAILABLE;
-		}
 		if (ref.getPlatformUpdatedAt() == null)
 		{
 			return SubscriptionDisplayState.SETTING_UP;
