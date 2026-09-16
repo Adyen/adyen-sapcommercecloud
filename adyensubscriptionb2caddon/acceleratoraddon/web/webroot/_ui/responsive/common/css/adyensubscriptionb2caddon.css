@@ -1,0 +1,122 @@
+/* =============================================================================
+   My Account > Subscriptions.  All classes are namespaced `subx-` so nothing
+   here can reach the rest of My Account, and nothing in My Account reaches in.
+
+   The theme fights back in five documented places; each override below names
+   the rule it beats and why, because "why is this so specific" is the question
+   the next person will have.  Line numbers are theme-alpha/css/style.css.
+   ========================================================================== */
+
+.subx { color: #22272c; }
+
+/* The theme pads EVERY form inside .account-section-content by 30px (:16321,
+   20px at <=1024px), which would indent our controls away from the heading.  */
+.account-section .account-section-content .subx form,
+.subx form { padding-left: 0; padding-right: 0; }
+
+/* ---- attention notice ------------------------------------------------------
+   One block with a line per order, not one block per order: the sentence is 25
+   words long and three copies of it is a wall, not an alert.                  */
+.subx-notice { border: 1px solid #e0b355; border-left-width: 4px; background: #fdf7ec;
+  padding: 14px 16px; margin: 0 0 20px; border-radius: 3px; }
+.subx-notice-title { font-weight: 600; color: #7a5310; margin: 0 0 6px; }
+.subx-notice ul { list-style: none; margin: 0; padding: 0; }
+.subx-notice li + li { margin-top: 8px; padding-top: 8px; border-top: 1px solid #f0e1c4; }
+
+/* ---- page-level card change ------------------------------------------------ */
+.subx-panel { border: 1px solid #dfe3e8; border-radius: 3px; padding: 18px 20px; margin: 0 0 24px; }
+.subx-panel-title { font-size: 15px; font-weight: 600; color: #153a59; margin: 0 0 12px; }
+.subx-panel-fields { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.subx-field { flex: 1 1 260px; min-width: 0; }
+/* The theme uppercases account labels; ours say ordinary words and read better
+   as ordinary words, so the transform is reset rather than inherited.        */
+.subx .subx-label { display: block; font-size: 13px; font-weight: 600; color: #5c6671;
+  margin: 0 0 5px; text-transform: none; letter-spacing: 0; }
+.subx-note { font-size: 13px; line-height: 1.5; color: #5c6671; margin: 12px 0 0; }
+
+/* Beats `select.form-control { text-transform: uppercase; font-size: 13px }`
+   (:17211) and `select.form-control { height:42px; line-height:42px }` (:8025).
+   Element-qualified so the specificity clears both without !important.        */
+.subx select.subx-select { text-transform: none; font-size: 15px; height: 44px;
+  line-height: normal; width: 100%; }
+
+/* ---- the list -------------------------------------------------------------- */
+.subx-list { border-top: 1px solid #e6e9ed; }
+.subx-row { display: flex; flex-wrap: wrap; gap: 0 24px; padding: 20px 0 20px 16px;
+  border-bottom: 1px solid #e6e9ed; border-left: 3px solid #c8cdd3; }
+.subx-row-body { flex: 1 1 320px; min-width: 0; }
+.subx-row-actions { flex: 0 1 300px; min-width: 0; }
+/* A row with nothing to offer gives its space back instead of leaving a hole. */
+.subx-row--noactions .subx-row-body { flex-basis: 100%; }
+
+.subx-name { font-size: 17px; font-weight: 700; color: #153a59; margin: 0 0 4px; }
+.subx-qty { font-size: 12px; font-weight: 600; color: #5c6671; background: #eef1f4;
+  border-radius: 10px; padding: 2px 8px; margin-left: 6px; vertical-align: 2px; }
+
+/* The payload.  Longest run of dark text on the row, and never replaced by an
+   icon: the icon repeats it, so the icon is aria-hidden.                       */
+.subx-state { font-size: 15px; line-height: 1.5; margin: 0; }
+.subx-state .glyphicon { font-size: 13px; margin-right: 7px; color: #6b757f; top: 1px; }
+
+/* Order provenance, grouped so the card summary is unmistakably the ORDER's
+   card and not the one billing uses now.                                       */
+.subx-meta { font-size: 13px; line-height: 1.6; color: #5c6671; margin: 10px 0 0; }
+.subx-meta span + span:before { content: "\00b7"; margin: 0 8px; color: #b6bdc4; }
+
+/* Amber is the only hue on the page, and it means exactly one thing: this row
+   wants you.  Everything healthy is achromatic, so a calm page reads as calm.  */
+.subx-row--attention { border-left-color: #e0b355; background: #fdfaf4; }
+.subx-row--attention .subx-state { color: #7a5310; font-weight: 600; }
+.subx-row--attention .subx-state .glyphicon { color: #c8891d; }
+/* Over, or not yet begun: present but recessive.                               */
+.subx-row--quiet { border-left-color: #e6e9ed; }
+.subx-row--quiet .subx-name, .subx-row--quiet .subx-state { color: #6b757f; }
+
+/* ---- disclosures ----------------------------------------------------------- */
+.subx-disclosure { border-top: 1px solid #edf0f3; }
+.subx-row-actions .subx-disclosure:first-child { border-top: 0; }
+.subx-summary { display: flex; align-items: center; cursor: pointer; list-style: none;
+  padding: 11px 0; min-height: 44px; font-size: 14px; line-height: 1.35; color: #153a59;
+  font-weight: 600; }
+.subx-summary::-webkit-details-marker { display: none; }
+.subx-summary:before { font-family: "Glyphicons Halflings"; content: "\e114";
+  font-size: 10px; margin-right: 8px; color: #8a939c; flex: 0 0 auto; }
+details[open] > .subx-summary:before { content: "\e113"; }
+.subx-summary--destructive { color: #5c6671; font-weight: normal; }
+.subx-disclosure-body { padding: 0 0 14px; }
+.subx-disclosure-body .subx-note { margin-top: 0; margin-bottom: 10px; }
+.subx-disclosure-body form { margin: 0; }
+
+/* ---- buttons ---------------------------------------------------------------
+   `.btn` is uppercase/600/16px (:9936) and square (:8008 uses !important on the
+   radius, so that one is left alone).  A sentence-length label must wrap rather
+   than overflow at 320px, and must keep a 44px target.                          */
+.subx .btn.subx-btn { text-transform: none; font-size: 15px; font-weight: 600;
+  white-space: normal; min-height: 44px; padding: 10px 18px; }
+.subx .btn.subx-btn--quiet { font-weight: normal; background: #fff; border-color: #c8cdd3;
+  color: #5c6671; }
+
+/* The theme removes the focus ring outright (:9956).  Putting it back is not a
+   preference: without it the page cannot be operated from a keyboard.          */
+.subx .btn.subx-btn:focus, .subx .btn.subx-btn:active:focus,
+.subx select.subx-select:focus, .subx .subx-summary:focus {
+  outline: 2px solid #1a6bb5; outline-offset: 2px; }
+
+/* The same sentence in three places, each needing its own spacing: standing alone under the
+   heading, sitting in a row's action column, or opening a disclosure body.                    */
+.subx-note--standalone { margin: 0 0 20px; }
+.subx-note--row { margin: 11px 0 0; }
+.subx-note--first { margin-top: 0; }
+
+.subx-empty { padding: 28px 0; color: #5c6671; font-size: 15px; }
+
+@media (max-width: 767px) {
+  .subx-row { padding-left: 12px; }
+  .subx-row-actions { flex-basis: 100%; margin-top: 4px; }
+  .subx-row--noactions .subx-row-actions { margin-top: 0; }
+}
+@media (max-width: 479px) {
+  .subx-panel-fields { display: block; }
+  .subx-field { margin-bottom: 10px; }
+  .subx .btn.subx-btn { width: 100%; }
+}

@@ -117,4 +117,27 @@ public enum SubscriptionDisplayState
 	{
 		return paymentMethodChangeable;
 	}
+
+	/**
+	 * How loudly the page should carry this state: {@code attention}, {@code quiet} or {@code normal}.
+	 *
+	 * <p>Here rather than as a lookup in the view, because a lookup keyed on nine constants is a second
+	 * copy of this enum that drifts the first time somebody adds a tenth — silently, into whichever bucket
+	 * the default happens to be. This way a new state is a compile-time decision by the person adding it.</p>
+	 *
+	 * <p>Three tones, not nine colours. {@code attention} is for the two states where the shopper's money is
+	 * at risk and something can still be done about it; {@code quiet} is for the three that are over or not
+	 * yet begun, which must be present but must not compete; everything else is ordinary. The tone only ever
+	 * reinforces the sentence — it never carries meaning on its own, because a shopper who cannot see colour
+	 * reads exactly the same page.</p>
+	 */
+	public String tone()
+	{
+		return switch (this)
+		{
+			case PAST_DUE, PAST_DUE_ENDING -> "attention";
+			case SETTING_UP, ENDED, UNAVAILABLE -> "quiet";
+			case ACTIVE, STARTING_SOON, ENDING, PAUSED -> "normal";
+		};
+	}
 }
