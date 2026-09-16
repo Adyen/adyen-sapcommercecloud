@@ -131,7 +131,7 @@ public enum SubscriptionDisplayState
 	 * reinforces the sentence — it never carries meaning on its own, because a shopper who cannot see colour
 	 * reads exactly the same page.</p>
 	 */
-	public String tone()
+	public String getTone()
 	{
 		return switch (this)
 		{
