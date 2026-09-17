@@ -96,9 +96,8 @@ public class DefaultChargebeeHttpClient implements ChargebeeHttpClient
 						: EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
 				return new ChargebeeHttpResponse(response.getCode(), body);
 			});
-			// No retryable= here: whether this call will be retried is decided one layer up, by the API
-			// client, on the status *and* the vendor error code. A second opinion formed from the status
-			// alone would contradict it on exactly the interesting case (409 invalid_state_for_request).
+			// No retryable= here: the API client one layer up decides that from the status *and* the vendor
+			// error code, and a verdict from the status alone contradicts it on 409 invalid_state_for_request.
 			transportEvent(request)
 					.outcome(result.isSuccess()
 							? ConnectorLogEvent.OUTCOME_SUCCESS
@@ -122,10 +121,8 @@ public class DefaultChargebeeHttpClient implements ChargebeeHttpClient
 	}
 
 	/**
-	 * The transport deliberately does not name the business operation: it cannot know one, and the
-	 * surrounding {@code ConnectorLogContext} scope already supplies it. Earlier this was inferred from
-	 * the URL shape, which is a guess that is usually right - and nothing downstream can tell those apart
-	 * from the times it is wrong.
+	 * The transport does not name the business operation: it cannot know one, and the surrounding
+	 * {@code ConnectorLogContext} scope already supplies it.
 	 */
 	private ConnectorLogEvent transportEvent(final HttpUriRequestBase request)
 	{
@@ -154,11 +151,11 @@ public class DefaultChargebeeHttpClient implements ChargebeeHttpClient
 				{
 					final RequestConfig requestConfig = RequestConfig.custom()
 							.setConnectTimeout(Timeout.ofMilliseconds(configService.getConnectTimeoutMillis()))
-							// httpclient5 has NO default response timeout: without this a Chargebee call that
+							// httpclient5 has no default response timeout: without this a Chargebee call that
 							// connects and then hangs holds a platform worker thread forever.
 							.setResponseTimeout(Timeout.ofMilliseconds(configService.getResponseTimeoutMillis()))
-							// Left at the default the wait for a free pooled connection is three minutes, which
-							// silently becomes the real worst case a caller sees regardless of the two above.
+							// The default wait for a free pooled connection is three minutes, which would
+							// otherwise be the real worst case a caller sees regardless of the two above.
 							.setConnectionRequestTimeout(
 									Timeout.ofMilliseconds(configService.getConnectionRequestTimeoutMillis()))
 							.build();

@@ -31,10 +31,10 @@ import com.adyen.v6.strategy.AdyenMerchantAccountStrategy;
 import de.hybris.platform.store.BaseStoreModel;
 
 /**
- * Default validator. Only {@code ADYEN_NATIVE} is exempt, because it is the one path with no external
- * gateway to bind. A blank {@code configuredAdyenMerchantAccount()} from any other connector is read as
- * "not configured" and rejected, not as an exemption — the SPI notes that returning {@code null} disables
- * this check, and an incompletely configured gateway must not be able to disable it by accident.
+ * Default validator. Only {@code ADYEN_NATIVE} is exempt, being the one path with no external gateway to
+ * bind; a blank {@code configuredAdyenMerchantAccount()} from any other connector is rejected as "not
+ * configured" rather than treated as the SPI's opt-out, so an incompletely configured gateway cannot
+ * disable the check by accident.
  */
 public class DefaultConnectorMerchantAccountValidator implements ConnectorMerchantAccountValidator
 {
@@ -52,10 +52,8 @@ public class DefaultConnectorMerchantAccountValidator implements ConnectorMercha
 		final String connectorAccount = connector.configuredAdyenMerchantAccount();
 		if (StringUtils.isBlank(connectorAccount))
 		{
-			// Only the built-in Adyen-native path genuinely has no external gateway to bind, so only it is
-			// exempt. For an external connector a blank answer means "not configured yet", and treating that
-			// as an exemption would disable the check precisely while the operator is still setting the gateway up
-			// — and it would do so silently, before activateSubscription creates the customer remotely.
+			// For an external connector a blank answer means "not configured yet"; exempting it would
+			// disable the check exactly while the operator is still setting the gateway up.
 			if (BillingPlatform.ADYEN_NATIVE.equals(connector.platform()))
 			{
 				return;

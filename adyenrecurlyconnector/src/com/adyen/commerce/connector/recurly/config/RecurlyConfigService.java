@@ -31,8 +31,8 @@ public interface RecurlyConfigService {
 
     /**
      * Selects a mode rather than granting a permission, so "not configured" must not silently read as
-     * {@code false}: that would quietly run the no-NTID flow against a site set up for the opposite.
-     * Every caller sits in a method declaring {@code BillingException}, so failing fast costs nothing.
+     * {@code false}: that would quietly run the no-NTID flow against a site set up for the opposite. Every
+     * caller sits in a method declaring {@code BillingException}, so failing fast costs nothing.
      */
     boolean isExternalNtidFeatureEnabled() throws ConnectorNotConfiguredException;
 
@@ -41,4 +41,12 @@ public interface RecurlyConfigService {
      * primary billing info", not "unknown", and three branches in the API client turn on it.
      */
     boolean isWalletEnabled() throws ConnectorNotConfiguredException;
+
+
+    /**
+     * Whether shoppers may repoint a subscription at another payment method the account already holds.
+     * Separate from Wallet, which also decides how a token is imported when a subscription is created, so a
+     * site enabling Wallet for that reason does not thereby acquire a shopper-facing card change.
+     */
+    boolean isPaymentMethodChangeEnabledOrFalse();
 }

@@ -100,8 +100,7 @@ public class DefaultAdyenTokenHandleFactoryTest
 		givenValidOrder();
 		when(paymentInfo.getAdyenNetworkTxReference()).thenReturn("NTID-42");
 
-		// Connectors that advertise requiresNetworkTransactionId are refused by the core without this,
-		// so the whole activation path for such a platform depends on it reaching the handle.
+		// The core refuses a connector that advertises requiresNetworkTransactionId when the handle has none.
 		assertEquals("NTID-42", factory.create(order).networkTransactionId());
 	}
 

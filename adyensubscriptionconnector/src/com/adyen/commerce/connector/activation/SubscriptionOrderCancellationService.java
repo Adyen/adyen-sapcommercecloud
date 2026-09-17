@@ -25,15 +25,13 @@ import de.hybris.platform.core.model.order.OrderModel;
 /**
  * Stops the subscription an order started, when that order is cancelled.
  *
- * <p>Without this the two halves disagree permanently: the order says cancelled, the billing platform goes
- * on charging the card every period, and the only person who finds out is the shopper reading their
- * statement. Order cancellation is also the only path in this integration that reaches
- * {@code SubscriptionBillingService.cancel} at all.</p>
+ * <p>Without it the two halves disagree permanently: the order says cancelled while the billing platform
+ * goes on charging the card every period. Order cancellation is also the only path in this integration that
+ * reaches {@code SubscriptionBillingService.cancel}.</p>
  *
- * <p>The mirror image of {@link SubscriptionOrderActivator}, and it borrows that class's two rules: nothing
- * escapes, because the caller is cancelling an order and a billing platform being down must not turn that
- * into a failure; and the decision is idempotent, because an order can be announced cancelled more than
- * once.</p>
+ * <p>Like {@link SubscriptionOrderActivator}, nothing escapes — a billing platform being down must not turn
+ * an order cancellation into a failure — and the decision is idempotent, because an order can be announced
+ * cancelled more than once.</p>
  */
 public interface SubscriptionOrderCancellationService
 {

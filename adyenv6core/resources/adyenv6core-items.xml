@@ -1061,6 +1061,17 @@
                     <persistence type="property"/>
                     <defaultvalue>Boolean.FALSE</defaultvalue>
                 </attribute>
+                <attribute qualifier="paymentMethodChangeEnabled" type="java.lang.boolean">
+                    <description>Let shoppers repoint a subscription at another payment method the Recurly
+                        account already holds. Requires Wallet, and is deliberately SEPARATE from it: Wallet
+                        also switches the token-import path used when a subscription is created, so a site
+                        that turns Wallet on for that reason must not silently acquire a shopper-facing card
+                        change nobody has verified. Leave off until a repointed subscription has been seen to
+                        renew on the new card with that card's own network transaction id.</description>
+                    <modifiers optional="false"/>
+                    <persistence type="property"/>
+                    <defaultvalue>Boolean.FALSE</defaultvalue>
+                </attribute>
             </attributes>
         </itemtype>
 

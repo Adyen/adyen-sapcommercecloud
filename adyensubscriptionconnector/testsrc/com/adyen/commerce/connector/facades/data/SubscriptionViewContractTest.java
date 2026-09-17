@@ -32,25 +32,21 @@ import java.util.stream.Collectors;
 
 import org.junit.Test;
 
+import com.adyen.commerce.connector.dto.PlatformPaymentMethod;
+
 import de.hybris.bootstrap.annotations.UnitTest;
 
 /**
  * The properties the subscriptions page reads through EL, asserted to exist as JavaBeans properties.
  *
- * <h3>Why this test exists</h3>
- * <p>A method called {@code tone()} is not a property called {@code tone}. EL resolves
- * {@code ${subscription.state.tone}} by introspection, finds no {@code getTone}, and throws
- * {@code PropertyNotFoundException}; the CMS component renderer catches that and renders an <em>empty
- * slot</em>. So the symptom of a renamed or mis-prefixed accessor is not a stack trace on the page but a
- * blank one, and the compiler has nothing to say about it because the only caller is a JSP.</p>
+ * <p>A method called {@code tone()} is not a property called {@code tone}: EL resolves
+ * {@code ${subscription.state.tone}} by introspection, finds no {@code getTone} and throws
+ * {@code PropertyNotFoundException}, which the CMS component renderer catches and turns into an empty slot.
+ * The symptom of a renamed or mis-prefixed accessor is therefore a blank page rather than a stack trace,
+ * and the compiler says nothing because the only caller is a JSP.</p>
  *
- * <p>That shipped once. It cost a build, a deploy and a restart to find something introspection answers in
- * a millisecond.</p>
- *
- * <h3>How to use it</h3>
- * <p>The lists below are the view contract, maintained by hand on purpose: adding an EL expression to the
- * page means adding its property here, and that deliberate step is the point. A name removed from the DTO
- * while the page still reads it fails here instead of on a deployed environment.</p>
+ * <p>The lists below are the view contract and are maintained by hand: adding an EL expression to the page
+ * means adding its property here.</p>
  */
 @UnitTest
 public class SubscriptionViewContractTest
@@ -60,13 +56,23 @@ public class SubscriptionViewContractTest
 			"code", "productName", "quantity", "state", "effectiveDate",
 			"orderCode", "orderDate", "paymentMethodSummary",
 			"cancellable", "manageable",
-			"paymentMethodChangeScope", "paymentMethodChangeable", "paymentMethodChangeCovered");
+			"paymentMethodChangeScope", "paymentMethodChangeable", "paymentMethodChangeCovered",
+			"paymentMethodOptions");
 
 	/** Read on the overview, by the controller rather than the page, but the same contract. */
 	private static final List<String> OVERVIEW_PROPERTIES = Arrays.asList(
 			"subscriptions", "ordersAwaitingSetup", "paymentMethodSubscriptionCode",
 			"paymentMethodChangeScope", "anyPaymentMethodChangeable",
-			"paymentMethodChangeSupportedSomewhere", "empty");
+			"paymentMethodChangeSupportedSomewhere", "anyRowPaymentMethodControl", "empty");
+
+	/**
+	 * Read on each option of a row's payment-method picker.
+	 *
+	 * <p>A record: {@code id()} is not the property {@code id}, so a record reaches EL with no readable
+	 * properties at all unless the accessors are added by hand.</p>
+	 */
+	private static final List<String> OPTION_PROPERTIES = Arrays.asList(
+			"id", "displayLabel", "card", "defaultForCustomer");
 
 	/** Read on the state enum from inside a row: {@code ${subscription.state.<name>}}. */
 	private static final List<String> STATE_PROPERTIES = Arrays.asList(
@@ -84,14 +90,17 @@ public class SubscriptionViewContractTest
 		assertResolvable(SubscriptionOverviewData.class, OVERVIEW_PROPERTIES);
 	}
 
-	/**
-	 * The enum is the case that actually broke: a plain method on it reads perfectly well in Java and is
-	 * invisible to EL.
-	 */
+	/** A plain method on the enum reads perfectly well in Java and is invisible to EL. */
 	@Test
 	public void everyStatePropertyReadFromARowIsResolvableByEl() throws IntrospectionException
 	{
 		assertResolvable(SubscriptionDisplayState.class, STATE_PROPERTIES);
+	}
+
+	@Test
+	public void everyOptionPropertyThePickerReadsIsResolvableByEl() throws IntrospectionException
+	{
+		assertResolvable(PlatformPaymentMethod.class, OPTION_PROPERTIES);
 	}
 
 	private static void assertResolvable(final Class<?> type, final List<String> properties)

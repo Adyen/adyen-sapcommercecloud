@@ -23,8 +23,8 @@ package com.adyen.commerce.connector.dto;
 import java.util.Map;
 
 /**
- * Request to resolve a SAP subscription product code to a platform plan/price reference.
- * The connector owns the mapping; the core owns this contract.
+ * Request to resolve a SAP subscription product code to a platform plan or price reference. The connector
+ * owns the mapping; the core owns this contract.
  */
 public record PlanResolutionRequest(String productCode, Map<String, String> context)
 {

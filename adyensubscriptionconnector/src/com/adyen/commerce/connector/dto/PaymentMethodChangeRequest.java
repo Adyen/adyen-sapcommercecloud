@@ -24,22 +24,22 @@ package com.adyen.commerce.connector.dto;
  * Ask a platform to bill this subscription to a different payment method from now on.
  *
  * <p>{@code subscription} is required even where the scope is {@link PaymentMethodChangeScope#CUSTOMER} and
- * the platform will move everything the customer has. The scope is declared by the connector, never inferred
- * from which argument the caller left null: a convention like "null subscription means per customer" holds
- * the same fact in two places and lets them drift apart.</p>
+ * the platform will move everything the customer has: the scope is declared by the connector, never inferred
+ * from which argument the caller left null.</p>
  *
- * <p>The token is the shopper's own vaulted Adyen card, already established as theirs by the caller. This
- * carries no PAN, in keeping with the SPI's token-only rule.</p>
+ * <p>The choice says what the shopper picked in terms the platform can act on - a card Adyen holds for them,
+ * or something the platform already has - and carries no PAN, in keeping with the SPI's token-only rule. The
+ * caller has already established that it belongs to this shopper.</p>
  */
 public record PaymentMethodChangeRequest(BillingCustomerRef customer,
                                          BillingSubscriptionRef subscription,
-                                         AdyenTokenHandle token,
+                                         PaymentMethodChoice choice,
                                          String idempotencyKey)
 {
 	public PaymentMethodChangeRequest
 	{
 		Dtos.requireValue(customer, "customer");
 		Dtos.requireValue(subscription, "subscription");
-		Dtos.requireValue(token, "token");
+		Dtos.requireValue(choice, "choice");
 	}
 }

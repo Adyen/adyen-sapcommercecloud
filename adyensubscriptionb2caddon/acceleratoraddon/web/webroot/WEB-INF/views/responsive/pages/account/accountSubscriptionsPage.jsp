@@ -4,15 +4,13 @@
     A fragment, not a page: it is rendered inside a ContentSlot by a JspIncludeComponent, so there is no
     <template:page> here. Wrapping it in one produces a page inside a page, or nothing at all.
 
-    Layout, and why. One full-width row per subscription, because the content is not small - a name, a state
-    sentence, two order lines, a card summary, and up to two controls - and a card grid forces that either
-    into a scrollbox or behind a disclosure nobody opens. The state sentence is the payload and is always
-    visible; the icon beside it repeats it and is therefore aria-hidden.
+    One full-width row per subscription, because the content is not small - a name, a state sentence, two
+    order lines, a card summary, and up to two controls - and a card grid forces that either into a
+    scrollbox or behind a disclosure nobody opens. The state sentence is the payload and is always visible;
+    the icon beside it repeats it and is therefore aria-hidden.
 
     Colour carries nothing on its own. A left rule and a glyph shade follow SubscriptionDisplayState.tone(),
-    which has three values: the two states where money is at risk get the page's only hue, the three that are
-    over or not yet begun recede, everything else is ordinary. A shopper who cannot see colour reads exactly
-    the same page, because every one of those states already says what it is in words.
+    and every state also says what it is in words, so a shopper who cannot see colour reads the same page.
 
     Actions live in native <details> disclosures - no JavaScript, so the page is legible with scripts off -
     and a row with no actions gives its column back rather than leaving a hole beside it.
@@ -27,7 +25,7 @@
 
 <%-- One glyph per state. A map rather than a method on the enum: these names belong to the storefront's
      icon font, and the enum lives in the vendor-neutral core, which has no business knowing them. A state
-     missing from this map simply renders without an icon - the sentence beside it still says everything. --%>
+     missing from this map simply renders without an icon. --%>
 <c:set var="subxGlyphs" value=",SETTING_UP=cog,ACTIVE=refresh,STARTING_SOON=calendar,ENDING=time,PAUSED=pause,PAST_DUE=exclamation-sign,PAST_DUE_ENDING=exclamation-sign,ENDED=remove-circle,UNAVAILABLE=question-sign"/>
 
 <div class="subx">
@@ -37,9 +35,8 @@
     </div>
 
     <%-- Orders paid for that never became a subscription. One block with a line each, not one block per
-         order: the sentence is long, and three copies of it is a wall rather than a warning. Shown above the
-         list and never instead of it - this shopper may also have subscriptions that worked, and without
-         that they would be told they have nothing, which is the one answer that is certainly wrong. --%>
+         order, and shown above the list rather than instead of it: this shopper may also have subscriptions
+         that worked. --%>
     <c:if test="${not empty ordersAwaitingSetup}">
         <div class="subx-notice" role="alert">
             <p class="subx-notice-title"><spring:theme code="text.account.subscriptions.awaitingSetup.title"/></p>
@@ -52,10 +49,12 @@
         </div>
     </c:if>
 
-    <%-- One flag for "somewhere on this page there is a control the shopper can press". Both controls are
-         additionally gated on the vault, so a shopper with no saved cards has none of them - and without the
-         vault in this flag the page would single out one row as the exception while offering nothing. --%>
-    <c:set var="changeOfferedSomewhere" value="${anyPaymentMethodChangeable and not empty storedCards}"/>
+    <%-- One flag for "somewhere on this page there is a control the shopper can press", and it has to be
+         the union of the two kinds. The control above the list needs the Adyen vault; a row's own control
+         needs its platform to hold a second method and knows nothing about the vault. --%>
+    <c:set var="changeOfferedSomewhere"
+           value="${(not empty paymentMethodSubscriptionCode and not empty storedCards)
+                    or anyRowPaymentMethodControl}"/>
 
     <%-- The control above the list belongs to a customer-scoped platform, where the change moves every
          subscription that platform bills. A control per row would be that promise repeated once per row. --%>
@@ -94,8 +93,8 @@
 
     <%-- Said once, and only when no provider on this page can do it at all. It keys off
          paymentMethodChangeSupportedSomewhere and NOT off what is changeable today: a subscription bought
-         minutes ago has not been confirmed by its platform yet, and telling that shopper their provider
-         cannot change cards would be false and would quietly stop being false an hour later. --%>
+         minutes ago has not been confirmed by its platform yet, which is not the same as a provider that
+         cannot change cards at all. --%>
     <c:if test="${not paymentMethodChangeSupportedSomewhere and not empty subscriptions}">
         <p class="subx-note subx-note--standalone">
             <spring:theme code="text.account.subscriptions.paymentMethod.unsupported"/>
@@ -107,12 +106,15 @@
             <div class="subx-list">
                 <c:forEach items="${subscriptions}" var="subscription" varStatus="row">
 
-                    <%-- Both halves of the actions column, decided before the row is opened so the row can
-                         collapse to full width when neither applies. --%>
+                    <%-- Both halves of the actions column, decided before the row is opened so the row can collapse
+                         to full width when neither applies. Platform methods, not the Adyen vault: a
+                         subscription-scoped change repoints at something the billing account already holds, and
+                         importing a freshly chosen card is a different operation this platform may refuse outright.
+                         No options, no control - the common case, because most accounts hold exactly one. --%>
                     <c:set var="showRowCardChange"
                            value="${subscription.paymentMethodChangeable
                                     and subscription.paymentMethodChangeScope eq 'SUBSCRIPTION'
-                                    and not empty storedCards}"/>
+                                    and not empty subscription.paymentMethodOptions}"/>
                     <c:set var="showRowUnavailable"
                            value="${changeOfferedSomewhere
                                     and subscription.state.paymentMethodChangeable
@@ -184,10 +186,9 @@
                         <c:if test="${hasActions}">
                             <div class="subx-row-actions">
 
-                                <%-- Per row, and only where the platform pins the method to one
-                                     subscription. Open already on the two states where the card IS the
-                                     problem: one extra tap between the shopper and the fix is the wrong
-                                     economy there. --%>
+                                <%-- Per row, and only where the platform pins the method to one subscription. Open
+                                     already on the two states where the card IS the problem: one extra tap between the
+                                     shopper and the fix is the wrong economy there. --%>
                                 <c:if test="${showRowCardChange}">
                                     <ycommerce:testId code="subscription_payment_method_row">
                                         <details class="subx-disclosure"
@@ -205,11 +206,13 @@
                                                     <label class="subx-label" for="subxCard-${row.index}">
                                                         <spring:theme code="text.account.subscriptions.paymentMethod.choose"/>
                                                     </label>
+                                                    <%-- The label is composed by the adapter, because only it knows
+                                                         whether it is describing a card, a mandate or an agreement. --%>
                                                     <select name="storedPaymentMethodId" id="subxCard-${row.index}"
                                                             class="form-control subx-select">
-                                                        <c:forEach items="${storedCards}" var="storedCard">
-                                                            <option value="${fn:escapeXml(storedCard.id)}">
-                                                                ${fn:escapeXml(storedCard.brand)}&nbsp;&bull;&bull;&bull;&bull;&nbsp;${fn:escapeXml(storedCard.lastFour)}
+                                                        <c:forEach items="${subscription.paymentMethodOptions}" var="option">
+                                                            <option value="${fn:escapeXml(option.id)}">
+                                                                ${fn:escapeXml(option.displayLabel)}
                                                             </option>
                                                         </c:forEach>
                                                     </select>
@@ -225,19 +228,17 @@
                                     </ycommerce:testId>
                                 </c:if>
 
-                                <%-- The row that stands out: the page offers the change somewhere, this
-                                     subscription is in a state where a working card would matter, and it
-                                     still cannot be changed here. Silence would leave it sitting under a
-                                     control that does not apply to it. --%>
+                                <%-- The page offers the change somewhere, this subscription is in a state where a
+                                     working card would matter, and it still cannot be changed here. Silence would
+                                     leave it sitting under a control that does not apply to it. --%>
                                 <c:if test="${showRowUnavailable}">
                                     <p class="subx-note subx-note--row">
                                         <spring:theme code="text.account.subscriptions.paymentMethod.row.unavailable"/>
                                     </p>
                                 </c:if>
 
-                                <%-- Last, quietest, and still a labelled 44px control: findable, never the
-                                     loudest thing on the row. The note is inside the disclosure so it is
-                                     read immediately before the commit rather than as permanent noise. --%>
+                                <%-- Last, quietest, and still a labelled 44px control. The note is inside the
+                                     disclosure so it is read immediately before the commit. --%>
                                 <c:if test="${subscription.cancellable}">
                                     <ycommerce:testId code="subscription_cancel_button">
                                         <details class="subx-disclosure">

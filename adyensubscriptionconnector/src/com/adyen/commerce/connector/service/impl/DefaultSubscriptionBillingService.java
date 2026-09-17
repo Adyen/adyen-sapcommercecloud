@@ -50,6 +50,10 @@ import com.adyen.commerce.connector.dto.RecurringProcessingModel;
 import com.adyen.commerce.connector.dto.SubscriptionCancelRequest;
 import com.adyen.commerce.connector.dto.PaymentMethodChangeOutcome;
 import com.adyen.commerce.connector.dto.PaymentMethodChangeRequest;
+import com.adyen.commerce.connector.dto.PaymentMethodChangeSupport;
+import com.adyen.commerce.connector.dto.PaymentMethodChoice;
+import com.adyen.commerce.connector.dto.PaymentMethodSource;
+import com.adyen.commerce.connector.dto.PlatformPaymentMethod;
 import com.adyen.commerce.connector.dto.PaymentMethodChangeScope;
 import com.adyen.commerce.connector.exception.CapabilityUnsupportedException;
 import com.adyen.commerce.connector.dto.SubscriptionCancellation;
@@ -123,7 +127,6 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 		final AdyenTokenHandle token = tokenHandleFactory.create(order);
 		final ConnectorCapabilities caps = connector.capabilities();
 
-		// Branch on capabilities, not platform identity.
 		if (caps.requiresNetworkTransactionId() && !token.hasNetworkTransactionId())
 		{
 			throw new PreconditionFailedException("Connector " + connector.platform()
@@ -158,16 +161,14 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 		}
 		catch (final ModelSavingException e)
 		{
-			// Lost the race on the unique (order, platform) index: another thread activated this order while
-			// this one was talking to the platform. Nothing was double-created there — both threads sent the
-			// same idempotency key, so the platform returned one subscription to both — which is precisely why
-			// the winner's reference is the right answer to return rather than an error to propagate. Callers
-			// asked whether this order has a subscription; it does.
+			// Lost the race on the unique (order, platform) index. Both threads sent the same idempotency key,
+			// so the platform returned one subscription to both and the winner's reference is the right answer
+			// to the question the caller asked.
 			final Optional<BillingSubscriptionRefModel> winner = findSubscriptionRef(order, connector.platform());
 			if (winner.isEmpty())
 			{
-				// Not the race, then. A save that fails for any other reason has to stay a failure: pretending
-				// otherwise would report an activation that left no local record of itself.
+				// A save that fails for any other reason stays a failure: reporting success would claim an
+				// activation that left no local record of itself.
 				throw e;
 			}
 			LOG.info("Subscription for order '{}' on platform {} was persisted by another thread; returning its "
@@ -175,10 +176,10 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 			return winner.get();
 		}
 
-		// Do not perform an immediate platform read here. The external create cannot participate in
-		// the SAP transaction, so a reconciliation failure must not roll back the durable local
-		// reference after the subscription has already been created remotely. Webhooks and the
-		// reconciliation sweep promote the initial PENDING projection to its authoritative state.
+		// No immediate platform read: the external create cannot participate in the SAP transaction, so a
+		// reconciliation failure must not roll back a local reference for a subscription that already exists
+		// remotely. Webhooks and the reconciliation sweep promote the PENDING projection to its
+		// authoritative state.
 		publishActivated(model);
 		LOG.info(
 				"Created subscription {} for order '{}' on platform {} with local status {}",
@@ -192,19 +193,38 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 	@Override
 	public String idempotencyKeyFor(final AbstractOrderModel order)
 	{
-		// The order code. It is stable across redeliveries and across a retry hours later, which is the
-		// property that matters: the platform must recognise the second request as the first one.
+		// The order code is stable across redeliveries and across a retry hours later, so the platform
+		// recognises the second request as the first one.
 		return order == null ? null : order.getCode();
 	}
 
 	@Override
-	public PaymentMethodChangeOutcome changePaymentMethod(final BillingSubscriptionRefModel subscription,
-			final AdyenTokenHandle token) throws BillingException
+	public List<PlatformPaymentMethod> listPaymentMethods(final BillingSubscriptionRefModel subscription)
+			throws BillingException
 	{
-		if (subscription == null || token == null)
+		if (subscription == null || StringUtils.isBlank(subscription.getExternalCustomerId()))
+		{
+			return List.of();
+		}
+		final SubscriptionBillingConnector connector = connectorRegistry.getConnector(subscription.getPlatform());
+		// A connector that will not accept a platform payment method back is not asked for a list: every
+		// submission from it would be refused.
+		if (!connector.capabilities().paymentMethodChange().accepts(PaymentMethodSource.ALREADY_ON_PLATFORM))
+		{
+			return List.of();
+		}
+		return connector.listPaymentMethods(
+				new BillingCustomerRef(subscription.getPlatform(), subscription.getExternalCustomerId()));
+	}
+
+	@Override
+	public PaymentMethodChangeOutcome changePaymentMethod(final BillingSubscriptionRefModel subscription,
+			final PaymentMethodChoice choice) throws BillingException
+	{
+		if (subscription == null || choice == null)
 		{
 			throw new PreconditionFailedException(
-					"Cannot change a payment method without both a subscription reference and a token");
+					"Cannot change a payment method without both a subscription reference and a choice");
 		}
 		if (StringUtils.isBlank(subscription.getExternalCustomerId()))
 		{
@@ -214,30 +234,36 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 		}
 
 		final SubscriptionBillingConnector connector = connectorRegistry.getConnector(subscription.getPlatform());
-		// Branch on capabilities, not platform identity - and refuse here rather than let the connector's
-		// default throw, so a platform that cannot do this costs no round trip and the refusal reads the
-		// same whether the adapter bothered to override the method or not.
-		final PaymentMethodChangeScope declared = connector.capabilities().paymentMethodChange();
+		// Refused here rather than by the connector's default, so an unsupported platform costs no round trip
+		// and the refusal reads the same whether or not the adapter overrides the method.
+		final PaymentMethodChangeSupport declared = connector.capabilities().paymentMethodChange();
 		if (!declared.isSupported())
 		{
 			throw new CapabilityUnsupportedException("Connector " + connector.platform()
 					+ " does not support changing the payment method of an existing subscription");
+		}
+		// The accepted source is a separate question from support: a connector can support the change and
+		// still accept only one kind of payment method.
+		if (!declared.accepts(choice.source()))
+		{
+			throw new CapabilityUnsupportedException("Connector " + connector.platform()
+					+ " does not accept a payment method of kind " + choice.source());
 		}
 		merchantAccountValidator.validate(connector, storeOf(subscription));
 
 		final PaymentMethodChangeOutcome outcome = connector.changePaymentMethod(new PaymentMethodChangeRequest(
 				new BillingCustomerRef(subscription.getPlatform(), subscription.getExternalCustomerId()),
 				new BillingSubscriptionRef(subscription.getPlatform(), subscription.getExternalSubscriptionId()),
-				token,
-				paymentMethodKey(subscription, token)));
+				choice,
+				paymentMethodKey(subscription, choice)));
 
-		if (outcome.appliedScope() != declared)
+		if (outcome.appliedScope() != declared.scope())
 		{
-			// Not fatal - the change happened - but it means the sentence the shopper is about to read was
-			// chosen from a declaration the adapter did not honour, and that is worth finding in a log.
+			// Not fatal - the change happened - but the sentence the shopper is about to read was chosen from
+			// a declaration the adapter did not honour.
 			LOG.warn("Connector {} declares payment-method changes as {} but reported {} for subscription {}; "
 					+ "the shopper is being told what actually happened, not what was advertised",
-					connector.platform(), declared, outcome.appliedScope(),
+					connector.platform(), declared.scope(), outcome.appliedScope(),
 					subscription.getExternalSubscriptionId());
 		}
 		recordPaymentMethod(subscription, outcome);
@@ -245,10 +271,9 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 	}
 
 	/**
-	 * The base store whose credentials this subscription's connector must be validated against.
-	 *
-	 * <p>Taken from the originating order rather than the session: {@code Customer} is global across stores,
-	 * so a shopper signed in to one storefront can be acting on a subscription bought in another.</p>
+	 * The base store whose credentials this subscription's connector is validated against. Taken from the
+	 * originating order rather than the session: {@code Customer} is global across stores, so a shopper
+	 * signed in to one storefront can be acting on a subscription bought in another.
 	 */
 	protected BaseStoreModel storeOf(final BillingSubscriptionRefModel subscription)
 	{
@@ -256,32 +281,34 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 	}
 
 	/**
-	 * The idempotency key for a shopper-initiated payment-method change.
-	 *
-	 * <p>Derived rather than stored: the subscription's own key belongs to its creation, and reusing it
-	 * would make a card change look to the platform like a replay of the order that started the
-	 * subscription. Naming the chosen token as well is what lets a shopper who changes their mind twice
-	 * have the second change reach the platform — a key that named only the subscription would replay the
-	 * first answer.</p>
+	 * The idempotency key for a shopper-initiated payment-method change. Derived rather than stored: the
+	 * subscription's own key belongs to its creation, and reusing it would make a card change look to the
+	 * platform like a replay of the order that started the subscription.
 	 */
-	protected String paymentMethodKey(final BillingSubscriptionRefModel subscription, final AdyenTokenHandle token)
+	protected String paymentMethodKey(final BillingSubscriptionRefModel subscription,
+			final PaymentMethodChoice choice)
 	{
-		return StringUtils.isBlank(subscription.getIdempotencyKey())
-				? null
-				: subscription.getIdempotencyKey() + "/payment-method/" + token.storedPaymentMethodId();
+		if (StringUtils.isBlank(subscription.getIdempotencyKey()))
+		{
+			return null;
+		}
+		final String chosen = switch (choice)
+		{
+			case PaymentMethodChoice.AdyenVaultedToken vaulted -> vaulted.token().storedPaymentMethodId();
+			case PaymentMethodChoice.AlreadyOnPlatform onPlatform -> onPlatform.platformPaymentMethodId();
+		};
+		// Unique per action, not per (subscription, choice) pair. Recurly replays the first response it
+		// recorded for a repeated key, so a shopper who moves A -> B -> A -> B would get the stored 200 back
+		// and be told of a change the platform never made. Computed once per action and passed down, so a
+		// retry inside the HTTP layer still reuses it; only cross-action deduplication is given up, which is
+		// safe because this call raises no invoice and moves no money.
+		return subscription.getIdempotencyKey() + "/payment-method/" + chosen + "/" + UUID.randomUUID();
 	}
 
 	/**
-	 * Writes down which payment method the platform now bills.
-	 *
-	 * <p>Until this existed {@code externalPaymentMethodId} was written once, at creation, and never again -
-	 * so after any change the row named an instrument the platform had stopped using, and nothing detected
-	 * it because a normalized subscription carries no payment-method field for reconciliation to compare.</p>
-	 *
-	 * <p>Only the row that was asked about is updated, even when the applied scope was {@code CUSTOMER} and
-	 * the platform moved others too. Updating the shopper's other rows from here would mean writing what we
-	 * believe rather than what we were told; the reconciliation sweep reaches them with the platform's own
-	 * answer.</p>
+	 * Writes down which payment method the platform now bills. Only the row that was asked about is updated,
+	 * even when the applied scope was {@code CUSTOMER} and the platform moved others too: the reconciliation
+	 * sweep reaches those with the platform's own answer rather than a guess made here.
 	 */
 	protected void recordPaymentMethod(final BillingSubscriptionRefModel subscription,
 			final PaymentMethodChangeOutcome outcome)
@@ -307,8 +334,8 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 		{
 			throw new PreconditionFailedException("Cannot cancel a null subscription reference");
 		}
-		// Not defaulted. A missing timing used to be answered with `false`, which on Recurly is a terminate;
-		// refusing is the only answer that cannot quietly destroy a paid period on a caller's behalf.
+		// Not defaulted: an assumed immediate cancellation is a terminate on Recurly, which destroys a period
+		// the shopper has paid for.
 		if (cancellation == null)
 		{
 			throw new PreconditionFailedException("Cannot cancel subscription "
@@ -332,11 +359,10 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 		}
 		catch (final BillingException | RuntimeException e)
 		{
-			// The cancellation itself already happened on the platform, so everything after this point is a
+			// The cancellation already happened on the platform, so anything failing after this point is a
 			// stale local projection and not a failed cancellation. RuntimeException is caught alongside
-			// BillingException for that reason and not out of caution: a ModelSavingException, or an NPE from
-			// a half-wired reconciliation bean, would otherwise reach the caller as if the subscription were
-			// still live — and a caller told the cancel failed will retry something that is already done.
+			// BillingException for that reason: a ModelSavingException or an NPE out of a half-wired
+			// reconciliation bean would otherwise have the caller retry something that is already done.
 			LOG.warn(
 					"Subscription {} was cancelled on platform {}, but its authoritative state "
 							+ "could not be fetched immediately; reconciliation sweep will retry",
@@ -351,15 +377,13 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 	/**
 	 * The idempotency key sent with a cancellation, discriminated by its timing.
 	 *
-	 * <p>Both timings would otherwise travel under the subscription's single stored key. Recurly answers a
-	 * repeated key with the <em>first</em> response it recorded, so a shopper who cancels at period end and
-	 * is then escalated to an immediate cancellation would have the second request acknowledged with the
-	 * stored answer to the first: the terminate never reaches Recurly, the connector logs a success, and the
-	 * next reconciliation reads the subscription back as still serving. The connector namespaces this key
-	 * again by operation, which separates a cancel from a create but not one cancel from another.</p>
+	 * <p>Recurly answers a repeated key with the <em>first</em> response it recorded, so an escalation from
+	 * an end-of-period cancellation to an immediate one would be acknowledged with the stored answer and the
+	 * terminate would never reach Recurly. The connector namespaces this key again by operation, which
+	 * separates a cancel from a create but not one cancel from another.</p>
 	 *
-	 * <p>A blank key is passed through untouched rather than turned into a bare timing: a key that names
-	 * only "at_period_end" would be shared by every subscription that ever cancelled.</p>
+	 * <p>A blank key is passed through untouched rather than turned into a bare timing: a key naming only
+	 * "at_period_end" would be shared by every subscription that ever cancelled.</p>
 	 */
 	protected String cancellationKey(final String idempotencyKey, final CancellationTiming timing)
 	{
@@ -369,21 +393,13 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 	}
 
 	/**
-	 * Writes down, before the platform is re-read, that this subscription will not renew.
-	 *
-	 * <p>The reconciliation on the next line normally overwrites this with the platform's own answer, which
-	 * is why this is not a substitute for it. It exists for the case the line below already anticipates: the
-	 * cancellation succeeded and the read-back did not. Without this the caller is told yes, the row still
-	 * says the subscription renews, and the shopper reads a contradiction until a sweep hours later resolves
-	 * it. A projection that is directionally right and superseded within milliseconds beats a stale one.</p>
+	 * Writes down, before the platform is re-read, that this subscription will not renew. Reconciliation
+	 * normally overwrites it with the platform's own answer; it covers the case where the cancellation
+	 * succeeded and the read-back did not, so the row never says "renews" while the shopper is being told
+	 * the cancellation worked.
 	 *
 	 * <p>Only {@code AT_PERIOD_END} is projected. What {@code IMMEDIATELY} leaves behind is a status, and
-	 * which status a platform reports for a terminated subscription is the platform's to say — guessing it
-	 * here would put a value in the column that no connector ever agreed to.</p>
-	 *
-	 * <p>Failing to write it is worth a warning and nothing more, for the same reason as the sweep flag
-	 * below: the cancellation already happened, and reporting it as failed would have the caller retry
-	 * something that is done.</p>
+	 * which status a platform reports for a terminated subscription is the platform's to say.</p>
 	 */
 	protected void recordScheduledCancellation(final BillingSubscriptionRefModel subscription,
 			final CancellationTiming timing)
@@ -407,12 +423,9 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 
 	/**
 	 * Clears the sync watermark so the sweep treats this reference as never-synced and picks it up on its
-	 * next pass instead of waiting out the staleness window.
-	 *
-	 * <p>A failure to write that flag is itself only worth a warning. It is an optimisation, not the
-	 * recovery: the sweep revisits anything older than the window anyway, so the reference is still
-	 * reached, just later. Letting this throw would resurrect the very problem the caller was spared —
-	 * a completed cancellation reported as a failure.</p>
+	 * next pass instead of waiting out the staleness window. Failing to write it is an optimisation lost,
+	 * not the recovery: the sweep revisits anything past the window anyway, and throwing here would report a
+	 * completed cancellation as a failure.
 	 */
 	protected void flagForReconciliationSweep(final BillingSubscriptionRefModel subscription)
 	{
@@ -471,12 +484,11 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 			return null;
 		}
 
-		// Merely having a payment address proves nothing: the Adyen checkout paths copy the delivery
-		// address onto the payment info whenever the shopper gives no separate billing address, and express
-		// wallet checkout puts the very same AddressModel on both. So the address is only treated as the
-		// cardholder's own when it differs from where the goods are going. It is still sent either way —
-		// it is the only address there is — but an address that might belong to the recipient must not be
-		// used to name an account. On a gift order that is somebody else entirely.
+		// A payment address proves nothing on its own: the Adyen checkout paths copy the delivery address
+		// onto the payment info whenever the shopper gives no separate billing address, and express wallet
+		// checkout puts the very same AddressModel on both. The address is sent either way, but only counts
+		// as the cardholder's own when it differs from where the goods go — on a gift order the recipient is
+		// somebody else entirely.
 		final boolean confirmed = paymentAddress != null && !sameAddress(paymentAddress, order.getDeliveryAddress());
 		if (!confirmed)
 		{
@@ -574,15 +586,15 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 		model.setQuantity(Integer.valueOf(1));
 		model.setCurrencyIsoCode(order.getCurrency() == null ? null : order.getCurrency().getIsocode());
 		model.setIdempotencyKey(idempotencyKey);
-		// Minted here, on the one path that creates the row, rather than lazily on first read. Minting on a
-		// read races itself: two tabs open on the shopper's own list would mint two values, the later write
-		// would win, and the link the first tab is showing would stop resolving.
+		// Minted on the one path that creates the row rather than lazily on first read: minting on a read
+		// races itself, so two tabs open on the shopper's list would mint two values and the link the first
+		// tab shows would stop resolving.
 		model.setCode(UUID.randomUUID().toString());
 		model.setProductCode(subProduct == null ? null : subProduct.getCode());
 		model.setOrder(order);
 		model.setCustomer(customer);
-		// The status column holds the normalized vocabulary, so it is written from the enum here exactly
-		// as the reconciliation service writes it later. A literal would be a second place to keep in step.
+		// The status column holds the normalized vocabulary, written from the enum exactly as the
+		// reconciliation service writes it later. A literal would be a second place to keep in step.
 		model.setStatus(NormalizedSubscriptionStatus.PENDING.name());
 		modelService.save(model);
 		return model;

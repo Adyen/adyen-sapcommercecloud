@@ -91,8 +91,8 @@ public class DefaultSubscriptionOrderCancellationServiceTest
 		when(order.getCode()).thenReturn("order-1");
 		when(order.getStore()).thenReturn(store);
 
-		// The local view is this class's own plumbing, not a collaborator to assert on: run the body inline
-		// so every test exercises what the body actually does.
+		// The local view is this class's own plumbing, not a collaborator to assert on: the body runs
+		// inline so every test exercises it.
 		when(sessionService.executeInLocalViewWithParams(any(), any(SessionExecutionBody.class)))
 				.thenAnswer(invocation -> {
 					invocation.<SessionExecutionBody> getArgument(1).execute();
@@ -116,8 +116,8 @@ public class DefaultSubscriptionOrderCancellationServiceTest
 
 	/**
 	 * The connectors read their credentials from the base store in the session, and this runs on a listener
-	 * thread carrying whatever store the publishing request happened to leave behind. Without the order's own
-	 * store in context the cancellation goes to another store's billing account.
+	 * thread carrying whatever store the publishing request left behind, so without the order's own store in
+	 * context the cancellation goes to another store's billing account.
 	 */
 	@Test
 	public void putsTheOrdersOwnStoreInContextBeforeCancelling() throws Exception

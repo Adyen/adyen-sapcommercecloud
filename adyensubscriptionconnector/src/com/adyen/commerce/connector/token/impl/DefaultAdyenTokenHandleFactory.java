@@ -50,11 +50,10 @@ import de.hybris.platform.core.model.user.UserModel;
  *       the authorisation response's {@code additionalData.networkTxReference}</li>
  *   <li>card metadata &larr; the {@code PaymentInfo} adyen card attributes</li>
  * </ul>
- * The network transaction id stays optional: schemes return it for card authorisations, but not for
- * every payment method, and only connectors that advertise
- * {@code ConnectorCapabilities.requiresNetworkTransactionId()} need one. Orders authorised before that
- * attribute existed have none, so a token minted back then cannot be imported into such a platform
- * without a fresh authorisation.
+ * The network transaction id is optional: schemes return it for card authorisations but not for every
+ * payment method, and only connectors advertising
+ * {@code ConnectorCapabilities.requiresNetworkTransactionId()} need one. A token that carries none cannot
+ * be imported into such a platform without a fresh authorisation.
  */
 public class DefaultAdyenTokenHandleFactory implements AdyenTokenHandleFactory
 {
@@ -127,8 +126,8 @@ public class DefaultAdyenTokenHandleFactory implements AdyenTokenHandleFactory
 					+ "build a token handle that could not be charged");
 		}
 
-		// No networkTransactionId: nothing was authorised here, the token was vaulted earlier. A connector
-		// that needs one rejects this handle in its own validation rather than being handed a fabricated value.
+		// No networkTransactionId: nothing is authorised on this path. A connector that needs one rejects
+		// the handle in its own validation rather than being handed a fabricated value.
 		return new AdyenTokenHandle(merchantAccount, customer.getCustomerID(), storedPaymentMethodId, null,
 				cardMetadata);
 	}

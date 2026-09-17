@@ -28,6 +28,7 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -49,6 +50,9 @@ import com.adyen.commerce.connector.dto.NormalizedSubscription;
 import com.adyen.commerce.connector.dto.PaymentMethodChangeOutcome;
 import com.adyen.commerce.connector.dto.PaymentMethodChangeRequest;
 import com.adyen.commerce.connector.dto.PaymentMethodChangeScope;
+import com.adyen.commerce.connector.dto.PaymentMethodChangeSupport;
+import com.adyen.commerce.connector.dto.PaymentMethodChoice;
+import com.adyen.commerce.connector.dto.PaymentMethodSource;
 import com.adyen.commerce.connector.dto.PlanRef;
 import com.adyen.commerce.connector.dto.PlanResolutionRequest;
 import com.adyen.commerce.connector.dto.RawWebhook;
@@ -59,6 +63,7 @@ import com.adyen.commerce.connector.dto.TokenImportRequest;
 import com.adyen.commerce.connector.dto.TokenImportStyle;
 import com.adyen.commerce.connector.enums.BillingPlatform;
 import com.adyen.commerce.connector.exception.BillingException;
+import com.adyen.commerce.connector.exception.CapabilityUnsupportedException;
 import com.adyen.commerce.connector.exception.PreconditionFailedException;
 import com.adyen.commerce.connector.exception.TerminalBillingException;
 import com.adyen.commerce.connector.log.ConnectorLogContext;
@@ -68,13 +73,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
- * Chargebee adapter of the {@link SubscriptionBillingConnector} SPI: Adyen keeps processing the
- * recurring payments, Chargebee only orchestrates the billing.
- *
- * <p>This first cut covers the outbound lifecycle (customer, token import, plan resolution,
- * subscription create/update/cancel), the authoritative read used by reconciliation, plus inbound
- * webhook verification/normalization.
- * Pause is not supported ({@code supportsPause=false}, SPI default rejects it).</p>
+ * Chargebee adapter of the {@link SubscriptionBillingConnector} SPI: Adyen processes the recurring
+ * payments, Chargebee only orchestrates the billing. Pause is not supported
+ * ({@code supportsPause=false}), so the SPI default rejects it.
  */
 public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillingConnector
 {
@@ -86,25 +87,23 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 	private static final String EVENT_RECONCILIATION_GAP = "reconciliation_gap";
 
 	private static final ConnectorCapabilities CAPABILITIES = new ConnectorCapabilities(
-			false, // requiresNetworkTransactionId — Chargebee's token import does not need one. The plugin does
-			       // capture an NTID (DefaultAdyenOrderService.updatePaymentInfo -> PaymentInfo.adyenNetworkTxReference);
-			       // Recurly requires it, Chargebee does not, which is exactly what this flag is for.
+			false, // requiresNetworkTransactionId — Chargebee's token import does not need one
 			true,  // supportsImmediateStart — subscription_for_items can start immediately
-			false, // supportsPause — deferred to a later increment (SPI default rejects pause)
+			false, // supportsPause — the SPI default rejects pause
 			true,  // requiresPreConfiguredPlan — the item price must already exist in the Chargebee catalog
 			true,  // liveTokenValidationOnImport — create_using_permanent_token makes a live retrieval call to Adyen
 			TokenImportStyle.SLASH_JOINED, // reference_id = shopperReference/recurringDetailReference
-			PaymentMethodChangeScope.CUSTOMER);
+			new PaymentMethodChangeSupport(PaymentMethodChangeScope.CUSTOMER,
+					// Only a vaulted Adyen card: this adapter never reads Chargebee's own payment sources,
+					// so declaring that source would offer options every submission refuses.
+					Set.of(PaymentMethodSource.ADYEN_VAULTED_TOKEN)));
 
 	private static final String AUTHORIZATION_HEADER = "Authorization";
 	private static final String BASIC_PREFIX = "Basic ";
 
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
-	/**
-	 * Injectable so the webhook lag a test observes is the one it set up. Defaults to the system clock,
-	 * which keeps the Spring definition free of a second wiring line.
-	 */
+	/** Injectable so a test controls the observed webhook lag; defaults to the system clock. */
 	private Clock clock = Clock.systemUTC();
 
 	private ChargebeeApiClient apiClient;
@@ -143,8 +142,7 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 			}
 			catch (final BillingException e)
 			{
-				// The requested id, not the returned one: the call that would have returned it is the
-				// one that just failed, so the field would have been empty on every failure line.
+				// The requested id: the call that would have returned one is the call that failed.
 				ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
 						.failure(startedAt, e)
 						.field("customer_id", request.customerId())
@@ -199,15 +197,22 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 		final long startedAt = System.nanoTime();
 		try (ConnectorLogContext scope = ConnectorLogContext.open(platform(), "change_payment_method"))
 		{
-			final AdyenTokenHandle token = request.token();
+			// A switch expression, so another kind of choice is a compile error rather than a silent
+			// fall-through.
+			final AdyenTokenHandle token = switch (request.choice())
+			{
+				case PaymentMethodChoice.AdyenVaultedToken vaulted -> vaulted.token();
+				case PaymentMethodChoice.AlreadyOnPlatform ignored -> throw new CapabilityUnsupportedException(
+						"This Chargebee adapter changes a payment method by importing an Adyen-vaulted card; "
+								+ "it does not repoint a subscription at a payment source Chargebee already holds");
+			};
 			verifyMerchantAccount(token);
 			final String paymentSourceId;
 			try
 			{
-				// The same call as the import, and on Chargebee that is not a shortcut: the client sends
-				// replace_primary_payment_source, so creating the source and making it the one billing uses
-				// are one round trip. The reference id it derives is deterministic, so choosing a card that
-				// is already the customer's source is a no-op there rather than a duplicate.
+				// The client sends replace_primary_payment_source, so creating the source and making it the
+				// one billing uses are a single round trip. The derived reference id is deterministic, so
+				// re-selecting the customer's current card is a no-op rather than a duplicate source.
 				paymentSourceId = apiClient.importPermanentToken(request.customer().externalId(),
 						buildReferenceId(token), token.cardMetadata());
 			}
@@ -273,8 +278,8 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 			}
 			catch (final BillingException e)
 			{
-				// Null-tolerant accessors: a failure raised before the request was fully built is
-				// exactly when these are unset, and an NPE from the logging would replace the cause.
+				// Null-tolerant accessors: a failure raised before the request was fully built leaves these
+				// unset, and an NPE from the logging would replace the cause.
 				ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
 						.failure(startedAt, e)
 						.field("plan_id", itemPriceIdOrNull(request.plan()))
@@ -369,11 +374,9 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 		final long startedAt = System.nanoTime();
 		try (ConnectorLogContext scope = ConnectorLogContext.open(platform(), "cancel_subscription"))
 		{
-			// A switch expression, not a statement: only the expression form is checked for exhaustiveness,
-			// so this is what makes a third timing a compile error instead of one that quietly cancels a
-			// subscription at whichever moment the surviving branch happens to mean. Chargebee reaches the
-			// same endpoint either way and differs only in cancel_option, which is why the choice can stay a
-			// flag here where on Recurly it could not.
+			// A switch expression, so another timing is a compile error rather than a cancellation at
+			// whichever moment the surviving branch happens to mean. Chargebee reaches the same endpoint
+			// either way and differs only in cancel_option, so the choice can stay a flag here.
 			final boolean atPeriodEnd = switch (request.timing())
 			{
 				case AT_PERIOD_END -> true;
@@ -400,8 +403,8 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 		}
 	}
 
-	// pauseSubscription is intentionally NOT overridden: supportsPause=false, so the SPI default
-	// throws CapabilityUnsupportedException. Chargebee pause/resume will be added in a later increment.
+	// pauseSubscription is intentionally not overridden: supportsPause=false, so the SPI default
+	// throws CapabilityUnsupportedException.
 
 	@Override
 	public NormalizedBillingEvent parseWebhook(final RawWebhook raw) throws BillingException
@@ -444,8 +447,7 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 		}
 		catch (final IOException e)
 		{
-			// Basic Auth did pass; reporting otherwise would put a malformed body on the same alert as
-			// an unauthenticated one.
+			// Basic Auth passed: a malformed body must not land on the same alert as an unauthenticated one.
 			logWebhookFailure(startedAt, "payload_parsing_failed", null, payloadChars, true);
 			throw new TerminalBillingException("Chargebee webhook payload is not valid JSON", e);
 		}
@@ -454,8 +456,8 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 		final BillingEventType type = mapEventType(chargebeeEventType);
 		if (type == null)
 		{
-			// Chargebee fires many event types we don't act on (invoice_generated, customer_changed, ...).
-			// Acknowledge without erroring: the dispatcher no-ops on a null event.
+			// Chargebee fires many event types this connector does not act on; acknowledge without
+			// erroring, since the dispatcher no-ops on a null event.
 			webhookEvent()
 					.outcome(ConnectorLogEvent.OUTCOME_IGNORED)
 					.durationSince(startedAt)
@@ -485,11 +487,9 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 				? Instant.ofEpochSecond(occurredAtEpochSeconds)
 				: clock.instant();
 
-		// Chargebee's own docs recommend deduplicating on the event id; the core does exactly that, so it
-		// travels as a first-class field rather than an attribute.
+		// Chargebee documents the event id as the deduplication key, and the core dedups on it.
 		final String eventId = root.path("id").asText(null);
-		// Negative when Chargebee's clock is ahead of ours; the sign is the skew signal, so it travels as
-		// the value rather than as a second derived flag.
+		// Negative when Chargebee's clock is ahead; the sign is the skew signal.
 		final long lagMs = clock.instant().toEpochMilli() - occurredAt.toEpochMilli();
 		webhookEvent()
 				.success(startedAt)
@@ -569,31 +569,14 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 	}
 
 	/**
-	 * Maps a Chargebee {@code event_type} to the normalized vocabulary. Unrecognized types return
-	 * {@code null} (see {@link #parseWebhook}) rather than throwing, since Chargebee sends many event
-	 * types this connector doesn't act on.
-	 *
-	 * <h3>What is mapped, and what is left alone</h3>
-	 * <p>An event earns a place here only if the state it announces is one the local projection actually
-	 * holds — status, plan, quantity, period, {@code cancelAtPeriodEnd} — and this is the moment that state
-	 * changes. Everything else costs a live subscription read per delivery to write back the values that
-	 * were already there. That rule is what keeps reminders, invoice and payment-source events, and the
-	 * scheduled-plan-change family out: none of them has anywhere to land.</p>
-	 *
-	 * <p>Renewal is the instructive omission. It looks like the most obviously useful event of all, and it
-	 * is already covered: a renewal charges the card, and {@code payment_succeeded} carries the
-	 * subscription id and is mapped below. Mapping the renewal event as well would reconcile the same
-	 * moment twice, and — because the renewal maps onto a subscription-scoped type while the payment does
-	 * not — it would do so through the path that answers with an error and asks for a redelivery when the
-	 * subscription is not one of ours. Every subscription on the site that this store did not create, once
-	 * per billing cycle, forever.</p>
-	 *
-	 * <h3>Two spellings for one event</h3>
-	 * <p>Chargebee announces a backdated operation under a separate event type and does not also send the
-	 * plain one, so an unmapped variant is a silent gap in an otherwise mapped lifecycle rather than a
-	 * missing extra. They are listed alongside their base events; a site with backdating switched off
-	 * simply never sends them. Note that Chargebee spells the cancellation variant with one {@code l}
-	 * where the base event has two — its inconsistency, not a typo here.</p>
+	 * Maps a Chargebee {@code event_type} to the normalized vocabulary, returning {@code null} for the
+	 * many types this connector does not act on (see {@link #parseWebhook}). An event is mapped only when
+	 * it announces a change to state the local projection holds — status, plan, quantity, period,
+	 * {@code cancelAtPeriodEnd} — which is what keeps reminder, invoice, payment-source and
+	 * scheduled-plan-change events out; a renewal is already covered by {@code payment_succeeded}.
+	 * Chargebee announces a backdated operation under a separate event type and does not also send the
+	 * plain one, so both spellings are mapped — and it spells the cancellation variant with one
+	 * {@code l} where the base event has two.
 	 */
 	protected BillingEventType mapEventType(final String chargebeeEventType)
 	{
@@ -603,24 +586,21 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 		}
 		return switch (chargebeeEventType)
 		{
-			// subscription_started, not subscription_activated, is what a subscription this connector
-			// created actually announces: it is booked with a start date and Chargebee's own scheduler
-			// begins it, whereas subscription_activated marks a trial ending — which this integration
-			// never sets up. Both are mapped so neither configuration has a blind spot.
+			// A subscription booked with a start date announces subscription_started; subscription_activated
+			// marks a trial ending. Both are mapped so neither configuration has a blind spot.
 			case "subscription_started", "subscription_activated", "subscription_activated_with_backdating",
 					"subscription_reactivated", "subscription_reactivated_with_backdating"
 					-> BillingEventType.SUBSCRIPTION_ACTIVATED;
 			case "subscription_changed", "subscription_changed_with_backdating"
 					-> BillingEventType.SUBSCRIPTION_UPDATED;
-			// The hosted portal's cancel button. Without this the local projection keeps promising a
-			// renewal that Chargebee has already been told not to make.
+			// The hosted portal's cancel button; without it the local projection keeps promising a renewal
+			// Chargebee has already been told not to make.
 			case "subscription_cancellation_scheduled" -> BillingEventType.SUBSCRIPTION_CANCELLATION_SCHEDULED;
 			case "subscription_scheduled_cancellation_removed" -> BillingEventType.SUBSCRIPTION_CANCELLATION_REMOVED;
 			case "subscription_cancelled", "subscription_canceled_with_backdating"
 					-> BillingEventType.SUBSCRIPTION_CANCELLED;
-			// Pausing is refused on the way out (supportsPause=false), which says nothing about the way in:
-			// an operator can pause in Chargebee's own panel, and the normalized status vocabulary already
-			// has a word for the result.
+			// Pause is refused outbound (supportsPause=false), but an operator can still pause in
+			// Chargebee's own panel, and the normalized status vocabulary has a word for the result.
 			case "subscription_paused" -> BillingEventType.SUBSCRIPTION_PAUSED;
 			case "subscription_resumed" -> BillingEventType.SUBSCRIPTION_RESUMED;
 			case "payment_succeeded" -> BillingEventType.INVOICE_PAID;
@@ -678,7 +658,7 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 	{
 		final String configured = configService.getConfiguredAdyenMerchantAccount();
 		// Chargebee is an external gateway: a blank merchant account is a misconfiguration, not an
-		// exemption. Fail closed so the check cannot be silently bypassed (the core validator skips on null).
+		// exemption, so fail closed rather than let the check be bypassed.
 		if (StringUtils.isBlank(configured))
 		{
 			tokenValidationFailure("merchant_account_not_configured", ConnectorLogEvent.ERROR_CLASS_CONFIGURATION,
@@ -698,9 +678,8 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 	}
 
 	/**
-	 * Reconciliation resolves the connector from the stored reference's own platform, so a mismatch here means
-	 * the caller built the reference by hand. Refuse it instead of sending another platform's id to Chargebee,
-	 * where it would either 404 or — worse, ids being caller-chosen here — hit an unrelated subscription.
+	 * Refuses a reference belonging to another platform. Chargebee subscription ids are caller-chosen, so
+	 * sending a foreign id could hit an unrelated subscription rather than merely 404.
 	 */
 	protected void verifyChargebeeSubscription(final BillingSubscriptionRef subscription)
 			throws PreconditionFailedException
@@ -717,8 +696,8 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 	}
 
 	/**
-	 * Build the Chargebee {@code reference_id}: {@code shopperReference/recurringDetailReference}
-	 * (shopper first, slash-joined; {@code storedPaymentMethodId == recurringDetailReference}).
+	 * Builds the Chargebee {@code reference_id}: {@code shopperReference/recurringDetailReference}
+	 * ({@code storedPaymentMethodId == recurringDetailReference}).
 	 */
 	protected String buildReferenceId(final AdyenTokenHandle token)
 	{
@@ -727,8 +706,8 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 
 	protected String itemPriceId(final PlanRef plan)
 	{
-		// resolvePlan maps the sendable Chargebee item price id into PlanRef.planId (priceId is the
-		// optional separate price id, not what subscription_items[item_price_id] expects).
+		// resolvePlan puts the sendable Chargebee item price id in PlanRef.planId; priceId is a separate
+		// optional id, not what subscription_items[item_price_id] expects.
 		return plan.planId();
 	}
 
@@ -748,13 +727,9 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 	}
 
 	/**
-	 * One event for every refused token import, told apart by {@code reason}. Kept to a single line so a
-	 * count of the event is a count of the refusals rather than of how many times the same refusal was
-	 * written down.
-	 *
-	 * <p>Platform and operation are stated explicitly because this guard is {@code protected} and can be
-	 * called outside the scope {@link #importAdyenToken} opens; when that scope is open its values
-	 * win.</p>
+	 * One event for every refused token import, told apart by {@code reason}. Platform and operation are
+	 * stated explicitly because this guard is {@code protected} and can be called outside the scope
+	 * {@link #importAdyenToken} opens; when that scope is open, its values win.
 	 */
 	private ConnectorLogEvent tokenValidationFailure(final String reason, final String errorClass,
 			final AdyenTokenHandle token)
@@ -791,10 +766,9 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 	}
 
 	/**
-	 * The reason is carried by the exception rather than recovered from its wording: matching on
-	 * {@code getMessage()} makes every reason label hostage to a copy edit. {@code not configured} is the
-	 * one case that arrives as a plain {@link PreconditionFailedException}, since it is a misconfiguration
-	 * on our side rather than a bad request from Chargebee.
+	 * The reason travels on the exception rather than being matched out of its message text. Missing
+	 * configuration is the one case that arrives as a plain {@link PreconditionFailedException}, being a
+	 * local misconfiguration rather than a bad request from Chargebee.
 	 */
 	private static String webhookAuthFailureReason(final BillingException error)
 	{

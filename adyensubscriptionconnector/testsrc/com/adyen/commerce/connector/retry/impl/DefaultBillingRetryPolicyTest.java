@@ -39,10 +39,9 @@ import com.adyen.commerce.connector.retry.RetryVerdict;
 import de.hybris.bootstrap.annotations.UnitTest;
 
 /**
- * Unit test for {@link DefaultBillingRetryPolicy}. The classification it applies —
- * {@code isRetryable()} decides, and nothing else does — is the contract
- * {@link com.adyen.commerce.connector.exception.BillingException} has always documented, so the tests
- * here are mostly about it being applied at all.
+ * Unit test for {@link DefaultBillingRetryPolicy}. The classification is the one
+ * {@link com.adyen.commerce.connector.exception.BillingException} documents - {@code isRetryable()}
+ * decides, and nothing else does - so these tests are mostly about it being applied.
  */
 @UnitTest
 public class DefaultBillingRetryPolicyTest
@@ -81,10 +80,6 @@ public class DefaultBillingRetryPolicyTest
 		assertEquals(NOW.plusSeconds(960L), policy.decide(failure, 3, NOW).nextAttemptAt());
 	}
 
-	/**
-	 * Without the cap, a schedule that is merely generous at the front turns into one nobody is watching
-	 * by the end.
-	 */
 	@Test
 	public void capsTheBackoff()
 	{
@@ -105,8 +100,7 @@ public class DefaultBillingRetryPolicyTest
 	}
 
 	/**
-	 * The point of the taxonomy: a failure that will fail identically on replay is not worth an hour and
-	 * a half of patience.
+	 * A failure that will fail identically on replay is not worth waiting out the backoff schedule.
 	 */
 	@Test
 	public void givesUpAtOnceOnATerminalFailure()
@@ -124,9 +118,9 @@ public class DefaultBillingRetryPolicyTest
 	}
 
 	/**
-	 * An unclassified failure — a bug in our own mapping, a database hiccup — is retried rather than
-	 * dead-lettered on the spot. It costs one bounded series of attempts; the alternative costs a paid
-	 * order its subscription on the strength of a stack trace nobody has read yet.
+	 * An unclassified failure - a bug in the mapping, a database hiccup - is retried rather than
+	 * dead-lettered on the spot. It costs one bounded series of attempts; the alternative costs a paid order
+	 * its subscription on the strength of a stack trace nobody has read yet.
 	 */
 	@Test
 	public void treatsAnUnclassifiedFailureAsRetryable()

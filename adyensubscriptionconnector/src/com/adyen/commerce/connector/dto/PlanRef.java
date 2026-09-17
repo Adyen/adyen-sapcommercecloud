@@ -21,8 +21,8 @@
 package com.adyen.commerce.connector.dto;
 
 /**
- * Resolved platform plan/price reference. {@code priceId} is optional for platforms that
- * model price separately from plan (it may be {@code null} when the plan implies the price).
+ * Resolved platform plan/price reference. {@code priceId} is {@code null} on platforms where the plan
+ * implies the price.
  */
 public record PlanRef(String planId, String priceId)
 {

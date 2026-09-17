@@ -16,6 +16,7 @@ import static org.mockito.Mockito.when;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -27,6 +28,7 @@ import org.mockito.MockitoAnnotations;
 
 import com.adyen.commerce.connector.dto.BillingAddress;
 import com.adyen.commerce.connector.dto.CardMetadata;
+import com.adyen.commerce.connector.dto.PlatformPaymentMethod;
 import com.adyen.commerce.connector.dto.NormalizedSubscription;
 import com.adyen.commerce.connector.dto.NormalizedSubscriptionStatus;
 import com.adyen.commerce.connector.exception.BillingException;
@@ -249,9 +251,8 @@ public class DefaultRecurlyApiClientTest
         when(configService.isWalletEnabled()).thenReturn(false);
         when(httpClient.get(BASE + "/accounts/code-customer", auth, ACCEPT))
                 .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"id\":\"account-1\"}"));
-        // Recurly's READ shape, not the shape we POST: on the way back gateway_attributes sits under
-        // payment_method, and only payment_gateway_references stays at the top level. Built the other way
-        // round, this test passed against a predicate that never matched a real response.
+        // Recurly's read shape, not the write shape: on the way back gateway_attributes sits under
+        // payment_method, and only payment_gateway_references stays at the top level.
         when(httpClient.get(BASE + "/accounts/code-customer/billing_info", auth, ACCEPT))
                 .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"id\":\"billing-1\","
                         + "\"payment_method\":{\"card_type\":\"Visa\",\"last_four\":\"1881\","
@@ -268,9 +269,8 @@ public class DefaultRecurlyApiClientTest
     @Test
     public void importAdyenTokenToleratesTheWriteShapeOfGatewayAttributes() throws Exception
     {
-        // The shape BillingInfoCreate accepts, echoed back. Recurly is not documented to answer this way,
-        // but the predicate accepts it deliberately and that tolerance is pinned here rather than left to
-        // be discovered - and removed - by the next reader.
+        // The shape BillingInfoCreate accepts, echoed back. Recurly is not documented to answer this way;
+        // the predicate tolerates it deliberately.
         when(configService.isWalletEnabled()).thenReturn(false);
         when(httpClient.get(BASE + "/accounts/code-customer", auth, ACCEPT))
                 .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"id\":\"account-1\"}"));
@@ -288,8 +288,8 @@ public class DefaultRecurlyApiClientTest
     @Test
     public void importAdyenTokenRefusesToReplaceSomebodyElsesPrimaryBillingInfo() throws Exception
     {
-        // The refusal at the heart of the no-wallet path, and it had no test at all. It must fire for a
-        // DIFFERENT card and stay silent for the same one - the previous test is the other half of the pair.
+        // The refusal at the heart of the no-wallet path: it must fire for a different card and stay silent
+        // for the same one, which the preceding test covers.
         when(configService.isWalletEnabled()).thenReturn(false);
         when(httpClient.get(BASE + "/accounts/code-customer", auth, ACCEPT))
                 .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"id\":\"account-1\"}"));
@@ -378,8 +378,8 @@ public class DefaultRecurlyApiClientTest
     }
 
     /**
-     * Recurly's terminate is a DELETE on the subscription itself, not a variant of the cancel endpoint —
-     * which is the whole reason the two are separate methods here rather than one with a flag.
+     * Recurly's terminate is a DELETE on the subscription itself, not a variant of the cancel endpoint,
+     * which is why the two are separate methods here rather than one with a flag.
      */
     @Test
     public void terminateEndsTheSubscriptionWithDelete() throws Exception
@@ -496,8 +496,8 @@ public class DefaultRecurlyApiClientTest
                 () -> client.fetchSubscription("uuid-subscription-1"));
         assertEquals("Recurly invoice pagination returned an unexpected URL", absolute.getMessage());
 
-        // A protocol-relative "next" carries its own authority, so joining it to the base must not
-        // launder a foreign host into something that passes the guard.
+        // A protocol-relative "next" carries its own authority, so joining it to the base must not launder
+        // a foreign host past the guard.
         assertThrows(TerminalBillingException.class, () -> client.fetchSubscription("uuid-subscription-1"));
         verify(httpClient, never()).get(contains("evil.example.com"), any(), any());
     }
@@ -537,11 +537,10 @@ public class DefaultRecurlyApiClientTest
     }
 
     /**
-     * Recurly's {@code canceled} and Chargebee's {@code non_renewing} are the same real-world state — the
-     * subscription stops renewing but keeps serving the customer to the end of the term — so one normalized
-     * vocabulary has to describe them the same way. Reporting CANCELLED here would revoke entitlement the
-     * customer has already paid for, and would take the reference out of the reconciliation sweep, which
-     * excludes terminal statuses, for the whole remainder of the term.
+     * Recurly's {@code canceled} and Chargebee's {@code non_renewing} are the same real-world state: the
+     * subscription stops renewing but keeps serving the customer to the end of the term. Reporting
+     * CANCELLED would revoke entitlement already paid for and take the reference out of the reconciliation
+     * sweep, which excludes terminal statuses, for the rest of the term.
      */
     @Test
     public void cancelledButStillServingTermIsActiveWithAPendingEnd() throws Exception
@@ -599,10 +598,9 @@ public class DefaultRecurlyApiClientTest
     }
 
     /**
-     * "It ended" is EXPIRED, and it is EXPIRED on both adapters — Chargebee maps its own {@code cancelled},
-     * which is the state a stopped subscription reaches there, to the same value. CANCELLED is produced by
-     * neither, so a consumer asking whether a subscription has ended gets one answer whichever platform
-     * served it. Recurly's {@code expired} is the state a subscription reaches once its term has run out.
+     * "It ended" is EXPIRED on both adapters: Recurly's {@code expired} and Chargebee's {@code cancelled}
+     * both map there, and neither produces CANCELLED, so a consumer asking whether a subscription has ended
+     * gets one answer whichever platform served it.
      */
     @Test
     public void onlyAnEndedTermMapsToATerminalStatus()
@@ -613,18 +611,16 @@ public class DefaultRecurlyApiClientTest
         assertEquals(NormalizedSubscriptionStatus.PENDING, client.mapStatus("future"));
         assertEquals(NormalizedSubscriptionStatus.PAUSED, client.mapStatus("paused"));
         assertEquals(NormalizedSubscriptionStatus.FAILED, client.mapStatus("failed"));
-        // A state Recurly may add later is recorded as UNKNOWN rather than guessed at. UNKNOWN is not one
-        // of the sweep's terminal statuses, so the reference keeps being re-read and a later mapping fixes
-        // it; guessing EXPIRED would take it out of the sweep for good.
+        // A state Recurly may add later is recorded as UNKNOWN rather than guessed at: UNKNOWN is not one
+        // of the sweep's terminal statuses, so the reference keeps being re-read.
         assertEquals(NormalizedSubscriptionStatus.UNKNOWN, client.mapStatus("a_state_we_do_not_know"));
         assertEquals(NormalizedSubscriptionStatus.UNKNOWN, client.mapStatus(null));
     }
 
     /**
-     * The error path had no coverage at all, which is how a throwing call could be added to the middle
-     * of the exception factory without anything going red. These four pin the contract the core's retry
-     * policy reads: a failed call produces a classified exception carrying the status and the vendor's
-     * explanation - never an exception about the response not looking like a subscription.
+     * These four pin the contract the core's retry policy reads: a failed call produces a classified
+     * exception carrying the status and the vendor's explanation, never one about the response not looking
+     * like a subscription.
      */
     @Test
     public void rateLimitBecomesRetryable() throws Exception
@@ -704,5 +700,53 @@ public class DefaultRecurlyApiClientTest
     private static UUID fingerprint(final String value)
     {
         return UUID.nameUUIDFromBytes(value.getBytes(StandardCharsets.UTF_8));
+    }
+
+    @Test
+    public void listsBillingInfosInRecurlysOwnReadShape() throws Exception
+    {
+        // payment_method nests the card detail on the way back; only payment_gateway_references stays at
+        // the top.
+        when(httpClient.get(BASE + "/accounts/code-customer/billing_infos", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, "[{\"id\":\"billing-1\","
+                        + "\"primary_payment_method\":true,"
+                        + "\"payment_method\":{\"card_type\":\"Visa\",\"last_four\":\"4242\","
+                        + "\"exp_month\":\"4\",\"exp_year\":\"2030\"}},"
+                        + "{\"id\":\"billing-2\",\"payment_method\":{\"object\":\"paypal\"}}]"));
+
+        final List<PlatformPaymentMethod> methods = client.listBillingInfos("code-customer");
+
+        assertEquals(2, methods.size());
+        assertEquals("billing-1", methods.get(0).id());
+        assertEquals("Visa \u2022\u2022\u2022\u2022 4242", methods.get(0).displayLabel());
+        assertTrue(methods.get(0).defaultForCustomer());
+        assertEquals("04/2030", methods.get(0).card().expiry());
+        // Not a card, and the label still says something a shopper can tell apart.
+        assertEquals("paypal", methods.get(1).displayLabel());
+        assertFalse(methods.get(1).defaultForCustomer());
+    }
+
+    @Test
+    public void assignsABillingInfoWithPutAndNothingElse() throws Exception
+    {
+        when(httpClient.put(eq(BASE + "/subscriptions/uuid-sub-1"), eq(auth), eq(ACCEPT), any(), any()))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"id\":\"uuid-sub-1\"}"));
+
+        client.assignBillingInfo("uuid-sub-1", "billing-2", "key-1");
+
+        final ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
+        verify(httpClient).put(eq(BASE + "/subscriptions/uuid-sub-1"), eq(auth), eq(ACCEPT), body.capture(),
+                eq("key-1"));
+        assertTrue(body.getValue().contains("\"billing_info_id\":\"billing-2\""));
+        // Nothing that could alter what is billed: /change would raise an invoice, this must not.
+        assertFalse(body.getValue().contains("plan_code"));
+        assertFalse(body.getValue().contains("quantity"));
+    }
+
+    @Test
+    public void refusesToAssignWithoutABillingInfo()
+    {
+        assertThrows(PreconditionFailedException.class,
+                () -> client.assignBillingInfo("uuid-sub-1", "  ", "key-1"));
     }
 }

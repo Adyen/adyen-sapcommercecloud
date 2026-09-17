@@ -43,17 +43,14 @@ import de.hybris.platform.cms2.exceptions.CMSItemNotFoundException;
 /**
  * The shopper's own list of subscriptions, and the one thing they can do to them.
  *
- * <h3>Why the cancellation is a POST</h3>
- * <p>Not REST tidiness — the storefront's {@code CsrfProtectionMatcher} protects {@code POST} and nothing
- * else, so a {@code DELETE} or a {@code PUT} here would carry no CSRF token and be checked by nobody. The
- * stored-cards page in this codebase reaches the same conclusion for the same reason.</p>
+ * <p>Both mutations are {@code POST} because the storefront's {@code CsrfProtectionMatcher} protects
+ * {@code POST} and nothing else, so a {@code DELETE} or a {@code PUT} here would carry no CSRF token.</p>
  *
- * <h3>What actually guards this page</h3>
- * <p>{@code @RequireHardLogIn} is the polite half. The real barrier is the storefront's URL rule confining
- * {@code /my-account/**} to {@code ROLE_CUSTOMERGROUP}: the annotation's evaluator lets an anonymous shopper
- * through when anonymous checkout is enabled, and its handler does nothing at all over plain HTTP. The
- * facade then independently refuses to answer for anyone who is not a signed-in customer, so the page is
- * empty rather than broken if it is ever reached another way.</p>
+ * <p>{@code @RequireHardLogIn} is not what guards the page: the real barrier is the storefront's URL rule
+ * confining {@code /my-account/**} to {@code ROLE_CUSTOMERGROUP}, since the annotation's evaluator lets an
+ * anonymous shopper through when anonymous checkout is enabled. The facade independently refuses to answer
+ * for anyone who is not a signed-in customer, so the page is empty rather than broken if it is reached
+ * another way.</p>
  */
 @Controller
 @RequestMapping("/my-account/subscriptions")
@@ -83,26 +80,29 @@ public class MySubscriptionsPageController extends AbstractSearchPageController
 
 		model.addAttribute("subscriptions", overview.getSubscriptions());
 		model.addAttribute("ordersAwaitingSetup", overview.getOrdersAwaitingSetup());
-		// Proof of concept: the cards Adyen has already vaulted for this shopper. Offering only these is
-		// what makes the feature possible at all without 3DS — see the facade.
+		// The cards Adyen has already vaulted for this shopper. Offering only these is what makes the
+		// feature work without 3DS - see the facade.
 		model.addAttribute("storedCards", adyenStoredCardsFacade.getStoredCardsPageDataForCurrentCustomer()
 				.getStoredCards());
 		// Chosen by the facade, not by the view: it has to be a Chargebee row that actually carries a public
-		// identifier, and "the first one on screen" is not the same thing.
+		// identifier, which "the first one on screen" is not.
 		model.addAttribute("paymentMethodSubscriptionCode", overview.getPaymentMethodSubscriptionCode());
-		// The scope, not the platform's name. It decides which sentence under the control is true; the view
-		// never learns which billing platform is behind the page.
+		// The scope, not the platform's name: it decides which sentence under the control is true, and the
+		// view never learns which billing platform is behind the page.
 		model.addAttribute("paymentMethodChangeScope", overview.getPaymentMethodChangeScope().name());
 		// Distinct from the scope above, which describes only the control above the list. Without this the
-		// page cannot tell "no control up here" from "cannot be done at all", and a shopper whose
-		// subscriptions are all changed per row would read that the change is unavailable.
+		// page cannot tell "no control up here" from "cannot be done at all".
 		model.addAttribute("anyPaymentMethodChangeable",
 				Boolean.valueOf(overview.isAnyPaymentMethodChangeable()));
 		// Whether any provider on this page can do it at all, as opposed to whether anything can be done
-		// right now. The page-wide "we can't do this online" sentence keys off this one: a subscription too
-		// new to act on must not be described as one whose provider is incapable.
+		// right now: a subscription too new to act on must not be described as one whose provider is
+		// incapable.
 		model.addAttribute("paymentMethodChangeSupportedSomewhere",
 				Boolean.valueOf(overview.isPaymentMethodChangeSupportedSomewhere()));
+		// Whether any row will show a control of its own. The page-level control additionally needs the
+		// Adyen vault, which only this controller knows about, so the two halves meet in the view.
+		model.addAttribute("anyRowPaymentMethodControl",
+				Boolean.valueOf(overview.isAnyRowPaymentMethodControl()));
 		model.addAttribute("breadcrumbs", accountBreadcrumbBuilder.getBreadcrumbs("text.account.subscriptions"));
 		// A page listing what somebody is paying for every month has no business in a search index.
 		model.addAttribute("metaRobots", "no-index,no-follow");
@@ -113,13 +113,11 @@ public class MySubscriptionsPageController extends AbstractSearchPageController
 	/**
 	 * Stops a subscription at the end of the period already paid for.
 	 *
-	 * <p>Redirects rather than rendering, so a refresh cannot replay the cancellation. It matters more than
-	 * the usual amount here: the Chargebee adapter sends no idempotency key, so a replayed POST would be a
-	 * second real call to the platform. The facade refuses the second one on the state it re-reads, and this
-	 * redirect is what stops the browser offering to send it.</p>
+	 * <p>Redirects rather than rendering, so a refresh cannot replay the cancellation: the Chargebee adapter
+	 * sends no idempotency key, so a replayed POST would be a second real call to the platform.</p>
 	 *
-	 * <p>One message for every kind of no. Telling a caller apart "not yours" from "too late" would tell
-	 * somebody probing for codes which ones exist.</p>
+	 * <p>One message for every kind of no. Telling "not yours" apart from "too late" would tell somebody
+	 * probing for codes which ones exist.</p>
 	 */
 	@RequestMapping(value = "/cancel", method = RequestMethod.POST)
 	@RequireHardLogIn
@@ -141,12 +139,11 @@ public class MySubscriptionsPageController extends AbstractSearchPageController
 	}
 
 	/**
-	 * Points billing at a different card the shopper has already stored. Proof of concept.
+	 * Points billing at a different card the shopper has already stored.
 	 *
-	 * <p>POST for the same reason as the cancellation: this storefront's matcher checks POST and nothing
-	 * else. The subscription code travels so the facade can establish ownership and the store — the change
-	 * itself is per customer on Chargebee, which the confirmation message says out loud rather than leaving
-	 * the shopper to discover that their other subscriptions moved too.</p>
+	 * <p>POST for the same reason as the cancellation. The subscription code travels so the facade can
+	 * establish ownership and the store; on Chargebee the change itself is per customer, which the
+	 * confirmation message says out loud.</p>
 	 */
 	@RequestMapping(value = "/payment-method", method = RequestMethod.POST)
 	@RequireHardLogIn
@@ -166,8 +163,8 @@ public class MySubscriptionsPageController extends AbstractSearchPageController
 			case NOT_SUPPORTED_HERE -> "text.account.subscriptions.paymentMethod.unsupported";
 			case FAILED -> "text.account.subscriptions.paymentMethod.error";
 		};
-		// "We cannot do this here" is not something to invite a retry on, so it is a plain message rather
-		// than a red one; a genuine failure stays red.
+		// A refusal that no retry can turn into a success is a plain message rather than a red one; a
+		// genuine failure stays red.
 		final String holder = result == PaymentMethodChangeResult.FAILED
 				? GlobalMessages.ERROR_MESSAGES_HOLDER
 				: GlobalMessages.CONF_MESSAGES_HOLDER;

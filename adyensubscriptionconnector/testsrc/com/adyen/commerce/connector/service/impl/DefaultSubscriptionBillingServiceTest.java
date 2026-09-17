@@ -42,6 +42,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Collections;
+import java.util.Set;
 import java.util.List;
 
 import org.junit.Before;
@@ -62,6 +63,8 @@ import com.adyen.commerce.connector.dto.ConnectorCapabilities;
 import com.adyen.commerce.connector.dto.NormalizedSubscriptionStatus;
 import com.adyen.commerce.connector.dto.PlanRef;
 import com.adyen.commerce.connector.dto.SubscriptionCancelRequest;
+import com.adyen.commerce.connector.dto.PaymentMethodChangeSupport;
+import com.adyen.commerce.connector.dto.PaymentMethodSource;
 import com.adyen.commerce.connector.dto.PaymentMethodChangeScope;
 import com.adyen.commerce.connector.dto.SubscriptionCancellation;
 import com.adyen.commerce.connector.dto.TokenImportStyle;
@@ -260,9 +263,8 @@ public class DefaultSubscriptionBillingServiceTest
 
 	/**
 	 * The idempotency check is a read followed by a write with no lock in between, and Adyen sends one
-	 * notification per payment leg, so two activations of one order really do overlap. The loser is not a
-	 * failure to report: both sent the same idempotency key, so the platform returned one subscription to
-	 * both, and the winner's reference is the right answer to the question the caller asked.
+	 * notification per payment leg, so two activations of one order overlap. Both send the same idempotency
+	 * key, so the platform returns one subscription to both and the winner's reference is the right answer.
 	 */
 	@Test
 	public void shouldReturnTheWinnersRefWhenTheIdempotencyRaceIsLost() throws Exception
@@ -323,8 +325,8 @@ public class DefaultSubscriptionBillingServiceTest
 	}
 
 	/**
-	 * There is no sensible thing to assume here. Treating an absent request as "cancel now" is how the
-	 * hard-coded flag this replaced used to behave, and on one of the two platforms that is a terminate.
+	 * There is no safe default: treating an absent request as "cancel now" is a terminate on one of the two
+	 * platforms.
 	 */
 	@Test
 	public void shouldRefuseToCancelWithoutBeingToldWhenItTakesEffect() throws Exception
@@ -337,8 +339,7 @@ public class DefaultSubscriptionBillingServiceTest
 	}
 
 	/**
-	 * The timing the SPI carries has to be the one that was asked for. Nothing asserted this before, which
-	 * is exactly how a literal {@code false} survived in the one place it mattered.
+	 * The timing the SPI carries has to be the one that was asked for.
 	 */
 	@Test
 	public void shouldAskForAnEndOfPeriodCancellationWhenThatIsTheTimingRequested() throws Exception
@@ -369,10 +370,9 @@ public class DefaultSubscriptionBillingServiceTest
 	}
 
 	/**
-	 * Recurly answers a repeated idempotency key with the first response it recorded. Sharing one key
-	 * between the two timings would let an escalation from "at period end" to "now" be acknowledged with
-	 * the stored answer to the first request — the platform never hears the second one, and the caller is
-	 * told it succeeded.
+	 * Recurly answers a repeated idempotency key with the first response it recorded, so sharing one key
+	 * between the two timings would have an escalation from "at period end" to "now" acknowledged without
+	 * the platform ever hearing it.
 	 */
 	@Test
 	public void shouldGiveTheTwoTimingsDifferentIdempotencyKeys() throws Exception
@@ -412,8 +412,8 @@ public class DefaultSubscriptionBillingServiceTest
 	}
 
 	/**
-	 * The projection the sweep and the webhooks later promote. Asserted against the enum rather than the
-	 * literal so a rename of the normalized vocabulary cannot leave this one writer behind.
+	 * Asserted against the enum rather than the literal so a rename of the normalized vocabulary cannot
+	 * leave this one writer behind.
 	 */
 	@Test
 	public void shouldProjectTheNormalizedPendingStatusOnActivation() throws Exception
@@ -440,8 +440,7 @@ public class DefaultSubscriptionBillingServiceTest
 
 	/**
 	 * An immediate cancellation leaves a status behind, not a scheduled non-renewal, and which status a
-	 * platform reports for a terminated subscription is the platform's to say. Projecting one here would put
-	 * a value in the column that no connector agreed to, so nothing is projected and reconciliation decides.
+	 * platform reports for a terminated subscription is the platform's to say — so reconciliation decides.
 	 */
 	@Test
 	public void shouldNotProjectAScheduledNonRenewalForAnImmediateCancel() throws Exception
@@ -470,9 +469,9 @@ public class DefaultSubscriptionBillingServiceTest
 	}
 
 	/**
-	 * The cancellation already happened on the platform, so an unchecked failure on the way back — a save
-	 * that blows up, an NPE out of a half-wired reconciliation bean — describes a stale local projection
-	 * and not a live subscription. A caller told the cancel failed retries something that is already done.
+	 * The cancellation already happened on the platform, so an unchecked failure on the way back describes a
+	 * stale local projection, not a live subscription. A caller told the cancel failed retries something
+	 * that is already done.
 	 */
 	@Test
 	public void shouldNotReportAFailedCancelWhenTheFollowUpReadThrowsUnchecked() throws Exception
@@ -491,7 +490,7 @@ public class DefaultSubscriptionBillingServiceTest
 
 	/**
 	 * Clearing the watermark is an optimisation, not the recovery: the sweep revisits anything past its
-	 * staleness window regardless. Losing that write must not undo the point of catching in the first place.
+	 * staleness window regardless.
 	 */
 	@Test
 	public void shouldNotReportAFailedCancelWhenFlaggingForTheSweepAlsoFails() throws Exception
@@ -525,9 +524,8 @@ public class DefaultSubscriptionBillingServiceTest
 	@Test
 	public void billingAddressClonedFromTheDeliveryAddressIsNotConfirmed()
 	{
-		// The Adyen checkout paths copy the delivery address onto the payment info when the shopper gives
-		// no separate billing address, so a non-null payment address proves nothing on its own — the card
-		// path clones it into a different object with identical values.
+		// The card path clones the delivery address onto the payment info when the shopper gives no separate
+		// billing address, so the two are different objects with identical values.
 		final AddressModel clone = address("Bob", "Recipient", "Berlin", "10115");
 		final AddressModel original = address("Bob", "Recipient", "Berlin", "10115");
 		when(order.getPaymentAddress()).thenReturn(clone);
@@ -581,12 +579,13 @@ public class DefaultSubscriptionBillingServiceTest
 	private static ConnectorCapabilities noNtidCaps()
 	{
 		return new ConnectorCapabilities(false, true, false, true, true, TokenImportStyle.SLASH_JOINED,
-				PaymentMethodChangeScope.CUSTOMER);
+				new PaymentMethodChangeSupport(PaymentMethodChangeScope.CUSTOMER,
+						Set.of(PaymentMethodSource.ADYEN_VAULTED_TOKEN)));
 	}
 
 	private static ConnectorCapabilities requiresNtidCaps()
 	{
 		return new ConnectorCapabilities(true, false, false, true, false, TokenImportStyle.SEPARATE_FIELDS,
-				PaymentMethodChangeScope.NOT_SUPPORTED);
+				PaymentMethodChangeSupport.NONE);
 	}
 }

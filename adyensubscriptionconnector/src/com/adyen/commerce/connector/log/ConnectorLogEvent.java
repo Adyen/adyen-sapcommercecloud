@@ -34,30 +34,16 @@ import com.adyen.commerce.connector.exception.PreconditionFailedException;
 
 /**
  * Builder for the connector observability lines. Every connector emits {@code key=value} pairs that
- * dashboards and alerts parse, so the line format is a contract rather than prose - and that is the
- * reason this class exists instead of hand-written format strings.
- *
- * <p>Three things go wrong the moment the pairs are concatenated by hand, and all three did:</p>
- * <ul>
- *   <li><b>Unquoted values.</b> A plan code, a vendor error or a webhook field containing a space
- *       splits into two bogus keys and the rest of the line shifts by one. Values are quoted and
- *       escaped here, exactly once, so no call site has to remember.</li>
- *   <li><b>Log forging.</b> Webhook payloads and vendor error bodies are attacker-influenced text.
- *       A newline inside one of them would otherwise start a second, fabricated log line. Control
- *       characters never survive {@link #escape}.</li>
- *   <li><b>Drift.</b> A missing space or a stray comma between two concatenated literals produces a
- *       line that looks right in review and parses wrong in production. Here the separators are not
- *       written by the caller at all.</li>
- * </ul>
- *
- * <p>Values are escaped lazily - the work happens inside SLF4J's own formatting step, so a line that
- * is filtered out by the log level costs nothing beyond the builder itself. {@code null} values drop
- * their key rather than printing a placeholder: an absent field is honest about not being known,
- * where {@code account_id=null} reads like a value.</p>
+ * dashboards and alerts parse, so the line format is a contract: values are quoted and escaped here
+ * exactly once, control characters never survive {@link #escape} - webhook payloads and vendor error
+ * bodies are attacker-influenced text that must not be able to forge a second line - and separators are
+ * never written by a call site. A {@code null} value drops its key rather than printing a placeholder,
+ * and escaping is deferred into SLF4J's own formatting step, so a line filtered out by the log level
+ * costs nothing beyond the builder.
  *
  * <p>{@code platform}, {@code operation} and {@code correlation_id} are taken from
- * {@link ConnectorLogContext} when a scope is open, which is what lets a transport-level line be
- * joined to the business operation that caused it without the transport having to guess.</p>
+ * {@link ConnectorLogContext} when a scope is open, which is what joins a transport-level line to the
+ * business operation that caused it.</p>
  */
 public final class ConnectorLogEvent
 {
@@ -76,11 +62,7 @@ public final class ConnectorLogEvent
 	public static final String ERROR_CLASS_REMOTE_4XX = "remote_4xx";
 	public static final String ERROR_CLASS_UNEXPECTED_STATUS = "unexpected_status";
 
-	/**
-	 * A single value never gets to dominate a line. Vendor error bodies and resolved-id collections
-	 * are the realistic offenders; both are diagnostics, and the first few hundred characters carry
-	 * the diagnosis.
-	 */
+	/** Caps one value so a vendor error body or an id collection cannot dominate the line. */
 	static final int MAX_VALUE_LENGTH = 512;
 
 	private static final String TRUNCATION_MARKER = "...";
@@ -179,13 +161,10 @@ public final class ConnectorLogEvent
 	}
 
 	/**
-	 * For the line that describes the expected, high-frequency outcome.
-	 *
-	 * <p>The orchestration layer has decisions whose ordinary answer is "nothing to do here" and which
-	 * are reached once per order: a store that sells subscriptions still sells mostly other things. Those
-	 * lines are worth having - not seeing them is exactly what made a silent skip look like a broken
-	 * trigger twice - but not at the price of one INFO per order forever. At DEBUG they cost nothing
-	 * until somebody is actually looking, and the surrounding failures stay visible at their own levels.</p>
+	 * For the line that describes the expected, high-frequency outcome - an orchestration decision whose
+	 * ordinary answer is "nothing to do here", reached once per order. DEBUG keeps it available to
+	 * whoever is looking without costing one INFO per order; the surrounding failures stay at their own
+	 * levels.
 	 */
 	public void debug(final Logger log)
 	{
@@ -211,10 +190,7 @@ public final class ConnectorLogEvent
 		}
 	}
 
-	/**
-	 * Logs at WARN or INFO depending on whether the line describes a failure. Saves the two identical
-	 * branches at the call sites that log both outcomes of the same call.
-	 */
+	/** Logs at WARN or INFO depending on whether the line describes a failure. */
 	public void log(final Logger log, final boolean failed)
 	{
 		if (failed)
@@ -228,12 +204,10 @@ public final class ConnectorLogEvent
 	}
 
 	/**
-	 * The {@code error_class} label for a connector exception.
-	 *
-	 * <p>Driven by {@link BillingException#isRetryable()} and the exception type, never by the class
-	 * <em>name</em>: name matching silently mislabels every subtype that does not happen to repeat the
-	 * word, and {@code SubscriptionProductUndecidableException} - retryable, named nothing like it -
-	 * is exactly that case.</p>
+	 * The {@code error_class} label for a connector exception, driven by
+	 * {@link BillingException#isRetryable()} and the exception type rather than by the class
+	 * <em>name</em>: name matching mislabels every subtype that does not repeat the word, such as the
+	 * retryable {@code SubscriptionProductUndecidableException}.
 	 */
 	public static String errorClass(final BillingException error)
 	{

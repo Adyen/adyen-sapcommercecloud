@@ -32,9 +32,9 @@ import de.hybris.platform.servicelayer.event.impl.AbstractEventListener;
 /**
  * Stops the subscription of an order that has been cancelled.
  *
- * <p>The listener exists because the dependency runs the wrong way for a direct call: the extension that
- * cancels the order cannot see this one. It is the twin of
- * {@link AdyenPaymentAuthorizedEventListener}, which starts a subscription on the same terms.</p>
+ * <p>An event rather than a direct call because the dependency runs the wrong way: the extension that
+ * cancels the order cannot see this one. Twin of {@link AdyenPaymentAuthorizedEventListener}, which starts
+ * a subscription on the same terms.</p>
  */
 public class AdyenOrderCancelledEventListener extends AbstractEventListener<AdyenOrderCancelledEvent>
 {
@@ -48,8 +48,8 @@ public class AdyenOrderCancelledEventListener extends AbstractEventListener<Adye
 		final OrderModel order = event == null ? null : event.getOrder();
 		if (order == null)
 		{
-			// Said out loud rather than passed on as null: without an order there is no way to find which
-			// subscription was supposed to stop, and something is billing a shopper for a cancelled order.
+			// Without an order there is no way to find which subscription was supposed to stop, which leaves a
+			// shopper being billed for a cancelled order.
 			LOG.warn("An order cancellation arrived without an order; no subscription can be stopped for it.");
 			return;
 		}

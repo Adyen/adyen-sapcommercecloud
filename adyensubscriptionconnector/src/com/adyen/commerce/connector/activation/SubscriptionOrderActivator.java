@@ -25,11 +25,9 @@ import de.hybris.platform.core.model.order.OrderModel;
 /**
  * Decides whether a placed order should become a subscription and, if so, activates exactly one.
  *
- * <p>Deliberately separate from whatever triggers it. The first attempt hung this off a place-order
- * hook and had to be moved: at that point the Adyen token is not yet on the order's PaymentInfo, so
- * Recurly (which requires a network transaction id) could never activate and Chargebee failed for any
- * new card going through 3DS. Keeping the decision here means the trigger can move again without the
- * rules moving with it.</p>
+ * <p>Deliberately separate from whatever triggers it, so the trigger can move without the rules moving
+ * with it. The trigger has to fire once the Adyen token is on the order's PaymentInfo: Recurly requires a
+ * network transaction id, and Chargebee cannot activate a new card that went through 3DS without it.</p>
  */
 public interface SubscriptionOrderActivator
 {
@@ -38,10 +36,9 @@ public interface SubscriptionOrderActivator
 	 * billing platform. Never throws: callers sit on payment and checkout paths that must not fail because
 	 * a billing platform is unhappy.
 	 *
-	 * <p>"Carries no subscription product" and "we could not tell whether it does" are not the same answer
-	 * and are not treated as one. The first is the ordinary case and leaves no trace; the second leaves a
-	 * journalled attempt for the retry job, because the shopper has already paid and an order that quietly
-	 * turns out to have been a subscription after all would otherwise have nothing to retry from.</p>
+	 * <p>"Carries no subscription product" and "could not tell whether it does" are not treated as the same
+	 * answer. The first is the ordinary case and leaves no trace; the second leaves a journalled attempt for
+	 * the retry job, because the shopper has already paid.</p>
 	 *
 	 * @param order the placed order; {@code null} is tolerated and does nothing
 	 */

@@ -18,24 +18,24 @@
  *  This file is open source and available under the MIT license.
  *  See the LICENSE file for more info.
  */
-package com.adyen.commerce.connector.facades.data;
+package com.adyen.commerce.connector.dto;
 
 /**
- * What came of a shopper asking to change the card their subscriptions are billed to.
+ * Where the payment method a shopper picks comes from.
  *
- * <p>Success is split by scope because "this subscription" and "all your subscriptions" are different
- * promises, and the page must make the one that actually happened. A platform that can never do this is
- * answered with {@code NOT_SUPPORTED_HERE} rather than with a refusal that invites a retry which cannot
- * succeed.</p>
+ * <p>Two genuinely different operations. Importing a card the shopper has vaulted with Adyen puts a NEW
+ * instrument on the platform, which each platform gates differently - Recurly wants a network transaction id
+ * that a token vaulted earlier cannot supply. Repointing at something the platform ALREADY holds moves no
+ * card anywhere and needs none of that.</p>
  *
- * <p>{@code FAILED} also covers every rejection - a code that is not this shopper's, a card that is not
- * theirs, a row too far gone to act on - because telling those apart on screen would tell somebody probing
- * which subscription codes exist.</p>
+ * <p>A connector names the sources it accepts, and one that accepts neither does not support the change at
+ * all; the core offers the shopper exactly what the connector named.</p>
  */
-public enum PaymentMethodChangeResult
+public enum PaymentMethodSource
 {
-	CHANGED_THIS_SUBSCRIPTION,
-	CHANGED_ALL_SUBSCRIPTIONS,
-	NOT_SUPPORTED_HERE,
-	FAILED
+	/** A card Adyen holds for this shopper, imported into the platform as part of the change. */
+	ADYEN_VAULTED_TOKEN,
+
+	/** A payment method the billing platform already has on the customer's account. */
+	ALREADY_ON_PLATFORM
 }

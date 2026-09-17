@@ -94,9 +94,7 @@ public class SubscriptionActivationAuthorisationEventListenerTest
 		verify(subscriptionOrderActivator).activateFor(order);
 	}
 
-	/**
-	 * A refusal must not create a subscription — the shopper was never charged.
-	 */
+	/** A refusal must not create a subscription: the shopper was never charged. */
 	@Test
 	public void ignoresARefusedAuthorisation()
 	{
@@ -161,9 +159,8 @@ public class SubscriptionActivationAuthorisationEventListenerTest
 	}
 
 	/**
-	 * Adyen redelivers, and a partial payment sends one notification per leg, so the same order can arrive
-	 * more than once. The listener does not deduplicate — the activator is idempotent per order and owns
-	 * that — but it must keep handing the order over rather than guessing.
+	 * Adyen redelivers, and a partial payment sends one notification per leg, so the same order arrives more
+	 * than once. Deduplication belongs to the activator, which is idempotent per order.
 	 */
 	@Test
 	public void handsTheSameOrderOverAgainOnARedelivery()

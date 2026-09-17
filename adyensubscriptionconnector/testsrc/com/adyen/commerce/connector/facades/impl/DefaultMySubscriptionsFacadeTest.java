@@ -27,11 +27,14 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.Before;
@@ -44,6 +47,9 @@ import com.adyen.commerce.connector.dto.BillingPaymentMethodRef;
 import com.adyen.commerce.connector.dto.ConnectorCapabilities;
 import com.adyen.commerce.connector.dto.NormalizedSubscriptionStatus;
 import com.adyen.commerce.connector.dto.PaymentMethodChangeOutcome;
+import com.adyen.commerce.connector.dto.PaymentMethodChangeSupport;
+import com.adyen.commerce.connector.dto.PaymentMethodSource;
+import com.adyen.commerce.connector.dto.PlatformPaymentMethod;
 import com.adyen.commerce.connector.dto.PaymentMethodChangeScope;
 import com.adyen.commerce.connector.dto.TokenImportStyle;
 import com.adyen.commerce.connector.dto.SubscriptionCancellation;
@@ -125,9 +131,7 @@ public class DefaultMySubscriptionsFacadeTest
 		when(userService.getCurrentUser()).thenReturn(customer);
 		when(userService.isAnonymousUser(customer)).thenReturn(false);
 
-		// Returns what the body returned. Swallowing it made the facade see no applied scope, which is
-		// exactly the case it now refuses rather than guesses at - so the stub has to model the real
-		// contract or the test proves the opposite of what it claims.
+		// Returns what the body returned, as the real session service does; the facade reads that result.
 		when(sessionService.executeInLocalViewWithParams(any(), any(SessionExecutionBody.class)))
 				.thenAnswer(invocation -> invocation.<SessionExecutionBody> getArgument(1).execute());
 	}
@@ -135,10 +139,9 @@ public class DefaultMySubscriptionsFacadeTest
 	// --- the state table ---
 
 	/**
-	 * The first question is not the status but whether any platform has ever confirmed the row. Only a
-	 * reconciliation writes platformUpdatedAt; lastSyncedAt is deliberately cleared to hurry the sweep along
-	 * after a cancellation whose follow-up read failed, and reading that as "never confirmed" is how a
-	 * subscription the shopper had just stopped came to be labelled as still being set up.
+	 * Whether any platform has confirmed the row is asked before the status. Only a reconciliation writes
+	 * platformUpdatedAt, so it is the one dependable signal: lastSyncedAt is cleared to hurry the sweep along
+	 * after a cancellation whose follow-up read failed, and means nothing here.
 	 */
 	@Test
 	public void saysNothingAboutASubscriptionNoPlatformHasConfirmedYet()
@@ -159,8 +162,8 @@ public class DefaultMySubscriptionsFacadeTest
 	}
 
 	/**
-	 * Both adapters keep a stopped subscription ACTIVE until its term runs out, and say so through
-	 * cancelAtPeriodEnd. Without this branch the page would go on promising a renewal that will not happen.
+	 * Both adapters keep a stopped subscription ACTIVE until its term runs out, and say so only through
+	 * cancelAtPeriodEnd.
 	 */
 	@Test
 	public void anActiveSubscriptionAlreadyStoppedIsShownAsEndingAndOffersNoButton()
@@ -220,8 +223,8 @@ public class DefaultMySubscriptionsFacadeTest
 	}
 
 	/**
-	 * The status column is a plain string, so it can hold a value this vocabulary no longer has. Guessing at
-	 * it would put a wrong word in front of a shopper.
+	 * The status column is a plain string, so it can hold a value outside this vocabulary; guessing at it
+	 * would put a wrong word in front of a shopper.
 	 */
 	@Test
 	public void anUnrecognisedStatusLiteralSaysNothingAndOffersNothing()
@@ -234,13 +237,9 @@ public class DefaultMySubscriptionsFacadeTest
 	}
 
 	/**
-	 * Without the originating store there are no credentials with which to reach the platform, so nothing
-	 * can be done — but the row still appears, because it is billing somebody, and it is described
-	 * truthfully, because its status is known.
-	 *
-	 * <p>This used to assert UNAVAILABLE. That conflated the two halves and made the page say "we can't
-	 * show the status of this subscription right now" about a subscription whose status it was holding. The
-	 * half that mattered — no button — is kept, and now hangs off {@code manageable} instead.</p>
+	 * Without the originating store there are no credentials with which to reach the platform, so the row
+	 * offers nothing. It still appears and is still described, because it is billing somebody and its status
+	 * is known.
 	 */
 	@Test
 	public void aSubscriptionWhoseStoreCannotBeDeterminedIsDescribedButNotActedOn()
@@ -253,9 +252,8 @@ public class DefaultMySubscriptionsFacadeTest
 	}
 
 	/**
-	 * A reference created before the public identifier existed carries none until essential data has been
-	 * imported. Offering a button that posts an empty code reads to the shopper as a subscription they
-	 * cannot cancel, rather than as a deployment step somebody skipped.
+	 * A reference carries no public identifier until essential data has minted one, and a button posting an
+	 * empty code could only be refused.
 	 */
 	@Test
 	public void offersNoButtonForARowThatHasNoPublicIdentifierYet()
@@ -283,8 +281,8 @@ public class DefaultMySubscriptionsFacadeTest
 	}
 
 	/**
-	 * The lookup names the customer in the query rather than comparing after loading. A comparison that is
-	 * forgotten returns somebody else's subscription; a query that names the customer returns nothing.
+	 * The lookup names the customer in the query rather than comparing after loading, so another customer's
+	 * code matches nothing at all.
 	 */
 	@Test
 	public void refusesACodeThatIsNotThisCustomersWithoutSayingWhy() throws Exception
@@ -296,10 +294,7 @@ public class DefaultMySubscriptionsFacadeTest
 		verify(subscriptionBillingService, never()).cancel(any(), any());
 	}
 
-	/**
-	 * The page that offered the button may have been rendered minutes ago. The state is re-derived rather
-	 * than trusted from the form.
-	 */
+	/** The state is re-derived from the row rather than trusted from a form that may be minutes old. */
 	@Test
 	public void refusesToCancelSomethingThatIsNoLongerInACancellableState() throws Exception
 	{
@@ -349,16 +344,12 @@ public class DefaultMySubscriptionsFacadeTest
 		assertNull(facade.displayName(ref));
 	}
 
-	// --- helpers ---
-
 	// --- changing the payment method ---
 
 	/**
-	 * The access check that did not exist. The token id is a request parameter, and until this refused it
-	 * nothing between the form and the platform compared it against the cards this shopper actually holds:
-	 * the select on the page is a convenience, not a control, and a request need not come from that page.
-	 * What stood in for a check was Adyen declining to retrieve somebody else's token — a property of one
-	 * platform's import call, not a promise every connector makes.
+	 * The token id is a request parameter and the select on the page is a convenience rather than a control,
+	 * so ownership is checked here against the cards this shopper holds. Adyen refusing to retrieve somebody
+	 * else's token is a property of one platform's import call, not a promise every connector makes.
 	 */
 	@Test
 	public void refusesAPaymentMethodThatIsNotOnThisShoppersVaultListing() throws Exception
@@ -386,11 +377,7 @@ public class DefaultMySubscriptionsFacadeTest
 		verify(subscriptionBillingService).changePaymentMethod(any(), any());
 	}
 
-	/**
-	 * A vault listing that could not be read says nothing about ownership, so it is a failure and not a
-	 * refusal. The distinction is the point: both used to end as absent card metadata and a request that
-	 * carried on to the platform regardless.
-	 */
+	/** A vault listing that could not be read says nothing about ownership, so the change cannot proceed. */
 	@Test
 	public void refusesWhenTheVaultListingCannotBeRead() throws Exception
 	{
@@ -405,8 +392,8 @@ public class DefaultMySubscriptionsFacadeTest
 	}
 
 	/**
-	 * Re-derived from the row rather than trusted from the form, exactly as the cancellation is. A page
-	 * rendered minutes ago can offer a control for a subscription that has since ended.
+	 * Re-derived from the row rather than trusted from the form, as the cancellation is: a page rendered
+	 * minutes ago can still offer a control for a subscription that has since ended.
 	 */
 	@Test
 	public void refusesToChangeThePaymentMethodOfASubscriptionThatHasEnded() throws Exception
@@ -420,10 +407,7 @@ public class DefaultMySubscriptionsFacadeTest
 		verify(subscriptionBillingService, never()).changePaymentMethod(any(), any());
 	}
 
-	/**
-	 * Past due is the state shoppers most often want to fix, so it must be offered even though the same row
-	 * is not something they can usefully cancel any more.
-	 */
+	/** Past due is the state shoppers most often want to fix, so the change is offered there. */
 	@Test
 	public void offersThePaymentMethodChangeOnASubscriptionThatIsPastDue() throws Exception
 	{
@@ -437,9 +421,8 @@ public class DefaultMySubscriptionsFacadeTest
 	}
 
 	/**
-	 * The whole point of the capability: a platform that cannot do this is answered with its own result,
-	 * which the page turns into a sentence rather than into "please try again". No platform name is
-	 * involved anywhere on this path.
+	 * A platform that cannot do this is answered with its own result, which the page turns into a sentence
+	 * rather than into "please try again". No platform name travels on this path.
 	 */
 	@Test
 	public void tellsTheShopperWhenThePlatformCannotChangeThePaymentMethodAtAll() throws Exception
@@ -469,10 +452,8 @@ public class DefaultMySubscriptionsFacadeTest
 	}
 
 	/**
-	 * The case that took a deployed package and a user report to find. The row bills perfectly well and its
-	 * platform supports the change; it simply predates the public identifier, so the form cannot be built.
-	 * Withholding it is right — submitting it could only be refused — but it must not be silent, because
-	 * from outside it is indistinguishable from the feature not being deployed.
+	 * The row bills normally and its platform supports the change, but with no public identifier the form
+	 * cannot be built, so the control is withheld rather than offered and refused on submission.
 	 */
 	@Test
 	public void doesNotOfferTheChangeForARowWithNoPublicCode() throws Exception
@@ -488,8 +469,7 @@ public class DefaultMySubscriptionsFacadeTest
 
 	/**
 	 * A platform that pins the method to one subscription gets its control in the row, so there is nothing
-	 * above the list — and the page must NOT conclude from that emptiness that the change is unavailable.
-	 * That conflation is the bug this separation exists to prevent.
+	 * above the list — and that emptiness must not be read as the change being unavailable.
 	 */
 	@Test
 	public void putsTheControlInTheRowWithoutClaimingTheChangeIsUnavailable() throws Exception
@@ -502,10 +482,8 @@ public class DefaultMySubscriptionsFacadeTest
 
 		assertTrue(entry.isPaymentMethodChangeable());
 		assertEquals(PaymentMethodChangeScope.SUBSCRIPTION, entry.getPaymentMethodChangeScope());
-		// Something can be changed...
 		assertTrue(overview.isAnyPaymentMethodChangeable());
-		// ...but not from a control above the list, because that control would move only this one row while
-		// looking like it governed the page.
+		// No control above the list: it would move only this one row while looking like it governed the page.
 		assertNull(overview.getPaymentMethodSubscriptionCode());
 	}
 
@@ -523,8 +501,8 @@ public class DefaultMySubscriptionsFacadeTest
 	}
 
 	/**
-	 * The row a shopper actually complained about: it bills on a platform that cannot change its card,
-	 * while sitting in a list under a control that can. It has to carry that fact itself.
+	 * A row on a platform that cannot change its card can sit in a list under a control that can, so it
+	 * carries that fact itself.
 	 */
 	@Test
 	public void marksTheRowWhosePlatformCannotChangeItsCard() throws Exception
@@ -536,17 +514,15 @@ public class DefaultMySubscriptionsFacadeTest
 
 		assertFalse(entry.isPaymentMethodChangeable());
 		assertEquals(PaymentMethodChangeScope.NOT_SUPPORTED, entry.getPaymentMethodChangeScope());
-		// The state still allows it - which is what tells the page this row is an exception worth
-		// explaining rather than one that simply has nothing left to bill.
+		// The state still allows it, which is what marks this row as an exception worth explaining rather
+		// than one that simply has nothing left to bill.
 		assertTrue(entry.getState().isPaymentMethodChangeable());
 	}
 
 	/**
-	 * The defect an adversarial review found before anyone shipped it. Two subscriptions on the same
-	 * customer-scoped platform; one has no public code so it cannot be NAMED in a form, but the control
-	 * above the list changes the customer's payment source and moves it anyway. Reading "cannot be named"
-	 * as "will not be changed" put "The card for this subscription can't be changed online" underneath a
-	 * control that was about to change it.
+	 * Two subscriptions on one customer-scoped platform. The codeless one cannot be named in a form, yet the
+	 * control above the list changes the customer's payment source and moves it anyway, so "cannot be named"
+	 * must not be reported to the shopper as "will not be changed".
 	 */
 	@Test
 	public void doesNotSingleOutACodelessRowThatThePageControlChangesAnyway() throws Exception
@@ -558,9 +534,8 @@ public class DefaultMySubscriptionsFacadeTest
 		final SubscriptionOverviewData overview = offerFor(named, codeless);
 
 		assertEquals("code-a", overview.getPaymentMethodSubscriptionCode());
-		// It cannot be offered a control of its own...
 		assertFalse(codeless.isPaymentMethodChangeable());
-		// ...and it is still moved by the one above the list, so the page must say nothing about it.
+		// Still moved by the control above the list, so the page must say nothing about it.
 		assertTrue(codeless.isPaymentMethodChangeCovered());
 	}
 
@@ -577,8 +552,8 @@ public class DefaultMySubscriptionsFacadeTest
 	}
 
 	/**
-	 * The mixed page this whole change exists for: a row whose platform cannot do it at all, beside one
-	 * that can. The customer-scoped control does not reach across platforms, so that row is uncovered.
+	 * A customer-scoped control does not reach across platforms, so a row on a platform that cannot do the
+	 * change at all is uncovered even when the page offers one.
 	 */
 	@Test
 	public void doesNotClaimToCoverARowOnAPlatformThatCannotChangeItsCard() throws Exception
@@ -596,9 +571,8 @@ public class DefaultMySubscriptionsFacadeTest
 	}
 
 	/**
-	 * A subscription too new to have been confirmed by its platform is not changeable today, but its
-	 * provider is perfectly capable — so the page must not print "we can't change the card for these
-	 * subscriptions online", a sentence that would quietly stop being true after the first reconciliation.
+	 * A subscription not yet confirmed by its platform is not changeable today, but its provider is capable,
+	 * so the page-wide "we can't change the card online" sentence must stay off.
 	 */
 	@Test
 	public void doesNotCallAProviderIncapableWhenOnlyTodaysStateSaysNo() throws Exception
@@ -614,11 +588,7 @@ public class DefaultMySubscriptionsFacadeTest
 		assertTrue(overview.isPaymentMethodChangeSupportedSomewhere());
 	}
 
-	/**
-	 * A row we cannot reach the platform for is describable and unbuttoned — not undescribable. It used to
-	 * be reported as UNAVAILABLE, which put "We can't show the status of this subscription right now" in
-	 * front of a shopper whose subscription was plainly ACTIVE and whose renewal date we were holding.
-	 */
+	/** A row whose platform cannot be reached is describable and unbuttoned, not undescribable. */
 	@Test
 	public void describesASubscriptionItCannotActOnInsteadOfCallingItUnknown() throws Exception
 	{
@@ -629,7 +599,7 @@ public class DefaultMySubscriptionsFacadeTest
 		final SubscriptionEntryData entry = facade.toEntry(ref);
 
 		assertEquals(SubscriptionDisplayState.ACTIVE, entry.getState());
-		// ...and offers nothing, because every action needs the store the missing order would have named.
+		// Nothing is offered: every action needs the store the missing order would have named.
 		assertFalse(entry.isManageable());
 		assertFalse(entry.isCancellable());
 		assertFalse(entry.isPaymentMethodChangeable());
@@ -651,6 +621,41 @@ public class DefaultMySubscriptionsFacadeTest
 
 		verify(subscriptionBillingService, never()).cancel(any(), any());
 		verify(subscriptionBillingService, never()).changePaymentMethod(any(), any());
+	}
+
+	/**
+	 * A platform's payment methods belong to the customer and not to a subscription, so every row on one
+	 * platform shares a single lookup instead of repeating the same round trip per row.
+	 */
+	@Test
+	public void asksThePlatformOnceForACustomerNoMatterHowManyRowsTheyHave() throws Exception
+	{
+		givenConnectorDeclaring(PaymentMethodChangeScope.SUBSCRIPTION);
+		when(subscriptionBillingService.listPaymentMethods(any())).thenReturn(List.of(
+				new PlatformPaymentMethod("billing-1", "Visa 4242", null, true),
+				new PlatformPaymentMethod("billing-2", "Visa 1881", null, false)));
+
+		final Map<String, List<PlatformPaymentMethod>> cache = new java.util.HashMap<>();
+		final SubscriptionEntryData first = facade.toEntry(chargebeeRef("code-a"), cache);
+		final SubscriptionEntryData second = facade.toEntry(chargebeeRef("code-b"), cache);
+
+		assertEquals(2, first.getPaymentMethodOptions().size());
+		assertEquals(2, second.getPaymentMethodOptions().size());
+		verify(subscriptionBillingService, times(1)).listPaymentMethods(any());
+	}
+
+	/** One option is not a choice but the instrument already billing, so no control is offered. */
+	@Test
+	public void offersNoRowControlWhenThePlatformHoldsOnlyOneMethod() throws Exception
+	{
+		givenConnectorDeclaring(PaymentMethodChangeScope.SUBSCRIPTION);
+		when(subscriptionBillingService.listPaymentMethods(any())).thenReturn(List.of(
+				new PlatformPaymentMethod("billing-1", "Visa 4242", null, true)));
+
+		final SubscriptionEntryData entry = facade.toEntry(chargebeeRef("code-a"));
+
+		assertTrue(entry.isPaymentMethodChangeable());
+		assertTrue(entry.getPaymentMethodOptions().isEmpty());
 	}
 
 	private void givenConnectorDeclaring(final PaymentMethodChangeScope scope) throws Exception
@@ -697,8 +702,7 @@ public class DefaultMySubscriptionsFacadeTest
 		givenSingleResult(ref);
 		when(connectorRegistry.getConnector(BillingPlatform.CHARGEBEE)).thenReturn(connector);
 		when(connector.capabilities()).thenReturn(capabilities(PaymentMethodChangeScope.CUSTOMER));
-		// A real handle rather than a mock: the request record validates its arguments, so a null here would
-		// fail the happy path for a reason that has nothing to do with what these tests are about.
+		// A real handle rather than a mock: the request record validates its arguments.
 		when(tokenHandleFactory.createForStoredToken(any(), any(), any(), any()))
 				.thenReturn(new AdyenTokenHandle("MERCHANT", "shopper-1", "card-mine", null, null));
 		when(subscriptionBillingService.changePaymentMethod(any(), any()))
@@ -709,7 +713,13 @@ public class DefaultMySubscriptionsFacadeTest
 
 	private static ConnectorCapabilities capabilities(final PaymentMethodChangeScope scope)
 	{
-		return new ConnectorCapabilities(false, true, false, true, true, TokenImportStyle.SLASH_JOINED, scope);
+		// The source matches the scope: a connector that supports the change must name one it accepts, and
+		// the record rejects any other combination.
+		final PaymentMethodChangeSupport support = scope.isSupported()
+				? new PaymentMethodChangeSupport(scope, Set.of(scope == PaymentMethodChangeScope.SUBSCRIPTION
+						? PaymentMethodSource.ALREADY_ON_PLATFORM : PaymentMethodSource.ADYEN_VAULTED_TOKEN))
+				: PaymentMethodChangeSupport.NONE;
+		return new ConnectorCapabilities(false, true, false, true, true, TokenImportStyle.SLASH_JOINED, support);
 	}
 
 	private void givenVaultHolding(final String... storedPaymentMethodIds)
@@ -731,8 +741,7 @@ public class DefaultMySubscriptionsFacadeTest
 		final BillingSubscriptionRefModel ref = mock(BillingSubscriptionRefModel.class);
 		when(ref.getCode()).thenReturn("code-1");
 		when(ref.getStatus()).thenReturn(status.name());
-		// Present by default: "no platform has confirmed this yet" is its own state and every other test
-		// would otherwise land in it.
+		// Present by default: absent, the row lands in SETTING_UP, which is a state of its own.
 		when(ref.getPlatformUpdatedAt()).thenReturn(new Date());
 		final OrderModel order = mock(OrderModel.class);
 		when(order.getStore()).thenReturn(mock(BaseStoreModel.class));

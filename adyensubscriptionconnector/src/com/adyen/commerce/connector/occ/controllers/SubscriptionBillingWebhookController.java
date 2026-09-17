@@ -51,17 +51,16 @@ import jakarta.servlet.http.HttpServletRequest;
  * Public inbound webhook endpoint:
  * {@code POST /subscription-billing/webhooks/{baseSiteId}/{platform}}. Identifies the platform from the
  * path, builds a {@link RawWebhook} from the raw request, and hands it to the platform-agnostic
- * {@link SubscriptionBillingWebhookDispatcher}. Signature/auth verification is entirely
- * connector-owned (e.g. Chargebee's Basic Auth check lives in its {@code parseWebhook}) — this
- * controller does no verification of its own and is intentionally not {@code @Secured}, since
- * external billing platforms authenticate with their own per-platform scheme, not our OAuth2 client.
+ * {@link SubscriptionBillingWebhookDispatcher}. Signature and auth verification is entirely
+ * connector-owned (Chargebee's Basic Auth check lives in its {@code parseWebhook}), so this controller
+ * verifies nothing itself and is intentionally not {@code @Secured}: external billing platforms
+ * authenticate with their own per-platform scheme rather than the OAuth2 client.
  *
  * <p>The base site is in the path rather than derived from the payload because the connectors read their
- * credentials from the current base store, and the very first thing a connector does with the payload is
- * authenticate it. Resolving the store from an as-yet-unauthenticated body would invert that order, so
- * the caller has to name the site. OCC's {@code baseSiteMatchingFilter} is not what resolves it — that
- * filter is deliberately bypassed for this prefix (see subscriptionbillingocc-web-spring.xml), so the
- * site is activated here explicitly.</p>
+ * credentials from the current base store while the first thing they do with the payload is authenticate
+ * it; resolving the store from an unauthenticated body would invert that order. OCC's
+ * {@code baseSiteMatchingFilter} is bypassed for this prefix (see subscriptionbillingocc-web-spring.xml),
+ * so the site is activated here explicitly.</p>
  */
 @RestController
 @RequestMapping("/subscription-billing/webhooks")
@@ -70,11 +69,10 @@ public class SubscriptionBillingWebhookController
 	private static final Logger LOG = LoggerFactory.getLogger(SubscriptionBillingWebhookController.class);
 
 	/**
-	 * Nothing the caller sends is echoed back. This endpoint is public and unauthenticated, and its clients
-	 * are billing platforms reading a status code out of a delivery log — not humans who need the offending
-	 * value spelled back at them. Reflecting the path variables or an exception message would only hand an
-	 * anonymous caller a probe oracle (and a reflected-XSS sink, since the body is rendered as whatever the
-	 * request's Accept header asks for). The detail goes to the log instead, where operators can see it.
+	 * Fixed bodies: nothing the caller sends is echoed back. The endpoint is public and unauthenticated, so
+	 * reflecting a path variable or an exception message would hand an anonymous caller a probe oracle and
+	 * a reflected-XSS sink, the body being rendered as whatever the request's Accept header asks for. The
+	 * detail goes to the log instead.
 	 */
 	private static final String UNKNOWN_PLATFORM_BODY = "Unknown billing platform";
 	private static final String UNKNOWN_BASE_SITE_BODY = "Unknown base site";
@@ -104,10 +102,10 @@ public class SubscriptionBillingWebhookController
 			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(UNKNOWN_PLATFORM_BODY);
 		}
 
-		// The connectors read their credentials off the current base store, and this request carries no
-		// session. Without activating the site first, every webhook fails with "No current base store".
-		// The lookup is caught as well as null-checked: this endpoint is public and unauthenticated, so an
-		// unknown uid has to come back as 404 rather than as a 500 from an UnknownIdentifierException.
+		// The connectors read their credentials off the current base store and this request carries no
+		// session, so the site has to be activated first. The lookup is caught as well as null-checked:
+		// the endpoint is public, so an unknown uid answers 404 rather than a 500 from
+		// UnknownIdentifierException.
 		final BaseSiteModel baseSite;
 		try
 		{
@@ -126,10 +124,9 @@ public class SubscriptionBillingWebhookController
 		baseSiteService.setCurrentBaseSite(baseSite, false);
 
 		final Map<String, String> headers = extractHeaders(request);
-		// Signature stays null on purpose. RawWebhook's own contract says the scheme is connector-owned,
-		// and each platform names its header differently — Recurly sends "recurly-signature", Chargebee
-		// signs nothing at all and authenticates with Basic Auth. Guessing a generic "Signature" header
-		// only ever produced null anyway; the connectors read the header they actually expect.
+		// Signature stays null: the scheme is connector-owned and each platform names its header
+		// differently — Recurly sends "recurly-signature", Chargebee signs nothing and uses Basic Auth —
+		// so each connector reads the header it expects out of the raw headers.
 		final RawWebhook raw = new RawWebhook(headers, payload == null ? "" : payload, null);
 
 		try
@@ -140,11 +137,10 @@ public class SubscriptionBillingWebhookController
 		catch (final BillingException e)
 		{
 			LOG.warn("Webhook rejected for platform {}: {}", billingPlatform, e.getMessage());
-			// Chargebee retries on any non-2xx regardless of the exact code (its own documented backoff),
-			// so this distinction is for delivery-log readability, not to influence retry behavior.
-			// The message itself stays out of the response — a rejection reason such as "bad signature" or a
-			// connector's upstream error tells an anonymous caller more about our configuration than it does
-			// the billing platform, which only ever acts on the status code.
+			// Chargebee retries on any non-2xx regardless of the exact code, so this distinction is for
+			// delivery-log readability rather than to steer retries. The message stays out of the response:
+			// a reason such as "bad signature" tells an anonymous caller about the configuration and tells
+			// the platform, which acts only on the status code, nothing.
 			return e.isRetryable()
 					? ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(TEMPORARILY_UNAVAILABLE_BODY)
 					: ResponseEntity.status(HttpStatus.BAD_REQUEST).body(REJECTED_BODY);
@@ -168,11 +164,10 @@ public class SubscriptionBillingWebhookController
 	}
 
 	/**
-	 * {@code BillingPlatform.valueOf} cannot be used to validate: BillingPlatform is a dynamic enum, whose
-	 * generated {@code valueOf} mints and caches a new instance for ANY string instead of throwing. Left to
-	 * it, an unknown platform would reach the dispatcher as a 400 rather than a 404, and repeated requests
-	 * with junk names would grow the enum cache without bound. Asking the type system keeps this in step
-	 * with the values declared in adyensubscriptionconnector-items.xml.
+	 * {@code BillingPlatform.valueOf} cannot be used to validate: BillingPlatform is a dynamic enum whose
+	 * generated {@code valueOf} mints and caches a new instance for any string instead of throwing, so
+	 * junk names from an anonymous caller would grow the enum cache without bound. Asking the type service
+	 * keeps this in step with the values declared in adyensubscriptionconnector-items.xml.
 	 *
 	 * @return the matching platform, or {@code null} when no such value is declared
 	 */

@@ -25,8 +25,8 @@ import com.adyen.commerce.connector.model.BillingSubscriptionRefModel;
 import de.hybris.platform.servicelayer.event.events.AbstractEvent;
 
 /**
- * Published by the orchestration service once a subscription has been activated on the platform and
- * its reference persisted. SAP-side listeners (fulfilment, notifications, analytics) can subscribe.
+ * Published by the orchestration service once a subscription is active on the billing platform and its
+ * reference persisted.
  */
 public class SubscriptionActivatedEvent extends AbstractEvent
 {

@@ -21,8 +21,7 @@
 package com.adyen.commerce.connector.constants;
 
 /**
- * Global class for all Adyensubscriptionconnector constants. You can add global constants for your extension into this
- * class.
+ * Global constants for the adyensubscriptionconnector extension.
  */
 public final class AdyensubscriptionconnectorConstants extends GeneratedAdyensubscriptionconnectorConstants
 {

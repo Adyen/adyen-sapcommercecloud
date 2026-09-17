@@ -1,11 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
 
- Vendor-neutral type-system extensions for the agnostic subscription billing
- connector. Nothing here references a concrete platform; the BillingPlatform
- enum simply enumerates the supported adapters. Persisted external references
- let a single shopper carry credentials/subscriptions for more than one
- platform simultaneously (useful for migration / A-B).
+ Vendor-neutral type-system extensions for the subscription billing connector.
+ Nothing here references a concrete platform; the BillingPlatform enum
+ enumerates the supported adapters. Persisted external references let a single
+ shopper carry credentials and subscriptions on more than one platform at once.
 -->
 <items xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xsi:noNamespaceSchemaLocation="items.xsd">
@@ -126,7 +125,16 @@
                     <persistence type="property"/>
                 </attribute>
                 <attribute qualifier="externalPaymentMethodId" type="java.lang.String">
-                    <description>The external payment-method id charged for this subscription.</description>
+                    <description>The external payment-method reference this subscription bills.
+
+                        The shape depends on the writer: activation stores whatever the connector's
+                        importAdyenToken returned, which on Recurly is a composite the adapter encodes for
+                        its own use ("&lt;billingInfoId&gt;::ntid::&lt;networkTransactionId&gt;"), while a
+                        shopper-initiated change stores the platform's plain identifier. Nothing reads this
+                        column - createSubscription uses the in-memory reference - so anyone who needs to
+                        must first decide which shape it promises and make both writers honour it. The core
+                        must not strip the vendor encoding: the encoding is the adapter's.
+                    </description>
                     <persistence type="property"/>
                 </attribute>
                 <attribute qualifier="status" type="java.lang.String">
@@ -176,19 +184,17 @@
 
                         Deliberately not the external subscription id: on one of the shipped platforms that id
                         is the SAP order code, and order codes are sequential, so putting it in a URL would
-                        turn a weak ownership check into an enumerable one. Deliberately not the PK either,
-                        which is an implementation detail that changes when data moves between environments.</description>
+                        make a weak ownership check enumerable. Deliberately not the PK either, which changes
+                        when data moves between environments.</description>
                     <persistence type="property"/>
                 </attribute>
                 <attribute qualifier="productCode" type="java.lang.String">
                     <description>Code of the subscription product this reference was activated from. A plain
                         string rather than a Product reference, for the same reason as on
                         BillingActivationAttempt: the record has to outlive the product. The displayable name
-                        is resolved from it at read time, and the code itself is what a shopper-facing list
-                        falls back to when the product is no longer in the catalogue being served.
-
-                        Held here as well as on BillingActivationAttempt because that journal is swept: a
-                        successful attempt is removed once it has settled, and the name would go with it.</description>
+                        is resolved from it at read time, and the code is what a shopper-facing list falls
+                        back to when the product is not in the catalogue being served. Held here as well as on
+                        BillingActivationAttempt because that journal is swept once an attempt has settled.</description>
                     <persistence type="property"/>
                 </attribute>
                 <attribute qualifier="order" type="AbstractOrder">
@@ -228,8 +234,8 @@
                     <key attribute="platform"/>
                     <key attribute="externalSubscriptionId"/>
                 </index>
-                <!-- Backs the per-order idempotency lookup findSubscriptionRef(order, platform), and
-                     enforces it. The service checks for an existing ref before creating one, but that is a
+                <!-- Backs and enforces the per-order idempotency lookup findSubscriptionRef(order,
+                     platform). The service checks for an existing ref before creating one, but that is a
                      read followed by a write with no lock in between: an order can be activated from two
                      threads at once, because Adyen sends one AUTHORISATION notification per payment leg and
                      redelivers on top of that. Without the constraint both callers pass the check and the
@@ -238,16 +244,15 @@
 
                      Note for SQL Server: `order` is optional, and SQL Server treats NULLs in a unique index
                      as equal, so there it also means "at most one ref with no order per platform". Every
-                     writer today sets the order; revisit if a reconciliation sweep ever needs to record
+                     writer sets the order; revisit if a reconciliation sweep ever needs to record
                      platform-side subscriptions that have none. -->
                 <index name="idx_billingSubRef_order" unique="true">
                     <key attribute="order"/>
                     <key attribute="platform"/>
                 </index>
                 <!-- Backs the reconciliation sweep, which asks "refs in a non-terminal status not confirmed
-                     since T". lastSyncedAt is the confirmation timestamp the sweep filters on, and it is the
-                     only date in that predicate: lastReconciledAt exists for audit ("when did a platform read
-                     last happen") and is never a search criterion, so it deliberately has no index of its own. -->
+                     since T". lastSyncedAt is the only date in that predicate; lastReconciledAt exists for
+                     audit and is never a search criterion, so it deliberately has no index of its own. -->
                 <index name="idx_billingSubRef_sync">
                     <key attribute="status"/>
                     <key attribute="lastSyncedAt"/>
@@ -260,9 +265,9 @@
                 </index>
                 <!-- Lookup by the public identifier, which is how a shopper-facing request names a row.
 
-                     Deliberately NOT unique: rows written before this column existed carry a null code, and
-                     SQL Server treats nulls in a unique index as equal — the same trap already documented on
-                     idx_billingSubRef_order. Uniqueness comes from the value being a UUID. -->
+                     Deliberately NOT unique: rows with no code carry null, and SQL Server treats nulls in a
+                     unique index as equal — the same trap documented on idx_billingSubRef_order. Uniqueness
+                     comes from the value being a UUID. -->
                 <index name="idx_billingSubRef_code">
                     <key attribute="code"/>
                 </index>
@@ -302,7 +307,7 @@
                     <persistence type="property"/>
                 </attribute>
                 <attribute qualifier="receivedAt" type="java.util.Date">
-                    <description>When we received the delivery. Together with occurredAt this is the webhook lag.</description>
+                    <description>When the delivery arrived. Together with occurredAt this is the webhook lag.</description>
                     <persistence type="property"/>
                 </attribute>
                 <attribute qualifier="processingStatus" type="java.lang.String">
@@ -340,19 +345,16 @@
                 <attribute qualifier="payload" type="java.lang.String">
                     <description>The body the platform sent, kept only for deliveries that failed.
 
-                        Deliberately not kept for the ones that worked. A webhook body carries the shopper's
-                        email, name, address, card last four and amounts, so storing every one of them turns
-                        this table into a store of personal data that nothing reads. The successes also do not
-                        need it: this dispatcher never projects the body onto local state, it treats the event
-                        as "something may have changed" and then reads the authoritative snapshot back from the
-                        platform. What decided the outcome is therefore the snapshot, not the body — and both
-                        Chargebee and Recurly keep their own copy and can replay it.
+                        A webhook body carries the shopper's email, name, address, card last four and amounts,
+                        so keeping every one of them would turn this table into a store of personal data that
+                        nothing reads. The dispatcher never projects the body onto local state: it treats the
+                        event as "something may have changed" and reads the authoritative snapshot back from
+                        the platform, which both Chargebee and Recurly can also replay.
 
-                        A failure is the one case where that reasoning breaks: the diagnosis is usually "what
-                        exactly did they send us", and by the time anyone asks, the platform's own delivery log
-                        may have aged out. Truncated on write, because the first few thousand characters carry
-                        the diagnosis and an unbounded body is how one pathological delivery fills a table.
-                        Cleared again if a later redelivery of the same event succeeds.</description>
+                        A failure is the one case that needs it, since the diagnosis is what exactly was sent
+                        and the platform's own delivery log may have aged out by the time anyone asks.
+                        Truncated on write, so one pathological delivery cannot fill the table, and cleared
+                        again if a later redelivery of the same event succeeds.</description>
                     <persistence type="property">
                         <columntype database="oracle">
                             <value>CLOB</value>
@@ -402,10 +404,9 @@
         </itemtype>
 
         <!-- Every attempt to turn an order into a subscription, whatever became of it.
-             BillingSubscriptionRef only exists once a platform has actually created a subscription — it
-             requires an externalSubscriptionId — so it cannot record an activation that failed, and until
-             now a failure left no row at all: no idempotency key, no error, nothing to retry from and
-             nothing for an operator to look at. This type is that record. It is keyed on the same
+             BillingSubscriptionRef requires an externalSubscriptionId, so it only exists once a platform
+             has actually created a subscription and cannot record an activation that failed; this type
+             carries the idempotency key, the error and the retry state of one that did. Keyed on the same
              (order, platform) pair the activation itself is idempotent on, so it is at most one row per
              order per platform no matter how many times the attempt is repeated. -->
         <itemtype code="BillingActivationAttempt" extends="GenericItem" autocreate="true" generate="true">
@@ -435,11 +436,10 @@
                 </attribute>
                 <attribute qualifier="status" type="java.lang.String">
                     <description>Outcome of the attempt: PENDING while one is in flight, SUCCEEDED, FAILED for a
-                        transient failure that is still due a retry, DEAD_LETTER once it is terminal or out of
-                        retries, or NOT_APPLICABLE for a row opened because the subscription product rule could not
-                        answer, on an order that a later attempt established is not a subscription order at all.
-                        Only FAILED is picked up again; DEAD_LETTER is where an operator has to look, and
-                        NOT_APPLICABLE is closed and uninteresting.</description>
+                        transient failure still due a retry, DEAD_LETTER once it is terminal or out of retries,
+                        or NOT_APPLICABLE for a row opened because the subscription product rule could not
+                        answer, on an order a later attempt established is not a subscription order. Only FAILED
+                        is picked up again, and DEAD_LETTER is where an operator has to look.</description>
                     <persistence type="property"/>
                 </attribute>
                 <attribute qualifier="attemptCount" type="java.lang.Integer">
@@ -535,13 +535,12 @@
                 <attribute qualifier="processingStatus" type="java.lang.String">
                     <description>RECEIVED, RECONCILED, SKIPPED_UNKNOWN_SUBSCRIPTION,
                         RETRYABLE_UNKNOWN_SUBSCRIPTION or FAILED. SKIPPED_UNKNOWN_SUBSCRIPTION covers two
-                        different situations, so read lastError before acting on it: an empty lastError means the
-                        delivery was simply not about a subscription of ours and there is nothing to do, while a
-                        lastError means we did expect a local reference, waited for it across the whole retry
-                        budget and then gave up. Only the second one needs an operator, since the reference it
-                        was waiting for was never created. They are deliberately not separate status values:
-                        splitting them would be a schema change with a migration cost, for a distinction
-                        lastError already carries.</description>
+                        situations, so read lastError before acting on it: an empty lastError means the delivery
+                        was not about a local subscription and there is nothing to do, while a lastError means a
+                        local reference was expected, waited for across the whole retry budget and never
+                        created. Only the second needs an operator. They are deliberately one status value,
+                        because splitting them costs a schema migration for a distinction lastError already
+                        carries.</description>
                     <persistence type="property"/>
                 </attribute>
                 <attribute qualifier="attemptCount" type="java.lang.Integer">

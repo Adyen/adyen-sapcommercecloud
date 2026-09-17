@@ -87,14 +87,10 @@ public class DefaultSubscriptionBillingConnectorRegistry
 		return effectiveConnectors();
 	}
 
-	/**
-	 * An explicitly injected list wins (used by tests); otherwise every {@link SubscriptionBillingConnector}
-	 * bean in the application context is discovered.
-	 */
 	protected List<SubscriptionBillingConnector> effectiveConnectors()
 	{
 		// An explicitly injected list wins even when empty (intentionally disabling all connectors);
-		// only the never-injected default auto-discovers from the context (discovered once and cached).
+		// only the never-injected default auto-discovers from the context, once, and caches the result.
 		if (connectorsInjected || applicationContext == null)
 		{
 			return connectors;

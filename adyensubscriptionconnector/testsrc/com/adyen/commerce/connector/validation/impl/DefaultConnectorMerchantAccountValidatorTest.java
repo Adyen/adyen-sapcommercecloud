@@ -97,9 +97,9 @@ public class DefaultConnectorMerchantAccountValidatorTest
 	}
 
 	/**
-	 * The regression this guards: an external connector answering "not configured" used to be treated the
-	 * same as ADYEN_NATIVE's "not applicable", which silently disabled the check — and did so before
-	 * activateSubscription had created the customer on the remote platform.
+	 * An external connector answering "not configured" is not ADYEN_NATIVE's "not applicable": treating the
+	 * two alike would disable the check before activateSubscription creates the customer on the remote
+	 * platform.
 	 */
 	@Test
 	public void shouldFailWhenAnExternalConnectorHasNoConfiguredAccount()

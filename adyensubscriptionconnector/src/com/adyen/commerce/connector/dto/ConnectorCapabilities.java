@@ -21,8 +21,8 @@
 package com.adyen.commerce.connector.dto;
 
 /**
- * Capabilities/constraints a connector advertises so the core can branch on capabilities instead of
- * hard-coding per-platform conditionals (design principle #4).
+ * Capabilities and constraints a connector advertises, so the core can branch on capabilities instead of
+ * hard-coding per-platform conditionals.
  *
  * @param requiresNetworkTransactionId the import requires the original NTID (Recurly = true)
  * @param supportsImmediateStart       a subscription can start immediately (Recurly import = false: future-dated only)
@@ -30,8 +30,8 @@ package com.adyen.commerce.connector.dto;
  * @param requiresPreConfiguredPlan    a plan/price must already exist on the platform (all = true)
  * @param liveTokenValidationOnImport  the platform validates the token against Adyen at import (Chargebee = true)
  * @param tokenImportStyle             how the token pair is expressed on import
- * @param paymentMethodChange          whose billing a shopper-initiated payment-method change moves, or
- *                                     {@code NOT_SUPPORTED} where the platform cannot do it
+ * @param paymentMethodChange          whose billing a shopper-initiated payment-method change moves and
+ *                                     which sources it accepts, or {@code NONE} where it cannot be done
  */
 public record ConnectorCapabilities(boolean requiresNetworkTransactionId,
                                     boolean supportsImmediateStart,
@@ -39,14 +39,13 @@ public record ConnectorCapabilities(boolean requiresNetworkTransactionId,
                                     boolean requiresPreConfiguredPlan,
                                     boolean liveTokenValidationOnImport,
                                     TokenImportStyle tokenImportStyle,
-                                    PaymentMethodChangeScope paymentMethodChange)
+                                    PaymentMethodChangeSupport paymentMethodChange)
 {
 	public ConnectorCapabilities
 	{
 		Dtos.requireValue(tokenImportStyle, "tokenImportStyle");
-		// No default. Adding this component deliberately breaks every adapter's compilation, because
-		// "can the shopper change their card here" is a question each platform's author has to answer
-		// rather than inherit - and the wrong inherited answer is a control the platform cannot honour.
+		// No default: whether a shopper can change their card is a question each adapter has to answer,
+		// and a wrongly inherited answer is a control the platform cannot honour.
 		Dtos.requireValue(paymentMethodChange, "paymentMethodChange");
 	}
 }

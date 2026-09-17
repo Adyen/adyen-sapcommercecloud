@@ -20,9 +20,6 @@
  */
 package com.adyen.commerce.connector.chargebee.http;
 
-/**
- * A raw HTTP response from Chargebee: status code + body (JSON as text).
- */
 public record ChargebeeHttpResponse(int statusCode, String body)
 {
 	public boolean isSuccess()

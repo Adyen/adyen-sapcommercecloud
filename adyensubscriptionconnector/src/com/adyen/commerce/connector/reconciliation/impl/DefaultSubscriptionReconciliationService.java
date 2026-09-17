@@ -43,19 +43,17 @@ public class DefaultSubscriptionReconciliationService implements SubscriptionRec
 		final NormalizedSubscription snapshot = connector.fetchSubscription(ref);
 		validateSnapshot(ref, snapshot);
 
-		// The remote read happens before the row lock is taken, so no other writer is blocked for the
-		// duration of the call. It is not outside the transaction, though: @Transactional covers the whole
-		// method, so the round trip runs inside it and holds a database connection while it waits. Narrowing
-		// it to the write half would take a separate transactional collaborator — an inner call on `this`
-		// bypasses the Spring proxy and would silently do nothing.
+		// The remote read happens before the row lock, so no other writer is blocked for the duration of the
+		// call. It is still inside the transaction: @Transactional covers the whole method, so the round
+		// trip holds a database connection while it waits, and narrowing it to the write half would take a
+		// separate transactional collaborator — an inner call on `this` bypasses the Spring proxy.
 		//
-		// Once the response is available, refresh under the lock and compare the platform's own update
-		// timestamp so a slow, older response cannot overwrite a newer reconciliation that completed first.
+		// The refresh under the lock and the platform's own update timestamp keep a slow, older response
+		// from overwriting a newer reconciliation that completed first.
 		if (subscription.getPk() != null)
 		{
-			// SAP Commerce's bundled HSQLDB explicitly rejects ModelService.lock(). HSQLDB is a
-			// single-node development database, so retain the refresh and timestamp guard there but
-			// reserve the real row lock for databases that support it.
+			// SAP Commerce's bundled HSQLDB rejects ModelService.lock(). It is a single-node development
+			// database, so the refresh and timestamp guard stand in for the row lock there.
 			if (explicitRowLockingSupported)
 			{
 				modelService.lock(subscription.getPk());
@@ -128,9 +126,9 @@ public class DefaultSubscriptionReconciliationService implements SubscriptionRec
 
 	/**
 	 * Records that the platform was read, whether or not the answer changed anything. Both timestamps move
-	 * together on purpose: lastReconciledAt is the audit trail of platform reads and lastSyncedAt is what
-	 * takes the reference back out of the staleness sweep, and a read that is not credited to the sweep
-	 * leaves the reference permanently due.
+	 * together: lastReconciledAt is the audit trail of platform reads, lastSyncedAt is what takes the
+	 * reference back out of the staleness sweep, and a read not credited to the sweep leaves the reference
+	 * permanently due.
 	 */
 	protected void touchReconciliation(final BillingSubscriptionRefModel model, final Instant reconciledAt)
 	{

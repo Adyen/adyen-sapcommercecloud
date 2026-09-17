@@ -97,8 +97,6 @@ public class ConnectorLogEventTest
 		final String line = render(ConnectorLogEvent.of("webhook_processing")
 				.field("vendor_event_type", "payment_succeeded\nevent=merchant_account_mismatch outcome=failure"));
 
-		// The whole injected string stays inside one quoted value on one line: no newline survives, so
-		// nothing after it can be read as a log entry of its own.
 		assertFalse(line.contains("\n"));
 		assertFalse(line.contains("\r"));
 		assertEquals("event=webhook_processing vendor_event_type=\"payment_succeeded "
@@ -164,8 +162,8 @@ public class ConnectorLogEventTest
 	}
 
 	/**
-	 * The transport states a fallback platform for the case where it is used without a scope. When a
-	 * scope is open, the scope is the authority - otherwise the fallback could contradict it.
+	 * The transport states a fallback platform for use without a scope; an open scope is the authority, so
+	 * the fallback cannot contradict it.
 	 */
 	@Test
 	public void theOpenScopeWinsOverAFallbackStatedAtTheCallSite()
@@ -205,9 +203,8 @@ public class ConnectorLogEventTest
 	}
 
 	/**
-	 * Classification follows the retryable flag and the type, not the class name.
-	 * {@code SubscriptionProductUndecidableException} is retryable and is named nothing like it, so a
-	 * name-matching classifier labels it terminal - which is the opposite of what it is.
+	 * Classification follows the type, not the class name: {@code SubscriptionProductUndecidableException}
+	 * is retryable and named nothing like it.
 	 */
 	@Test
 	public void classifiesARetryableSubtypeThatIsNotNamedRetryable()
@@ -239,9 +236,6 @@ public class ConnectorLogEventTest
 		assertEquals(ConnectorLogEvent.ERROR_CLASS_UNEXPECTED_STATUS, ConnectorLogEvent.httpErrorClass(100));
 	}
 
-	/**
-	 * The three terminal methods are what production calls; nothing else in these tests exercises them.
-	 */
 	@Test
 	public void handsThePatternAndArgumentsToSlf4j()
 	{
@@ -268,8 +262,7 @@ public class ConnectorLogEventTest
 	}
 
 	/**
-	 * The level the orchestration layer's once-per-order lines use, so the same guard has to hold: a
-	 * disabled level must not pay for building the line.
+	 * A disabled level must not pay for building the line.
 	 */
 	@Test
 	public void buildsNothingWhenDebugIsOff()

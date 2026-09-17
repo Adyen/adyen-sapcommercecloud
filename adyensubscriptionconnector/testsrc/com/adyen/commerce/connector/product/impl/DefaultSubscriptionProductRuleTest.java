@@ -47,8 +47,8 @@ import de.hybris.bootstrap.annotations.UnitTest;
 import de.hybris.platform.core.model.product.ProductModel;
 
 /**
- * The shared rule, tested on its own rather than only through its two callers &mdash; because the whole
- * point of extracting it was that the two callers must not each hold an opinion about it.
+ * Unit test for the shared subscription-product rule, exercised on its own rather than only through its two
+ * callers, neither of which may hold an opinion of its own about it.
  */
 @UnitTest
 public class DefaultSubscriptionProductRuleTest
@@ -118,8 +118,8 @@ public class DefaultSubscriptionProductRuleTest
 	}
 
 	/**
-	 * FlexibleSearch throws unchecked, so without this the one case the callers most need to tell apart
-	 * would be the one the compiler never makes them handle.
+	 * FlexibleSearch throws unchecked, so the case the callers most need to tell apart is the one the
+	 * compiler never makes them handle.
 	 */
 	@Test
 	public void anUncheckedResolverFailureIsTranslatedTheSameWay() throws Exception
@@ -160,8 +160,8 @@ public class DefaultSubscriptionProductRuleTest
 	}
 
 	/**
-	 * Nothing to ask about is not the same as being unable to ask: these are a plain no, not a refusal to
-	 * answer, and no connector is troubled over them.
+	 * Nothing to ask about is not the same as being unable to ask: these are a plain no rather than a
+	 * refusal to answer, and no connector is asked about them.
 	 */
 	@Test
 	public void nothingToClassifyIsAPlainNo() throws Exception

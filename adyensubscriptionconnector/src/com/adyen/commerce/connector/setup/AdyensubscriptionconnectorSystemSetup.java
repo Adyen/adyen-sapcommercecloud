@@ -37,19 +37,13 @@ import de.hybris.platform.servicelayer.search.FlexibleSearchQuery;
 import de.hybris.platform.servicelayer.search.FlexibleSearchService;
 
 /**
- * Creates the extension's essential data on every system update: the two background jobs that make the
- * connector self-correcting, each with its trigger.
+ * Creates the extension's essential data on every system update: the background jobs that make the connector
+ * self-correcting, each with its trigger.
  *
- * <p>Deliberately automatic rather than a documented manual import. Both jobs are the recovery half of a
- * policy that is inert without them, and an inert recovery is indistinguishable from the situation it was
- * written to fix. The retry job is what comes back for an activation that failed transiently, so without
- * it a paid order simply never gets its subscription. The reconciliation sweep is the only path from a
- * webhook that was lost, refused while the node was down, or never sent to the platform's actual answer,
- * so without it a reference keeps whatever status it was last told about and nothing corrects it.</p>
- *
- * <p>Both therefore belong in essential data rather than project data. A step an operator has to remember
- * on every environment is a step that gets missed on one of them, and the environment that missed it
- * looks healthy right up until the first delivery goes astray.</p>
+ * <p>Essential data rather than project data, because both jobs are the recovery half of a policy that is
+ * inert without them. The retry job is what comes back for an activation that failed transiently, and the
+ * reconciliation sweep is the only path from a webhook that was lost, refused or never sent to the
+ * platform's actual answer.</p>
  */
 @SystemSetup(extension = AdyensubscriptionconnectorConstants.EXTENSIONNAME)
 public class AdyensubscriptionconnectorSystemSetup extends AbstractSystemSetup
@@ -71,23 +65,17 @@ public class AdyensubscriptionconnectorSystemSetup extends AbstractSystemSetup
 	}
 
 	/**
-	 * Gives a public identifier to any reference that has none - created before the column existed, or
-	 * imported with the column blank.
+	 * Gives a public identifier to any reference that has none, without which the reference cannot be named
+	 * by a shopper-facing request while still billing.
 	 *
-	 * <p>Here rather than in an impex because the value is a UUID and impex has no way to generate one, and
-	 * here rather than in the reading code because minting on a read races itself — two tabs on the
-	 * shopper's own list would mint two values and the older link would stop resolving. A reference without
-	 * one cannot be named by a shopper-facing request at all, so it would be invisible in My Account while
-	 * quietly going on billing.</p>
-	 *
-	 * <p>Runs on every system update and is a no-op once there is nothing left to fill, so it costs one
-	 * indexed query per update after the first.</p>
+	 * <p>Here rather than in an impex because the value is a UUID, and rather than in the reading code
+	 * because minting on a read races itself: two tabs on the shopper's own list would mint two values and
+	 * the older link would stop resolving. A no-op once there is nothing left to fill.</p>
 	 */
 	protected void mintMissingSubscriptionCodes(final SystemSetupContext context)
 	{
-		// Blank as well as null, and TRIM because the reading side uses isBlank: a code of one space would
-		// otherwise be a row the page can never offer and the minting can never reach - a gap that looks
-		// exactly like "essential data was not run" and cannot be told apart from it from outside.
+		// Blank as well as null, and TRIM, because the reading side uses isBlank: a code of one space is
+		// otherwise a row the page can never offer and the minting can never reach.
 		final FlexibleSearchQuery query = new FlexibleSearchQuery(
 				"SELECT {pk} FROM {BillingSubscriptionRef} WHERE {code} IS NULL OR TRIM({code}) = ''");
 		final List<BillingSubscriptionRefModel> missing = flexibleSearchService

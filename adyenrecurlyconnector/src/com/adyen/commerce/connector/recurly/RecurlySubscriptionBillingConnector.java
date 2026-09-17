@@ -3,6 +3,7 @@ package com.adyen.commerce.connector.recurly;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
@@ -17,6 +18,13 @@ import com.adyen.commerce.connector.dto.ConnectorCapabilities;
 import com.adyen.commerce.connector.dto.CustomerSyncRequest;
 import com.adyen.commerce.connector.dto.NormalizedBillingEvent;
 import com.adyen.commerce.connector.dto.NormalizedSubscription;
+import com.adyen.commerce.connector.dto.PaymentMethodChangeOutcome;
+import com.adyen.commerce.connector.dto.PaymentMethodChangeRequest;
+import com.adyen.commerce.connector.dto.PaymentMethodChangeSupport;
+import com.adyen.commerce.connector.dto.PaymentMethodChoice;
+import com.adyen.commerce.connector.dto.PaymentMethodSource;
+import com.adyen.commerce.connector.dto.PlatformPaymentMethod;
+import com.adyen.commerce.connector.exception.CapabilityUnsupportedException;
 import com.adyen.commerce.connector.dto.PaymentMethodChangeScope;
 import com.adyen.commerce.connector.dto.PlanRef;
 import com.adyen.commerce.connector.dto.PlanResolutionRequest;
@@ -58,14 +66,18 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
     private static final String EVENT_WEBHOOK_RESOLUTION = "webhook_resolution";
     private static final String EVENT_RECONCILIATION_GAP = "reconciliation_gap";
 
-    private static final ConnectorCapabilities CAPABILITIES = new ConnectorCapabilities(
+    /**
+     * Everything except the payment-method change, which depends on configuration and is therefore built
+     * per call rather than held here.
+     */
+    private static final ConnectorCapabilities BASE_CAPABILITIES = new ConnectorCapabilities(
             true,
             false,
             false,
             true,
             false,
             TokenImportStyle.SEPARATE_FIELDS,
-            PaymentMethodChangeScope.NOT_SUPPORTED);
+            PaymentMethodChangeSupport.NONE);
 
     private final RecurlyApiClient apiClient;
     private final RecurlyConfigService configService;
@@ -99,7 +111,78 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
 
     @Override
     public ConnectorCapabilities capabilities() {
-        return CAPABILITIES;
+        // Two switches in the base store decide this. Neither accessor throws: it is read on the
+        // order-activation path, where an unconfigured store must offer nothing rather than fail a checkout.
+        if (!configService.isPaymentMethodChangeEnabledOrFalse()) {
+            return BASE_CAPABILITIES;
+        }
+        // SUBSCRIPTION scope because Recurly pins a billing info to one subscription; ALREADY_ON_PLATFORM
+        // only, because importing a freshly picked Adyen card needs a network transaction id that a token
+        // vaulted earlier cannot supply.
+        return new ConnectorCapabilities(
+                BASE_CAPABILITIES.requiresNetworkTransactionId(),
+                BASE_CAPABILITIES.supportsImmediateStart(),
+                BASE_CAPABILITIES.supportsPause(),
+                BASE_CAPABILITIES.requiresPreConfiguredPlan(),
+                BASE_CAPABILITIES.liveTokenValidationOnImport(),
+                BASE_CAPABILITIES.tokenImportStyle(),
+                new PaymentMethodChangeSupport(PaymentMethodChangeScope.SUBSCRIPTION,
+                        Set.of(PaymentMethodSource.ALREADY_ON_PLATFORM)));
+    }
+
+    @Override
+    public List<PlatformPaymentMethod> listPaymentMethods(final BillingCustomerRef customer)
+            throws BillingException {
+        if (!configService.isPaymentMethodChangeEnabledOrFalse()) {
+            return List.of();
+        }
+        verifyRecurlyCustomer(customer);
+        return apiClient.listBillingInfos(customer.externalId());
+    }
+
+    @Override
+    public PaymentMethodChangeOutcome changePaymentMethod(final PaymentMethodChangeRequest request)
+            throws BillingException {
+        final long startedAt = System.nanoTime();
+        try (ConnectorLogContext scope = ConnectorLogContext.open(platform(), "change_payment_method")) {
+            // Re-checked here and not only by the core: the capability is configuration, and configuration
+            // can change between the page being rendered and the form being posted.
+            if (!configService.isPaymentMethodChangeEnabledOrFalse()) {
+                throw new CapabilityUnsupportedException("Recurly payment-method changes are not enabled for "
+                        + "this store; they need Subscriber Wallet and the store's own switch for it");
+            }
+
+            // A switch expression, so a third kind of choice is a build failure rather than a fall-through.
+            final String billingInfoId = switch (request.choice()) {
+                case PaymentMethodChoice.AlreadyOnPlatform onPlatform -> onPlatform.platformPaymentMethodId();
+                case PaymentMethodChoice.AdyenVaultedToken ignored -> throw new CapabilityUnsupportedException(
+                        "Recurly cannot be pointed at a card freshly chosen from the Adyen vault: importing "
+                                + "one needs the network transaction id of the transaction that authorised "
+                                + "it, and a token vaulted earlier has none to give");
+            };
+
+            final String subscriptionId = request.subscription().externalId();
+            try {
+                apiClient.assignBillingInfo(subscriptionId, billingInfoId,
+                        operationKey(request.idempotencyKey(), "payment-method"));
+            } catch (final BillingException e) {
+                ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
+                        .failure(startedAt, e)
+                        .field("subscription_id", subscriptionId)
+                        .field("billing_info_id", billingInfoId)
+                        .warn(LOG);
+                throw e;
+            }
+            ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
+                    .success(startedAt)
+                    .field("subscription_id", subscriptionId)
+                    .field("billing_info_id", billingInfoId)
+                    .field("applied_scope", PaymentMethodChangeScope.SUBSCRIPTION.name())
+                    .info(LOG);
+            return new PaymentMethodChangeOutcome(
+                    new BillingPaymentMethodRef(BillingPlatform.RECURLY, billingInfoId),
+                    PaymentMethodChangeScope.SUBSCRIPTION);
+        }
     }
 
     @Override
@@ -159,8 +242,7 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
                         .warn(LOG);
                 throw e;
             }
-            // Only whether an NTID is present, never its value: it is a scheme-level payment identifier
-            // and the success path is the one that runs on every import.
+            // Only whether an NTID is present, never its value: it is a scheme-level payment identifier.
             ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
                     .success(startedAt)
                     .field("external_id", request.customer().externalId())
@@ -301,9 +383,8 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
     public void cancelSubscription(final SubscriptionCancelRequest request) throws BillingException {
         final long startedAt = System.nanoTime();
         try (ConnectorLogContext scope = ConnectorLogContext.open(platform(), "cancel_subscription")) {
-            // Which of Recurly's two endpoints this becomes is decided here, by name, and carried no
-            // further as a flag: past this point the destructive one is called `terminate` and says so in
-            // the stack trace, the log and the diff.
+            // The choice between Recurly's two endpoints is made here and carried no further as a flag, so
+            // past this point the destructive one is named `terminate` in the stack trace and the log.
             final CancellationCall call = switch (request.timing()) {
                 case AT_PERIOD_END -> (id, key) -> apiClient.cancelAtNextBillDate(id, operationKey(key, "cancel"));
                 case IMMEDIATELY -> (id, key) -> apiClient.terminate(id, operationKey(key, "terminate"));
@@ -329,10 +410,9 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
     /**
      * One of Recurly's two cancellation endpoints, already bound to its own idempotency-key namespace.
      *
-     * <p>It exists so that choosing between them can be a switch <em>expression</em>. Only the expression
-     * form is checked for exhaustiveness — a switch statement over an enum compiles happily with a constant
-     * missing — and of the two calls behind this interface, one ends a subscription immediately. A third
-     * timing has to be a build failure here, not a branch nobody notices it fell into.</p>
+     * <p>It lets the choice between them be a switch <em>expression</em>, which is the only form checked for
+     * exhaustiveness; one of the two ends a subscription immediately, so a new timing must be a build
+     * failure rather than an unnoticed fall-through.</p>
      */
     @FunctionalInterface
     protected interface CancellationCall {
@@ -340,18 +420,13 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
     }
 
     /**
-     * The core issues one idempotency key per subscription (the order code) and replays it for the whole
-     * lifecycle, so create, update and cancel would otherwise arrive at Recurly under the same key.
-     * Recurly answers a repeated key with the <em>first</em> response it recorded, which would let a
-     * cancel be acknowledged with the stored 201 from the create — the caller would take the cancellation
-     * for done while Recurly kept billing, and the next reconciliation would read the subscription back as
-     * still serving. Namespacing by operation keeps each one independently idempotent under retry while
-     * making them distinct from each other.
+     * Namespaces the caller's idempotency key by operation, so each stays independently idempotent under
+     * retry while remaining distinct from the others.
      *
-     * <p>The two cancellation timings are namespaced apart too, {@code cancel} against {@code terminate}.
-     * The core already discriminates them when it builds the key it passes down, so this is the second of
-     * two independent defences rather than the only one — deliberately, because the failure it prevents is
-     * a terminate that Recurly never receives and the caller is told succeeded.</p>
+     * <p>Recurly answers a repeated key with the <em>first</em> response it recorded, and the core issues one
+     * key per subscription (the order code) for the whole lifecycle; without this, a cancel would be
+     * acknowledged with the stored 201 from the create while Recurly kept billing. The two cancellation
+     * timings are namespaced apart as well, {@code cancel} against {@code terminate}.</p>
      */
     protected static String operationKey(final String idempotencyKey, final String operation) {
         return StringUtils.isBlank(idempotencyKey) ? null : idempotencyKey + "/" + operation;
@@ -508,9 +583,8 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
     }
 
     /**
-     * One event for every refused token import, told apart by {@code reason}. Kept to a single line so a
-     * count of the event is a count of the refusals, rather than of how many times the same refusal was
-     * written down.
+     * One event for every refused token import, told apart by {@code reason}, and one line per refusal so
+     * that counting the event counts refusals.
      */
     private ConnectorLogEvent tokenValidationFailure(final String reason, final String errorClass,
                                                      final AdyenTokenHandle token) {

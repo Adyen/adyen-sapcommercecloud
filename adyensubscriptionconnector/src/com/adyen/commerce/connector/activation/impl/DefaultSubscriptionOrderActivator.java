@@ -59,54 +59,33 @@ import de.hybris.platform.store.BaseStoreModel;
 import de.hybris.platform.store.services.BaseStoreService;
 
 /**
- * <h3>What counts as a subscription product</h3>
- * <p>Not this class's decision. It lives in {@link SubscriptionProductRule} and nowhere else, so it can
- * be replaced by replacing that one bean — and, more to the point, so that this class and
- * {@code SubscriptionPaymentRequestDecorator} cannot drift apart. The decorator asks the same rule before
- * the shopper is charged, to decide whether the payment has to leave a reusable token behind; if the two
- * disagreed, an order would be tokenized with nothing to activate or activated with nothing to charge.</p>
+ * Turns a paid order into a subscription on the store's active billing platform.
  *
- * <p>What this class owns is the answer to a rule that <em>cannot</em> answer, and it is the opposite of
- * the decorator's. A {@link SubscriptionProductUndecidableException} means a resolver failed rather than
- * said no, so the order may well be a subscription order — and this runs after the money has moved, where
- * refusing to answer must not turn into a failed checkout. It is therefore journalled like any other
- * activation failure and left to the retry job, rather than downgraded to "ordinary order". Downgrading is
- * what used to happen, and it was the one path that produced a paid order with no journal row at all:
- * nothing was attempted, so nothing was recorded, so nothing was ever retried.</p>
+ * <p>What counts as a subscription product is {@link SubscriptionProductRule}'s decision, shared with
+ * {@code SubscriptionPaymentRequestDecorator} so that the token forced at payment time and the activation
+ * attempted afterwards always concern the same products. A
+ * {@link SubscriptionProductUndecidableException} means the rule failed rather than answered "no", so it is
+ * journalled and retried rather than downgraded to "ordinary order"; a later attempt that does answer "no"
+ * closes the row as {@code NOT_APPLICABLE}, because the retry job turns a stale {@code FAILED} into a dead
+ * letter claiming the shopper was charged for a subscription. A {@code null} product code on a journal row
+ * does not by itself mean undecidable — an unconfigured connector and a precondition failure reach the
+ * journal the same way, and only {@code lastError} tells them apart.</p>
  *
- * <p>Such a row is not left to rot. When a later attempt does get an answer and the answer is "no
- * subscription product here", the row is closed as {@code NOT_APPLICABLE} rather than left {@code FAILED},
- * because the retry job abandons a stale {@code FAILED} into a dead letter announcing that a shopper was
- * charged for a subscription — which for an ordinary order that met one resolver blip would be false. Note
- * that {@code productCode == null} alone does <em>not</em> identify the undecidable case: a connector that
- * is not configured, or a precondition failure, reaches the journal the same way. The {@code lastError} is
- * what tells them apart, and only until a terminal outcome rewrites it.</p>
+ * <p>Activation is idempotent on {@code (order, platform)} and keyed remotely on the order code, so calling
+ * this twice for the same order returns the first reference; a partial payment produces one Adyen
+ * notification per leg, so that happens routinely.</p>
  *
- * <h3>One subscription per order</h3>
- * <p>The service is idempotent on {@code (order, platform)} and keys the remote call on the order code,
- * so a second activation for the same order returns the first reference rather than creating anything.
- * That also makes this safe to call more than once for the same order, which matters because a partial
- * payment produces one Adyen notification per leg. It does mean an order carrying several subscription
- * products activates only the first; that is logged rather than hidden.</p>
+ * <p>Everything that can reach a connector runs in a session-local view with the order's base site
+ * activated, because connector configuration is read from {@code baseStoreService.getCurrentBaseStore()}
+ * and the callers arrive on bare notification and cron threads with no such context. The resolved store is
+ * compared with the order's and activation refused when they differ: a base site listing several stores
+ * resolves to its first one, so a mismatch means billing a different merchant account than the shopper was
+ * quoted.</p>
  *
- * <h3>Which store's credentials get used</h3>
- * <p>Everything that can reach a connector runs inside a session-local view with the order's own base
- * site activated, because the connectors' configuration services read their credentials from
- * {@code baseStoreService.getCurrentBaseStore()}. The callers of this class have no such context to
- * offer: an Adyen notification arrives on a bare worker thread and the retry job on a cron thread, and
- * without this both would read no configuration at all.</p>
- *
- * <p>The resolved store is then checked against the order's, and activation is refused outright when
- * they differ. That check is not defensive padding — a base site listing several stores resolves to its
- * first one, so a mismatch means the connector would be about to charge a different merchant account
- * than the one the shopper was quoted.</p>
- *
- * <h3>Failure handling</h3>
- * <p>Nothing escapes. Every caller is on a payment or checkout path where the money has already moved, so
- * a billing platform being down must not turn into a failed checkout or a rejected webhook. What has
- * changed is that a swallowed failure is no longer a lost one: every attempt is journalled as a
- * {@code BillingActivationAttempt}, transient failures are given a due date for the retry job, and
- * anything terminal or out of retries lands in the dead letter where an operator can find it.</p>
+ * <p>Nothing escapes this class. Every caller is past the point where money has moved, so a billing
+ * platform being down must not fail a checkout or reject a webhook; each attempt is journalled as a
+ * {@code BillingActivationAttempt}, transient failures get a due date for the retry job, and terminal or
+ * exhausted ones land in the dead letter.</p>
  */
 public class DefaultSubscriptionOrderActivator implements SubscriptionOrderActivator
 {
@@ -170,9 +149,8 @@ public class DefaultSubscriptionOrderActivator implements SubscriptionOrderActiv
 		final BillingPlatform platform = store.getActiveBillingPlatform();
 		BillingActivationAttemptModel attempt = null;
 		final long startedAt = System.nanoTime();
-		// Names the business action that every connector line logged underneath belongs to. Without it a
-		// transport timeout three layers down is an anonymous HTTP failure; with it, it is traceable back to
-		// the order that caused it, which is the question anyone reading these logs actually has.
+		// Ties every connector line logged underneath to the order that caused it, so a transport failure
+		// three layers down is not an anonymous HTTP error.
 		try (ConnectorLogContext correlation = ConnectorLogContext.correlate(order.getCode()))
 		{
 			try
@@ -183,19 +161,16 @@ public class DefaultSubscriptionOrderActivator implements SubscriptionOrderActiv
 				final ProductModel product = chooseSubscriptionProduct(order, connector);
 				if (product == null)
 				{
-					// Not a subscription order, and now that really is what null means: the rule answered "no" for
-					// every entry rather than failing to answer for one of them, which arrives at the catch below
-					// instead. Nothing is journalled for the ordinary case — most orders in a store that happens to
-					// sell subscriptions come through here. But a row may already exist from an earlier run where the
-					// rule could not answer, and leaving it FAILED would let the retry job abandon it into a dead
-					// letter claiming a shopper was charged for a subscription this order never contained.
+					// null means the rule answered "no" for every entry; failing to answer arrives at the catch
+					// below instead. Closes any row left over from an earlier attempt that could not answer, which
+					// the retry job would otherwise abandon into a dead letter claiming the shopper was charged for
+					// a subscription this order never contained.
 					attemptService.notApplicable(order, platform,
 							"The subscription product rule answered for every entry on a later attempt and none of them "
 									+ "is a subscription product");
-					// DEBUG, not INFO: this is the ordinary answer for most orders in a store that happens to sell
-					// subscriptions, so it is one line per order and would drown the ones that mean something. It is
-					// logged at all because its absence is indistinguishable from a broken trigger - twice this exit
-					// was diagnosed as "activation never ran" when it had run and correctly decided to do nothing.
+					// DEBUG because this is the ordinary answer for most orders in a subscription-selling store and
+					// would drown the lines that mean something; logged at all because its absence is otherwise
+					// indistinguishable from a trigger that never fired.
 					ConnectorLogEvent.of(EVENT_ACTIVATION)
 							.platform(platform)
 							.field("order_code", order.getCode())
@@ -227,9 +202,7 @@ public class DefaultSubscriptionOrderActivator implements SubscriptionOrderActiv
 			catch (final BillingException | RuntimeException e)
 			{
 				// One line per activation regardless of how it ended, so the three outcomes can be counted against
-				// each other. recordFailure below writes the journal and only speaks up when it cannot; an ordinary
-				// retryable failure was previously invisible here and left the connector's own line as the only
-				// trace, with nothing tying it to a decision about an order.
+				// each other. recordFailure below writes the journal and only speaks up when it cannot.
 				final BillingException billingFailure = e instanceof BillingException billing ? billing : null;
 				ConnectorLogEvent.of(EVENT_ACTIVATION)
 						.platform(platform)
@@ -280,17 +253,9 @@ public class DefaultSubscriptionOrderActivator implements SubscriptionOrderActiv
 	/**
 	 * The one subscription product to activate, or {@code null} if the order carries none.
 	 *
-	 * <p>An order carrying more than one is refused rather than served in part. Serving it in part is what
-	 * this used to do — activate the first, log a warning, walk away — and the shopper had then paid for two
-	 * subscriptions and received one, with nothing anywhere to say so: the reference type holds one row per
-	 * order and platform, and so does the journal, so the second product left no trace an operator could
-	 * find. That is worse than refusing, because refusing is visible. It is a real cost to the shopper, who
-	 * now receives nothing until somebody acts, and it is accepted deliberately: a dead letter naming both
-	 * products can be put right by hand, and silent partial fulfilment cannot be put right by anyone who
-	 * does not already know it happened.</p>
-	 *
-	 * <p>The proper fix is upstream — a cart carrying two subscription products should not reach checkout —
-	 * and this guard is what makes the absence of that rule visible instead of expensive.</p>
+	 * <p>An order carrying more than one is refused rather than served in part: the reference type and the
+	 * journal each hold one row per order and platform, so activating the first would leave the second
+	 * product with no trace an operator could find. A dead letter naming both can be put right by hand.</p>
 	 *
 	 * @throws SubscriptionProductUndecidableException if any entry could not be classified, which is not the
 	 *         same as {@code null} and must not become it — see the class javadoc
@@ -319,15 +284,10 @@ public class DefaultSubscriptionOrderActivator implements SubscriptionOrderActiv
 	/**
 	 * Refuses to activate a subscription for a shopper who would never be able to reach it.
 	 *
-	 * <p>A guest has no account, so the My Account panel — the only place a subscription can be seen or
-	 * cancelled — is closed to them behind {@code ROLE_CUSTOMERGROUP}, while the subscription itself renews
-	 * every period. Worse, a guest who later registers is given a <em>new</em> {@code Customer}, and the
-	 * reference stays attached to the old one, so the subscription is unreachable permanently rather than
-	 * merely until they sign up.</p>
-	 *
-	 * <p>Selling one anyway is the kind of thing that is discovered by a chargeback. Refusing puts it in the
-	 * dead letter on the day it happens, where it names the order and can be dealt with while the shopper
-	 * still remembers buying it.</p>
+	 * <p>The My Account panel is the only place a subscription can be seen or cancelled and sits behind
+	 * {@code ROLE_CUSTOMERGROUP}, which a guest never has. A guest who later registers is given a new
+	 * {@code Customer} while the reference stays on the old one, so the subscription is unreachable
+	 * permanently rather than merely until they sign up.</p>
 	 *
 	 * @throws PreconditionFailedException for a guest; terminal, because retrying will not register them
 	 */
@@ -344,13 +304,12 @@ public class DefaultSubscriptionOrderActivator implements SubscriptionOrderActiv
 	/**
 	 * Writes the failure to the journal so it can be retried or found later.
 	 *
-	 * <p>A failure that happened before the product was known has no record open yet, and one is opened for
-	 * it here, with a {@code null} product code because there genuinely is not one. That does mean an
-	 * ordinary, non-subscription order in a subscription-selling store can acquire a row when the store's own
-	 * configuration is broken — which is the right noise to make: the same breakage is stopping every genuine
-	 * subscription in that store too, and a
-	 * {@link com.adyen.commerce.connector.exception.SubscriptionProductUndecidableException} in particular
-	 * means nobody can say whether this order was one of them.</p>
+	 * <p>A failure from before the product was known has no record open yet, so one is opened here with a
+	 * {@code null} product code. An ordinary order in a subscription-selling store can therefore acquire a
+	 * row when the store's configuration is broken, which is intended: the same breakage stops every genuine
+	 * subscription in that store, and a
+	 * {@link com.adyen.commerce.connector.exception.SubscriptionProductUndecidableException} means nobody can
+	 * say whether this order was one of them.</p>
 	 */
 	protected void recordFailure(final OrderModel order, final BillingPlatform platform,
 			final BillingActivationAttemptModel openAttempt, final Exception failure)
@@ -366,9 +325,8 @@ public class DefaultSubscriptionOrderActivator implements SubscriptionOrderActiv
 		}
 		catch (final RuntimeException e)
 		{
-			// Last line of defence. If even the journal cannot be written the failure would otherwise vanish,
-			// so it goes to the log at full volume, with both the original cause and the reason it was not
-			// recorded.
+			// If even the journal cannot be written the failure would vanish, so both the original cause and
+			// the reason it was not recorded go to the log at full volume.
 			LOG.error("Could not activate a {} subscription for order '{}', and could not record the attempt "
 					+ "either. The order stands and the shopper was charged; this will not be retried.", platform,
 					order.getCode(), failure);
@@ -380,21 +338,14 @@ public class DefaultSubscriptionOrderActivator implements SubscriptionOrderActiv
 	 * Keyed by product code so the same product ordered on several entries counts once, and ordered so the
 	 * chosen one does not depend on map iteration order.
 	 *
-	 * <p>An entry the rule cannot classify stops the scan instead of being skipped. Skipping it was the old
-	 * behaviour and it is unsound: an order whose only subscription entry is the unclassifiable one then looks
-	 * like an ordinary order, and an ordinary order is journalled as nothing at all.</p>
+	 * <p>An entry the rule cannot classify stops the scan rather than being skipped: skipping it would make an
+	 * order whose only subscription entry is the unclassifiable one look like an ordinary order, which is
+	 * journalled as nothing at all. A mixed order therefore defers to the retry instead of going ahead on the
+	 * entry that did resolve — going ahead would pick from an incomplete list, and a subscription on the wrong
+	 * plan is not revisited because the order already has one.</p>
 	 *
-	 * <p>The price is paid by the mixed order — one entry the rule cannot classify, another it can — whose
-	 * activation is now deferred to the retry instead of going ahead on the entry that did resolve. That is
-	 * the intended trade. Only one subscription per order is activated and the choice is positional — the
-	 * first match in entry order, see {@code chooseSubscriptionProduct} — so going ahead while one candidate
-	 * is invisible means the choice was made from an incomplete list, silently and unrepeatably. Deferring
-	 * costs a retry; choosing wrongly costs a subscription on the wrong plan, which a retry will not revisit
-	 * because the order already has one. In practice the resolvers are backed by one FlexibleSearch each, so a
-	 * failure that hits one entry has usually hit all of them anyway.</p>
-	 *
-	 * <p>{@code SubscriptionPaymentRequestDecorator} scans every entry for the same reason, so that the two
-	 * agree on a mixed cart regardless of the order its entries happen to be in.</p>
+	 * <p>{@code SubscriptionPaymentRequestDecorator} scans every entry too, so that the two agree on a mixed
+	 * cart regardless of entry order.</p>
 	 */
 	protected Map<String, ProductModel> subscriptionProducts(final OrderModel order,
 			final SubscriptionBillingConnector connector) throws SubscriptionProductUndecidableException

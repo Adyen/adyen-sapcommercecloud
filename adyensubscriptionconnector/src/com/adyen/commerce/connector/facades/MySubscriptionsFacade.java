@@ -43,8 +43,8 @@ public interface MySubscriptionsFacade
 	/**
 	 * Stops the named subscription at the end of the period the shopper has already paid for.
 	 *
-	 * <p>Never immediately. On one platform an immediate cancellation is a different API verb that ends
-	 * service at once, and neither adapter sends an instruction about the money — so the shopper would lose
+	 * <p>Never immediately: on one platform an immediate cancellation is a different API verb that ends
+	 * service at once, and neither adapter sends an instruction about the money, so the shopper would lose
 	 * access they had bought and get nothing back.</p>
 	 *
 	 * @param code the public identifier from the page
@@ -57,20 +57,14 @@ public interface MySubscriptionsFacade
 	/**
 	 * Points the shopper's billing at a card they already have vaulted with Adyen. Proof of concept.
 	 *
-	 * <h3>What this is, precisely</h3>
-	 * <p>Not "change the card on this subscription". On Chargebee a payment source belongs to the
-	 * <em>customer</em>, and the import replaces their primary one, so every subscription of theirs that
-	 * bills against the primary follows. The subscription code is taken only to establish which customer
-	 * and which store are meant, and to refuse the request when the row is not theirs.</p>
+	 * <p>Not "change the card on this subscription": on Chargebee a payment source belongs to the
+	 * <em>customer</em> and the import replaces their primary one, so every subscription of theirs that
+	 * bills against the primary follows. The subscription code establishes which customer and which store
+	 * are meant, and refuses the request when the row is not theirs.</p>
 	 *
-	 * <h3>What it deliberately does not do</h3>
-	 * <p>It adds no new card. The shopper picks one Adyen has already vaulted for them: minting a new token
-	 * would need zero-auth, and this integration's zero-auth carries no 3DS plumbing, so a card requiring
-	 * authentication could not be stored at all.</p>
-	 *
-	 * <p>Whether it is offered, and whose billing it moves, is the connector's declaration and not this
-	 * facade's business — a platform that cannot do it answers {@code NOT_SUPPORTED_HERE} rather than a
-	 * failure the shopper is invited to retry.</p>
+	 * <p>It adds no new card. Minting one would need zero-auth, and this integration's zero-auth carries no
+	 * 3DS plumbing, so a card requiring authentication could not be stored at all. A platform that cannot
+	 * do the change answers {@code NOT_SUPPORTED_HERE} rather than a failure the shopper may retry.</p>
 	 *
 	 * @param subscriptionCode      the public identifier, used to establish ownership and the store
 	 * @param storedPaymentMethodId the Adyen {@code recurringDetailReference} the shopper chose

@@ -164,9 +164,9 @@ public class DefaultChargebeeConfigServiceTest
 	}
 
 	/**
-	 * The gateway-binding guard compares this against the store's own Adyen merchant account, so it has to come from
-	 * the Chargebee configuration. Reading it off the store would make the comparison a tautology — the
-	 * store value is stubbed differently here on purpose to catch that regression.
+	 * The gateway-binding guard compares this against the store's own Adyen merchant account, so it has to
+	 * come from the Chargebee configuration. The store value is stubbed differently here to catch a reading
+	 * that would make the comparison a tautology.
 	 */
 	@Test
 	public void merchantAccountReadFromChargebeeConfigNotFromBaseStore()
@@ -178,10 +178,9 @@ public class DefaultChargebeeConfigServiceTest
 	}
 
 	/**
-	 * Mirrors the Recurly side: this service deliberately does not gate on the store's
-	 * activeBillingPlatform. Cancellation routes on the subscription's own platform, so a store that has
-	 * migrated to another platform must still reach its Chargebee credentials to cancel what it created
-	 * there. Re-adding a gate here would fail this test.
+	 * Mirrors the Recurly side: this service does not gate on the store's activeBillingPlatform.
+	 * Cancellation routes on the subscription's own platform, so a store that has migrated to another
+	 * platform must still reach its Chargebee credentials to cancel what it created there.
 	 */
 	@Test
 	public void credentialsStayReadableForAStoreThatHasMovedToAnotherPlatform() throws Exception

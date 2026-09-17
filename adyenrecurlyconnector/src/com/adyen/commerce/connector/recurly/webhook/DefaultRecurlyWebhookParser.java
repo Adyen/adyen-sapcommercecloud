@@ -82,9 +82,8 @@ public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser {
             final String eventTime = text(payload, "event_time");
             if (StringUtils.isBlank(eventTime)) {
                 // Without it there is no ordering signal, and Instant.parse(null) would throw an NPE
-                // straight through the SPI boundary, which the caller has no way to classify.
-                // The signature did verify - saying otherwise here would put a malformed payload on the
-                // same alert as a forged one.
+                // straight through the SPI boundary, which the caller has no way to classify. The
+                // signature did verify, so this is reported as a malformed payload, not a forged one.
                 logFailure(startedAt, "event_time_missing", notificationId(payload, raw), payloadChars, true);
                 throw new TerminalBillingException("Recurly webhook has no event_time");
             }
@@ -153,9 +152,8 @@ public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser {
     }
 
     /**
-     * The reason is carried by the exception rather than recovered from its wording. Matching on
-     * {@code getMessage()} makes every reason label hostage to a copy edit: reword "invalid format" and
-     * the dashboard silently starts counting a different bucket.
+     * The reason is carried by the exception rather than recovered from its wording: matching on
+     * {@code getMessage()} would make every reason label hostage to a copy edit.
      */
     private static String signatureFailureReason(final BillingException error) {
         return error instanceof WebhookSignatureException signatureFailure
@@ -165,9 +163,9 @@ public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser {
 
     /**
      * The event id the core deduplicates on. The body is preferred because the HMAC covers only
-     * {@code timestamp + "." + payload} — a header is not signed, so taking it first would let the dedup
-     * identity of a byte-identical, correctly-signed delivery be changed from outside. The header stays
-     * as the fallback because Recurly omits {@code id} from some payload shapes.
+     * {@code timestamp + "." + payload}, so an unsigned header taken first would let the dedup identity of
+     * a correctly-signed delivery be changed from outside. The header is the fallback because Recurly
+     * omits {@code id} from some payload shapes.
      */
     protected String notificationId(final JsonNode payload, final RawWebhook raw) {
         return StringUtils.defaultIfBlank(text(payload, "id"), header(raw.headers(), NOTIFICATION_ID_HEADER));
@@ -222,8 +220,8 @@ public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser {
 
     /**
      * A signature rejection that names its own reason. Still a {@link TerminalBillingException}, so
-     * nothing outside this class has to know it exists - callers keep classifying it as they always did,
-     * while the observability line gets a label that survives a reworded message.
+     * callers classify it without knowing this type exists, while the observability line gets a label
+     * that survives a reworded message.
      */
     protected static class WebhookSignatureException extends TerminalBillingException {
         private static final long serialVersionUID = 1L;

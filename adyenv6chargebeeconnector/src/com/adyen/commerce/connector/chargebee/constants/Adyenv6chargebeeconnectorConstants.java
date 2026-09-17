@@ -29,6 +29,5 @@ public final class Adyenv6chargebeeconnectorConstants extends GeneratedAdyenv6ch
 
 	private Adyenv6chargebeeconnectorConstants()
 	{
-		//empty
 	}
 }

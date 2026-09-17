@@ -23,14 +23,9 @@ package com.adyen.commerce.connector.dto;
 /**
  * What a completed payment-method change actually did.
  *
- * <p>{@code appliedScope} is the point of this type. The caller has to choose what the shopper is told, and
- * the only honest basis for that is what happened rather than what was advertised: a connector that declares
- * {@link PaymentMethodChangeScope#SUBSCRIPTION} and quietly replaces the customer's primary payment source
- * would otherwise produce a page saying "only this subscription" while every other subscription moved too.
- * Returning it makes the declaration falsifiable — a test can assert the two agree, and a mistake stops at
- * the connector instead of reaching a person.</p>
- *
- * <p>{@code NOT_SUPPORTED} is not a legal value here: a connector that cannot do it raises
+ * <p>{@code appliedScope} reports what the connector did rather than what it declared, so the caller can
+ * tell the shopper which subscriptions moved and a test can assert the two agree. {@code NOT_SUPPORTED} is
+ * not a legal value here: a connector that cannot do it raises
  * {@link com.adyen.commerce.connector.exception.CapabilityUnsupportedException} instead of returning a
  * success that did nothing.</p>
  */

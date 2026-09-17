@@ -26,6 +26,7 @@ import org.slf4j.LoggerFactory;
 import com.adyen.commerce.connector.dto.BillingAddress;
 import com.adyen.commerce.connector.dto.BillingSubscriptionRef;
 import com.adyen.commerce.connector.dto.CardMetadata;
+import com.adyen.commerce.connector.dto.PlatformPaymentMethod;
 import com.adyen.commerce.connector.dto.NormalizedSubscription;
 import com.adyen.commerce.connector.dto.NormalizedSubscriptionStatus;
 import com.adyen.commerce.connector.enums.BillingPlatform;
@@ -51,10 +52,9 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
  */
 public class DefaultRecurlyApiClient implements RecurlyApiClient {
     /**
-     * Recurly's own name for a subscription that has been cancelled but keeps serving the customer until
+     * Recurly's own name for a subscription that has stopped renewing but keeps serving the customer until
      * {@code current_period_ends_at}. Shared by the status mapping and the {@code cancelAtPeriodEnd}
-     * derivation so the literal lives in one place - it keeps the spelling in step, nothing more; the two
-     * readings of this state still have to be kept consistent by hand.
+     * derivation so the literal lives in one place.
      */
     protected static final String STATE_CANCELED = "canceled";
 
@@ -171,9 +171,9 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
         if (account.statusCode() == HTTP_NOT_FOUND) {
             final ObjectNode request = objectMapper.createObjectNode();
             putIfNotBlank(request, "code", accountCode(accountId));
-            // Only a confirmed billing address names the account. An address inferred from the delivery
-            // address carries the recipient's name, and on a gift order that is not the account holder —
-            // every future invoice would be issued to the wrong person.
+            // Only a confirmed billing address names the account. An address inferred from the delivery address
+            // carries the recipient's name, and on a gift order that is not the account holder - every future
+            // invoice would be issued to the wrong person.
             if (billingAddress != null && billingAddress.confirmed()) {
                 putIfNotBlank(request, "first_name", billingAddress.firstName());
                 putIfNotBlank(request, "last_name", billingAddress.lastName());
@@ -210,6 +210,74 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
                 writeJson(billingInfo), fingerprintedKey(accountId + "/primary-adyen", storedPaymentMethodId));
         requireSuccess(response, "set primary Adyen billing info");
         return readId(response.body());
+    }
+
+    @Override
+    public List<PlatformPaymentMethod> listBillingInfos(final String accountId) throws BillingException {
+        final RecurlyHttpResponse response = httpClient.get(
+                url("/accounts/" + pathSegment(accountId) + "/billing_infos"), authHeader(), acceptHeader());
+        requireSuccess(response, "list billing infos");
+
+        final List<PlatformPaymentMethod> methods = new ArrayList<>();
+        for (final JsonNode billingInfo : readBillingInfos(response.body())) {
+            final String id = billingInfo.path("id").asText(null);
+            if (StringUtils.isBlank(id)) {
+                continue;
+            }
+            methods.add(new PlatformPaymentMethod(id, describeBillingInfo(billingInfo),
+                    cardMetadataOf(billingInfo), billingInfo.path("primary_payment_method").asBoolean(false)));
+        }
+        return methods;
+    }
+
+    /**
+     * How a billing info is named on the shopper's page. Composed here because only this adapter knows that
+     * a Recurly billing info may be a card, a PayPal agreement or a bank account; it falls through to the
+     * identifier rather than to an empty label, so two rows are never indistinguishable.
+     */
+    protected String describeBillingInfo(final JsonNode billingInfo) {
+        final JsonNode paymentMethod = billingInfo.path("payment_method");
+        final String type = StringUtils.defaultIfBlank(paymentMethod.path("card_type").asText(null),
+                paymentMethod.path("object").asText(null));
+        final String lastFour = paymentMethod.path("last_four").asText(null);
+        if (StringUtils.isNotBlank(type) && StringUtils.isNotBlank(lastFour)) {
+            return type + " \u2022\u2022\u2022\u2022 " + lastFour;
+        }
+        return StringUtils.defaultIfBlank(type, billingInfo.path("id").asText("payment method"));
+    }
+
+    /** Display detail only; absent fields simply mean the page shows less. */
+    protected CardMetadata cardMetadataOf(final JsonNode billingInfo) {
+        final JsonNode paymentMethod = billingInfo.path("payment_method");
+        final String lastFour = paymentMethod.path("last_four").asText(null);
+        if (StringUtils.isBlank(lastFour)) {
+            return null;
+        }
+        final String month = paymentMethod.path("exp_month").asText(null);
+        final String year = paymentMethod.path("exp_year").asText(null);
+        final String expiry = StringUtils.isAnyBlank(month, year) ? null
+                : StringUtils.leftPad(month, 2, '0') + "/" + year;
+        return new CardMetadata(paymentMethod.path("card_type").asText(null), lastFour, null, expiry, null);
+    }
+
+    @Override
+    public void assignBillingInfo(final String subscriptionId, final String billingInfoId,
+                                  final String idempotencyKey) throws BillingException {
+        if (StringUtils.isBlank(billingInfoId)) {
+            throw new PreconditionFailedException(
+                    "assignBillingInfo called without a billing info for subscription '" + subscriptionId + "'");
+        }
+
+        final ObjectNode request = objectMapper.createObjectNode();
+        request.put("billing_info_id", billingInfoId);
+
+        // PUT, not the /change endpoint: /change alters what is billed and would raise an invoice, while this
+        // alters only which instrument the next billing event uses. Recurly documents the field as Wallet-only
+        // and rejects it elsewhere, which is why the capability is gated on Wallet.
+        final RecurlyHttpResponse response = httpClient.put(
+                url("/subscriptions/" + pathSegment(subscriptionId)), authHeader(), acceptHeader(),
+                writeJson(request), idempotencyKey);
+        requireSuccess(response, "assign billing info to subscription");
     }
 
     @Override
@@ -317,11 +385,10 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
     }
 
     /**
-     * The pending end is read from the state itself, not from {@code auto_renew} alone. A {@code canceled}
-     * subscription is by definition no longer renewing, and leaving the answer to {@code auto_renew} would
-     * make it depend on a second field being present: {@code asBoolean(true)} reads a missing flag as
-     * "renewing", which would contradict the state right next to it and hide the pending end from every
-     * caller that only looks at {@code cancelAtPeriodEnd}.
+     * The pending end is read from the state as well as {@code auto_renew}: a {@code canceled} subscription
+     * is by definition no longer renewing, and a missing {@code auto_renew} reads as "renewing", which would
+     * contradict the state beside it and hide the pending end from callers that only look at
+     * {@code cancelAtPeriodEnd}.
      */
     protected boolean isCancelAtPeriodEnd(final JsonNode subscription) {
         return STATE_CANCELED.equalsIgnoreCase(subscription.path("state").asText(null))
@@ -339,9 +406,8 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
             throw new TerminalBillingException("Recurly subscription response missing account id and code");
         }
 
-        // A page URL is now only required to sit under the configured base, so a cursor that points back
-        // at a page already read would keep this walk calling Recurly forever. No legitimate pagination
-        // repeats a page, so treat it as the malformed response it is instead of spinning.
+        // A page URL is only required to sit under the configured base, so a cursor pointing back at a page
+        // already read would keep this walk calling Recurly forever. No legitimate pagination repeats a page.
         final Set<String> visitedPages = new LinkedHashSet<>();
         String nextUrl = url("/accounts/" + pathSegment(accountReference) + "/invoices?state=past_due&limit=200");
         while (StringUtils.isNotBlank(nextUrl)) {
@@ -367,15 +433,14 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
     }
 
     /**
-     * Recurly returns {@code next} as a site-relative path, so it is only a usable URL once joined to the
-     * configured base. Resolution deliberately vouches for nothing: every page URL still goes through
-     * {@link #validateRecurlyPageUrl(String)} before it is called, so a spoofed or corrupted response
-     * cannot aim the credentialed request at a host other than the configured one.
+     * Recurly returns {@code next} as a site-relative path, so it is a usable URL only once joined to the
+     * configured base. Resolution vouches for nothing: every page URL still goes through
+     * {@link #validateRecurlyPageUrl(String)}, so a spoofed or corrupted response cannot aim the
+     * credentialed request at a host other than the configured one.
      */
     protected String resolvePageUrl(final String next) throws BillingException {
-        // A protocol-relative reference ("//host/path") names its own authority, so it is not a
-        // site-relative path. Leaving it untouched lets the guard below reject it as the foreign
-        // host it is, instead of hiding it behind the configured base.
+        // A protocol-relative reference ("//host/path") names its own authority, so it is not a site-relative
+        // path. Leaving it untouched lets the guard below reject it as the foreign host it is.
         if (StringUtils.startsWith(next, "/") && !StringUtils.startsWith(next, "//")) {
             return url(next);
         }
@@ -402,15 +467,12 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
     }
 
     /**
-     * Recurly's {@code canceled} is not the end of a subscription: it stops renewing but keeps serving the
-     * customer until {@code current_period_ends_at}, and Recurly can reactivate it. Reporting it as
-     * CANCELLED would revoke entitlement the customer has already paid for, and it would give one
-     * normalized vocabulary two words for one situation — the Chargebee adapter normalizes exactly this
-     * state, {@code non_renewing}, to ACTIVE. So {@code canceled} is ACTIVE here too and the pending end
-     * travels as {@code cancelAtPeriodEnd}. Nothing is lost from the terminal end: {@code expired} is the
-     * state Recurly moves a subscription into once its term has actually run out, and it maps to EXPIRED —
-     * the same value Chargebee's {@code cancelled} maps to, so "this has ended" is one word across both
-     * adapters. Neither of them produces CANCELLED; see {@code NormalizedSubscriptionStatus}.
+     * Recurly's {@code canceled} stops renewal but keeps serving the customer until
+     * {@code current_period_ends_at} and can be reactivated, so it maps to ACTIVE and the pending end travels
+     * as {@code cancelAtPeriodEnd} - the Chargebee adapter normalizes the same state, {@code non_renewing},
+     * the same way. {@code expired} is the state Recurly moves a subscription into once its term has run out,
+     * and maps to EXPIRED, as Chargebee's {@code cancelled} does. Neither adapter produces CANCELLED; see
+     * {@code NormalizedSubscriptionStatus}.
      */
     protected NormalizedSubscriptionStatus mapStatus(final String recurlyState) {
         if (StringUtils.isBlank(recurlyState)) {
@@ -459,10 +521,9 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
     }
 
     /**
-     * Builds - never throws. Nothing in here may fail: it runs on the path that is already handling a
-     * failure, and an exception raised while classifying one would replace the HTTP status and the
-     * vendor's own explanation with an unrelated message, and lose the retryable/terminal decision the
-     * core's retry policy is about to read.
+     * Builds - never throws. It runs on a path that is already handling a failure, so an exception raised
+     * while classifying one would replace the HTTP status and the vendor's own explanation, and lose the
+     * retryable/terminal decision the core's retry policy is about to read.
      */
     protected BillingException toBillingException(final RecurlyHttpResponse response, final String action) {
         final String detail = extractError(response.body());
@@ -490,8 +551,7 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
 
     /**
      * The error as a human reads it: {@code [type] message}. The message is the only part that says
-     * <em>which</em> field or value Recurly refused, so dropping it leaves a bare code that cannot be
-     * acted on without reproducing the call.
+     * <em>which</em> field or value Recurly refused.
      */
     protected String extractError(final String body) {
         final JsonNode node = readErrorTree(body);
@@ -545,9 +605,8 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
     }
 
     /**
-     * For callers holding only the raw body. Parsing is the sole reason this overload exists, so a caller
-     * that has already parsed the response must use {@link #readSubscriptionId(JsonNode)} rather than pay
-     * for a second parse of the same payload.
+     * For callers holding only the raw body. A caller that has already parsed the response must use
+     * {@link #readSubscriptionId(JsonNode)} rather than pay for a second parse of the same payload.
      */
     protected String readSubscriptionId(final String body) throws BillingException {
         try {
@@ -597,8 +656,8 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
             return;
         }
 
-        // Same rule as the account: an inferred address still carries a usable address, but its name is
-        // the recipient's, not the cardholder's, so it must not be sent as the billing name.
+        // Same rule as the account: an inferred address carries the recipient's name, not the cardholder's,
+        // so it must not be sent as the billing name.
         if (billingAddress.confirmed()) {
             putIfNotBlank(request, "first_name", billingAddress.firstName());
             putIfNotBlank(request, "last_name", billingAddress.lastName());
@@ -627,8 +686,8 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
         putIfNotBlank(reference, "token", storedPaymentMethodId);
 
         if (card != null) {
-            // Recurly derives display metadata such as last four from the imported gateway token. The API rejects
-            // last_four in this request shape, so only accepted non-sensitive expiry metadata is forwarded.
+            // Recurly derives display metadata such as last four from the imported gateway token, and rejects
+            // last_four in this request shape, so only the accepted non-sensitive expiry metadata is forwarded.
             addExpiry(billingInfo, card.expiry());
         }
         addBillingAddress(billingInfo, billingAddress);
@@ -660,20 +719,16 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
     /**
      * Whether this billing info is the one already representing that Adyen token.
      *
-     * <p>Deduplication, never authorisation. It answers "have we imported this card here before", which is
-     * what stops a repeat order creating a second billing info. It must not be reused to decide whether a
-     * billing info belongs to a shopper: the account is already the shopper's, and filtering on the
-     * Adyen account reference would exclude exactly the billing infos Recurly supports best - the ones
+     * <p>Deduplication, never authorisation. It answers whether this token has already been imported here,
+     * which is what stops a repeat order creating a second billing info. It must not be reused to decide
+     * whether a billing info belongs to a shopper: the account is already the shopper's, and filtering on
+     * the Adyen account reference would exclude exactly the billing infos Recurly supports best - the ones
      * collected by its own hosted pages, by support, or by the Account Updater.</p>
      *
-     * <p>The nesting differs between the shape Recurly accepts and the shape it returns.
-     * {@code BillingInfoCreate} takes {@code gateway_attributes} at the top level - which is what
-     * {@link #buildAdyenBillingInfo} sends - while the {@code BillingInfo} it reads back carries it under
-     * {@code payment_method}, and only {@code payment_gateway_references} stays at the top in both. Reading
-     * the top level alone therefore never matched a real response: without Wallet a repeat order with the
-     * <em>same</em> card was refused as "already has a different primary billing info", and with Wallet the
-     * duplicates were held off only by the idempotency key. Both shapes are accepted here because the unit
-     * tests are the one caller that legitimately sees the write shape.</p>
+     * <p>Both nestings are accepted because the shape Recurly takes differs from the shape it returns:
+     * {@code BillingInfoCreate} carries {@code gateway_attributes} at the top level, which is what
+     * {@link #buildAdyenBillingInfo} sends, while the {@code BillingInfo} read back carries it under
+     * {@code payment_method}. Only {@code payment_gateway_references} stays at the top in both.</p>
      */
     protected boolean billingInfoMatches(final JsonNode billingInfo, final String shopperReference,
                                          final String storedPaymentMethodId) {

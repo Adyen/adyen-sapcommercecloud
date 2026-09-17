@@ -30,9 +30,8 @@ import com.adyen.commerce.connector.spi.SubscriptionBillingConnector;
 import de.hybris.platform.store.BaseStoreModel;
 
 /**
- * Resolves the {@link SubscriptionBillingConnector} to use. Adapter extensions contribute their
- * connector to the underlying list (Spring list-merge); adding a connector makes it resolvable with
- * no change to the core.
+ * Resolves the {@link SubscriptionBillingConnector} to use. Adapter extensions contribute their connector
+ * to the underlying list by Spring list-merge, so adding one needs no change in the core.
  */
 public interface SubscriptionBillingConnectorRegistry
 {
@@ -50,13 +49,7 @@ public interface SubscriptionBillingConnectorRegistry
 	 */
 	SubscriptionBillingConnector getActiveConnector(BaseStoreModel store) throws ConnectorNotConfiguredException;
 
-	/**
-	 * @return the connector for the platform, or empty if none is registered
-	 */
 	Optional<SubscriptionBillingConnector> findConnector(BillingPlatform platform);
 
-	/**
-	 * @return all registered connectors
-	 */
 	List<SubscriptionBillingConnector> getConnectors();
 }

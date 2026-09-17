@@ -57,8 +57,8 @@ import de.hybris.platform.servicelayer.model.ModelService;
 
 /**
  * Unit test for {@link SubscriptionActivationRetryJob}. The job holds no activation logic of its own, so
- * what is worth testing is what it chooses to hand back — and what it does when handing something back
- * changes nothing, which is the difference between an emptying queue and a permanent one.
+ * what is worth testing is what it hands back, and what it does when handing something back changes
+ * nothing - the difference between an emptying queue and a permanent one.
  */
 @UnitTest
 public class SubscriptionActivationRetryJobTest
@@ -214,8 +214,6 @@ public class SubscriptionActivationRetryJobTest
 
 		final PerformResult result = job.perform(cronJob);
 
-		// Both were tried; the broken one is left queued rather than dead-lettered on the strength of a
-		// failure that happened here rather than at the platform.
 		verify(activator, times(2)).activateFor(order);
 		verify(attemptService, never()).abandon(eq(broken), any());
 		assertEquals(CronJobResult.SUCCESS, result.getResult());
