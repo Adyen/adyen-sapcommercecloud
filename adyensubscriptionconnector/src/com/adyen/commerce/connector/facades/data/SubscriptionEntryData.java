@@ -113,6 +113,26 @@ public class SubscriptionEntryData implements Serializable
 	}
 
 	/**
+	 * The identifier, among this row's options, of the method the subscription is billed to right now.
+	 *
+	 * <p>Resolved by the row's own connector from the reference it stored, because only the adapter knows
+	 * how that reference is encoded. Distinct from {@code PlatformPaymentMethod.defaultForCustomer}, which
+	 * is the platform's default for the whole account and answers a different question - on a platform that
+	 * pins a method per subscription the two are routinely different instruments.</p>
+	 */
+	private String currentPaymentMethodId;
+
+	public String getCurrentPaymentMethodId()
+	{
+		return currentPaymentMethodId;
+	}
+
+	public void setCurrentPaymentMethodId(final String currentPaymentMethodId)
+	{
+		this.currentPaymentMethodId = currentPaymentMethodId;
+	}
+
+	/**
 	 * Cards from the shopper's Adyen vault this row could be repointed at, for a platform that accepts an
 	 * imported token as well as its own stored methods.
 	 *

@@ -152,6 +152,13 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
     }
 
     @Override
+    public String listedPaymentMethodId(final String externalPaymentMethodId) {
+        // Both shapes name the same billing info, and only the id appears in listBillingInfos. Never
+        // throws: this answers a question about a label, and a page must not fail over one.
+        return RecurlyPaymentMethodReference.billingInfoIdOf(externalPaymentMethodId);
+    }
+
+    @Override
     public Optional<PaymentMethodEnrollmentPage> paymentMethodEnrollmentPage(final BillingCustomerRef customer)
             throws BillingException {
         if (!configService.isHostedAccountManagementEnabledOrFalse()) {

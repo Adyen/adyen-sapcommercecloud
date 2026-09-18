@@ -232,10 +232,14 @@
                                                             class="form-control subx-select">
                                                         <c:if test="${not empty subscription.paymentMethodOptions}">
                                                             <optgroup label="<spring:theme code='text.account.subscriptions.paymentMethod.group.platform'/>">
+                                                                <%-- Marked from what this subscription is billed to, not from the
+                                                                     provider's default for the whole account: on a provider that pins a
+                                                                     method per subscription those are routinely different cards. --%>
                                                                 <c:forEach items="${subscription.paymentMethodOptions}" var="option">
-                                                                    <option value="${fn:escapeXml(option.id)}">
+                                                                    <option value="${fn:escapeXml(option.id)}"
+                                                                            <c:if test="${option.id eq subscription.currentPaymentMethodId}">selected="selected"</c:if>>
                                                                         ${fn:escapeXml(option.displayLabel)}<c:if
-                                                                                test="${option.defaultForCustomer}">&nbsp;<spring:theme
+                                                                                test="${option.id eq subscription.currentPaymentMethodId}">&nbsp;<spring:theme
                                                                                 code="text.account.subscriptions.paymentMethod.default"/></c:if>
                                                                     </option>
                                                                 </c:forEach>

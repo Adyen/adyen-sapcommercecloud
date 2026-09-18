@@ -389,6 +389,19 @@ public class RecurlySubscriptionBillingConnectorTest
         verify(apiClient, never()).assignBillingInfo(any(), any(), any());
     }
 
+    /**
+     * Activation stores the packed reference and a repoint stores the bare id. Both name the same billing
+     * info, and the page compares whichever it finds against what listBillingInfos returned.
+     */
+    @Test
+    public void narrowsEitherShapeOfStoredReferenceToTheListedBillingInfoId() {
+        assertEquals("billing-1", connector.listedPaymentMethodId("billing-1::ntid::NTID-42"));
+        assertEquals("billing-1", connector.listedPaymentMethodId("billing-1"));
+        // Never throws over a label: an unrecorded or malformed reference simply marks nothing.
+        assertEquals("", connector.listedPaymentMethodId(null));
+        assertEquals("", connector.listedPaymentMethodId(""));
+    }
+
     @Test
     public void declaresNoHostedPageUntilItsOwnSwitchIsOn() {
         when(configService.isHostedAccountManagementEnabledOrFalse()).thenReturn(false);

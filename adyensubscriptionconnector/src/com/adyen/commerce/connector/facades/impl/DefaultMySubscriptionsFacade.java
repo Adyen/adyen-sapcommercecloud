@@ -582,6 +582,28 @@ public class DefaultMySubscriptionsFacade implements MySubscriptionsFacade
 		}
 	}
 
+	/**
+	 * Which of this row's options is billing it today, as the row's own connector reads its stored
+	 * reference. {@code null} when nothing is recorded or the adapter cannot say - the page then marks
+	 * nothing rather than marking the wrong one.
+	 */
+	protected String currentPaymentMethodIdOf(final BillingSubscriptionRefModel ref)
+	{
+		if (StringUtils.isBlank(ref.getExternalPaymentMethodId()))
+		{
+			return null;
+		}
+		try
+		{
+			return inStoreContext(ref, () -> connectorRegistry.getConnector(ref.getPlatform())
+					.listedPaymentMethodId(ref.getExternalPaymentMethodId()));
+		}
+		catch (final RuntimeException e)
+		{
+			return null;
+		}
+	}
+
 	protected boolean requiresNetworkTransactionId(final BillingSubscriptionRefModel ref)
 	{
 		try
@@ -890,6 +912,7 @@ public class DefaultMySubscriptionsFacade implements MySubscriptionsFacade
 			// Fewer than two is not a choice: the only thing on the list is what is already billing. Most
 			// accounts hold exactly one, so this is the common case rather than an edge.
 			entry.setPaymentMethodOptions(offered.size() < 2 ? List.of() : offered);
+			entry.setCurrentPaymentMethodId(currentPaymentMethodIdOf(ref));
 		}
 
 		if (entry.isPaymentMethodChangeable() && support.accepts(PaymentMethodSource.ADYEN_VAULTED_TOKEN))

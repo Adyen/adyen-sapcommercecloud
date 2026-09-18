@@ -151,6 +151,20 @@ public interface SubscriptionBillingConnector
 	}
 
 	/**
+	 * Narrow one of this adapter's own stored payment-method references to the identifier it lists in
+	 * {@link #listPaymentMethods}, so the core can tell which listed method a subscription is currently
+	 * billed to without knowing how the reference is encoded.
+	 *
+	 * <p>The identity default is right for any adapter whose reference <em>is</em> the identifier. An
+	 * adapter that packs more into it - Recurly carries the network transaction id alongside the billing
+	 * info id, because Recurly will only accept one when a subscription is created - must unpack it here.</p>
+	 */
+	default String listedPaymentMethodId(final String externalPaymentMethodId)
+	{
+		return externalPaymentMethodId;
+	}
+
+	/**
 	 * Where this customer can give the platform a payment method, on a page the platform hosts itself.
 	 * Capability-gated: meaningful only when {@code capabilities().paymentMethodEnrollment().isOffered()}.
 	 *

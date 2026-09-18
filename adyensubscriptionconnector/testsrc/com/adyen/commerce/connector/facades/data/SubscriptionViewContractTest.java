@@ -57,7 +57,7 @@ public class SubscriptionViewContractTest
 			"orderCode", "orderDate", "paymentMethodSummary",
 			"cancellable", "manageable",
 			"paymentMethodChangeScope", "paymentMethodChangeable", "paymentMethodChangeCovered",
-			"paymentMethodOptions", "adyenVaultOptions");
+			"paymentMethodOptions", "adyenVaultOptions", "currentPaymentMethodId");
 
 	/** Read on the overview, by the controller rather than the page, but the same contract. */
 	private static final List<String> OVERVIEW_PROPERTIES = Arrays.asList(
