@@ -91,6 +91,26 @@
         </form:form>
     </c:if>
 
+    <%-- The provider's own page for taking a new card. A link, not a form: nothing changes here, and the
+         address is resolved by the controller so the token it carries never reaches this markup. Opens in a
+         new tab because the provider does not send the shopper back, and they need this page afterwards to
+         choose which subscription uses the card. --%>
+    <c:if test="${not empty paymentMethodEnrollmentSubscriptionCode}">
+        <div class="subx-panel subx-panel--quiet">
+            <div class="subx-panel-title">
+                <spring:theme code="text.account.subscriptions.paymentMethod.add"/>
+            </div>
+            <p class="subx-note">
+                <spring:theme code="text.account.subscriptions.paymentMethod.add.effect.${paymentMethodEnrollmentEffect}"/>
+            </p>
+            <a class="btn btn-default subx-btn"
+               target="_blank" rel="noopener noreferrer"
+               href="<c:url value="/my-account/subscriptions/payment-method/add"><c:param name="code" value="${paymentMethodEnrollmentSubscriptionCode}"/></c:url>">
+                <spring:theme code="text.account.subscriptions.paymentMethod.add.submit"/>
+            </a>
+        </div>
+    </c:if>
+
     <%-- Said once, and only when no provider on this page can do it at all. It keys off
          paymentMethodChangeSupportedSomewhere and NOT off what is changeable today: a subscription bought
          minutes ago has not been confirmed by its platform yet, which is not the same as a provider that
@@ -107,14 +127,14 @@
                 <c:forEach items="${subscriptions}" var="subscription" varStatus="row">
 
                     <%-- Both halves of the actions column, decided before the row is opened so the row can collapse
-                         to full width when neither applies. Platform methods, not the Adyen vault: a
-                         subscription-scoped change repoints at something the billing account already holds, and
-                         importing a freshly chosen card is a different operation this platform may refuse outright.
-                         No options, no control - the common case, because most accounts hold exactly one. --%>
+                         to full width when neither applies. Two sources may feed the control: what the billing
+                         account already holds, and cards from the shopper's Adyen vault where the platform accepts
+                         an import. Either one alone is enough; neither means no control. --%>
                     <c:set var="showRowCardChange"
                            value="${subscription.paymentMethodChangeable
                                     and subscription.paymentMethodChangeScope eq 'SUBSCRIPTION'
-                                    and not empty subscription.paymentMethodOptions}"/>
+                                    and (not empty subscription.paymentMethodOptions
+                                         or not empty subscription.adyenVaultOptions)}"/>
                     <c:set var="showRowUnavailable"
                            value="${changeOfferedSomewhere
                                     and subscription.state.paymentMethodChangeable
@@ -204,17 +224,32 @@
                                                     <input type="hidden" name="code"
                                                            value="${fn:escapeXml(subscription.code)}"/>
                                                     <label class="subx-label" for="subxCard-${row.index}">
-                                                        <spring:theme code="text.account.subscriptions.paymentMethod.choose"/>
+                                                        <spring:theme code="text.account.subscriptions.paymentMethod.choose.row"/>
                                                     </label>
                                                     <%-- The label is composed by the adapter, because only it knows
                                                          whether it is describing a card, a mandate or an agreement. --%>
                                                     <select name="storedPaymentMethodId" id="subxCard-${row.index}"
                                                             class="form-control subx-select">
-                                                        <c:forEach items="${subscription.paymentMethodOptions}" var="option">
-                                                            <option value="${fn:escapeXml(option.id)}">
-                                                                ${fn:escapeXml(option.displayLabel)}
-                                                            </option>
-                                                        </c:forEach>
+                                                        <c:if test="${not empty subscription.paymentMethodOptions}">
+                                                            <optgroup label="<spring:theme code='text.account.subscriptions.paymentMethod.group.platform'/>">
+                                                                <c:forEach items="${subscription.paymentMethodOptions}" var="option">
+                                                                    <option value="${fn:escapeXml(option.id)}">
+                                                                        ${fn:escapeXml(option.displayLabel)}<c:if
+                                                                                test="${option.defaultForCustomer}">&nbsp;<spring:theme
+                                                                                code="text.account.subscriptions.paymentMethod.default"/></c:if>
+                                                                    </option>
+                                                                </c:forEach>
+                                                            </optgroup>
+                                                        </c:if>
+                                                        <%-- Already filtered by the facade: a card the platform could not
+                                                             charge never reaches this list. --%>
+                                                        <c:if test="${not empty subscription.adyenVaultOptions}">
+                                                            <optgroup label="<spring:theme code='text.account.subscriptions.paymentMethod.group.vault'/>">
+                                                                <c:forEach items="${subscription.adyenVaultOptions}" var="option">
+                                                                    <option value="${fn:escapeXml(option.id)}">${fn:escapeXml(option.displayLabel)}</option>
+                                                                </c:forEach>
+                                                            </optgroup>
+                                                        </c:if>
                                                     </select>
                                                     <p class="subx-note">
                                                         <spring:theme code="text.account.subscriptions.paymentMethod.note.SUBSCRIPTION"/>

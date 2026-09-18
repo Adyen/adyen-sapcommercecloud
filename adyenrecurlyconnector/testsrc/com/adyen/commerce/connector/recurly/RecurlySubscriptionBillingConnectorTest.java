@@ -30,6 +30,7 @@ import com.adyen.commerce.connector.exception.CapabilityUnsupportedException;
 import com.adyen.commerce.connector.dto.PaymentMethodSource;
 import com.adyen.commerce.connector.dto.PaymentMethodChoice;
 import com.adyen.commerce.connector.dto.PaymentMethodChangeSupport;
+import com.adyen.commerce.connector.dto.PaymentMethodEnrollmentEffect;
 import com.adyen.commerce.connector.dto.PaymentMethodChangeScope;
 import com.adyen.commerce.connector.dto.PaymentMethodChangeRequest;
 import com.adyen.commerce.connector.dto.PaymentMethodChangeOutcome;
@@ -161,7 +162,7 @@ public class RecurlySubscriptionBillingConnectorTest
     public void importsAdyenTokenAndCarriesNtidToSubscriptionReference() throws Exception
     {
         when(configService.getConfiguredAdyenMerchantAccount()).thenReturn("MERCHANT");
-        when(apiClient.importAdyenToken(any(), any(), any(), any(), any())).thenReturn("billing-1");
+        when(apiClient.importAdyenToken(any(), any(), any(), any(), any(), any())).thenReturn("billing-1");
         final AdyenTokenHandle token = new AdyenTokenHandle("MERCHANT", "customer", "token", "ntid", null);
 
         final BillingPaymentMethodRef result = connector.importAdyenToken(new TokenImportRequest(
@@ -169,7 +170,8 @@ public class RecurlySubscriptionBillingConnectorTest
                 RecurringProcessingModel.SUBSCRIPTION));
 
         assertEquals("billing-1::ntid::ntid", result.externalId());
-        verify(apiClient).importAdyenToken("code-customer", "customer", "token", null, null);
+        // The NTID now reaches the client as its own argument; what the client does with it is gated there.
+        verify(apiClient).importAdyenToken("code-customer", "customer", "token", null, "ntid", null);
     }
 
     @Test
@@ -177,7 +179,7 @@ public class RecurlySubscriptionBillingConnectorTest
     {
         when(configService.isWalletEnabled()).thenReturn(false);
         when(configService.getConfiguredAdyenMerchantAccount()).thenReturn("MERCHANT");
-        when(apiClient.importAdyenToken(any(), any(), any(), any(), any())).thenReturn("billing-1");
+        when(apiClient.importAdyenToken(any(), any(), any(), any(), any(), any())).thenReturn("billing-1");
         final AdyenTokenHandle token = new AdyenTokenHandle("MERCHANT", "customer", "token", "ntid", null);
 
         final BillingPaymentMethodRef result = connector.importAdyenToken(new TokenImportRequest(
@@ -332,6 +334,114 @@ public class RecurlySubscriptionBillingConnectorTest
         assertFalse(support.accepts(PaymentMethodSource.ADYEN_VAULTED_TOKEN));
     }
 
+    /** A vaulted card is only offerable where importing an external token is confirmed available. */
+    @Test
+    public void offersTheAdyenVaultOnlyWhereExternalTokenImportIsConfirmed() {
+        when(configService.isPaymentMethodChangeEnabledOrFalse()).thenReturn(true);
+        when(configService.isExternalNtidFeatureEnabledOrFalse()).thenReturn(false);
+        assertFalse(connector.capabilities().paymentMethodChange()
+                .accepts(PaymentMethodSource.ADYEN_VAULTED_TOKEN));
+
+        when(configService.isExternalNtidFeatureEnabledOrFalse()).thenReturn(true);
+        final PaymentMethodChangeSupport support = connector.capabilities().paymentMethodChange();
+        assertTrue(support.accepts(PaymentMethodSource.ADYEN_VAULTED_TOKEN));
+        // The platform's own methods stay on offer; the vault is an addition, not a replacement.
+        assertTrue(support.accepts(PaymentMethodSource.ALREADY_ON_PLATFORM));
+    }
+
+    /** A vaulted card is imported first and the subscription is then pointed at what the import produced. */
+    @Test
+    public void importsAVaultedCardAndThenPointsTheSubscriptionAtIt() throws Exception {
+        when(configService.isPaymentMethodChangeEnabledOrFalse()).thenReturn(true);
+        when(configService.isExternalNtidFeatureEnabled()).thenReturn(true);
+        when(configService.isExternalNtidFeatureEnabledOrFalse()).thenReturn(true);
+        when(configService.getConfiguredAdyenMerchantAccount()).thenReturn("MERCHANT");
+        when(apiClient.importAdyenToken(any(), any(), any(), any(), any(), any())).thenReturn("billing-9");
+
+        final PaymentMethodChangeOutcome outcome = connector.changePaymentMethod(new PaymentMethodChangeRequest(
+                new BillingCustomerRef(BillingPlatform.RECURLY, "code-customer"),
+                new BillingSubscriptionRef(BillingPlatform.RECURLY, "uuid-sub-1"),
+                new PaymentMethodChoice.AdyenVaultedToken(new AdyenTokenHandle("MERCHANT", "customer",
+                        "token-1", "NTID-42", null)),
+                "key-1"));
+
+        // The reference the import returns packs the NTID; only the billing info id may be assigned.
+        verify(apiClient).assignBillingInfo(eq("uuid-sub-1"), eq("billing-9"), any());
+        assertEquals(PaymentMethodChangeScope.SUBSCRIPTION, outcome.appliedScope());
+    }
+
+    /** No network transaction id, no import: the refusal is the import path's own guard, not a new one. */
+    @Test
+    public void refusesAVaultedCardAdyenReportsNoAuthorisationFor() throws Exception {
+        when(configService.isPaymentMethodChangeEnabledOrFalse()).thenReturn(true);
+        when(configService.isExternalNtidFeatureEnabled()).thenReturn(true);
+        when(configService.isExternalNtidFeatureEnabledOrFalse()).thenReturn(true);
+        when(configService.getConfiguredAdyenMerchantAccount()).thenReturn("MERCHANT");
+
+        final PaymentMethodChangeRequest request = new PaymentMethodChangeRequest(
+                new BillingCustomerRef(BillingPlatform.RECURLY, "code-customer"),
+                new BillingSubscriptionRef(BillingPlatform.RECURLY, "uuid-sub-1"),
+                new PaymentMethodChoice.AdyenVaultedToken(new AdyenTokenHandle("MERCHANT", "customer",
+                        "token-1", null, null)),
+                "key-1");
+
+        assertThrows(PreconditionFailedException.class, () -> connector.changePaymentMethod(request));
+        verify(apiClient, never()).assignBillingInfo(any(), any(), any());
+    }
+
+    @Test
+    public void declaresNoHostedPageUntilItsOwnSwitchIsOn() {
+        when(configService.isHostedAccountManagementEnabledOrFalse()).thenReturn(false);
+
+        assertFalse(connector.capabilities().paymentMethodEnrollment().isOffered());
+    }
+
+    /**
+     * Recurly's hosted pages show and edit the primary billing info only, so what the shopper does there
+     * replaces the card on file rather than adding one; the page says that before they leave.
+     */
+    @Test
+    public void declaresThatItsHostedPageReplacesTheCardOnFile() {
+        when(configService.isHostedAccountManagementEnabledOrFalse()).thenReturn(true);
+
+        assertEquals(PaymentMethodEnrollmentEffect.REPLACES_METHOD_ON_FILE,
+                connector.capabilities().paymentMethodEnrollment().effect());
+    }
+
+    /** The two switches are independent: neither one turns the other on. */
+    @Test
+    public void offersTheHostedPageWithoutOfferingARepoint() {
+        when(configService.isHostedAccountManagementEnabledOrFalse()).thenReturn(true);
+        when(configService.isPaymentMethodChangeEnabledOrFalse()).thenReturn(false);
+
+        final ConnectorCapabilities capabilities = connector.capabilities();
+
+        assertTrue(capabilities.paymentMethodEnrollment().isOffered());
+        assertFalse(capabilities.paymentMethodChange().isSupported());
+    }
+
+    @Test
+    public void mintsTheHostedPageAddressOnlyWhenAsked() throws Exception {
+        when(configService.isHostedAccountManagementEnabledOrFalse()).thenReturn(true);
+        when(apiClient.hostedAccountManagementUrl("code-customer"))
+                .thenReturn("https://mystore.recurly.com/account/abc123");
+
+        assertEquals("https://mystore.recurly.com/account/abc123",
+                connector.paymentMethodEnrollmentPage(
+                        new BillingCustomerRef(BillingPlatform.RECURLY, "code-customer"))
+                        .orElseThrow().url());
+    }
+
+    /** Off means no round trip at all, not an address the page then has to suppress. */
+    @Test
+    public void asksRecurlyForNothingWhileTheHostedPageIsOff() throws Exception {
+        when(configService.isHostedAccountManagementEnabledOrFalse()).thenReturn(false);
+
+        assertTrue(connector.paymentMethodEnrollmentPage(
+                new BillingCustomerRef(BillingPlatform.RECURLY, "code-customer")).isEmpty());
+        verify(apiClient, never()).hostedAccountManagementUrl(any());
+    }
+
     @Test
     public void repointsASubscriptionAtABillingInfoTheAccountAlreadyHolds() throws Exception {
         when(configService.isPaymentMethodChangeEnabledOrFalse()).thenReturn(true);
@@ -353,8 +463,9 @@ public class RecurlySubscriptionBillingConnectorTest
      * for one, which a token vaulted earlier cannot supply.
      */
     @Test
-    public void refusesACardChosenFreshlyFromTheAdyenVault() {
+    public void refusesACardFromTheAdyenVaultWhileExternalTokenImportIsUnavailable() {
         when(configService.isPaymentMethodChangeEnabledOrFalse()).thenReturn(true);
+        when(configService.isExternalNtidFeatureEnabledOrFalse()).thenReturn(false);
 
         assertThrows(CapabilityUnsupportedException.class,
                 () -> connector.changePaymentMethod(new PaymentMethodChangeRequest(

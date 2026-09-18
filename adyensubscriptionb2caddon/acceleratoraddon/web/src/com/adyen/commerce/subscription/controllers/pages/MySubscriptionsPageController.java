@@ -22,12 +22,15 @@ package com.adyen.commerce.subscription.controllers.pages;
 
 import jakarta.annotation.Resource;
 
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.View;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import org.springframework.web.servlet.view.RedirectView;
 
 import com.adyen.commerce.connector.facades.MySubscriptionsFacade;
 import com.adyen.commerce.facades.AdyenStoredCardsFacade;
@@ -103,6 +106,13 @@ public class MySubscriptionsPageController extends AbstractSearchPageController
 		// Adyen vault, which only this controller knows about, so the two halves meet in the view.
 		model.addAttribute("anyRowPaymentMethodControl",
 				Boolean.valueOf(overview.isAnyRowPaymentMethodControl()));
+		// Only whether to show the invitation and what to warn about. The address itself is minted when the
+		// shopper clicks, because on some platforms it is a credential and this page is not the place for one.
+		model.addAttribute("paymentMethodEnrollmentSubscriptionCode",
+				overview.getPaymentMethodEnrollmentSubscriptionCode());
+		model.addAttribute("paymentMethodEnrollmentEffect",
+				overview.getPaymentMethodEnrollmentEffect() == null
+						? null : overview.getPaymentMethodEnrollmentEffect().name());
 		model.addAttribute("breadcrumbs", accountBreadcrumbBuilder.getBreadcrumbs("text.account.subscriptions"));
 		// A page listing what somebody is paying for every month has no business in a search index.
 		model.addAttribute("metaRobots", "no-index,no-follow");
@@ -171,5 +181,36 @@ public class MySubscriptionsPageController extends AbstractSearchPageController
 		GlobalMessages.addFlashMessage(redirectAttributes, holder, messageKey);
 
 		return REDIRECT_TO_SUBSCRIPTIONS;
+	}
+
+	/**
+	 * Sends the shopper to their billing platform's own page for giving it a payment method.
+	 *
+	 * <p>{@code GET} because nothing changes here: the shopper is handed a destination, and the platform
+	 * decides what happens once they arrive. The address is resolved per request and never rendered into
+	 * the page, so on Recurly - where it carries a token that opens the account - it does not sit in the
+	 * markup, in the browser's history for this site, or in a referrer.</p>
+	 *
+	 * <p>Redirect rather than a link in the page for the same reason. The facade refuses a code the shopper
+	 * does not own, so nothing here can address another customer's billing account.</p>
+	 */
+	@RequestMapping(value = "/payment-method/add", method = RequestMethod.GET)
+	@RequireHardLogIn
+	public View addPaymentMethod(@RequestParam("code") final String code,
+			final RedirectAttributes redirectAttributes)
+	{
+		final String url = mySubscriptionsFacade.paymentMethodEnrollmentUrlForCurrentCustomer(code);
+		if (StringUtils.isBlank(url))
+		{
+			GlobalMessages.addFlashMessage(redirectAttributes, GlobalMessages.ERROR_MESSAGES_HOLDER,
+					"text.account.subscriptions.paymentMethod.add.unavailable");
+			return new RedirectView("/my-account/subscriptions", true);
+		}
+
+		final RedirectView redirect = new RedirectView(url);
+		// Nothing from this page is appended to the platform's address: on Recurly it already carries the
+		// token that opens the account, and whatever were appended would travel to the platform with it.
+		redirect.setExposeModelAttributes(false);
+		return redirect;
 	}
 }

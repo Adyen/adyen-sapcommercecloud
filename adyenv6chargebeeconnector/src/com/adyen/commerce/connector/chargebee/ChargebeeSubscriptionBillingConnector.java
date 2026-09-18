@@ -51,6 +51,7 @@ import com.adyen.commerce.connector.dto.PaymentMethodChangeOutcome;
 import com.adyen.commerce.connector.dto.PaymentMethodChangeRequest;
 import com.adyen.commerce.connector.dto.PaymentMethodChangeScope;
 import com.adyen.commerce.connector.dto.PaymentMethodChangeSupport;
+import com.adyen.commerce.connector.dto.PaymentMethodEnrollmentSupport;
 import com.adyen.commerce.connector.dto.PaymentMethodChoice;
 import com.adyen.commerce.connector.dto.PaymentMethodSource;
 import com.adyen.commerce.connector.dto.PlanRef;
@@ -96,7 +97,10 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 			new PaymentMethodChangeSupport(PaymentMethodChangeScope.CUSTOMER,
 					// Only a vaulted Adyen card: this adapter never reads Chargebee's own payment sources,
 					// so declaring that source would offer options every submission refuses.
-					Set.of(PaymentMethodSource.ADYEN_VAULTED_TOKEN)));
+					Set.of(PaymentMethodSource.ADYEN_VAULTED_TOKEN)),
+			// Chargebee hosts such a page, but this adapter does not request one; offering it would be a
+			// link to nothing.
+			PaymentMethodEnrollmentSupport.NONE);
 
 	private static final String AUTHORIZATION_HEADER = "Authorization";
 	private static final String BASIC_PREFIX = "Basic ";

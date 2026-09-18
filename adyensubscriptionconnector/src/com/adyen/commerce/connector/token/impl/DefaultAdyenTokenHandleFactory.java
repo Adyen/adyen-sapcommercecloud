@@ -109,6 +109,14 @@ public class DefaultAdyenTokenHandleFactory implements AdyenTokenHandleFactory
 	public AdyenTokenHandle createForStoredToken(final CustomerModel customer, final BaseStoreModel store,
 			final String storedPaymentMethodId, final CardMetadata cardMetadata) throws TokenContractException
 	{
+		return createForVaultedToken(customer, store, storedPaymentMethodId, null, cardMetadata);
+	}
+
+	@Override
+	public AdyenTokenHandle createForVaultedToken(final CustomerModel customer, final BaseStoreModel store,
+			final String storedPaymentMethodId, final String networkTransactionId,
+			final CardMetadata cardMetadata) throws TokenContractException
+	{
 		if (customer == null || StringUtils.isBlank(customer.getCustomerID()))
 		{
 			throw new TokenContractException("Cannot build a token handle without a customer carrying a "
@@ -126,10 +134,8 @@ public class DefaultAdyenTokenHandleFactory implements AdyenTokenHandleFactory
 					+ "build a token handle that could not be charged");
 		}
 
-		// No networkTransactionId: nothing is authorised on this path. A connector that needs one rejects
-		// the handle in its own validation rather than being handed a fabricated value.
-		return new AdyenTokenHandle(merchantAccount, customer.getCustomerID(), storedPaymentMethodId, null,
-				cardMetadata);
+		return new AdyenTokenHandle(merchantAccount, customer.getCustomerID(), storedPaymentMethodId,
+				StringUtils.trimToNull(networkTransactionId), cardMetadata);
 	}
 
 	protected CardMetadata buildCardMetadata(final PaymentInfoModel paymentInfo)

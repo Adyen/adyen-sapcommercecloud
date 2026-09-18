@@ -5,6 +5,7 @@ import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -127,7 +128,7 @@ public class DefaultRecurlyApiClientTest
                 .thenReturn(new RecurlyHttpResponse(HTTP_CREATED, "{\"id\":\"billing-1\"}"));
 
         final String billingInfoId = client.importAdyenToken("code-customer", "shopper-1", "token-1",
-                new CardMetadata("visa", "1111", null, "03/2030", "credit"),
+                new CardMetadata("visa", "1111", null, "03/2030", "credit"), null,
                 new BillingAddress("Ada", "Lovelace", "1 Main St", "Suite 2", "Warsaw", "MZ", "00-001", "PL",
                         "+48123456789", true));
 
@@ -163,7 +164,7 @@ public class DefaultRecurlyApiClientTest
                 .thenReturn(new RecurlyHttpResponse(HTTP_CREATED, "{\"id\":\"billing-1\"}"));
 
         // Derived from the delivery address, so the name is the recipient's, not the cardholder's.
-        client.importAdyenToken("code-customer", "shopper-1", "token-1", null,
+        client.importAdyenToken("code-customer", "shopper-1", "token-1", null, null,
                 new BillingAddress("Bob", "Recipient", "9 Ship St", null, "Berlin", null, "10115", "DE", null, false));
 
         final ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
@@ -186,7 +187,7 @@ public class DefaultRecurlyApiClientTest
         when(httpClient.get(BASE + "/accounts/code-customer/billing_info", auth, ACCEPT))
                 .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"id\":\"billing-1\"}"));
 
-        client.importAdyenToken("code-customer", "shopper-1", "token-1", null,
+        client.importAdyenToken("code-customer", "shopper-1", "token-1", null, null,
                 new BillingAddress("Bob", "Recipient", "9 Ship St", null, "Berlin", null, "10115", "DE", null, false));
 
         final ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
@@ -208,7 +209,7 @@ public class DefaultRecurlyApiClientTest
         when(httpClient.get(BASE + "/accounts/code-customer/billing_info", auth, ACCEPT))
                 .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"id\":\"billing-1\"}"));
 
-        assertEquals("billing-1", client.importAdyenToken("code-customer", "shopper-1", "token-1", null,
+        assertEquals("billing-1", client.importAdyenToken("code-customer", "shopper-1", "token-1", null, null,
                 new BillingAddress("Ada", "Lovelace", "1 Main St", null, "Warsaw", null, "00-001", "PL", null, true)));
 
         final ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
@@ -236,7 +237,7 @@ public class DefaultRecurlyApiClientTest
                 .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"id\":\"billing-1\"}"));
 
         assertEquals("billing-1",
-                client.importAdyenToken("code-customer", "shopper-1", "token-1", null, null));
+                client.importAdyenToken("code-customer", "shopper-1", "token-1", null, null, null));
 
         final ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
         verify(httpClient).put(eq(BASE + "/accounts/code-customer/billing_info"), eq(auth), eq(ACCEPT), body.capture(),
@@ -260,7 +261,7 @@ public class DefaultRecurlyApiClientTest
                         + "\"payment_gateway_references\":[{\"token\":\"token-1\"}]}"));
 
         assertEquals("billing-1",
-                client.importAdyenToken("code-customer", "shopper-1", "token-1", null, null));
+                client.importAdyenToken("code-customer", "shopper-1", "token-1", null, null, null));
 
         verify(httpClient, never()).put(any(), any(), any(), any(), any());
         verify(httpClient, never()).post(any(), any(), any(), any(), any());
@@ -280,7 +281,7 @@ public class DefaultRecurlyApiClientTest
                         + "\"payment_gateway_references\":[{\"token\":\"token-1\"}]}"));
 
         assertEquals("billing-1",
-                client.importAdyenToken("code-customer", "shopper-1", "token-1", null, null));
+                client.importAdyenToken("code-customer", "shopper-1", "token-1", null, null, null));
 
         verify(httpClient, never()).put(any(), any(), any(), any(), any());
     }
@@ -299,7 +300,7 @@ public class DefaultRecurlyApiClientTest
                         + "\"payment_gateway_references\":[{\"token\":\"somebody-elses-token\"}]}"));
 
         assertThrows(PreconditionFailedException.class,
-                () -> client.importAdyenToken("code-customer", "shopper-1", "token-1", null, null));
+                () -> client.importAdyenToken("code-customer", "shopper-1", "token-1", null, null, null));
 
         verify(httpClient, never()).put(any(), any(), any(), any(), any());
         verify(httpClient, never()).post(any(), any(), any(), any(), any());
@@ -318,7 +319,7 @@ public class DefaultRecurlyApiClientTest
                 .thenReturn(new RecurlyHttpResponse(HTTP_CREATED, "{\"id\":\"billing-new\"}"));
 
         assertEquals("billing-new",
-                client.importAdyenToken("code-customer", "shopper-1", "token-1", null, null));
+                client.importAdyenToken("code-customer", "shopper-1", "token-1", null, null, null));
 
         final ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
         verify(httpClient).post(eq(BASE + "/accounts/code-customer/billing_infos"), eq(auth), eq(ACCEPT),
@@ -712,7 +713,7 @@ public class DefaultRecurlyApiClientTest
                         + "\"primary_payment_method\":true,"
                         + "\"payment_method\":{\"card_type\":\"Visa\",\"last_four\":\"4242\","
                         + "\"exp_month\":\"4\",\"exp_year\":\"2030\"}},"
-                        + "{\"id\":\"billing-2\",\"payment_method\":{\"object\":\"paypal\"}}]"));
+                        + "{\"id\":\"billing-2\",\"payment_method\":{\"object\":\"gateway_token\"}}]"));
 
         final List<PlatformPaymentMethod> methods = client.listBillingInfos("code-customer");
 
@@ -721,9 +722,98 @@ public class DefaultRecurlyApiClientTest
         assertEquals("Visa \u2022\u2022\u2022\u2022 4242", methods.get(0).displayLabel());
         assertTrue(methods.get(0).defaultForCustomer());
         assertEquals("04/2030", methods.get(0).card().expiry());
-        // Not a card, and the label still says something a shopper can tell apart.
-        assertEquals("paypal", methods.get(1).displayLabel());
+        // No card detail: a neutral label, never payment_method.object. Recurly reports an externally
+        // vaulted method as "gateway_token", which is an API enum and not a thing to show a shopper.
+        assertEquals("Saved payment method", methods.get(1).displayLabel());
         assertFalse(methods.get(1).defaultForCustomer());
+    }
+
+    @Test
+    public void keepsTheNetworkTransactionIdOffTheBillingInfoUntilItsOwnSwitchIsOn() throws Exception
+    {
+        givenAnEmptyWallet();
+
+        client.importAdyenToken("code-customer", "shopper-1", "token-1", null, "NTID-42", null);
+
+        // Off by default: Recurly documents the field on /subscriptions and /purchases only, so sending it
+        // here could turn a working import into a rejection.
+        assertFalse(capturedBillingInfoBody().contains("network_transaction_id"));
+    }
+
+    @Test
+    public void putsTheNetworkTransactionIdOnTheBillingInfoOnceTheSwitchIsOn() throws Exception
+    {
+        givenAnEmptyWallet();
+        when(configService.isNetworkTransactionIdOnBillingInfoEnabled()).thenReturn(true);
+
+        client.importAdyenToken("code-customer", "shopper-1", "token-1", null, "NTID-42", null);
+
+        assertTrue(capturedBillingInfoBody().contains("\"network_transaction_id\":\"NTID-42\""));
+    }
+
+    /** Even with the switch on, a token Adyen reports no authorisation for sends no empty field. */
+    @Test
+    public void sendsNoNetworkTransactionIdFieldWhenThereIsNoneToSend() throws Exception
+    {
+        givenAnEmptyWallet();
+        when(configService.isNetworkTransactionIdOnBillingInfoEnabled()).thenReturn(true);
+
+        client.importAdyenToken("code-customer", "shopper-1", "token-1", null, null, null);
+
+        assertFalse(capturedBillingInfoBody().contains("network_transaction_id"));
+    }
+
+    private void givenAnEmptyWallet() throws Exception
+    {
+        when(configService.getGatewayCode()).thenReturn("adyen-gateway");
+        when(httpClient.get(BASE + "/accounts/code-customer/billing_infos", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, "[]"));
+        when(httpClient.post(contains("/billing_infos"), any(), any(), any(), any()))
+                .thenReturn(new RecurlyHttpResponse(HTTP_CREATED, "{\"id\":\"billing-1\"}"));
+    }
+
+    private String capturedBillingInfoBody() throws Exception
+    {
+        final ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
+        verify(httpClient).post(contains("/billing_infos"), any(), any(), body.capture(), any());
+        return body.getValue();
+    }
+
+    @Test
+    public void buildsTheHostedPageAddressFromTheConfiguredHostAndTheAccountsToken() throws Exception
+    {
+        when(configService.getHostedPagesHost()).thenReturn("mystore.recurly.com");
+        when(httpClient.get(BASE + "/accounts/code-customer", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK,
+                        "{\"id\":\"acct-1\",\"hosted_login_token\":\"abc123\"}"));
+
+        assertEquals("https://mystore.recurly.com/account/abc123",
+                client.hostedAccountManagementUrl("code-customer"));
+    }
+
+    @Test
+    public void offersNoHostedPageWhenTheAccountCarriesNoToken() throws Exception
+    {
+        when(configService.getHostedPagesHost()).thenReturn("mystore.recurly.com");
+        when(httpClient.get(BASE + "/accounts/code-customer", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"id\":\"acct-1\"}"));
+
+        assertNull(client.hostedAccountManagementUrl("code-customer"));
+    }
+
+    @Test
+    public void refusesAConfiguredHostThatIsNotABareHostName() throws Exception
+    {
+        // Anything carrying a scheme, a path, an "@" or a port would send the shopper - and the token
+        // appended to it - somewhere other than Recurly.
+        for (final String host : new String[] { "https://mystore.recurly.com", "evil.example.com/x",
+                "mystore.recurly.com:8443", "attacker.example.com@mystore.recurly.com", "localhost", "" })
+        {
+            when(configService.getHostedPagesHost()).thenReturn(host);
+            assertNull("accepted '" + host + "'", client.hostedAccountManagementUrl("code-customer"));
+        }
+        // Refused before the account is ever read, so a broken configuration costs no round trip.
+        verify(httpClient, never()).get(contains("/accounts/code-customer"), any(), any());
     }
 
     @Test

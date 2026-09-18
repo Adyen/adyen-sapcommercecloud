@@ -32,6 +32,8 @@ package com.adyen.commerce.connector.dto;
  * @param tokenImportStyle             how the token pair is expressed on import
  * @param paymentMethodChange          whose billing a shopper-initiated payment-method change moves and
  *                                     which sources it accepts, or {@code NONE} where it cannot be done
+ * @param paymentMethodEnrollment      whether the platform hosts a page where the shopper can give it a
+ *                                     payment method, and what arriving there does, or {@code NONE}
  */
 public record ConnectorCapabilities(boolean requiresNetworkTransactionId,
                                     boolean supportsImmediateStart,
@@ -39,7 +41,8 @@ public record ConnectorCapabilities(boolean requiresNetworkTransactionId,
                                     boolean requiresPreConfiguredPlan,
                                     boolean liveTokenValidationOnImport,
                                     TokenImportStyle tokenImportStyle,
-                                    PaymentMethodChangeSupport paymentMethodChange)
+                                    PaymentMethodChangeSupport paymentMethodChange,
+                                    PaymentMethodEnrollmentSupport paymentMethodEnrollment)
 {
 	public ConnectorCapabilities
 	{
@@ -47,5 +50,6 @@ public record ConnectorCapabilities(boolean requiresNetworkTransactionId,
 		// No default: whether a shopper can change their card is a question each adapter has to answer,
 		// and a wrongly inherited answer is a control the platform cannot honour.
 		Dtos.requireValue(paymentMethodChange, "paymentMethodChange");
+		Dtos.requireValue(paymentMethodEnrollment, "paymentMethodEnrollment");
 	}
 }

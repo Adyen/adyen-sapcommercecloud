@@ -52,6 +52,16 @@ public interface MySubscriptionsFacade
 	 *         customer's subscription, no longer in a state that can be cancelled, or the platform refused
 	 *         — because telling them apart on screen would tell an unauthenticated caller which codes exist
 	 */
+	/**
+	 * The address of the platform's own payment-method page for the shopper who owns this subscription, or
+	 * {@code null} when there is none to give — the code is not theirs, their platform hosts no such page,
+	 * or building the address failed.
+	 *
+	 * <p>Called when the shopper asks to go there, never while the page renders: on Recurly the address
+	 * embeds a token that opens the account, so it is minted only for somebody who clicked.</p>
+	 */
+	String paymentMethodEnrollmentUrlForCurrentCustomer(String subscriptionCode);
+
 	boolean cancelForCurrentCustomer(String code);
 
 	/**

@@ -34,6 +34,7 @@ import static org.mockito.Mockito.when;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -45,6 +46,8 @@ import org.mockito.MockitoAnnotations;
 import com.adyen.commerce.connector.dto.AdyenTokenHandle;
 import com.adyen.commerce.connector.dto.BillingPaymentMethodRef;
 import com.adyen.commerce.connector.dto.ConnectorCapabilities;
+import com.adyen.commerce.connector.dto.PaymentMethodEnrollmentSupport;
+import com.adyen.commerce.connector.dto.PaymentMethodEnrollmentEffect;
 import com.adyen.commerce.connector.dto.NormalizedSubscriptionStatus;
 import com.adyen.commerce.connector.dto.PaymentMethodChangeOutcome;
 import com.adyen.commerce.connector.dto.PaymentMethodChangeSupport;
@@ -292,6 +295,50 @@ public class DefaultMySubscriptionsFacadeTest
 		assertFalse(facade.cancelForCurrentCustomer("someone-elses-code"));
 
 		verify(subscriptionBillingService, never()).cancel(any(), any());
+	}
+
+	/**
+	 * The same lookup guards the hosted page, and it has to: on Recurly that address signs its holder into
+	 * the account, so a code belonging to somebody else must yield nothing rather than a link.
+	 */
+	@Test
+	public void mintsNoHostedPageAddressForACodeThatIsNotThisCustomers() throws Exception
+	{
+		givenNoResults();
+
+		assertNull(facade.paymentMethodEnrollmentUrlForCurrentCustomer("someone-elses-code"));
+
+		verify(subscriptionBillingService, never()).paymentMethodEnrollmentPage(any());
+	}
+
+	/** A platform hosting no such page is not asked for an address. */
+	@Test
+	public void mintsNoHostedPageAddressWhenTheServiceOffersNone() throws Exception
+	{
+		givenSubscriptionOnAPlatformThatSupportsTheChange(NormalizedSubscriptionStatus.ACTIVE);
+		when(subscriptionBillingService.paymentMethodEnrollmentPage(any())).thenReturn(Optional.empty());
+
+		assertNull(facade.paymentMethodEnrollmentUrlForCurrentCustomer("code-1"));
+	}
+
+	/**
+	 * Rendering the list decides only whether to invite the shopper, from declared capability; it never
+	 * mints the address, which on Recurly would be a credential minted for somebody who has not clicked.
+	 */
+	@Test
+	public void namesTheRowAndTheEffectWithoutMintingAnAddress() throws Exception
+	{
+		givenSubscriptionOnAPlatformThatSupportsTheChange(NormalizedSubscriptionStatus.ACTIVE);
+		when(connector.capabilities()).thenReturn(new ConnectorCapabilities(false, true, false, true, true,
+				TokenImportStyle.SLASH_JOINED, PaymentMethodChangeSupport.NONE,
+				new PaymentMethodEnrollmentSupport(PaymentMethodEnrollmentEffect.REPLACES_METHOD_ON_FILE)));
+
+		final SubscriptionOverviewData overview = facade.getSubscriptionsForCurrentCustomer();
+
+		assertEquals("code-1", overview.getPaymentMethodEnrollmentSubscriptionCode());
+		assertEquals(PaymentMethodEnrollmentEffect.REPLACES_METHOD_ON_FILE,
+				overview.getPaymentMethodEnrollmentEffect());
+		verify(subscriptionBillingService, never()).paymentMethodEnrollmentPage(any());
 	}
 
 	/** The state is re-derived from the row rather than trusted from a form that may be minutes old. */
@@ -703,7 +750,7 @@ public class DefaultMySubscriptionsFacadeTest
 		when(connectorRegistry.getConnector(BillingPlatform.CHARGEBEE)).thenReturn(connector);
 		when(connector.capabilities()).thenReturn(capabilities(PaymentMethodChangeScope.CUSTOMER));
 		// A real handle rather than a mock: the request record validates its arguments.
-		when(tokenHandleFactory.createForStoredToken(any(), any(), any(), any()))
+		when(tokenHandleFactory.createForVaultedToken(any(), any(), any(), any(), any()))
 				.thenReturn(new AdyenTokenHandle("MERCHANT", "shopper-1", "card-mine", null, null));
 		when(subscriptionBillingService.changePaymentMethod(any(), any()))
 				.thenReturn(new PaymentMethodChangeOutcome(
@@ -719,7 +766,8 @@ public class DefaultMySubscriptionsFacadeTest
 				? new PaymentMethodChangeSupport(scope, Set.of(scope == PaymentMethodChangeScope.SUBSCRIPTION
 						? PaymentMethodSource.ALREADY_ON_PLATFORM : PaymentMethodSource.ADYEN_VAULTED_TOKEN))
 				: PaymentMethodChangeSupport.NONE;
-		return new ConnectorCapabilities(false, true, false, true, true, TokenImportStyle.SLASH_JOINED, support);
+		return new ConnectorCapabilities(false, true, false, true, true, TokenImportStyle.SLASH_JOINED,
+				support, PaymentMethodEnrollmentSupport.NONE);
 	}
 
 	private void givenVaultHolding(final String... storedPaymentMethodIds)
@@ -750,12 +798,24 @@ public class DefaultMySubscriptionsFacadeTest
 	}
 
 	@SuppressWarnings("unchecked")
+	/**
+	 * Only the subscription query answers with the row. The list page also looks up orders stuck in
+	 * activation, and handing that lookup a {@code BillingSubscriptionRef} would fail on the cast rather
+	 * than on anything the test is about.
+	 */
 	private void givenSingleResult(final BillingSubscriptionRefModel ref)
 	{
 		final SearchResult<BillingSubscriptionRefModel> result = mock(SearchResult.class);
 		when(result.getResult()).thenReturn(List.of(ref));
+		final SearchResult<BillingSubscriptionRefModel> none = mock(SearchResult.class);
+		when(none.getResult()).thenReturn(List.of());
 		when(flexibleSearchService.<BillingSubscriptionRefModel> search(any(FlexibleSearchQuery.class)))
-				.thenReturn(result);
+				.thenAnswer(invocation -> {
+					// findTheOnlySubscription() asks with a mock carrying no query text at all; only a
+					// query that names another type is answered with nothing.
+					final String asked = ((FlexibleSearchQuery) invocation.getArgument(0)).getQuery();
+					return asked == null || asked.contains("{BillingSubscriptionRef}") ? result : none;
+				});
 	}
 
 	@SuppressWarnings("unchecked")

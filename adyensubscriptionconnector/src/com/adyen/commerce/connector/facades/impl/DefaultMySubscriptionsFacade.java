@@ -36,6 +36,8 @@ import com.adyen.commerce.connector.context.SubscriptionBaseStoreSelectorStrateg
 import com.adyen.commerce.connector.dto.CancelReason;
 import com.adyen.commerce.connector.dto.PaymentMethodChangeSupport;
 import com.adyen.commerce.connector.dto.PaymentMethodChoice;
+import com.adyen.commerce.connector.dto.PaymentMethodEnrollmentPage;
+import com.adyen.commerce.connector.dto.PaymentMethodEnrollmentSupport;
 import com.adyen.commerce.connector.dto.PaymentMethodSource;
 import com.adyen.commerce.connector.dto.PlatformPaymentMethod;
 import com.adyen.commerce.connector.dto.PaymentMethodChangeScope;
@@ -107,17 +109,55 @@ public class DefaultMySubscriptionsFacade implements MySubscriptionsFacade
 		// A platform's payment methods are per customer, so rows sharing a platform and a customer share one
 		// remote lookup instead of one HTTP round trip each.
 		final Map<String, List<PlatformPaymentMethod>> methodsByCustomer = new HashMap<>();
+		// The Adyen vault is per shopper, not per row, and reading it is a remote call: fetched at most
+		// once for the whole page, and only if some row turns out to accept a vaulted card.
+		final Map<String, List<StoredPaymentMethodResource>> vaultOnce = new HashMap<>();
 		final List<SubscriptionEntryData> entries = new ArrayList<>();
-		for (final BillingSubscriptionRefModel ref : findSubscriptions(customer))
+		final List<BillingSubscriptionRefModel> refs = findSubscriptions(customer);
+		for (final BillingSubscriptionRefModel ref : refs)
 		{
-			entries.add(toEntry(ref, methodsByCustomer));
+			entries.add(toEntry(ref, methodsByCustomer, vaultOnce));
 		}
 		overview.setSubscriptions(entries);
 		overview.setOrdersAwaitingSetup(findOrdersAwaitingSetup(customer));
+		applyPaymentMethodEnrollmentOffer(overview, refs);
 		// Reads the entries just built rather than querying again: the offer has to describe the rows the
 		// shopper is looking at.
 		applyPaymentMethodChangeOffer(overview);
 		return overview;
+	}
+
+	@Override
+	public String paymentMethodEnrollmentUrlForCurrentCustomer(final String subscriptionCode)
+	{
+		final CustomerModel customer = currentCustomer();
+		if (customer == null || StringUtils.isBlank(subscriptionCode))
+		{
+			return null;
+		}
+
+		// Resolved from the shopper's own subscriptions, so a code they do not own yields nothing rather
+		// than a link into somebody else's billing account.
+		final BillingSubscriptionRefModel ref = findOwnSubscription(customer, subscriptionCode);
+		if (ref == null)
+		{
+			return null;
+		}
+
+		try
+		{
+			return inStoreContext(ref, () -> subscriptionBillingService.paymentMethodEnrollmentPage(ref))
+					.map(PaymentMethodEnrollmentPage::url)
+					.orElse(null);
+		}
+		catch (final RuntimeException e)
+		{
+			// Deliberately without the exception's message: on platforms whose page is reached by a
+			// credential in the URL, a failure while building it can carry that credential.
+			LOG.warn("Could not build the payment-method page for platform {} and subscription '{}': {}",
+					ref.getPlatform(), subscriptionCode, e.getClass().getName());
+			return null;
+		}
 	}
 
 	@Override
@@ -269,6 +309,50 @@ public class DefaultMySubscriptionsFacade implements MySubscriptionsFacade
 		return declaredSupportFor(ref).scope();
 	}
 
+	/** What the connector behind this row says its platform's own payment-method page would do. */
+	protected PaymentMethodEnrollmentSupport declaredEnrollmentFor(final BillingSubscriptionRefModel ref)
+	{
+		try
+		{
+			return inStoreContext(ref,
+					() -> connectorRegistry.getConnector(ref.getPlatform()).capabilities().paymentMethodEnrollment());
+		}
+		catch (final RuntimeException e)
+		{
+			return PaymentMethodEnrollmentSupport.NONE;
+		}
+	}
+
+	/**
+	 * Decides whether to invite the shopper to their platform's own payment-method page, and against which
+	 * row.
+	 *
+	 * <p>The first row that both carries a public code and sits on a platform offering the page wins, for
+	 * the same reason the page-level change control picks that way: the invitation has to name a
+	 * subscription the POST can resolve back to a customer and a store.</p>
+	 *
+	 * <p>Only the URL is withheld until the shopper clicks. Whether to show the invitation is answered from
+	 * declared capability alone, so rendering the page mints no credential.</p>
+	 */
+	protected void applyPaymentMethodEnrollmentOffer(final SubscriptionOverviewData overview,
+			final List<BillingSubscriptionRefModel> refs)
+	{
+		for (final BillingSubscriptionRefModel ref : refs)
+		{
+			if (StringUtils.isBlank(ref.getCode()))
+			{
+				continue;
+			}
+			final PaymentMethodEnrollmentSupport enrollment = declaredEnrollmentFor(ref);
+			if (enrollment.isOffered())
+			{
+				overview.setPaymentMethodEnrollmentEffect(enrollment.effect());
+				overview.setPaymentMethodEnrollmentSubscriptionCode(ref.getCode());
+				return;
+			}
+		}
+	}
+
 	/**
 	 * Raised when the chosen token is not among the cards Adyen holds for this shopper.
 	 *
@@ -392,19 +476,124 @@ public class DefaultMySubscriptionsFacade implements MySubscriptionsFacade
 			// Deliberately not through the render path's forgiving helper: a listing that could not be read
 			// says nothing about ownership, so it must surface as a failure rather than as a refusal.
 			final List<PlatformPaymentMethod> offered = listPlatformMethods(ref);
-			if (offered.stream().noneMatch(method -> optionId.equals(method.id())))
+			if (offered.stream().anyMatch(method -> optionId.equals(method.id())))
+			{
+				return new PaymentMethodChoice.AlreadyOnPlatform(optionId);
+			}
+			// One opaque id, two possible namespaces. An id absent from the platform's own list is only a
+			// candidate for the vault when the connector accepts vaulted tokens too; otherwise it is simply
+			// not this shopper's.
+			if (!support.accepts(PaymentMethodSource.ADYEN_VAULTED_TOKEN))
 			{
 				throw new TokenNotOwnedException("The chosen payment method is not one this subscription's "
 						+ "platform holds for this customer");
 			}
-			return new PaymentMethodChoice.AlreadyOnPlatform(optionId);
 		}
+		return vaultedChoice(customer, ref, optionId);
+	}
+
+	/**
+	 * The shopper's Adyen-vaulted cards that this row's platform could actually be pointed at.
+	 *
+	 * <p>A platform that charges an imported token as a merchant-initiated transaction needs the network
+	 * transaction id of the authorisation that vaulted it, and Adyen does not report one for every token.
+	 * Such a card is left out rather than offered, because its submission would be refused by the adapter -
+	 * the same rule {@code PaymentMethodChangeSupport} applies to sources.</p>
+	 */
+	protected List<PlatformPaymentMethod> vaultOptionsFor(final BillingSubscriptionRefModel ref,
+			final Map<String, List<StoredPaymentMethodResource>> vaultOnce)
+	{
+		final boolean needsNtid = requiresNetworkTransactionId(ref);
+		final List<StoredPaymentMethodResource> vault = vaultOnce.computeIfAbsent("vault", key -> readVault());
+		if (vault.isEmpty())
+		{
+			return List.of();
+		}
+
+		final List<PlatformPaymentMethod> options = new ArrayList<>();
+		int withoutNetworkTransactionId = 0;
+		for (final StoredPaymentMethodResource card : vault)
+		{
+			if (StringUtils.isBlank(card.getId()))
+			{
+				continue;
+			}
+			if (needsNtid && StringUtils.isBlank(card.getNetworkTxReference()))
+			{
+				withoutNetworkTransactionId++;
+				continue;
+			}
+			options.add(new PlatformPaymentMethod(card.getId(), vaultLabel(card), cardMetadataOf(card), false));
+		}
+		// Presence only, never the value: it is a scheme-level payment identifier. The counts are what
+		// answers "why is my new card not on the list" without a debugger.
+		LOG.info("Adyen vault for subscription '{}': {} card(s), {} offered, {} withheld for carrying no "
+				+ "network transaction id (platform requires one: {}).", ref.getCode(),
+				Integer.valueOf(vault.size()), Integer.valueOf(options.size()),
+				Integer.valueOf(withoutNetworkTransactionId), Boolean.valueOf(needsNtid));
+		return options;
+	}
+
+	/** The shopper's vault, or nothing: a listing that cannot be read withholds cards rather than failing
+	 *  the page, which still renders every subscription and the platform's own methods. */
+	protected List<StoredPaymentMethodResource> readVault()
+	{
+		try
+		{
+			final List<StoredPaymentMethodResource> vault =
+					storedCardsFacade.getStoredCardsPageDataForCurrentCustomer().getStoredCards();
+			return vault == null ? List.of() : vault;
+		}
+		catch (final RuntimeException e)
+		{
+			LOG.warn("Could not read the shopper's Adyen vault; offering no vaulted cards on this page.", e);
+			return List.of();
+		}
+	}
+
+	protected boolean requiresNetworkTransactionId(final BillingSubscriptionRefModel ref)
+	{
+		try
+		{
+			return inStoreContext(ref, () -> Boolean.valueOf(connectorRegistry.getConnector(ref.getPlatform())
+					.capabilities().requiresNetworkTransactionId())).booleanValue();
+		}
+		catch (final RuntimeException e)
+		{
+			// Unknown means withhold: offering a card the platform then refuses is worse than offering none.
+			return true;
+		}
+	}
+
+	/** What a vaulted card is called on the page. The vault reports brand and last four separately. */
+	protected String vaultLabel(final StoredPaymentMethodResource card)
+	{
+		final String lastFour = StringUtils.trimToNull(card.getLastFour());
+		final String brand = StringUtils.trimToNull(card.getBrand());
+		if (lastFour == null)
+		{
+			return StringUtils.defaultIfBlank(brand, "Saved card");
+		}
+		return brand == null ? "\u2022\u2022\u2022\u2022 " + lastFour
+				: brand + " \u2022\u2022\u2022\u2022 " + lastFour;
+	}
+
+	/**
+	 * A card from the shopper's Adyen vault, carrying whatever authorisation Adyen still reports for it.
+	 *
+	 * <p>The network transaction id is read rather than defaulted: platforms that charge an imported token
+	 * as a merchant-initiated transaction are refused by their own adapter without one, and that refusal is
+	 * the correct outcome for a token Adyen reports none for.</p>
+	 */
+	protected PaymentMethodChoice vaultedChoice(final CustomerModel customer,
+			final BillingSubscriptionRefModel ref, final String optionId)
+	{
 		final StoredPaymentMethodResource card = ownedCard(customer, optionId);
 		final BaseStoreModel store = storeOf(ref);
 		try
 		{
-			return new PaymentMethodChoice.AdyenVaultedToken(tokenHandleFactory.createForStoredToken(
-					customer, store, optionId, cardMetadataOf(card)));
+			return new PaymentMethodChoice.AdyenVaultedToken(tokenHandleFactory.createForVaultedToken(
+					customer, store, optionId, card.getNetworkTxReference(), cardMetadataOf(card)));
 		}
 		catch (final Exception e)
 		{
@@ -626,12 +815,19 @@ public class DefaultMySubscriptionsFacade implements MySubscriptionsFacade
 
 	protected SubscriptionEntryData toEntry(final BillingSubscriptionRefModel ref)
 	{
-		// A cache of its own, so a single-row caller need not know the cache exists.
+		// Caches of its own, so a single-row caller need not know they exist.
 		return toEntry(ref, new HashMap<>());
 	}
 
 	protected SubscriptionEntryData toEntry(final BillingSubscriptionRefModel ref,
 			final Map<String, List<PlatformPaymentMethod>> methodsByCustomer)
+	{
+		return toEntry(ref, methodsByCustomer, new HashMap<>());
+	}
+
+	protected SubscriptionEntryData toEntry(final BillingSubscriptionRefModel ref,
+			final Map<String, List<PlatformPaymentMethod>> methodsByCustomer,
+			final Map<String, List<StoredPaymentMethodResource>> vaultOnce)
 	{
 		final SubscriptionEntryData entry = new SubscriptionEntryData();
 		entry.setCode(ref.getCode());
@@ -662,6 +858,11 @@ public class DefaultMySubscriptionsFacade implements MySubscriptionsFacade
 			// Fewer than two is not a choice: the only thing on the list is what is already billing. Most
 			// accounts hold exactly one, so this is the common case rather than an edge.
 			entry.setPaymentMethodOptions(offered.size() < 2 ? List.of() : offered);
+		}
+
+		if (entry.isPaymentMethodChangeable() && support.accepts(PaymentMethodSource.ADYEN_VAULTED_TOKEN))
+		{
+			entry.setAdyenVaultOptions(vaultOptionsFor(ref, vaultOnce));
 		}
 
 		final AbstractOrderModel order = ref.getOrder();

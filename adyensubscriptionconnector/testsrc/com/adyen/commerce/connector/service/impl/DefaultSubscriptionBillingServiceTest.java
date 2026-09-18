@@ -60,6 +60,7 @@ import com.adyen.commerce.connector.dto.BillingSubscriptionRef;
 import com.adyen.commerce.connector.dto.CancelReason;
 import com.adyen.commerce.connector.dto.CancellationTiming;
 import com.adyen.commerce.connector.dto.ConnectorCapabilities;
+import com.adyen.commerce.connector.dto.PaymentMethodEnrollmentSupport;
 import com.adyen.commerce.connector.dto.NormalizedSubscriptionStatus;
 import com.adyen.commerce.connector.dto.PlanRef;
 import com.adyen.commerce.connector.dto.SubscriptionCancelRequest;
@@ -580,12 +581,13 @@ public class DefaultSubscriptionBillingServiceTest
 	{
 		return new ConnectorCapabilities(false, true, false, true, true, TokenImportStyle.SLASH_JOINED,
 				new PaymentMethodChangeSupport(PaymentMethodChangeScope.CUSTOMER,
-						Set.of(PaymentMethodSource.ADYEN_VAULTED_TOKEN)));
+						Set.of(PaymentMethodSource.ADYEN_VAULTED_TOKEN)),
+				PaymentMethodEnrollmentSupport.NONE);
 	}
 
 	private static ConnectorCapabilities requiresNtidCaps()
 	{
 		return new ConnectorCapabilities(true, false, false, true, false, TokenImportStyle.SEPARATE_FIELDS,
-				PaymentMethodChangeSupport.NONE);
+				PaymentMethodChangeSupport.NONE, PaymentMethodEnrollmentSupport.NONE);
 	}
 }

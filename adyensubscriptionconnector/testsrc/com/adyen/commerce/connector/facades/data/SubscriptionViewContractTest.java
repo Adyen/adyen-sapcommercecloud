@@ -57,13 +57,14 @@ public class SubscriptionViewContractTest
 			"orderCode", "orderDate", "paymentMethodSummary",
 			"cancellable", "manageable",
 			"paymentMethodChangeScope", "paymentMethodChangeable", "paymentMethodChangeCovered",
-			"paymentMethodOptions");
+			"paymentMethodOptions", "adyenVaultOptions");
 
 	/** Read on the overview, by the controller rather than the page, but the same contract. */
 	private static final List<String> OVERVIEW_PROPERTIES = Arrays.asList(
 			"subscriptions", "ordersAwaitingSetup", "paymentMethodSubscriptionCode",
 			"paymentMethodChangeScope", "anyPaymentMethodChangeable",
-			"paymentMethodChangeSupportedSomewhere", "anyRowPaymentMethodControl", "empty");
+			"paymentMethodChangeSupportedSomewhere", "anyRowPaymentMethodControl", "empty",
+			"paymentMethodEnrollmentSubscriptionCode", "paymentMethodEnrollmentEffect");
 
 	/**
 	 * Read on each option of a row's payment-method picker.

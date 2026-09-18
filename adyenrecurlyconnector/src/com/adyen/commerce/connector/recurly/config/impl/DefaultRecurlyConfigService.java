@@ -137,6 +137,36 @@ public class DefaultRecurlyConfigService implements RecurlyConfigService {
                 && Boolean.TRUE.equals(config.getPaymentMethodChangeEnabled());
     }
 
+    @Override
+    public boolean isHostedAccountManagementEnabledOrFalse() {
+        final RecurlyConfigModel config = findRecurlyConfig();
+        // The host is part of the answer, not a separate error: Recurly has no endpoint that returns a
+        // hosted-page address, so without it there is nothing to send the shopper to.
+        return config != null
+                && Boolean.TRUE.equals(config.getHostedAccountManagementEnabled())
+                && StringUtils.isNotBlank(config.getHostedPagesHost());
+    }
+
+    @Override
+    public String getHostedPagesHost() {
+        final RecurlyConfigModel config = findRecurlyConfig();
+        return config == null ? null : config.getHostedPagesHost();
+    }
+
+    @Override
+    public boolean isExternalNtidFeatureEnabledOrFalse() {
+        final RecurlyConfigModel config = findRecurlyConfig();
+        return config != null && Boolean.TRUE.equals(config.getExternalNtidFeatureEnabled());
+    }
+
+    @Override
+    public boolean isNetworkTransactionIdOnBillingInfoEnabled() {
+        final RecurlyConfigModel config = findRecurlyConfig();
+        return config != null
+                && Boolean.TRUE.equals(config.getExternalNtidFeatureEnabled())
+                && Boolean.TRUE.equals(config.getNetworkTransactionIdOnBillingInfoEnabled());
+    }
+
     protected BaseStoreModel getCurrentBaseStore() {
         return baseStoreService.getCurrentBaseStore();
     }

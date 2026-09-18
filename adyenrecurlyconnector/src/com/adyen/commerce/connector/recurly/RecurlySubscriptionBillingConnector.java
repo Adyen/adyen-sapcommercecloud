@@ -3,6 +3,7 @@ package com.adyen.commerce.connector.recurly;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.Map;
 
@@ -21,6 +22,9 @@ import com.adyen.commerce.connector.dto.NormalizedSubscription;
 import com.adyen.commerce.connector.dto.PaymentMethodChangeOutcome;
 import com.adyen.commerce.connector.dto.PaymentMethodChangeRequest;
 import com.adyen.commerce.connector.dto.PaymentMethodChangeSupport;
+import com.adyen.commerce.connector.dto.PaymentMethodEnrollmentSupport;
+import com.adyen.commerce.connector.dto.PaymentMethodEnrollmentPage;
+import com.adyen.commerce.connector.dto.PaymentMethodEnrollmentEffect;
 import com.adyen.commerce.connector.dto.PaymentMethodChoice;
 import com.adyen.commerce.connector.dto.PaymentMethodSource;
 import com.adyen.commerce.connector.dto.PlatformPaymentMethod;
@@ -77,7 +81,8 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
             true,
             false,
             TokenImportStyle.SEPARATE_FIELDS,
-            PaymentMethodChangeSupport.NONE);
+            PaymentMethodChangeSupport.NONE,
+            PaymentMethodEnrollmentSupport.NONE);
 
     private final RecurlyApiClient apiClient;
     private final RecurlyConfigService configService;
@@ -111,14 +116,30 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
 
     @Override
     public ConnectorCapabilities capabilities() {
-        // Two switches in the base store decide this. Neither accessor throws: it is read on the
-        // order-activation path, where an unconfigured store must offer nothing rather than fail a checkout.
-        if (!configService.isPaymentMethodChangeEnabledOrFalse()) {
+        // Switches in the base store decide all of this, and no accessor throws: capabilities are read on
+        // the order-activation path, where an unconfigured store must offer nothing rather than fail a
+        // checkout. Repointing and the hosted page are independent - a site may have either alone.
+        //
+        // SUBSCRIPTION scope because Recurly pins a billing info to one subscription. A card from the Adyen
+        // vault is accepted only where external-token import is available, since importing one means
+        // sending Recurly the network transaction id of the authorisation that vaulted it.
+        final PaymentMethodChangeSupport change = configService.isPaymentMethodChangeEnabledOrFalse()
+                ? new PaymentMethodChangeSupport(PaymentMethodChangeScope.SUBSCRIPTION,
+                        configService.isExternalNtidFeatureEnabledOrFalse()
+                                ? Set.of(PaymentMethodSource.ALREADY_ON_PLATFORM,
+                                        PaymentMethodSource.ADYEN_VAULTED_TOKEN)
+                                : Set.of(PaymentMethodSource.ALREADY_ON_PLATFORM))
+                : PaymentMethodChangeSupport.NONE;
+
+        // REPLACES_METHOD_ON_FILE, not ADDS_METHOD: Recurly's hosted pages show and edit the primary
+        // billing info only, so a shopper cannot use them to put a second card in the wallet.
+        final PaymentMethodEnrollmentSupport enrollment = configService.isHostedAccountManagementEnabledOrFalse()
+                ? new PaymentMethodEnrollmentSupport(PaymentMethodEnrollmentEffect.REPLACES_METHOD_ON_FILE)
+                : PaymentMethodEnrollmentSupport.NONE;
+
+        if (!change.isSupported() && !enrollment.isOffered()) {
             return BASE_CAPABILITIES;
         }
-        // SUBSCRIPTION scope because Recurly pins a billing info to one subscription; ALREADY_ON_PLATFORM
-        // only, because importing a freshly picked Adyen card needs a network transaction id that a token
-        // vaulted earlier cannot supply.
         return new ConnectorCapabilities(
                 BASE_CAPABILITIES.requiresNetworkTransactionId(),
                 BASE_CAPABILITIES.supportsImmediateStart(),
@@ -126,8 +147,19 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
                 BASE_CAPABILITIES.requiresPreConfiguredPlan(),
                 BASE_CAPABILITIES.liveTokenValidationOnImport(),
                 BASE_CAPABILITIES.tokenImportStyle(),
-                new PaymentMethodChangeSupport(PaymentMethodChangeScope.SUBSCRIPTION,
-                        Set.of(PaymentMethodSource.ALREADY_ON_PLATFORM)));
+                change,
+                enrollment);
+    }
+
+    @Override
+    public Optional<PaymentMethodEnrollmentPage> paymentMethodEnrollmentPage(final BillingCustomerRef customer)
+            throws BillingException {
+        if (!configService.isHostedAccountManagementEnabledOrFalse()) {
+            return Optional.empty();
+        }
+        verifyRecurlyCustomer(customer);
+        return Optional.ofNullable(apiClient.hostedAccountManagementUrl(customer.externalId()))
+                .map(PaymentMethodEnrollmentPage::new);
     }
 
     @Override
@@ -155,10 +187,24 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
             // A switch expression, so a third kind of choice is a build failure rather than a fall-through.
             final String billingInfoId = switch (request.choice()) {
                 case PaymentMethodChoice.AlreadyOnPlatform onPlatform -> onPlatform.platformPaymentMethodId();
-                case PaymentMethodChoice.AdyenVaultedToken ignored -> throw new CapabilityUnsupportedException(
-                        "Recurly cannot be pointed at a card freshly chosen from the Adyen vault: importing "
-                                + "one needs the network transaction id of the transaction that authorised "
-                                + "it, and a token vaulted earlier has none to give");
+                // Imported first, then assigned. importAdyenToken applies every guard this path needs -
+                // external-NTID support, merchant-account binding, token ownership, and the refusal of a
+                // handle carrying no network transaction id - and is idempotent on an already-imported
+                // token, so a repeated submission reuses the billing info rather than duplicating it.
+                case PaymentMethodChoice.AdyenVaultedToken vaulted -> {
+                    // Re-checked for the same reason as the change switch above, and reported as a
+                    // capability rather than a failure: with external-token import unavailable this is
+                    // something Recurly cannot do here, not something that went wrong.
+                    if (!configService.isExternalNtidFeatureEnabledOrFalse()) {
+                        throw new CapabilityUnsupportedException("Recurly cannot be pointed at a card from "
+                                + "the Adyen vault unless external-token import is available: the import "
+                                + "carries the network transaction id of the authorisation that vaulted it");
+                    }
+                    yield RecurlyPaymentMethodReference
+                            .parse(importAdyenToken(new TokenImportRequest(request.customer(), vaulted.token(),
+                                    RecurringProcessingModel.SUBSCRIPTION)).externalId())
+                            .billingInfoId();
+                }
             };
 
             final String subscriptionId = request.subscription().externalId();
@@ -231,7 +277,8 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
             final String billingInfoId;
             try {
                 billingInfoId = apiClient.importAdyenToken(request.customer().externalId(), token.shopperReference(),
-                        token.storedPaymentMethodId(), token.cardMetadata(), request.billingAddress());
+                        token.storedPaymentMethodId(), token.cardMetadata(), token.networkTransactionId(),
+                        request.billingAddress());
             } catch (final BillingException e) {
                 ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
                         .failure(startedAt, e)

@@ -27,6 +27,9 @@
 .subx-panel { border: 1px solid #dfe3e8; border-radius: 3px; padding: 18px 20px; margin: 0 0 24px; }
 .subx-panel-title { font-size: 15px; font-weight: 600; color: #153a59; margin: 0 0 12px; }
 .subx-panel-fields { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+/* The invitation to leave the site sits below the control that acts here, so it reads as the fallback. */
+.subx-panel--quiet { background: #fafbfc; }
+.subx-panel--quiet .subx-note { margin: 0 0 14px; }
 .subx-field { flex: 1 1 260px; min-width: 0; }
 /* The theme uppercases account labels; ours say ordinary words and read better
    as ordinary words, so the transform is reset rather than inherited.        */

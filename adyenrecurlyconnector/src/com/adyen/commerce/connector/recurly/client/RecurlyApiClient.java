@@ -20,7 +20,7 @@ public interface RecurlyApiClient {
      * configured mode, the token is either the account's single primary billing info or a Wallet billing info.
      */
     String importAdyenToken(String accountId, String shopperReference, String storedPaymentMethodId, CardMetadata card,
-                            BillingAddress billingAddress) throws BillingException;
+                            String networkTransactionId, BillingAddress billingAddress) throws BillingException;
 
     String createSubscription(RecurlySubscriptionParams params) throws BillingException;
 
@@ -33,6 +33,16 @@ public interface RecurlyApiClient {
      * Account Updater.</p>
      */
     List<PlatformPaymentMethod> listBillingInfos(String accountId) throws BillingException;
+
+    /**
+     * The address of Recurly's hosted account management page for this account, or {@code null} when the
+     * account carries no hosted login token.
+     *
+     * <p>Assembled rather than requested: Recurly has no endpoint that returns a hosted-page link. The
+     * result embeds a token that signs the shopper straight into their Recurly account, so it is a
+     * credential - never log it, never store it.</p>
+     */
+    String hostedAccountManagementUrl(String accountId) throws BillingException;
 
     /**
      * Points an existing subscription at one of the account's billing infos

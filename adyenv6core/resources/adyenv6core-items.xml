@@ -1072,6 +1072,39 @@
                     <persistence type="property"/>
                     <defaultvalue>Boolean.FALSE</defaultvalue>
                 </attribute>
+                <attribute qualifier="networkTransactionIdOnBillingInfoEnabled" type="java.lang.boolean">
+                    <description>Send the Adyen network transaction id alongside the imported token when a
+                        billing info is created. Recurly documents NTIDs as accepted only on /subscriptions
+                        and /purchases, so this is unproven: off, an import behaves exactly as before; on,
+                        Recurly may reject the whole import. Turn it on only to establish what Recurly does
+                        with the field, and only once both NTID support flags are confirmed enabled.</description>
+                    <modifiers optional="false"/>
+                    <persistence type="property"/>
+                    <defaultvalue>Boolean.FALSE</defaultvalue>
+                </attribute>
+                <attribute qualifier="hostedPagesHost" type="java.lang.String">
+                    <description>Host serving this site's Recurly hosted pages, host only and no scheme or
+                        path, e.g. mystore.recurly.com. Recurly's API hands out no link to them, so the
+                        address is assembled from this plus the account's hosted login token; copy the host
+                        out of the Account Management URL shown in the Recurly admin, which is also what
+                        makes this correct on sites not served from recurly.com.</description>
+                    <persistence type="property">
+                        <columntype>
+                            <value>varchar(255)</value>
+                        </columntype>
+                    </persistence>
+                </attribute>
+                <attribute qualifier="hostedAccountManagementEnabled" type="java.lang.boolean">
+                    <description>Offer shoppers a link to Recurly's own hosted account management page, where
+                        they can give Recurly a card it collects itself. Requires Hosted Account Management to
+                        be switched on in the Recurly admin and a hostedPagesHost here; with either missing the
+                        link is not offered. Note what the page does: it shows and edits the PRIMARY billing
+                        info only, so a shopper cannot add a second card to the wallet from it, and the link
+                        carries a token that opens the whole account.</description>
+                    <modifiers optional="false"/>
+                    <persistence type="property"/>
+                    <defaultvalue>Boolean.FALSE</defaultvalue>
+                </attribute>
             </attributes>
         </itemtype>
 

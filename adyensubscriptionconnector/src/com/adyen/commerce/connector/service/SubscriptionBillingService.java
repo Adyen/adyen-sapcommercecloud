@@ -21,9 +21,11 @@
 package com.adyen.commerce.connector.service;
 
 import java.util.List;
+import java.util.Optional;
 
 import com.adyen.commerce.connector.dto.AdyenTokenHandle;
 import com.adyen.commerce.connector.dto.PaymentMethodChoice;
+import com.adyen.commerce.connector.dto.PaymentMethodEnrollmentPage;
 import com.adyen.commerce.connector.dto.PlatformPaymentMethod;
 import com.adyen.commerce.connector.dto.PaymentMethodChangeOutcome;
 import com.adyen.commerce.connector.dto.SubscriptionCancellation;
@@ -88,6 +90,17 @@ public interface SubscriptionBillingService
 	 * accept them back, or when it is not installed at all.
 	 */
 	List<PlatformPaymentMethod> listPaymentMethods(BillingSubscriptionRefModel subscription)
+			throws BillingException;
+
+	/**
+	 * Where this subscription's customer can give the platform a payment method on a page the platform
+	 * hosts. Empty when the platform offers none, when the adapter is not installed, or when the reference
+	 * names no customer.
+	 *
+	 * <p>Asked for only when the shopper has said they want to go there: on Recurly the address is itself
+	 * the credential that opens the account.</p>
+	 */
+	Optional<PaymentMethodEnrollmentPage> paymentMethodEnrollmentPage(BillingSubscriptionRefModel subscription)
 			throws BillingException;
 
 	/**

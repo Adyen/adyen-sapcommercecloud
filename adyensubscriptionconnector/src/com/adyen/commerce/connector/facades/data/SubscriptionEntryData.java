@@ -113,6 +113,25 @@ public class SubscriptionEntryData implements Serializable
 	}
 
 	/**
+	 * Cards from the shopper's Adyen vault this row could be repointed at, for a platform that accepts an
+	 * imported token as well as its own stored methods.
+	 *
+	 * <p>Already filtered: a platform that charges an imported token as a merchant-initiated transaction is
+	 * refused one carrying no network transaction id, so such a card never reaches this list.</p>
+	 */
+	private transient List<PlatformPaymentMethod> adyenVaultOptions = new ArrayList<>();
+
+	public List<PlatformPaymentMethod> getAdyenVaultOptions()
+	{
+		return adyenVaultOptions;
+	}
+
+	public void setAdyenVaultOptions(final List<PlatformPaymentMethod> adyenVaultOptions)
+	{
+		this.adyenVaultOptions = adyenVaultOptions == null ? new ArrayList<>() : adyenVaultOptions;
+	}
+
+	/**
 	 * Whether some control on this page will actually move this row's payment method.
 	 *
 	 * <p>Not the same question as {@link #paymentMethodChangeable}: a row with no public code cannot be

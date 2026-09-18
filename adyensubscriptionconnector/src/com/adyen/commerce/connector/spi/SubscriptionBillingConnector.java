@@ -21,6 +21,7 @@
 package com.adyen.commerce.connector.spi;
 
 import java.util.List;
+import java.util.Optional;
 
 import com.adyen.commerce.connector.dto.BillingCustomerRef;
 import com.adyen.commerce.connector.dto.BillingPaymentMethodRef;
@@ -31,6 +32,7 @@ import com.adyen.commerce.connector.dto.NormalizedBillingEvent;
 import com.adyen.commerce.connector.dto.NormalizedSubscription;
 import com.adyen.commerce.connector.dto.PaymentMethodChangeOutcome;
 import com.adyen.commerce.connector.dto.PaymentMethodChangeRequest;
+import com.adyen.commerce.connector.dto.PaymentMethodEnrollmentPage;
 import com.adyen.commerce.connector.dto.PlatformPaymentMethod;
 import com.adyen.commerce.connector.dto.PlanRef;
 import com.adyen.commerce.connector.dto.PlanResolutionRequest;
@@ -146,6 +148,25 @@ public interface SubscriptionBillingConnector
 			throws BillingException
 	{
 		return List.of();
+	}
+
+	/**
+	 * Where this customer can give the platform a payment method, on a page the platform hosts itself.
+	 * Capability-gated: meaningful only when {@code capabilities().paymentMethodEnrollment().isOffered()}.
+	 *
+	 * <p>A destination, never a storefront artifact - see {@link PaymentMethodEnrollmentPage}. Called when
+	 * the shopper asks to go there rather than while the page renders, because on Recurly the address
+	 * embeds a token that opens the account.</p>
+	 *
+	 * <p>Nothing has changed on the platform when this returns; the shopper has merely been given somewhere
+	 * to go, and may never arrive.</p>
+	 *
+	 * @return the destination, or empty when this connector cannot offer one for this customer
+	 */
+	default Optional<PaymentMethodEnrollmentPage> paymentMethodEnrollmentPage(final BillingCustomerRef customer)
+			throws BillingException
+	{
+		return Optional.empty();
 	}
 
 	/**

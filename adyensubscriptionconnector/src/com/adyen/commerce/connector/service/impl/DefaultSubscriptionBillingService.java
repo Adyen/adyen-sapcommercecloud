@@ -52,6 +52,7 @@ import com.adyen.commerce.connector.dto.PaymentMethodChangeOutcome;
 import com.adyen.commerce.connector.dto.PaymentMethodChangeRequest;
 import com.adyen.commerce.connector.dto.PaymentMethodChangeSupport;
 import com.adyen.commerce.connector.dto.PaymentMethodChoice;
+import com.adyen.commerce.connector.dto.PaymentMethodEnrollmentPage;
 import com.adyen.commerce.connector.dto.PaymentMethodSource;
 import com.adyen.commerce.connector.dto.PlatformPaymentMethod;
 import com.adyen.commerce.connector.dto.PaymentMethodChangeScope;
@@ -214,6 +215,24 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 			return List.of();
 		}
 		return connector.listPaymentMethods(
+				new BillingCustomerRef(subscription.getPlatform(), subscription.getExternalCustomerId()));
+	}
+
+	@Override
+	public Optional<PaymentMethodEnrollmentPage> paymentMethodEnrollmentPage(
+			final BillingSubscriptionRefModel subscription) throws BillingException
+	{
+		if (subscription == null || StringUtils.isBlank(subscription.getExternalCustomerId()))
+		{
+			return Optional.empty();
+		}
+		final SubscriptionBillingConnector connector = connectorRegistry.getConnector(subscription.getPlatform());
+		if (!connector.capabilities().paymentMethodEnrollment().isOffered())
+		{
+			return Optional.empty();
+		}
+		merchantAccountValidator.validate(connector, storeOf(subscription));
+		return connector.paymentMethodEnrollmentPage(
 				new BillingCustomerRef(subscription.getPlatform(), subscription.getExternalCustomerId()));
 	}
 

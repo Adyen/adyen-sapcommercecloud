@@ -46,11 +46,11 @@ public interface AdyenTokenHandleFactory
 	 * Assemble the token contract for a token the shopper already has vaulted, outside any order — the case
 	 * of pointing a running subscription at a different stored card.
 	 *
-	 * <p>Two pieces an order would carry are absent by nature. There is no {@code networkTransactionId},
-	 * since no authorisation happened, so a connector whose
-	 * {@code capabilities().requiresNetworkTransactionId()} is set refuses a handle built this way. And the
-	 * card metadata comes from the vault listing rather than from a PaymentInfo, so it may be partial or
-	 * {@code null}.</p>
+	 * <p>Carries no {@code networkTransactionId}: the caller has not established that an authorisation
+	 * stands behind this token, so a connector whose {@code capabilities().requiresNetworkTransactionId()}
+	 * is set refuses a handle built this way. A caller that does hold one uses
+	 * {@link #createForVaultedToken} instead. The card metadata comes from the vault listing rather than
+	 * from a PaymentInfo, so it may be partial or {@code null}.</p>
 	 *
 	 * @param customer               the shopper who owns the token
 	 * @param store                  the base store whose Adyen merchant account minted it
@@ -60,4 +60,19 @@ public interface AdyenTokenHandleFactory
 	 */
 	AdyenTokenHandle createForStoredToken(CustomerModel customer, BaseStoreModel store,
 			String storedPaymentMethodId, CardMetadata cardMetadata) throws TokenContractException;
+
+	/**
+	 * The same, for a vaulted token whose original authorisation Adyen still reports.
+	 *
+	 * <p>Separate from {@link #createForStoredToken} so that the network transaction id is supplied by a
+	 * caller that actually read one, rather than defaulted: a fabricated or guessed value would be sent to
+	 * a card scheme as the reference of a transaction that never happened. A blank one is kept blank, which
+	 * leaves the handle exactly as unusable to an NTID-requiring platform as the other method's.</p>
+	 *
+	 * @param networkTransactionId Adyen's {@code networkTxReference} for the authorisation that vaulted
+	 *                             this token, or {@code null} when Adyen reports none
+	 */
+	AdyenTokenHandle createForVaultedToken(CustomerModel customer, BaseStoreModel store,
+			String storedPaymentMethodId, String networkTransactionId, CardMetadata cardMetadata)
+			throws TokenContractException;
 }

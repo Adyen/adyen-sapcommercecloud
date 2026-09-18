@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.adyen.commerce.connector.dto.PaymentMethodChangeScope;
+import com.adyen.commerce.connector.dto.PaymentMethodEnrollmentEffect;
 
 /**
  * Everything the subscriptions page shows.
@@ -42,6 +43,40 @@ public class SubscriptionOverviewData implements Serializable
 	 * Codes of orders that were paid for but whose subscription was never created and is not being retried.
 	 * Shown as a banner naming the order, so the shopper has something to quote when they get in touch.
 	 */
+	/**
+	 * What the shopper will find on the platform's own page, or {@code null} when no platform on this page
+	 * hosts one. Its presence is what the view treats as "the invitation may be shown"; its value decides
+	 * whether the shopper is warned that going there overwrites the card the platform holds.
+	 */
+	private PaymentMethodEnrollmentEffect paymentMethodEnrollmentEffect;
+
+	public PaymentMethodEnrollmentEffect getPaymentMethodEnrollmentEffect()
+	{
+		return paymentMethodEnrollmentEffect;
+	}
+
+	public void setPaymentMethodEnrollmentEffect(final PaymentMethodEnrollmentEffect effect)
+	{
+		this.paymentMethodEnrollmentEffect = effect;
+	}
+
+	/**
+	 * The subscription whose platform and customer the invitation resolves against. Chosen by the facade
+	 * for the same reason as {@link #paymentMethodSubscriptionCode}: it has to be a row carrying a public
+	 * identifier.
+	 */
+	private String paymentMethodEnrollmentSubscriptionCode;
+
+	public String getPaymentMethodEnrollmentSubscriptionCode()
+	{
+		return paymentMethodEnrollmentSubscriptionCode;
+	}
+
+	public void setPaymentMethodEnrollmentSubscriptionCode(final String code)
+	{
+		this.paymentMethodEnrollmentSubscriptionCode = code;
+	}
+
 	private List<String> ordersAwaitingSetup = new ArrayList<>();
 
 	public List<SubscriptionEntryData> getSubscriptions()

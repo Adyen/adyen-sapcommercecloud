@@ -90,4 +90,30 @@ public class DomainModelTest
 		final PlanResolutionRequest request = new PlanResolutionRequest("PROD-1", null);
 		assertTrue(request.context().isEmpty());
 	}
+
+	/**
+	 * The shopper is redirected to this unmodified, and on some platforms it carries the credential that
+	 * opens their account, so anything that is not an absolute https address is refused here rather than
+	 * where it would become a redirect.
+	 */
+	@Test
+	public void enrollmentPageRejectsAnythingButAnAbsoluteHttpsAddress()
+	{
+		assertEquals("https://mystore.recurly.com/account/abc",
+				new PaymentMethodEnrollmentPage("https://mystore.recurly.com/account/abc").url());
+		for (final String url : new String[] { "http://mystore.recurly.com/account/abc",
+				"//mystore.recurly.com/account/abc", "/my-account/cards", "javascript:alert(1)", " " })
+		{
+			assertThrows("accepted '" + url + "'", IllegalArgumentException.class,
+					() -> new PaymentMethodEnrollmentPage(url));
+		}
+	}
+
+	/** Offered and "what arriving does" are the same fact, so the page cannot invite without warning. */
+	@Test
+	public void enrollmentSupportIsOfferedOnlyWhenItSaysWhatArrivingDoes()
+	{
+		assertFalse(PaymentMethodEnrollmentSupport.NONE.isOffered());
+		assertTrue(new PaymentMethodEnrollmentSupport(PaymentMethodEnrollmentEffect.ADDS_METHOD).isOffered());
+	}
 }
