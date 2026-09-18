@@ -30,14 +30,13 @@ import com.adyen.commerce.connector.retry.RetryVerdict;
 /**
  * Capped exponential backoff over a bounded number of attempts.
  *
- * <p>With the shipped defaults an activation that keeps failing transiently is tried after 1 minute,
- * 4 minutes, 16 minutes and 64 minutes and is then dead-lettered — about an hour and a half of patience
- * in five attempts. That is deliberately slow: the failure this exists for is a billing platform being
- * down, and hammering a platform that is already struggling is how a short outage turns into a long one.
- * The cap stops the last interval of a longer schedule from stretching into days.</p>
+ * <p>With the defaults, an activation that keeps failing transiently is retried after 1, 4, 16 and 64
+ * minutes and then dead-lettered. The slowness is deliberate: the failure this exists for is a billing
+ * platform being down, and the cap stops the last interval of a longer schedule from stretching into
+ * days.</p>
  *
- * <p>No jitter. Attempts are scheduled from each order's own failure time, not from a shared tick, so
- * they are already spread out; adding randomness would only make the schedule impossible to assert on.</p>
+ * <p>No jitter: attempts are scheduled from each order's own failure time rather than a shared tick, so
+ * they are already spread out.</p>
  */
 public class DefaultBillingRetryPolicy implements BillingRetryPolicy
 {
@@ -63,11 +62,9 @@ public class DefaultBillingRetryPolicy implements BillingRetryPolicy
 	}
 
 	/**
-	 * A failure is terminal when the connector said so. Anything that is not a {@link BillingException} —
-	 * an NPE in our own mapping code, a database hiccup — is treated as retryable instead: it is by
-	 * definition an unclassified failure, and one bounded series of retries costs less than silently
-	 * dead-lettering an order the shopper has already paid for. The attempt cap stops that leniency from
-	 * turning a genuine bug into an endless loop.
+	 * A failure is terminal when the connector said so. Anything that is not a {@link BillingException} is an
+	 * unclassified failure and is treated as retryable, because a bounded series of retries costs less than
+	 * dead-lettering an order the shopper has already paid for; the attempt cap bounds it.
 	 */
 	protected boolean isTerminal(final Throwable failure)
 	{
@@ -81,9 +78,8 @@ public class DefaultBillingRetryPolicy implements BillingRetryPolicy
 	protected Duration backoffFor(final int attemptsSoFar)
 	{
 		final int exponent = Math.max(0, attemptsSoFar - 1);
-		// Computed in double and clamped rather than multiplied out in longs: a generous maxAttempts with a
-		// large multiplier overflows a long duration long before it reaches anything a person would call a
-		// schedule, and the cap makes the overflowed value indistinguishable from the intended one anyway.
+		// Computed in double and clamped rather than multiplied out in longs, which a generous maxAttempts
+		// with a large multiplier overflows.
 		final double scaled = initialBackoff.toMillis() * Math.pow(backoffMultiplier, exponent);
 		if (scaled >= maxBackoff.toMillis())
 		{

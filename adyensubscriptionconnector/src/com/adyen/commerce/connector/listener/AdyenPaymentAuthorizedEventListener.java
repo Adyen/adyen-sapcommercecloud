@@ -12,14 +12,11 @@ import de.hybris.platform.servicelayer.event.impl.AbstractEventListener;
 /**
  * Re-enters the idempotent subscription activation flow after 3DS/redirect authorization.
  *
- * <h3>Where a failure here ends up</h3>
- * <p>Nowhere visible, if you only read this class: {@link SubscriptionOrderActivator#activateFor} never
- * throws and this listener has nobody to report to - an event listener's caller is the multicaster, which
- * would do nothing with an exception but log it. What makes that safe is that the activator journals every
- * attempt it makes as a {@code BillingActivationAttempt} before calling the platform, so a failure on this
- * path is retried by {@code SubscriptionActivationRetryJob} and dead-lettered by the same policy as every
- * other path. Deliberately no second mechanism here: an error handler local to this listener would produce
- * a record the retry job does not read.</p>
+ * <p>Nothing is reported from here: {@link SubscriptionOrderActivator#activateFor} never throws, and an
+ * event listener's caller is the multicaster, which would only log an exception. The activator journals
+ * every attempt as a {@code BillingActivationAttempt} before calling the platform, so a failure on this path
+ * is retried and dead-lettered by {@code SubscriptionActivationRetryJob} under the same policy as every
+ * other path. A handler local to this listener would produce a record that job does not read.</p>
  */
 public class AdyenPaymentAuthorizedEventListener extends AbstractEventListener<AdyenPaymentAuthorizedEvent>
 {
@@ -33,8 +30,8 @@ public class AdyenPaymentAuthorizedEventListener extends AbstractEventListener<A
 		final OrderModel order = event == null ? null : event.getOrder();
 		if (order == null)
 		{
-			// Said out loud rather than passed on as null: the journal is keyed on the order, so an
-			// activation without one could not be recorded, retried or found afterwards either.
+			// The journal is keyed on the order, so an activation without one could not be recorded,
+			// retried or found afterwards.
 			LOG.warn("An Adyen payment authorization arrived without an order; not activating a subscription.");
 			return;
 		}

@@ -58,48 +58,27 @@ import de.hybris.platform.servicelayer.search.FlexibleSearchQuery;
 import de.hybris.platform.servicelayer.search.FlexibleSearchService;
 
 /**
- * Verifies and deduplicates an inbound webhook, resolves the subscriptions it concerns and then reads
- * each subscription's current authoritative state from the billing platform.
+ * Verifies and deduplicates an inbound webhook, resolves the subscriptions it concerns and reads each
+ * subscription's current state from the billing platform.
  *
- * <p>The webhook is deliberately never projected directly onto a local status. A payment failure is a
- * transaction fact, an invoice past-due event is an invoice fact, and even a subscription-created event
- * can describe a future-dated subscription. The event therefore says only "this resource may have
- * changed"; {@link SubscriptionReconciliationService} decides the resulting local state from a live
- * platform snapshot.</p>
- *
- * <p>Delivery ordering is not a state rule. An old cancellation arriving after a reactivation still
- * triggers a read of the current subscription, which converges to the reactivated state. The platform
- * event id remains the deduplication key, while {@code BillingWebhookEventApplication} records the
+ * <p>An event says only that a resource may have changed; {@link SubscriptionReconciliationService}
+ * derives the local state from a live platform snapshot, so delivery ordering carries no state rule. The
+ * platform event id is the deduplication key, and {@code BillingWebhookEventApplication} records the
  * independent result for every subscription behind a multi-subscription invoice.</p>
  *
- * <h3>Failure, retry and the dead letter</h3>
- * <p>The retries on this path are the platform's, not ours: a delivery that fails is answered with an
- * error and the platform sends it again. This class decides only how long that is allowed to go on, and
- * it asks {@link com.adyen.commerce.connector.retry.BillingRetryPolicy} — the same policy the outbound
- * activation path uses, so the two cannot drift on what counts as worth retrying.</p>
- *
- * <p>Two things end it. A terminal failure ends it at once, because a delivery that will fail the same
- * way on replay gains nothing from being replayed. Otherwise the attempt count does, once it passes the
- * policy's cut-off. Either way the delivery is marked {@code DEAD_LETTER} — a terminal outcome, so a
- * later redelivery is dropped against it — and, crucially, the caller is <em>not</em> told it failed.
- * Answering with an error would keep a platform that has been told nothing is wrong redelivering into a
- * row that now discards it, which is a busy way of losing the event twice over.</p>
- *
- * <p>The unknown subscription ends the same way for the same reason. A subscription event naming a local
- * reference that does not exist yet is worth waiting for, because the create/webhook race is real and
- * short. A subscription created straight in the platform's own panel, or one whose local activation was
- * itself given up on, has no reference coming and the wait would never end. The same policy therefore
- * bounds it, and what is left afterwards is recorded as skipped rather than failed: by then the honest
- * reading is not "we could not apply this" but "this subscription is not ours".</p>
+ * <p>Retries belong to the platform: a delivery answered with an error is sent again, and
+ * {@link com.adyen.commerce.connector.retry.BillingRetryPolicy} bounds how long that lasts. Once it stops,
+ * the delivery is marked {@code DEAD_LETTER} and the caller is answered successfully, so the platform stops
+ * redelivering into a row that would discard it. An event naming a local reference that does not exist is
+ * bounded the same way and recorded as skipped.</p>
  */
 public class DefaultSubscriptionBillingWebhookDispatcher implements SubscriptionBillingWebhookDispatcher
 {
 	private static final Logger LOG = LoggerFactory.getLogger(DefaultSubscriptionBillingWebhookDispatcher.class);
 
-	/** One event name for every delivery, so accepted, ignored and failed can be counted against each other. */
+	/** One event name for every delivery, so the outcomes are countable against each other. */
 	private static final String EVENT_DISPATCH = "webhook_dispatched";
 
-	/** Enough for any real webhook body; a cap rather than a size anyone should be aiming at. */
 	protected static final int MAX_STORED_PAYLOAD_LENGTH = 8000;
 
 	protected static final String PROCESSING_RECEIVED = "RECEIVED";
@@ -112,33 +91,20 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 	protected static final String PROCESSING_DEAD_LETTER = "DEAD_LETTER";
 
 	/**
-	 * Outcomes that mean "this delivery is finished, do not process it again". {@code RECEIVED} and
-	 * {@code FAILED} are deliberately absent: an attempt that never reached a verdict must stay eligible
-	 * for the platform's own redelivery, otherwise a transient failure would be silently swallowed
-	 * forever by the dedup check that was supposed to protect us.
-	 *
-	 * <p>{@code DEAD_LETTER} is present for the opposite reason. It is the deliberate decision to stop, so
-	 * a redelivery arriving after it must be dropped rather than restarting a series of attempts that has
-	 * already been given up on and reported.</p>
+	 * Outcomes that finish a delivery and bar it from being processed again. {@code RECEIVED} and
+	 * {@code FAILED} are absent so the platform's own redelivery is still processed; {@code DEAD_LETTER} is
+	 * present so a redelivery arriving after the decision to stop is dropped.
 	 */
 	private static final Set<String> TERMINAL_OUTCOMES = Set.of(PROCESSING_RECONCILED,
 			PROCESSING_SKIPPED_NO_SUBSCRIPTION, PROCESSING_SKIPPED_UNSUPPORTED, PROCESSING_DEAD_LETTER);
 
 	/**
-	 * The event types whose subject is the subscription itself, rather than an invoice or a payment that
-	 * merely mentions one. Enumerated rather than derived from the constant's name, so that a type added
-	 * later has to be classified on purpose: landing in here makes the dispatcher wait for a local
-	 * reference to appear, which is the wrong answer for anything invoice- or payment-shaped.
-	 *
-	 * <p>The membership test is not "is this about a subscription" but "could the local reference still be
-	 * on its way". That is why {@code SUBSCRIPTION_CANCELLATION_SCHEDULED} and
-	 * {@code SUBSCRIPTION_CANCELLATION_REMOVED} are deliberately absent although both are plainly
-	 * subscription-shaped: nobody schedules a cancellation on a subscription that was created moments ago,
-	 * so there is no create/webhook race to protect, and membership would buy nothing while costing a run
-	 * of forced errors and a stored webhook body for every subscription on the platform that is not ours —
-	 * demo data and subscriptions created in the vendor's own panel included. Where the reference does
-	 * exist, which is the case this pair is mapped for, absence changes nothing: reconciliation is not
-	 * gated on the type.</p>
+	 * Event types whose subject is the subscription itself, and for which a missing local reference may
+	 * therefore still be on its way. Membership makes the dispatcher wait, at the cost of forced errors and a
+	 * stored webhook body for every subscription on the platform that is not managed locally, so only types
+	 * where the create/webhook race is real belong here - which is why
+	 * {@code SUBSCRIPTION_CANCELLATION_SCHEDULED} and {@code SUBSCRIPTION_CANCELLATION_REMOVED} are absent
+	 * although both are subscription-shaped.
 	 */
 	private static final Set<BillingEventType> SUBSCRIPTION_SCOPED_TYPES = EnumSet.of(
 			BillingEventType.SUBSCRIPTION_CREATED, BillingEventType.SUBSCRIPTION_ACTIVATED,
@@ -162,8 +128,8 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 		final SubscriptionBillingConnector connector = connectorRegistry.getConnector(platform);
 		final NormalizedBillingEvent event = connector.parseWebhook(raw);
 
-		// Correlated on the platform's own event id, which is also what the delivery is deduplicated on, so a
-		// redelivery and the original it repeats share one identifier across every line either produced.
+		// Correlated on the platform's own event id, which is also the delivery's deduplication key, so a
+		// redelivery and the original it repeats share one identifier.
 		try (ConnectorLogContext correlation = ConnectorLogContext.correlate(event == null ? null : event.eventId()))
 		{
 			try
@@ -174,8 +140,6 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 			}
 			catch (final BillingException | RuntimeException e)
 			{
-				// The methods underneath say what went wrong; this says that a delivery ended in failure, which
-				// is the thing that has to be countable against the deliveries that did not.
 				final BillingException billingFailure = e instanceof BillingException billing ? billing : null;
 				dispatchOutcome(platform, event)
 						.field("exception_class", e.getClass().getName())
@@ -187,11 +151,8 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 	}
 
 	/**
-	 * The stored body, bounded.
-	 *
-	 * <p>An unbounded copy of whatever a third party chose to send is how one pathological delivery fills
-	 * a table, and the diagnosis this is kept for lives in the first few thousand characters. The cut is
-	 * marked rather than silent, so nobody reads a truncated body as the whole of what arrived.</p>
+	 * Bounds the stored body, marking the cut so that a truncated body is not read as the whole of what
+	 * arrived.
 	 */
 	protected String truncatePayload(final String payload)
 	{
@@ -205,10 +166,8 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 	/**
 	 * The shared half of the one line every delivery produces, whichever way it ends.
 	 *
-	 * <p>A {@code null} event is the connector saying the vendor sent something it does not act on. That is
-	 * a successful delivery - the platform is told so, and must be, or it retries forever - but it is not a
-	 * subscription change, and a dashboard that cannot separate the two would read every heartbeat as work
-	 * done.</p>
+	 * <p>A {@code null} event is the connector saying the vendor sent something it does not act on: a
+	 * successful delivery, and not a subscription change.</p>
 	 */
 	protected ConnectorLogEvent dispatchOutcome(final BillingPlatform platform, final NormalizedBillingEvent event)
 	{
@@ -243,8 +202,7 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 		record.setAttemptCount(attemptCount(record) + 1);
 		record.setProcessingStatus(PROCESSING_RECEIVED);
 		record.setLastError(null);
-		// Cleared with the error it belongs to. A redelivery that succeeds leaves no body behind, which is
-		// both the privacy answer and the honest one: the row no longer describes a problem.
+		// The stored body belongs to the error; a delivery that succeeds leaves none behind.
 		record.setPayload(null);
 		if (!claim(record, event, dedupKey))
 		{
@@ -273,8 +231,7 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 	{
 		final RetryVerdict verdict = retryPolicy.decide(failure, attemptCount(record), clock.instant());
 		record.setLastError(describe(failure));
-		// Kept only here, and only now. See the attribute's own description for why the successes are not
-		// worth the personal data they would carry.
+		// Stored only on failure; see the attribute's own description for why a success keeps no body.
 		record.setPayload(truncatePayload(raw == null ? null : raw.payload()));
 
 		if (verdict.retry())
@@ -291,9 +248,8 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 		record.setProcessingStatus(PROCESSING_DEAD_LETTER);
 		record.setDeadLetteredAt(now());
 		modelService.save(record);
-		// Not rethrown. The caller answers the platform with a success it did not earn, on purpose: this
-		// delivery will never be processed now, and letting the platform keep sending it would only produce
-		// traffic that the dedup check discards. The row, and this line, are the record that it was lost.
+		// Not rethrown: the platform is answered with a success so that it stops redelivering an event this
+		// row now discards. The row, and this line, are the record that it was lost.
 		LOG.error("DEAD LETTER: giving up on {} event '{}' for subscription {} on platform {} — {}. It will not be "
 				+ "applied and further redeliveries will be discarded; this needs an operator.", event.type(), dedupKey,
 				event.externalSubscriptionId(), event.platform(), verdict.reason(), failure);
@@ -315,11 +271,9 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 	/**
 	 * Persists the dedup row, which is how this delivery claims the event id.
 	 *
-	 * <p>A failure here is only treated as "another delivery got there first" if the row really is there
-	 * afterwards. Anything else — a lock timeout, a dropped connection, a truncation — is rethrown. Reading
-	 * every save failure as a lost race would be worse than the race it guards against: the caller would
-	 * answer the platform with a success, the platform would never redeliver, and no row would exist to
-	 * show that anything was lost.
+	 * <p>A save failure counts as a lost race only when the row really is there afterwards; anything else -
+	 * a lock timeout, a dropped connection, a truncation - is rethrown, because answering the platform with
+	 * a success would lose the delivery with no row to show for it.</p>
 	 */
 	protected boolean claim(final BillingWebhookEventModel record, final NormalizedBillingEvent event,
 			final String dedupKey)
@@ -406,15 +360,12 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 	}
 
 	/**
-	 * Records that this delivery names a subscription we hold no local reference for, and decides whether
-	 * it is worth waiting for one.
+	 * Records that this delivery names a subscription with no local reference, and decides whether it is
+	 * worth waiting for one.
 	 *
-	 * <p>The waiting is bounded by {@link BillingRetryPolicy} — the same policy {@link #recordFailure}
-	 * consults, so the two cannot disagree on how much patience an event is owed — and the per-subscription
-	 * attempt count on the application row is what it counts. Unbounded, the wait would outlive its own
-	 * premise: the reference never arrives for a subscription that was created in the platform's panel or
-	 * whose activation dead-lettered, so every redelivery would be refused until the platform's own
-	 * schedule expired, leaving a row that never reached a verdict.</p>
+	 * <p>The wait is bounded by {@link BillingRetryPolicy}, counted on the per-subscription attempt count of
+	 * the application row: no reference is coming for a subscription created in the platform's own panel or
+	 * whose local activation was given up on.</p>
 	 *
 	 * @throws RetryableBillingException while the wait is still justified, so the caller answers the
 	 *                                   platform with an error and the platform redelivers
@@ -458,13 +409,8 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 
 	/**
 	 * Whether the event's own subject is the subscription it names, which is the only case where a missing
-	 * local reference might still be on its way.
-	 *
-	 * <p>The answer comes from {@link BillingEventType} and nothing else. It used to come from an
-	 * {@code objectType} attribute that only the Recurly parser wrote — since removed — so for Chargebee it
-	 * was always absent and the fallback dragged every invoice and payment event carrying a subscription id
-	 * onto the waiting path, where a subscription that is simply not ours is indistinguishable from one that
-	 * has not been created yet.</p>
+	 * local reference might still be on its way. The answer comes from {@link BillingEventType} and nothing
+	 * else.
 	 */
 	protected boolean isDirectSubscriptionEvent(final NormalizedBillingEvent event)
 	{
@@ -533,8 +479,8 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 		final BillingWebhookEventModel record = modelService.create(BillingWebhookEventModel.class);
 		record.setPlatform(event.platform());
 		record.setEventId(dedupKey);
-		// No null check: NormalizedBillingEvent's compact constructor rejects a null type, so an unrecognised
-		// event has already been normalised to UNKNOWN by the time it reaches here.
+		// NormalizedBillingEvent's compact constructor rejects a null type, so an unrecognised event has
+		// already been normalised to UNKNOWN by the time it reaches here.
 		record.setEventType(event.type().name());
 		record.setExternalSubscriptionId(event.externalSubscriptionId());
 		record.setOccurredAt(event.occurredAt() == null ? null : Date.from(event.occurredAt()));
@@ -618,7 +564,7 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 		return Date.from(clock.instant());
 	}
 
-	/** Relevant projection fields before a reconciliation, used to version real state changes only. */
+	/** The projection fields taken before a reconciliation; only a real change to them bumps the event version. */
 	protected record Projection(String status, String planCode, Integer quantity, Date currentPeriodStart,
 			Date currentPeriodEnd, Boolean cancelAtPeriodEnd)
 	{

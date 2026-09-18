@@ -30,25 +30,18 @@ import de.hybris.platform.core.HybrisEnumValue;
 /**
  * The connector operation currently running on this thread, published through SLF4J's MDC.
  *
- * <p>It exists to answer a question the lower layers cannot answer for themselves. The HTTP
- * transport sees a method and a URL; it has no idea whether it is carrying a subscription creation
- * or a webhook lookup, and the first attempt to recover that from the URL shape produced labels that
- * were confidently wrong - a GET of a billing info read as {@code import_token}, everything under
- * {@code /subscriptions/} that fell through read as {@code cancel_subscription}. A guess that is
- * usually right is worse than no label, because nothing downstream can tell the two apart.</p>
+ * <p>The adapter states the operation once, at the SPI boundary, and every line logged underneath it -
+ * transport, API client, plan resolver - inherits it verbatim through {@link ConnectorLogEvent}. The lower
+ * layers see only a method and a URL, from which the operation cannot be recovered reliably.</p>
  *
- * <p>So the adapter states the operation once, at the SPI boundary, and every line logged underneath
- * it - transport, API client, plan resolver - inherits it verbatim through
- * {@link ConnectorLogEvent}.</p>
+ * <p>{@link #CORRELATION_ID} is deliberately not set here: it belongs to whatever business action triggered
+ * the call (an order code, a webhook delivery), which only the core knows. Anything the core puts under
+ * that key travels down into the connector lines automatically, which is how a transport timeout becomes
+ * traceable back to an order.</p>
  *
- * <p>{@link #CORRELATION_ID} is deliberately not set here: it belongs to whatever business action
- * triggered the call (an order code, a webhook delivery), which only the core knows. Anything the
- * core puts under that key travels down into the connector lines automatically, which is how a
- * transport timeout becomes traceable back to an order.</p>
- *
- * <p>Scopes nest and restore: closing puts back exactly what was there before, so an inner scope
- * cannot leak into its caller and a connector call made from inside somebody else's MDC context
- * leaves that context intact.</p>
+ * <p>Scopes nest and restore: closing puts back exactly what was there before, so an inner scope cannot
+ * leak into its caller and a connector call made from inside somebody else's MDC context leaves that
+ * context intact.</p>
  */
 public final class ConnectorLogContext implements AutoCloseable
 {

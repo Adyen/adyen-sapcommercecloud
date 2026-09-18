@@ -209,7 +209,10 @@
     <!-- ============================================================= -->
     <bean id="adyensubscriptionconnectorSystemSetup"
           class="com.adyen.commerce.connector.setup.AdyensubscriptionconnectorSystemSetup"
-          parent="abstractCoreSystemSetup"/>
+          parent="abstractCoreSystemSetup">
+        <property name="flexibleSearchService" ref="flexibleSearchService"/>
+        <property name="modelService" ref="modelService"/>
+    </bean>
 
     <!-- ============================================================= -->
     <!-- Activation trigger                                            -->
@@ -231,6 +234,41 @@
           class="com.adyen.commerce.connector.listener.AdyenPaymentAuthorizedEventListener"
           parent="abstractEventListener">
         <property name="subscriptionOrderActivator" ref="subscriptionOrderActivator"/>
+    </bean>
+
+    <!-- The other end of the same story: an order that is cancelled must stop billing the shopper. The
+         cancellation is asked for at the end of the paid period, never immediately - see the service. -->
+    <alias name="defaultSubscriptionOrderCancellationService" alias="subscriptionOrderCancellationService"/>
+    <bean id="defaultSubscriptionOrderCancellationService"
+          class="com.adyen.commerce.connector.activation.impl.DefaultSubscriptionOrderCancellationService">
+        <property name="subscriptionBillingService" ref="subscriptionBillingService"/>
+        <property name="flexibleSearchService" ref="flexibleSearchService"/>
+        <property name="sessionService" ref="sessionService"/>
+        <property name="baseSiteService" ref="baseSiteService"/>
+    </bean>
+
+    <!-- ============================================================= -->
+    <!-- My Account: the shopper's own view of their subscriptions      -->
+    <!-- ============================================================= -->
+    <alias name="defaultMySubscriptionsFacade" alias="mySubscriptionsFacade"/>
+    <bean id="defaultMySubscriptionsFacade"
+          class="com.adyen.commerce.connector.facades.impl.DefaultMySubscriptionsFacade">
+        <property name="userService" ref="userService"/>
+        <property name="flexibleSearchService" ref="flexibleSearchService"/>
+        <property name="productService" ref="productService"/>
+        <property name="subscriptionBillingService" ref="subscriptionBillingService"/>
+        <property name="sessionService" ref="sessionService"/>
+        <property name="baseSiteService" ref="baseSiteService"/>
+        <property name="connectorRegistry" ref="subscriptionBillingConnectorRegistry"/>
+        <property name="tokenHandleFactory" ref="adyenTokenHandleFactory"/>
+        <property name="storedCardsFacade" ref="adyenStoredCardsFacade"/>
+        <property name="storedCardAuthorisationService" ref="adyenStoredCardAuthorisationService"/>
+    </bean>
+
+    <bean id="adyenOrderCancelledSubscriptionListener"
+          class="com.adyen.commerce.connector.listener.AdyenOrderCancelledEventListener"
+          parent="abstractEventListener">
+        <property name="subscriptionOrderCancellationService" ref="subscriptionOrderCancellationService"/>
     </bean>
 
 </beans>

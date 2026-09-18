@@ -36,20 +36,16 @@ import de.hybris.platform.core.model.product.ProductModel;
 /**
  * A product is a subscription product exactly when the active connector can resolve a plan for it.
  *
- * <p>Probing is safe and cheap: both shipped resolvers answer from a FlexibleSearch over their own
- * mapping table, with no remote call and no side effect. It does mean an unmapped product is
- * indistinguishable from a non-subscription one &mdash; the failure mode is "nothing happens", which is
- * visible and harmless, unlike the alternative below.</p>
+ * <p>Probing is cheap and side-effect-free: both shipped resolvers answer from a FlexibleSearch over their
+ * own mapping table, with no remote call. It does mean an unmapped product is indistinguishable from a
+ * non-subscription one, whose failure mode is that nothing happens.</p>
  *
- * <p>The tempting shortcut &mdash; call {@code activateSubscription} for every entry and treat
- * {@link PlanNotMappedException} as "not a subscription" &mdash; is wrong. Inside the service, plan
- * resolution runs <em>after</em> {@code ensureCustomer} and {@code importAdyenToken}, so every ordinary
- * line item in the cart would leave a real customer and an imported payment token behind on the billing
- * platform before being rejected.</p>
- *
- * <p>{@code RuntimeException} is translated here rather than left to escape as itself, because the
- * resolvers are FlexibleSearch-backed and FlexibleSearch throws unchecked: without this the one case the
- * callers most need to tell apart would be the one case the compiler never makes them handle.</p>
+ * <p>Deciding by calling {@code activateSubscription} and treating {@link PlanNotMappedException} as "not a
+ * subscription" would be wrong: inside the service, plan resolution runs <em>after</em>
+ * {@code ensureCustomer} and {@code importAdyenToken}, so every ordinary line item in the cart would leave
+ * a real customer and an imported payment token behind on the billing platform before being rejected.
+ * {@code RuntimeException} is translated here because the resolvers are FlexibleSearch-backed and
+ * FlexibleSearch throws unchecked.</p>
  */
 public class DefaultSubscriptionProductRule implements SubscriptionProductRule
 {
@@ -57,9 +53,8 @@ public class DefaultSubscriptionProductRule implements SubscriptionProductRule
 	public boolean isSubscriptionProduct(final SubscriptionBillingConnector connector, final ProductModel product)
 			throws SubscriptionProductUndecidableException
 	{
-		// Nothing to ask about, and nothing to be undecided over: an entry with no product, or a product
-		// with no code, cannot carry a plan mapping. Callers skip these before getting here; the guard is
-		// so that the rule itself has one answer for every input rather than an NPE for some.
+		// An entry with no product, or a product with no code, cannot carry a plan mapping. The guard gives
+		// the rule one answer for every input rather than an NPE for some.
 		if (connector == null || product == null || StringUtils.isBlank(product.getCode()))
 		{
 			return false;

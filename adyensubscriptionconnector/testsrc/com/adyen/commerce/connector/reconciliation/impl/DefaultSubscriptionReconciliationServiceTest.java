@@ -82,9 +82,8 @@ public class DefaultSubscriptionReconciliationServiceTest
 	}
 
 	/**
-	 * Reflective writes type-check at runtime rather than at compile time, so a renamed or removed attribute
-	 * only shows up as a failing reconciliation in production. Every attribute this service writes has a
-	 * generated setter; this pins that none of them regress to setAttributeValue.
+	 * Reflective writes type-check at runtime rather than at compile time, so a renamed attribute would only
+	 * surface as a failing reconciliation. Every attribute this service writes has a generated setter.
 	 */
 	@Test
 	public void writesEveryAttributeThroughGeneratedSettersRatherThanReflectively() throws Exception
@@ -94,8 +93,8 @@ public class DefaultSubscriptionReconciliationServiceTest
 		service.reconcile(model);
 
 		// The type witness picks the (Object, String, Object) overload. Left to infer, the value matcher
-		// resolves to the more specific localized Map overload, which is a different method after erasure —
-		// the verification would then pass however many plain reflective writes the service made.
+		// resolves to the localized Map overload, a different method after erasure, and the verification
+		// would pass however many plain reflective writes the service made.
 		verify(modelService, never())
 				.setAttributeValue(any(), anyString(), org.mockito.ArgumentMatchers.<Object> any());
 	}

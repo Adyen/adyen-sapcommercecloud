@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.adyen.commerce.connector.dto.BillingAddress;
 import com.adyen.commerce.connector.dto.CardMetadata;
+import com.adyen.commerce.connector.dto.PlatformPaymentMethod;
 import com.adyen.commerce.connector.dto.NormalizedSubscription;
 import com.adyen.commerce.connector.exception.BillingException;
 
@@ -19,9 +20,37 @@ public interface RecurlyApiClient {
      * configured mode, the token is either the account's single primary billing info or a Wallet billing info.
      */
     String importAdyenToken(String accountId, String shopperReference, String storedPaymentMethodId, CardMetadata card,
-                            BillingAddress billingAddress) throws BillingException;
+                            String networkTransactionId, BillingAddress billingAddress) throws BillingException;
 
     String createSubscription(RecurlySubscriptionParams params) throws BillingException;
+
+    /**
+     * The billing infos this account already holds, newest first as Recurly returns them.
+     *
+     * <p>Every one of them, not only those this integration imported: the account belongs to this shopper,
+     * so account scope is the ownership boundary. Filtering by the Adyen account reference would hide the
+     * billing infos Recurly supports best - those collected by its hosted pages, by support, or by the
+     * Account Updater.</p>
+     */
+    List<PlatformPaymentMethod> listBillingInfos(String accountId) throws BillingException;
+
+    /**
+     * The address of Recurly's hosted account management page for this account, or {@code null} when the
+     * account carries no hosted login token.
+     *
+     * <p>Assembled rather than requested: Recurly has no endpoint that returns a hosted-page link. The
+     * result embeds a token that signs the shopper straight into their Recurly account, so it is a
+     * credential - never log it, never store it.</p>
+     */
+    String hostedAccountManagementUrl(String accountId) throws BillingException;
+
+    /**
+     * Points an existing subscription at one of the account's billing infos
+     * ({@code PUT /subscriptions/\{id\}} with {@code billing_info_id}). Affects future billing events only:
+     * it raises no invoice and prorates nothing. Wallet-only - the field is rejected on sites without it.
+     */
+    void assignBillingInfo(String subscriptionId, String billingInfoId, String idempotencyKey)
+            throws BillingException;
 
     void updateSubscription(String subscriptionId, String planCode, Integer quantity, String idempotencyKey)
             throws BillingException;
@@ -30,9 +59,9 @@ public interface RecurlyApiClient {
      * Stops the subscription renewing and lets it serve out the period the customer has paid for
      * ({@code PUT /subscriptions/{id}/cancel} with {@code timeframe=bill_date}).
      *
-     * <p>Separate from {@link #terminate} rather than the two sharing one method and a flag, because Recurly
-     * draws the line between them at the HTTP verb: this one is reversible until the term ends, and the
-     * other one is not. A boolean argument would have made the destructive call look like a value.</p>
+     * <p>Separate from {@link #terminate} rather than the two sharing a method and a flag: Recurly draws the
+     * line between them at the HTTP verb, and this one is reversible until the term ends where the other is
+     * not.</p>
      */
     void cancelAtNextBillDate(String subscriptionId, String idempotencyKey) throws BillingException;
 
@@ -43,7 +72,7 @@ public interface RecurlyApiClient {
      * <p>Recurly's own word for this is <em>terminate</em>, and it is not a cancellation in a hurry: it
      * stops service at once and settles the unused period according to the {@code refund} parameter, which
      * this client does not send — so the account's own default decides what happens to the customer's
-     * money. Reserve it for operator and system decisions.</p>
+     * money.</p>
      */
     void terminate(String subscriptionId, String idempotencyKey) throws BillingException;
 

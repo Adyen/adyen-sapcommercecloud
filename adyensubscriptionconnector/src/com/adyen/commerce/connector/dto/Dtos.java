@@ -25,16 +25,15 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Small shared validation / immutability helpers for the vendor-neutral domain model. Used from the
- * records' compact constructors to enforce invariants and defensively copy mutable inputs. These are
- * programming-contract checks (they throw {@link IllegalArgumentException}); platform/runtime failures
- * are reported via {@link com.adyen.commerce.connector.exception.BillingException} instead.
+ * Shared validation and immutability helpers, used from the records' compact constructors to enforce
+ * invariants and defensively copy mutable inputs. These are programming-contract checks and throw
+ * {@link IllegalArgumentException}; platform and runtime failures are reported via
+ * {@link com.adyen.commerce.connector.exception.BillingException} instead.
  */
 final class Dtos
 {
 	private Dtos()
 	{
-		// utility class
 	}
 
 	static String requireText(final String value, final String field)

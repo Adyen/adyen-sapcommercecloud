@@ -229,7 +229,7 @@ public class ChargebeeSubscriptionBillingConnectorTest
 	@Test
 	public void updateSubscriptionUsesPlanIdNotPriceId() throws Exception
 	{
-		// guards the itemPriceId fix: the sendable id is planId; priceId must be ignored
+		// the sendable id is planId; priceId is ignored
 		connector.updateSubscription(new SubscriptionUpdateRequest(
 				new BillingSubscriptionRef(BillingPlatform.CHARGEBEE, "sub-1"), new PlanRef("price-9", "IGNORED"), 3, null,
 				Map.of(), "k"));
@@ -257,9 +257,8 @@ public class ChargebeeSubscriptionBillingConnectorTest
 	}
 
 	/**
-	 * The two timings reach the same Chargebee endpoint and differ only in {@code cancel_option}, so the
-	 * flag survives one layer further down here than it does on Recurly. It still must not be reachable
-	 * from the wrong timing.
+	 * The two timings reach the same Chargebee endpoint and differ only in {@code cancel_option}, which must
+	 * not be reachable from the wrong timing.
 	 */
 	@Test
 	public void cancelSubscriptionMapsImmediateCancellation() throws Exception
@@ -317,9 +316,9 @@ public class ChargebeeSubscriptionBillingConnectorTest
 	}
 
 	/**
-	 * The fallback timestamp for an event Chargebee sent without {@code occurred_at} has to come from
-	 * the injected clock, not from {@code Instant.now()}: otherwise nothing about the connector's
-	 * sense of time - including the webhook lag it reports - can be asserted.
+	 * The fallback timestamp for an event Chargebee sent without {@code occurred_at} comes from the injected
+	 * clock, not {@code Instant.now()}, so the connector's sense of time and the webhook lag it reports stay
+	 * assertable.
 	 */
 	@Test
 	public void anEventWithoutOccurredAtIsStampedFromTheInjectedClock() throws Exception
@@ -422,9 +421,9 @@ public class ChargebeeSubscriptionBillingConnectorTest
 	}
 
 	/**
-	 * The event a subscription this connector creates actually announces. Chargebee books it with a start
-	 * date and its own scheduler begins it, so {@code subscription_activated} — which marks a trial ending —
-	 * never arrives, and for a long time this was the only lifecycle event mapped.
+	 * The event a subscription this connector creates actually announces: Chargebee books it with a start date
+	 * and its own scheduler begins it, so {@code subscription_activated}, which marks a trial ending, never
+	 * arrives.
 	 */
 	@Test
 	public void parseWebhookTreatsSubscriptionStartedAsAnActivation() throws Exception
@@ -445,8 +444,8 @@ public class ChargebeeSubscriptionBillingConnectorTest
 	}
 
 	/**
-	 * The hosted portal's cancel button. Its own normalized type rather than the scheduled-plan-change one:
-	 * the stored event type is the only trace of a delivery an operator sees, and these are different facts.
+	 * The hosted portal's cancel button maps to its own normalized type rather than the scheduled-plan-change
+	 * one; the stored event type is the only trace of a delivery an operator sees.
 	 */
 	@Test
 	public void parseWebhookNormalizesAScheduledCancellation() throws Exception
@@ -484,14 +483,12 @@ public class ChargebeeSubscriptionBillingConnectorTest
 	}
 
 	/**
-	 * These are left unmapped on purpose, and saying so here is the only thing that tells the difference
-	 * between a decision and an oversight.
+	 * These vendor events are left unmapped on purpose.
 	 *
-	 * <p>The renewal is the one worth explaining: it is already covered, because a renewal charges the card
-	 * and {@code payment_succeeded} carries the subscription id. Mapping it too would reconcile the same
-	 * moment twice — and it maps onto a subscription-scoped type, so for every subscription on the site that
-	 * this store did not create it would take the path that answers with an error and asks to be sent
-	 * again, once per billing cycle. The rest have nowhere to land: the local projection holds no payment
+	 * <p>A renewal is already covered, because it charges the card and {@code payment_succeeded} carries the
+	 * subscription id; mapping it as well would reconcile the same moment twice, and being subscription-scoped
+	 * it would answer with an error and ask to be sent again once per billing cycle for every subscription on
+	 * the site this store did not create. The rest have nowhere to land: the local projection holds no payment
 	 * method, no scheduled plan change and no shipping address.</p>
 	 */
 	@Test

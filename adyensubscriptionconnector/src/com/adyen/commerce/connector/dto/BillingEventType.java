@@ -21,26 +21,17 @@
 package com.adyen.commerce.connector.dto;
 
 /**
- * Normalized inbound billing event types. Each connector maps its platform's webhook
- * vocabulary onto this enum in {@code parseWebhook}.
+ * Normalized inbound billing event types. Each connector maps its platform's webhook vocabulary onto this
+ * enum in {@code parseWebhook}.
  *
- * <p>This is the union of the supported platforms' vocabularies rather than their intersection, plus
- * {@link #PAYMENT_METHOD_UPDATED}, which no parser emits yet and which is here for the connector that
- * will. Four values are reachable only from Chargebee. That asymmetry is deliberate: the platforms do not
- * cut the lifecycle in the same places — Recurly announces a new subscription as {@code created} and
- * reports a declined charge against the transaction, where Chargebee announces the same moment as
- * {@code subscription_activated} and reports the decline against the invoice — so a shared value would
- * have to claim an equivalence neither platform actually guarantees.</p>
- *
- * <p>Keeping both spellings costs little downstream, because no consumer reads a status off the type: the
- * dispatcher re-reads the platform for the authoritative state whatever arrives. It does, however, branch
- * on the type twice, and a new value has to be classified in both places on purpose. It treats
- * {@code UNKNOWN} as "not something we support" rather than "we could not find the subscription", and it
- * decides from {@code SUBSCRIPTION_SCOPED_TYPES} whether an event is about a subscription itself — which
- * is what makes it wait for a local reference to appear instead of skipping the delivery. Add a value
- * here and classify it there — the dispatcher's own test enumerates every value of this enum and fails
- * until the new one has been put on one list or the other, because the classification that gets forgotten
- * defaults to the harmless-looking answer and would never show up as a bug.</p>
+ * <p>This is the union of the supported platforms' vocabularies rather than their intersection, because the
+ * platforms do not cut the lifecycle in the same places: several values are reachable only from Chargebee,
+ * and {@link #PAYMENT_METHOD_UPDATED} from no parser at all. No consumer reads a status off the type — the
+ * dispatcher re-reads the platform for the authoritative state — but the dispatcher does classify the type
+ * twice: as supported or {@code UNKNOWN}, and as subscription-scoped or not via
+ * {@code SUBSCRIPTION_SCOPED_TYPES}, which is what makes it wait for a local reference to appear instead of
+ * skipping the delivery. A new value has to be put on one of those lists; the dispatcher's test enumerates
+ * this enum and fails until it is.</p>
  */
 public enum BillingEventType
 {
@@ -53,10 +44,7 @@ public enum BillingEventType
 	/**
 	 * The subscription will end when the current period does, and is still serving until then. Chargebee's
 	 * {@code subscription_cancellation_scheduled}, which is what its hosted portal's cancel button produces.
-	 *
-	 * <p>Separate from {@link #SUBSCRIPTION_CHANGE_SCHEDULED} because that one already means a scheduled
-	 * change of <em>plan</em> — Chargebee spells the two differently too — and the stored event type is the
-	 * only trace of a delivery an operator ever sees, the vendor's own spelling not being persisted.</p>
+	 * Distinct from {@link #SUBSCRIPTION_CHANGE_SCHEDULED}, which means a scheduled change of plan.
 	 */
 	SUBSCRIPTION_CANCELLATION_SCHEDULED,
 	/** A scheduled cancellation was called off and the subscription will renew after all. */

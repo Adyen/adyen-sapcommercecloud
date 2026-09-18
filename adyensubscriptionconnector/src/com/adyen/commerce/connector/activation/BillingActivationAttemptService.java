@@ -34,8 +34,7 @@ import de.hybris.platform.core.model.order.OrderModel;
  * The journal of activation attempts: which key was sent for which order, and what came back.
  *
  * <p>Every attempt goes through {@link #begin} and ends in exactly one of {@link #succeeded} or
- * {@link #failed}, so an order that has been tried always has a row saying so. That is the difference
- * between "the subscription is not there" and "the subscription is not there and nobody noticed".</p>
+ * {@link #failed}, so an order that has been tried always has a row saying so.</p>
  */
 public interface BillingActivationAttemptService
 {
@@ -52,24 +51,19 @@ public interface BillingActivationAttemptService
 	String STATUS_DEAD_LETTER = "DEAD_LETTER";
 
 	/**
-	 * The order turned out not to be a subscription order after all. Reached only from a row opened because
-	 * the rule could not classify a product: once it can, and the answer is "no", the row has to be closed as
-	 * a non-event rather than left in {@link #STATUS_FAILED} for the retry job to abandon. Without it a single
-	 * resolver blip on an ordinary order ends as a {@code DEAD_LETTER} announcing that a shopper was charged
-	 * for a subscription they never bought.
+	 * The order is not a subscription order. Reached only from a row opened because the product rule could
+	 * not classify a product: once it can, and the answer is "no", the row is closed as a non-event rather
+	 * than left in {@link #STATUS_FAILED} for the retry job to dead-letter.
 	 */
 	String STATUS_NOT_APPLICABLE = "NOT_APPLICABLE";
 
 	/**
 	 * Opens or re-opens the record for this order and counts the attempt about to run. Written before the
-	 * platform is called, not after, so a crash mid-call still leaves evidence that something was tried.
+	 * platform is called, so a crash mid-call still leaves evidence that something was tried.
 	 */
 	BillingActivationAttemptModel begin(OrderModel order, BillingPlatform platform, String productCode,
 			String idempotencyKey);
 
-	/**
-	 * Records the outcome that closes the record.
-	 */
 	void succeeded(BillingActivationAttemptModel attempt, BillingSubscriptionRefModel subscriptionRef);
 
 	/**
@@ -80,11 +74,11 @@ public interface BillingActivationAttemptService
 	RetryVerdict failed(BillingActivationAttemptModel attempt, Throwable failure);
 
 	/**
-	 * Dead-letters an attempt that could not even be tried again, without counting it as a failure.
+	 * Dead-letters an attempt that could not be tried again, without counting it as a failure.
 	 *
 	 * <p>Distinct from {@link #failed} because there is no exception to classify: the retry ran and the
-	 * activation declined to happen at all. Something about the order or its store no longer adds up, and
-	 * leaving the row queued would mean re-reading it on every run of the job for ever.</p>
+	 * activation declined to happen at all. Leaving the row queued would mean re-reading it on every run of
+	 * the job for ever.</p>
 	 */
 	void abandon(BillingActivationAttemptModel attempt, String reason);
 
@@ -98,9 +92,8 @@ public interface BillingActivationAttemptService
 	 * The retry queue: attempts whose next try has come round, oldest first.
 	 *
 	 * <p>Also returns attempts still marked {@code PENDING} whose last attempt started before
-	 * {@code stalePendingBefore}. Those are in-flight records whose thread never came back — the node was
-	 * killed, the JVM went down — and without this they would sit at {@code PENDING} with no due date and
-	 * never be looked at again, which is the exact disappearance this journal exists to prevent.</p>
+	 * {@code stalePendingBefore} — in-flight records whose thread never came back, which otherwise sit with
+	 * no due date and are never looked at again.</p>
 	 *
 	 * @param limit the most to return, so one job run cannot take on an unbounded queue
 	 */

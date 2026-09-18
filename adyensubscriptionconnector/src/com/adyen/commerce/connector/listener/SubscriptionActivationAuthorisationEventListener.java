@@ -35,22 +35,17 @@ import de.hybris.platform.servicelayer.event.impl.AbstractEventListener;
 /**
  * Activates a subscription once Adyen has confirmed the authorisation.
  *
- * <h3>Why here and not on the checkout</h3>
  * <p>The Adyen token reaches the order's PaymentInfo only in
- * {@code DefaultAdyenOrderService.updatePaymentInfo}, which runs <em>after</em> the order is placed — and
- * on the 3DS path only once the shopper returns. Activating during checkout therefore never saw a network
- * transaction id (so Recurly could not activate at all) and saw no token whenever a new card went through
- * 3DS. Waiting for the notification also means a shopper who abandons the 3DS challenge never gets a live
- * subscription off an unauthorised order.</p>
+ * {@code DefaultAdyenOrderService.updatePaymentInfo}, which runs <em>after</em> the order is placed and, on
+ * the 3DS path, only once the shopper returns — so the token and its network transaction id are available
+ * here and not during checkout. Waiting for the notification also means a shopper who abandons the 3DS
+ * challenge gets no live subscription off an unauthorised order.</p>
  *
- * <h3>Why a separate listener</h3>
- * <p>This deliberately does not extend or replace {@code AuthorisationNotificationEventListener}, and does
- * not hang off {@code processAuthorisationEvent}. That method is guarded by "has a PaymentTransaction for
- * this pspReference already been created?", which is true for every ordinary card checkout because the
- * browser thread created it — so anything placed inside it would be dead code for the main case. A second
- * listener on the same event runs regardless, and the platform isolates listener failures from each other.</p>
+ * <p>A separate listener rather than a hook inside {@code AuthorisationNotificationEventListener}: that
+ * class's {@code processAuthorisationEvent} is guarded by "has a PaymentTransaction for this pspReference
+ * already been created?", which is true for every ordinary card checkout. A second listener on the same
+ * event runs regardless, and the platform isolates listener failures from each other.</p>
  *
- * <h3>Ordering and repeats</h3>
  * <p>Runs at lowest precedence so the core listener has settled the payment transaction first. A partial
  * payment produces one notification per leg and Adyen may redeliver, so this can fire several times for one
  * order; {@link SubscriptionOrderActivator} is idempotent per order and absorbs that.</p>

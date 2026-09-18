@@ -126,8 +126,8 @@ public class DefaultRecurlyWebhookParserTest
         assertNull(event.externalSubscriptionId());
         assertEquals("payment", event.attributes().get("resourceType"));
         assertEquals("uuid-payment-uuid", event.attributes().get("resourceId"));
-        // Pinned because the map used to carry the object type twice: RecurlySubscriptionBillingConnector
-        // reads resourceType/resourceId, and a second copy under another key drifts out of use unnoticed.
+        // RecurlySubscriptionBillingConnector reads resourceType and resourceId; pinning the whole key set
+        // keeps a redundant copy under another key from creeping in.
         assertEquals(Set.of("eventType", "resourceType", "resourceId"), event.attributes().keySet());
     }
 

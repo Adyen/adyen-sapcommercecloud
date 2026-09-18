@@ -106,9 +106,8 @@ public class DefaultRecurlyHttpClient implements RecurlyHttpClient {
                         : EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
                 return new RecurlyHttpResponse(response.getCode(), body);
             });
-            // No retryable= here: whether this call will be retried is decided one layer up, by the API
-            // client, on the status *and* the vendor error code. A second opinion formed from the status
-            // alone would contradict it on exactly the interesting cases.
+            // No retryable= here: retry is decided one layer up by the API client, on the status and the
+            // vendor error code, and a verdict formed from the status alone would contradict it.
             transportEvent(request, idempotencyKey)
                     .outcome(result.isSuccess()
                             ? ConnectorLogEvent.OUTCOME_SUCCESS
@@ -131,9 +130,7 @@ public class DefaultRecurlyHttpClient implements RecurlyHttpClient {
 
     /**
      * The transport deliberately does not name the business operation: it cannot know one, and the
-     * surrounding {@code ConnectorLogContext} scope already supplies it. Earlier this was inferred from
-     * the URL shape, which mislabelled a billing-info read as a token import and swept every unmatched
-     * subscription path into {@code cancel_subscription}.
+     * surrounding {@code ConnectorLogContext} scope already supplies it.
      */
     private ConnectorLogEvent transportEvent(final HttpUriRequestBase request, final String idempotencyKey) {
         return ConnectorLogEvent.of(EVENT_CONNECTOR_CALL)
@@ -157,9 +154,8 @@ public class DefaultRecurlyHttpClient implements RecurlyHttpClient {
                             .setConnectTimeout(Timeout.ofMilliseconds(configService.getConnectTimeoutMillis()))
                             .setResponseTimeout(Timeout.ofMilliseconds(configService.getResponseTimeoutMillis()))
                             // Without this the wait for a free pooled connection defaults to three
-                            // minutes, so the configured timeouts stop being the upper bound a caller
-                            // sees: under load a platform worker thread blocks in the lease long before
-                            // its request is ever sent.
+                            // minutes, so under load a platform worker thread blocks in the lease and the
+                            // other timeouts stop being the upper bound a caller sees.
                             .setConnectionRequestTimeout(
                                     Timeout.ofMilliseconds(configService.getConnectionRequestTimeoutMillis()))
                             .build();

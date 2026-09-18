@@ -111,8 +111,8 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 		dispatcher.setModelService(modelService);
 		dispatcher.setReconciliationService(reconciliationService);
 		dispatcher.setClock(Clock.fixed(NOW, ZoneOffset.UTC));
-		// The real policy rather than a mock: it is a pure function, and the thing worth testing here is
-		// what the dispatcher does with its verdicts. Three attempts so exhaustion is reachable in a test.
+		// The real policy rather than a mock: it is a pure function, and what matters here is what the
+		// dispatcher does with its verdicts. Three attempts so exhaustion is reachable in a test.
 		final DefaultBillingRetryPolicy retryPolicy = new DefaultBillingRetryPolicy();
 		retryPolicy.setMaxAttempts(MAX_ATTEMPTS);
 		dispatcher.setRetryPolicy(retryPolicy);
@@ -238,17 +238,16 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 	}
 
 	/**
-	 * The unique (platform, eventId) index is what actually serialises two simultaneous deliveries. Losing
-	 * that race has to end this delivery, not merely be noted: the winner is already applying the event, and
-	 * carrying on here would double exactly the work the index exists to prevent.
+	 * The unique (platform, eventId) index serialises two simultaneous deliveries. Losing that race ends the
+	 * delivery rather than merely being noted: the winner is already applying the event.
 	 */
 	@Test
 	public void concurrentDeliveryThatLosesTheClaimDoesNotApplyTheEvent() throws Exception
 	{
 		final BillingSubscriptionRefModel ref = givenSubscription("sub-1", "PENDING");
 		authoritative("sub-1", "ACTIVE", "monthly", 1);
-		// Stands in for the index rejecting the second insert of the same event id: our save loses, and what
-		// is visible afterwards is the winning delivery's row.
+		// Stands in for the index rejecting the second insert of the same event id: this save loses and the
+		// winning delivery's row is what is visible afterwards.
 		doAnswer(i -> {
 			final BillingWebhookEventModel losing = (BillingWebhookEventModel) i.getArgument(0);
 			events.put(losing.getEventId(), losing);
@@ -262,9 +261,9 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 	}
 
 	/**
-	 * The mirror image, and the reason the claim check looks the row up instead of trusting the exception:
-	 * a save that failed for its own reasons is not a lost race. Reading it as one would acknowledge the
-	 * webhook, so the platform would never send it again and no row would exist to show anything was lost.
+	 * The claim check looks the row up instead of trusting the exception, because a save that failed for its
+	 * own reasons is not a lost race: reading it as one would acknowledge the webhook, so the platform would
+	 * never send it again and no row would show anything was lost.
 	 */
 	@Test
 	public void aSaveFailureThatIsNotADuplicateFailsLoudlySoThePlatformRedelivers() throws Exception
@@ -301,16 +300,14 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 	}
 
 	/**
-	 * The wait for a local reference has to end. A subscription created straight in the platform's own panel
-	 * never grows one, and refusing every redelivery until the platform's own schedule expires would leave a
-	 * row that never reaches a verdict — so the policy stops it, and the row says which subscription it gave
-	 * up on and why.
+	 * The wait for a local reference has to end: a subscription created straight in the platform's own panel
+	 * never grows one. The policy stops the series, and the row says which subscription it gave up on and why.
 	 */
 	@Test
 	public void directUnknownSubscriptionStopsBeingRetriedOnceThePolicyGivesUp() throws Exception
 	{
-		// No vendor attributes at all: this is the Chargebee shape as much as the Recurly one, and the type
-		// alone has to be enough to recognise it as a subscription event.
+		// No vendor attributes at all: the type alone has to be enough to recognise a subscription event, on
+		// Chargebee as much as on Recurly.
 		final NormalizedBillingEvent event = eventOf(BillingEventType.SUBSCRIPTION_CREATED, "ev-1", "sub-never", T1);
 
 		for (int attempt = 1; attempt < MAX_ATTEMPTS; attempt++)
@@ -333,9 +330,9 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 	}
 
 	/**
-	 * An invoice event names a subscription without being about it. That distinction used to be read from an
-	 * attribute only the Recurly parser writes, so for Chargebee every invoice and payment event carrying a
-	 * subscription id waited for a local reference that, for a subscription we do not manage, never comes.
+	 * An invoice event names a subscription without being about it. The distinction is drawn from the event
+	 * type rather than from a vendor attribute only the Recurly parser writes, so an unmanaged subscription's
+	 * invoice and payment events do not wait for a local reference that never comes.
 	 */
 	@Test
 	public void invoiceEventForAnUnmanagedSubscriptionIsSkippedRatherThanRetried() throws Exception
@@ -464,8 +461,8 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 	}
 
 	/**
-	 * A failure the connector has classified as terminal will fail identically on replay, so there is
-	 * nothing to gain by inviting one — and the caller must not be told to ask for it.
+	 * A failure the connector has classified as terminal fails identically on replay, so the caller is not
+	 * told to ask for one.
 	 */
 	@Test
 	public void deadLettersATerminalFailureWithoutAskingForRedelivery() throws Exception
@@ -482,8 +479,8 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 	}
 
 	/**
-	 * The other way it ends: a transient failure that never stops being transient. The platform is asked
-	 * to redeliver until the policy's cut-off and then, pointedly, is not.
+	 * A transient failure that never stops being transient: the platform is asked to redeliver until the
+	 * policy's cut-off and not after it.
 	 */
 	@Test
 	public void deadLettersOnceTheRetriesAreExhausted() throws Exception
@@ -598,16 +595,12 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 	}
 
 	/**
-	 * Every normalized event type is classified here on purpose, one way or the other.
+	 * Every normalized event type is classified here, one way or the other.
 	 *
-	 * <p>The set the dispatcher consults decides whether a delivery naming a subscription we hold no
-	 * reference for is worth waiting for — an error answer and a redelivery — or is simply not ours. Its own
-	 * javadoc asks for each new type to be classified, and until this test nothing checked that anyone had:
-	 * a value added to the enum and forgotten here defaulted to "not ours", quietly, which is the right
-	 * answer often enough that the omission would not show.</p>
-	 *
-	 * <p>Adding a value to {@link BillingEventType} therefore breaks this test. That is the point. Decide
-	 * which list it belongs on and say so.</p>
+	 * <p>The set the dispatcher consults decides whether a delivery naming a subscription no local reference
+	 * exists for is worth waiting for — an error answer and a redelivery — or is not about a managed
+	 * subscription at all. A value added to {@link BillingEventType} and left off both lists silently takes
+	 * the second answer, so adding one breaks this test until it is classified.</p>
 	 */
 	@Test
 	public void everyNormalizedEventTypeIsDeliberatelyClassifiedAsSubscriptionScopedOrNot()
@@ -620,10 +613,10 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 				BillingEventType.SUBSCRIPTION_CHANGE_SCHEDULED, BillingEventType.SUBSCRIPTION_PAUSE_SCHEDULED,
 				BillingEventType.SUBSCRIPTION_PAUSE_UPDATED, BillingEventType.SUBSCRIPTION_PAUSE_CANCELLED);
 
-		// Deliberately outside. The invoice- and payment-shaped ones because their subject is not the
-		// subscription; PAYMENT_METHOD_UPDATED because it is customer-shaped and no parser emits it yet; and
-		// the two cancellation-schedule types because nobody schedules a cancellation on a subscription
-		// created moments ago, so there is no create/webhook race for membership to protect.
+		// Deliberately outside: the invoice- and payment-shaped ones because their subject is not the
+		// subscription; PAYMENT_METHOD_UPDATED because it is customer-shaped and no parser emits it; the two
+		// cancellation-schedule types because a cancellation is not scheduled on a subscription created moments
+		// ago, so there is no create/webhook race for membership to protect.
 		final Set<BillingEventType> expectedUnscoped = EnumSet.of(
 				BillingEventType.SUBSCRIPTION_CANCELLATION_SCHEDULED,
 				BillingEventType.SUBSCRIPTION_CANCELLATION_REMOVED,

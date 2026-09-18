@@ -13,9 +13,9 @@ import java.net.URISyntaxException;
 
 /**
  * Credentials and feature flags come from the current base store's {@code recurlyConfig} (Backoffice:
- * Adyen Configuration &gt; Recurly Config). Only
- * the transport tuning that is not per-store — API version, timeouts, pool size, webhook tolerance —
- * still comes from the platform {@link ConfigurationService} (project/local.properties).
+ * Adyen Configuration &gt; Recurly Config). Only the transport tuning that is not per-store — API version,
+ * timeouts, pool size, webhook tolerance — comes from the platform {@link ConfigurationService}
+ * (project/local.properties).
  */
 public class DefaultRecurlyConfigService implements RecurlyConfigService {
     static final String P_API_VERSION = "recurly.apiVersion";
@@ -65,15 +65,15 @@ public class DefaultRecurlyConfigService implements RecurlyConfigService {
     }
 
     /**
-     * Read off the Recurly configuration, not off the base store. The gateway-binding guard compares this against the
-     * store's own Adyen merchant account, so taking it from the store would compare a value with itself
-     * and could never fail.
+     * Read off the Recurly configuration, not off the base store: the gateway-binding guard compares this
+     * against the store's own Adyen merchant account, so taking it from the store would compare a value
+     * with itself and could never fail.
      *
-     * <p>Cannot signal "not configured" by throwing: {@link RecurlyConfigService} and the
-     * {@code SubscriptionBillingConnector} SPI both declare this without a checked exception. {@code null}
-     * is not read as an exemption, though — {@code DefaultConnectorMerchantAccountValidator} exempts only
-     * ADYEN_NATIVE and rejects a blank answer from an external connector, so the unconfigured case fails
-     * closed before activation rather than at token import.</p>
+     * <p>Cannot signal "not configured" by throwing — {@link RecurlyConfigService} and the
+     * {@code SubscriptionBillingConnector} SPI both declare this without a checked exception — but
+     * {@code null} is not an exemption either: {@code DefaultConnectorMerchantAccountValidator} exempts
+     * only ADYEN_NATIVE and rejects a blank answer from an external connector, so the unconfigured case
+     * fails closed before activation.</p>
      */
     @Override
     public String getConfiguredAdyenMerchantAccount() {
@@ -126,15 +126,55 @@ public class DefaultRecurlyConfigService implements RecurlyConfigService {
         return Boolean.TRUE.equals(requireRecurlyConfig().getWalletEnabled());
     }
 
+
+    @Override
+    public boolean isPaymentMethodChangeEnabledOrFalse() {
+        final RecurlyConfigModel config = findRecurlyConfig();
+        // Both flags. Without Wallet the account has a single primary billing info, so there is nothing
+        // to repoint to and the change flag alone would offer a control with an empty list.
+        return config != null
+                && Boolean.TRUE.equals(config.getWalletEnabled())
+                && Boolean.TRUE.equals(config.getPaymentMethodChangeEnabled());
+    }
+
+    @Override
+    public boolean isHostedAccountManagementEnabledOrFalse() {
+        final RecurlyConfigModel config = findRecurlyConfig();
+        // The host is part of the answer, not a separate error: Recurly has no endpoint that returns a
+        // hosted-page address, so without it there is nothing to send the shopper to.
+        return config != null
+                && Boolean.TRUE.equals(config.getHostedAccountManagementEnabled())
+                && StringUtils.isNotBlank(config.getHostedPagesHost());
+    }
+
+    @Override
+    public String getHostedPagesHost() {
+        final RecurlyConfigModel config = findRecurlyConfig();
+        return config == null ? null : config.getHostedPagesHost();
+    }
+
+    @Override
+    public boolean isExternalNtidFeatureEnabledOrFalse() {
+        final RecurlyConfigModel config = findRecurlyConfig();
+        return config != null && Boolean.TRUE.equals(config.getExternalNtidFeatureEnabled());
+    }
+
+    @Override
+    public boolean isNetworkTransactionIdOnBillingInfoEnabled() {
+        final RecurlyConfigModel config = findRecurlyConfig();
+        return config != null
+                && Boolean.TRUE.equals(config.getExternalNtidFeatureEnabled())
+                && Boolean.TRUE.equals(config.getNetworkTransactionIdOnBillingInfoEnabled());
+    }
+
     protected BaseStoreModel getCurrentBaseStore() {
         return baseStoreService.getCurrentBaseStore();
     }
 
     /**
-     * The same lookup as {@link #requireRecurlyConfig()}, reported as {@code null} instead of thrown.
-     * Deliberately delegates rather than repeating the checks: the two must agree on exactly when a
-     * store counts as configured, and the only caller — {@link #getConfiguredAdyenMerchantAccount()} —
-     * is one the SPI forbids from throwing.
+     * The same lookup as {@link #requireRecurlyConfig()}, reported as {@code null} instead of thrown, for
+     * the callers the SPI forbids from throwing. It delegates so the two cannot disagree on when a store
+     * counts as configured.
      */
     protected RecurlyConfigModel findRecurlyConfig() {
         try {
@@ -180,20 +220,15 @@ public class DefaultRecurlyConfigService implements RecurlyConfigService {
     }
 
     /**
-     * Having Recurly configuration is the condition; being the store's active platform is not. The
-     * deleted {@code adyenSubscriptionPlatform} attribute was checked here, and that check was
-     * deliberately NOT carried over to its replacement {@code activeBillingPlatform}, for two reasons.
+     * Having Recurly configuration is the condition; being the store's active platform is not, and
+     * {@code activeBillingPlatform} is deliberately not checked here.
      *
-     * <p>It would be redundant where it fires and harmful where it does not. On activation the connector
-     * is already chosen by {@code getActiveConnector(store)} — reading the same attribute again a line
-     * later cannot discover anything. And a refusal here surfaces as {@code null} from
+     * <p>On activation the connector is already chosen by {@code getActiveConnector(store)}, so the check
+     * would discover nothing, and a refusal would surface as {@code null} from
      * {@link #getConfiguredAdyenMerchantAccount()}, which {@code DefaultConnectorMerchantAccountValidator}
-     * reads as "the check does not apply" and skips: the gate would turn a merchant-account mismatch into an
-     * unchecked one.</p>
-     *
-     * <p>Secondly, cancellation routes on {@code subscription.getPlatform()}, so a store that has since
-     * migrated must still reach this configuration to cancel what it created on Recurly — the
-     * multi-platform coexistence adyensubscriptionconnector-items.xml is built for.</p>
+     * reads as "the check does not apply" and skips — turning a merchant-account mismatch into an
+     * unchecked one. Cancellation also routes on {@code subscription.getPlatform()}, so a store that has
+     * migrated must still reach this configuration to cancel what it created on Recurly.</p>
      */
     protected RecurlyConfigModel requireRecurlyConfig()
             throws ConnectorNotConfiguredException {

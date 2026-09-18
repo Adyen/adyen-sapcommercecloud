@@ -24,6 +24,17 @@ final class RecurlyPaymentMethodReference {
         return billingInfoId + SEPARATOR + networkTransactionId;
     }
 
+    /**
+     * The billing info id alone, whichever shape the reference is in. Activation writes the packed form
+     * because Recurly wants the NTID when a subscription is created; a repoint writes the bare id, since
+     * assigning one needs nothing else. Both name the same billing info, and neither is an error here.
+     */
+    static String billingInfoIdOf(final String externalId) {
+        final String value = StringUtils.defaultString(externalId);
+        final int separator = value.indexOf(SEPARATOR);
+        return separator <= 0 ? value : value.substring(0, separator);
+    }
+
     static RecurlyPaymentMethodReference parse(final String externalId) throws PreconditionFailedException {
         final String value = StringUtils.defaultString(externalId);
         final int separator = value.indexOf(SEPARATOR);

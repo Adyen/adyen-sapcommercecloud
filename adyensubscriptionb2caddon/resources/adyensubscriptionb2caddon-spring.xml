@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans.xsd
+           http://www.springframework.org/schema/context
+           http://www.springframework.org/schema/context/spring-context.xsd">
+
+	<context:annotation-config/>
+
+	<!--
+	    Everything else this addon adds is web-tier and lives in its own web context. What is here is only
+	    the pair of listeners that get the CMS page into the content catalogue, because a controller and a
+	    JSP with no ContentPage behind them are a 404 with nothing in the log to explain it.
+	-->
+
+	<!-- B2C only: the page hangs off MyAccountNavNode in a B2C content catalogue, and Adyen checkout is
+	     wired to the B2C storefront in this project anyway. -->
+	<bean id="adyensubscriptionb2caddonCoreDataImportedEventListener" parent="abstractCoreDataImportedEventListener">
+		<property name="supportedChannels">
+			<list value-type="de.hybris.platform.commerceservices.enums.SiteChannel">
+				<value>B2C</value>
+			</list>
+		</property>
+		<property name="addonExtensionMetadata">
+			<bean class="de.hybris.platform.addonsupport.data.AddonExtensionMetadata">
+				<property name="suffixChannel" value="false"/>
+				<property name="baseExtensionName" value="adyensubscriptionb2caddon"/>
+			</bean>
+		</property>
+	</bean>
+
+	<!-- Imports resources/adyensubscriptionb2caddon/import/contentCatalogs/**. -->
+	<bean id="adyensubscriptionb2caddonSampleDataEventListener" parent="abstractGenericAddOnSampleDataEventListener">
+		<property name="extensionName" value="adyensubscriptionb2caddon"/>
+	</bean>
+
+</beans>

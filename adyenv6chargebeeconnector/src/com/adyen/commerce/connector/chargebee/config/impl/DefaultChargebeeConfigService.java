@@ -31,14 +31,11 @@ import de.hybris.platform.store.BaseStoreModel;
 import de.hybris.platform.store.services.BaseStoreService;
 
 /**
- * Reads Chargebee configuration from the current {@link BaseStoreModel}'s {@code chargebeeConfig}
- * (Backoffice: Adyen Configuration &gt; Chargebee Config). The former {@code chargebee.*} credential
- * properties are gone: the store is the single source of truth so a multi-store setup can hold one
- * Chargebee site per base store.
- *
- * <p>Transport tuning is the exception and stays in {@code project/local.properties}
- * ({@code chargebee.http.*}): it describes this installation's tolerance for a slow Chargebee, not
- * the shop's relationship with it, and mirrors what the Recurly connector does.</p>
+ * Reads Chargebee credentials from the current {@link BaseStoreModel}'s {@code chargebeeConfig}
+ * (Backoffice: Adyen Configuration &gt; Chargebee Config), so a multi-store setup can hold one Chargebee
+ * site per base store. Transport tuning is the exception and comes from
+ * {@code project/local.properties} ({@code chargebee.http.*}): it describes this installation's tolerance
+ * for a slow Chargebee rather than the shop's relationship with it.
  */
 public class DefaultChargebeeConfigService implements ChargebeeConfigService
 {
@@ -47,8 +44,8 @@ public class DefaultChargebeeConfigService implements ChargebeeConfigService
 	static final String P_CONNECTION_REQUEST_TIMEOUT_MILLIS = "chargebee.http.connectionRequestTimeoutMillis";
 	static final String P_MAX_CONNECTIONS = "chargebee.http.maxConnections";
 	static final int DEFAULT_CONNECT_TIMEOUT_MILLIS = 5000;
-	// Sized for the checkout: activation runs on the shopper's request thread and spends this three
-	// times over, once per sequential call. See the note in project.properties.
+	// Sized for the checkout: activation runs on the shopper's request thread and can spend this three
+	// times over, once per sequential call.
 	static final int DEFAULT_RESPONSE_TIMEOUT_MILLIS = 5000;
 	static final int DEFAULT_CONNECTION_REQUEST_TIMEOUT_MILLIS = 5000;
 	static final int DEFAULT_MAX_CONNECTIONS = 20;
@@ -82,9 +79,9 @@ public class DefaultChargebeeConfigService implements ChargebeeConfigService
 	}
 
 	/**
-	 * Read off the Chargebee configuration, not off the base store. The gateway-binding guard compares this against
-	 * the store's own Adyen merchant account, so taking it from the store would compare a value with
-	 * itself and could never fail.
+	 * Read off the Chargebee configuration, not off the base store: the gateway-binding guard compares this
+	 * against the store's own Adyen merchant account, so taking it from the store would compare a value
+	 * with itself and could never fail.
 	 */
 	@Override
 	public String getConfiguredAdyenMerchantAccount()
@@ -132,8 +129,8 @@ public class DefaultChargebeeConfigService implements ChargebeeConfigService
 	}
 
 	/**
-	 * A non-positive override is a misconfiguration, not a request for "no limit": zero or a negative
-	 * value would restore the unbounded wait this configuration exists to remove, so it falls back.
+	 * A non-positive override is a misconfiguration, not a request for "no limit": zero or a negative value
+	 * would mean an unbounded wait, so it falls back to the default.
 	 */
 	protected int positiveInt(final String key, final int defaultValue)
 	{
@@ -142,9 +139,9 @@ public class DefaultChargebeeConfigService implements ChargebeeConfigService
 	}
 
 	/**
-	 * The same lookup as {@link #requireChargebeeConfig()}, reported as {@code null} instead of thrown.
-	 * Deliberately delegates rather than repeating the checks: the two must agree on exactly when a store
-	 * counts as configured, and the callers are the getters the interface forbids from throwing.
+	 * The same lookup as {@link #requireChargebeeConfig()}, reported as {@code null} instead of thrown, for
+	 * the getters the interface forbids from throwing. It delegates so the two cannot disagree on when a
+	 * store counts as configured.
 	 */
 	protected ChargebeeConfigModel findChargebeeConfig()
 	{

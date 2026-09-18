@@ -25,8 +25,8 @@ package com.adyen.commerce.connector.exception;
  * platform/transport failure into a subtype of this so the core never sees a vendor exception.
  *
  * <p>The {@link #isRetryable()} flag drives the core's retry policy: transient failures
- * (timeouts, 5xx, rate limits) should be {@link RetryableBillingException}; everything that will
- * fail again on replay should be a terminal subtype.</p>
+ * (timeouts, 5xx, rate limits) are {@link RetryableBillingException}; everything that will
+ * fail again on replay is a terminal subtype.</p>
  */
 public class BillingException extends Exception
 {
@@ -48,9 +48,6 @@ public class BillingException extends Exception
 		this.retryable = retryable;
 	}
 
-	/**
-	 * @return {@code true} if retrying the same operation may succeed.
-	 */
 	public boolean isRetryable()
 	{
 		return retryable;

@@ -191,6 +191,15 @@
         <property name="paymentService" ref="paymentService" />
         <property name="modelService" ref="modelService" />
         <property name="calculationService" ref="calculationService" />
+        <property name="adyenOrderCancelledEventPublisher" ref="adyenOrderCancelledEventPublisher" />
+    </bean>
+
+    <!-- Announces a fully cancelled order. Nothing in this extension listens; the subscription connector
+         does, and it cannot be called directly from here because it is the one that depends on this. -->
+    <alias name="defaultAdyenOrderCancelledEventPublisher" alias="adyenOrderCancelledEventPublisher"/>
+    <bean id="defaultAdyenOrderCancelledEventPublisher"
+          class="com.adyen.v6.event.AdyenOrderCancelledEventPublisher">
+        <property name="eventService" ref="eventService"/>
     </bean>
 
     <alias name="defaultAdyenOrderService" alias="adyenOrderService"/>
@@ -295,8 +304,16 @@
         <property name="adyenCheckoutModelPopulator" ref="adyenCheckoutModelPopulator"/>
     </bean>
 
+    <alias name="defaultAdyenStoredCardAuthorisationService" alias="adyenStoredCardAuthorisationService"/>
+    <bean id="defaultAdyenStoredCardAuthorisationService"
+          class="com.adyen.commerce.services.impl.DefaultAdyenStoredCardAuthorisationService">
+        <property name="modelService" ref="modelService"/>
+        <property name="flexibleSearchService" ref="flexibleSearchService"/>
+    </bean>
+
     <alias name="defaultAdyenCheckoutApiFacade" alias="adyenCheckoutApiFacade" />
     <bean id="defaultAdyenCheckoutApiFacade" class="com.adyen.commerce.facades.impl.DefaultAdyenCheckoutApiFacade">
+        <property name="adyenStoredCardAuthorisationService" ref="adyenStoredCardAuthorisationService"/>
         <property name="countryConverter" ref="countryConverter"/>
         <property name="baseStoreService" ref="baseStoreService"/>
         <property name="sessionService" ref="sessionService"/>

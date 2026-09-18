@@ -1,0 +1,13 @@
+######
+## PARAMETERS REQUIRED FOR THIS SCRIPT
+##
+##   * contentCatalog   - content catalog id
+##   * productCatalog   = product catalog id
+##   * siteUid - site id
+##   * storeUid - id of the store
+##   * channel - site channel; B2B or B2C
+#######
+
+# This addon adds no catalogue of its own; the file exists because the core-data import reads the pair
+# (catalog.impex, cms-content.impex) and the sibling addon ships both. Everything this addon contributes
+# is in cms-content.impex.
