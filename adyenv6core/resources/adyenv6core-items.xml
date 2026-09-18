@@ -996,6 +996,57 @@
             </attributes>
         </itemtype>
 
+        <itemtype code="AdyenStoredCardAuthorisation" generate="true" autocreate="true">
+            <description>The network transaction id of the authorisation that vaulted one of a shopper's
+                stored cards. Adyen reports it once, in the authorisation response's additionalData, and
+                does not repeat it when the vaulted tokens are listed, so a platform that charges an
+                imported token as a merchant-initiated transaction can only be given one that was captured
+                at the time. Orders keep theirs on PaymentInfo; this is the same fact for a card vaulted
+                outside any order.</description>
+            <deployment table="adyenstoredcardauth" typecode="22952"/>
+            <attributes>
+                <attribute qualifier="customer" type="Customer">
+                    <description>The shopper who owns the token.</description>
+                    <modifiers optional="false"/>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="storedPaymentMethodId" type="java.lang.String">
+                    <description>Adyen recurringDetailReference / storedPaymentMethodId.</description>
+                    <modifiers optional="false"/>
+                    <persistence type="property">
+                        <columntype>
+                            <value>varchar(255)</value>
+                        </columntype>
+                    </persistence>
+                </attribute>
+                <attribute qualifier="networkTxReference" type="java.lang.String">
+                    <description>Adyen networkTxReference for that authorisation. A scheme-level payment
+                        identifier: forwarded to the billing platform, never logged and never shown.</description>
+                    <modifiers optional="false"/>
+                    <persistence type="property">
+                        <columntype>
+                            <value>varchar(64)</value>
+                        </columntype>
+                    </persistence>
+                </attribute>
+                <attribute qualifier="merchantAccount" type="java.lang.String">
+                    <description>The Adyen merchant account the token and the reference belong to; a
+                        reference is only valid against the account that produced it.</description>
+                    <persistence type="property">
+                        <columntype>
+                            <value>varchar(255)</value>
+                        </columntype>
+                    </persistence>
+                </attribute>
+            </attributes>
+            <indexes>
+                <index name="idx_adyenStoredCardAuth" unique="true">
+                    <key attribute="customer"/>
+                    <key attribute="storedPaymentMethodId"/>
+                </index>
+            </indexes>
+        </itemtype>
+
         <itemtype code="AdyenSubscriptionConfig" autocreate="true" generate="true">
             <description>Adyen Subscription Configuration</description>
             <deployment table="AdyenSubscriptionConfig" typecode="10103"/>

@@ -55,6 +55,7 @@ import com.adyen.commerce.connector.dto.CardMetadata;
 import com.adyen.commerce.connector.registry.SubscriptionBillingConnectorRegistry;
 import com.adyen.commerce.connector.token.AdyenTokenHandleFactory;
 import com.adyen.commerce.facades.AdyenStoredCardsFacade;
+import com.adyen.commerce.services.AdyenStoredCardAuthorisationService;
 import com.adyen.model.checkout.StoredPaymentMethodResource;
 import com.adyen.commerce.connector.service.SubscriptionBillingService;
 
@@ -95,6 +96,7 @@ public class DefaultMySubscriptionsFacade implements MySubscriptionsFacade
 	private SubscriptionBillingConnectorRegistry connectorRegistry;
 	private AdyenTokenHandleFactory tokenHandleFactory;
 	private AdyenStoredCardsFacade storedCardsFacade;
+	private AdyenStoredCardAuthorisationService storedCardAuthorisationService;
 
 	@Override
 	public SubscriptionOverviewData getSubscriptionsForCurrentCustomer()
@@ -509,6 +511,7 @@ public class DefaultMySubscriptionsFacade implements MySubscriptionsFacade
 		{
 			return List.of();
 		}
+		final Map<String, String> known = knownNetworkTxReferences(currentCustomer());
 
 		final List<PlatformPaymentMethod> options = new ArrayList<>();
 		int withoutNetworkTransactionId = 0;
@@ -518,7 +521,7 @@ public class DefaultMySubscriptionsFacade implements MySubscriptionsFacade
 			{
 				continue;
 			}
-			if (needsNtid && StringUtils.isBlank(card.getNetworkTxReference()))
+			if (needsNtid && StringUtils.isBlank(networkTxReferenceOf(card, known)))
 			{
 				withoutNetworkTransactionId++;
 				continue;
@@ -548,6 +551,34 @@ public class DefaultMySubscriptionsFacade implements MySubscriptionsFacade
 		{
 			LOG.warn("Could not read the shopper's Adyen vault; offering no vaulted cards on this page.", e);
 			return List.of();
+		}
+	}
+
+	/**
+	 * The network transaction id for a vaulted card, from whichever source has one.
+	 *
+	 * <p>The vault listing is asked first because a merchant whose account reports it there needs nothing
+	 * kept locally. Otherwise it is what was captured when the card was authorised: Adyen reports the
+	 * reference in the authorisation response and not again afterwards, so an unrecorded card has none to
+	 * be found anywhere.</p>
+	 */
+	protected String networkTxReferenceOf(final StoredPaymentMethodResource card,
+			final Map<String, String> known)
+	{
+		final String reported = StringUtils.trimToNull(card.getNetworkTxReference());
+		return reported != null ? reported : known.get(card.getId());
+	}
+
+	protected Map<String, String> knownNetworkTxReferences(final CustomerModel customer)
+	{
+		try
+		{
+			return storedCardAuthorisationService.networkTxReferencesFor(customer);
+		}
+		catch (final RuntimeException e)
+		{
+			LOG.warn("Could not read the stored network transaction ids; treating them as unknown.", e);
+			return Map.of();
 		}
 	}
 
@@ -593,7 +624,8 @@ public class DefaultMySubscriptionsFacade implements MySubscriptionsFacade
 		try
 		{
 			return new PaymentMethodChoice.AdyenVaultedToken(tokenHandleFactory.createForVaultedToken(
-					customer, store, optionId, card.getNetworkTxReference(), cardMetadataOf(card)));
+					customer, store, optionId, networkTxReferenceOf(card, knownNetworkTxReferences(customer)),
+					cardMetadataOf(card)));
 		}
 		catch (final Exception e)
 		{
@@ -1083,6 +1115,12 @@ public class DefaultMySubscriptionsFacade implements MySubscriptionsFacade
 	public void setTokenHandleFactory(final AdyenTokenHandleFactory tokenHandleFactory)
 	{
 		this.tokenHandleFactory = tokenHandleFactory;
+	}
+
+	public void setStoredCardAuthorisationService(
+			final AdyenStoredCardAuthorisationService storedCardAuthorisationService)
+	{
+		this.storedCardAuthorisationService = storedCardAuthorisationService;
 	}
 
 	public void setStoredCardsFacade(final AdyenStoredCardsFacade storedCardsFacade)

@@ -9,10 +9,12 @@ import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
 import com.adyen.commerce.facades.impl.DefaultAdyenCheckoutFacade;
 import com.adyen.v6.forms.AddressForm;
 import com.adyen.v6.model.RequestInfo;
+import com.adyen.commerce.services.AdyenStoredCardAuthorisationService;
 import com.adyen.v6.model.AdyenPartialPaymentOrderModel;
 import com.adyen.v6.enums.AdyenPartialPaymentStatus;
 import com.adyen.v6.repository.AdyenPartialPaymentOrderRepository;
 import com.adyen.v6.service.AdyenCheckoutApiService;
+import com.adyen.v6.service.DefaultAdyenCheckoutApiService;
 import com.adyen.v6.service.AdyenPartialPaymentService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import de.hybris.platform.commercefacades.order.data.CartData;
@@ -32,6 +34,7 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
 
     public static final String EXCEPTION_DURING_PROCESSING_BROWSER_INFO = "Exception during processing BrowserInfo: ";
 
+    private AdyenStoredCardAuthorisationService adyenStoredCardAuthorisationService;
     private AdyenPartialPaymentService adyenPartialPaymentService;
     private AdyenPartialPaymentOrderRepository adyenPartialPaymentOrderRepository;
     private AdyenPartialPaymentOrderFacade adyenPartialPaymentOrderFacade;
@@ -316,11 +319,28 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
     @Override
     public PaymentResponse processZeroAuthCard(CheckoutPaymentMethod paymentMethod) throws Exception {
         final CustomerModel customer = getCheckoutCustomerStrategy().getCurrentUserForCheckout();
-        return getAdyenPaymentService().processZeroAuthRequest(customer, paymentMethod);
+        final PaymentResponse response = getAdyenPaymentService().processZeroAuthRequest(customer, paymentMethod);
+        // Adyen reports the network transaction id here and nowhere else - it is absent from the vaulted
+        // token listing - so a card vaulted outside an order can only be made usable by a platform that
+        // charges imported tokens as merchant-initiated if it is kept now.
+        adyenStoredCardAuthorisationService.recordFrom(customer, merchantAccountOf(), response);
+        return response;
+    }
+
+    protected String merchantAccountOf() {
+        final AdyenCheckoutApiService service = getAdyenPaymentService();
+        return service instanceof DefaultAdyenCheckoutApiService
+                ? ((DefaultAdyenCheckoutApiService) service).getMerchantAccount()
+                : null;
     }
 
     public AdyenPartialPaymentService getAdyenPartialPaymentService() {
         return adyenPartialPaymentService;
+    }
+
+    public void setAdyenStoredCardAuthorisationService(
+            AdyenStoredCardAuthorisationService adyenStoredCardAuthorisationService) {
+        this.adyenStoredCardAuthorisationService = adyenStoredCardAuthorisationService;
     }
 
     public void setAdyenPartialPaymentService(AdyenPartialPaymentService adyenPartialPaymentService) {

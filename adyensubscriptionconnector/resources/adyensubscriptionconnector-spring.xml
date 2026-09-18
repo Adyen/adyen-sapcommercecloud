@@ -262,6 +262,7 @@
         <property name="connectorRegistry" ref="subscriptionBillingConnectorRegistry"/>
         <property name="tokenHandleFactory" ref="adyenTokenHandleFactory"/>
         <property name="storedCardsFacade" ref="adyenStoredCardsFacade"/>
+        <property name="storedCardAuthorisationService" ref="adyenStoredCardAuthorisationService"/>
     </bean>
 
     <bean id="adyenOrderCancelledSubscriptionListener"

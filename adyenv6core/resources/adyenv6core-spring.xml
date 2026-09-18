@@ -304,8 +304,16 @@
         <property name="adyenCheckoutModelPopulator" ref="adyenCheckoutModelPopulator"/>
     </bean>
 
+    <alias name="defaultAdyenStoredCardAuthorisationService" alias="adyenStoredCardAuthorisationService"/>
+    <bean id="defaultAdyenStoredCardAuthorisationService"
+          class="com.adyen.commerce.services.impl.DefaultAdyenStoredCardAuthorisationService">
+        <property name="modelService" ref="modelService"/>
+        <property name="flexibleSearchService" ref="flexibleSearchService"/>
+    </bean>
+
     <alias name="defaultAdyenCheckoutApiFacade" alias="adyenCheckoutApiFacade" />
     <bean id="defaultAdyenCheckoutApiFacade" class="com.adyen.commerce.facades.impl.DefaultAdyenCheckoutApiFacade">
+        <property name="adyenStoredCardAuthorisationService" ref="adyenStoredCardAuthorisationService"/>
         <property name="countryConverter" ref="countryConverter"/>
         <property name="baseStoreService" ref="baseStoreService"/>
         <property name="sessionService" ref="sessionService"/>
