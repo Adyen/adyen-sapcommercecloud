@@ -34,6 +34,7 @@ import org.springframework.web.servlet.view.RedirectView;
 
 import com.adyen.commerce.connector.facades.MySubscriptionsFacade;
 import com.adyen.commerce.facades.AdyenStoredCardsFacade;
+import com.adyen.commerce.connector.facades.data.PaymentMethodChangeReport;
 import com.adyen.commerce.connector.facades.data.PaymentMethodChangeResult;
 import com.adyen.commerce.connector.facades.data.SubscriptionOverviewData;
 
@@ -159,11 +160,47 @@ public class MySubscriptionsPageController extends AbstractSearchPageController
 	@RequireHardLogIn
 	public String changePaymentMethod(@RequestParam("code") final String code,
 			@RequestParam("storedPaymentMethodId") final String storedPaymentMethodId,
+			@RequestParam(value = "applyToAll", required = false, defaultValue = "false") final boolean applyToAll,
 			final RedirectAttributes redirectAttributes)
 	{
-		final PaymentMethodChangeResult result =
-				mySubscriptionsFacade.changePaymentMethodForCurrentCustomer(code, storedPaymentMethodId);
+		if (applyToAll)
+		{
+			return report(mySubscriptionsFacade.changePaymentMethodForAllSubscriptions(code,
+					storedPaymentMethodId), redirectAttributes);
+		}
+		return report(mySubscriptionsFacade.changePaymentMethodForCurrentCustomer(code, storedPaymentMethodId),
+				redirectAttributes);
+	}
 
+	/**
+	 * Says what a fan-out actually did, counts included.
+	 *
+	 * <p>A partial result is reported as a failure even though something moved: what the shopper asked for
+	 * did not happen in full, and a green message naming the ones left behind would read as success.</p>
+	 */
+	protected String report(final PaymentMethodChangeReport report, final RedirectAttributes redirectAttributes)
+	{
+		if (report.isPartial())
+		{
+			GlobalMessages.addFlashMessage(redirectAttributes, GlobalMessages.ERROR_MESSAGES_HOLDER,
+					"text.account.subscriptions.paymentMethod.success.some",
+					new Object[] { Integer.valueOf(report.moved()), Integer.valueOf(report.failed()) });
+			return REDIRECT_TO_SUBSCRIPTIONS;
+		}
+		// More than one moved only when the fan-out found siblings; one alone reads better as the
+		// single-subscription message.
+		if (report.result() == PaymentMethodChangeResult.CHANGED_ALL_SUBSCRIPTIONS && report.moved() > 1)
+		{
+			GlobalMessages.addFlashMessage(redirectAttributes, GlobalMessages.CONF_MESSAGES_HOLDER,
+					"text.account.subscriptions.paymentMethod.success.counted",
+					new Object[] { Integer.valueOf(report.moved()) });
+			return REDIRECT_TO_SUBSCRIPTIONS;
+		}
+		return report(report.result(), redirectAttributes);
+	}
+
+	protected String report(final PaymentMethodChangeResult result, final RedirectAttributes redirectAttributes)
+	{
 		// A switch expression, not a statement: only the expression form is checked for exhaustiveness, so
 		// a fifth result becomes a build failure here instead of a shopper reading nothing at all.
 		final String messageKey = switch (result)

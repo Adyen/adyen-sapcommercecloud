@@ -246,6 +246,25 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
     }
 
     @Override
+    public void promoteBillingInfoToPrimary(final String accountId, final String billingInfoId,
+                                            final String idempotencyKey) throws BillingException {
+        if (StringUtils.isBlank(billingInfoId)) {
+            throw new PreconditionFailedException("promoteBillingInfoToPrimary called without a billing info "
+                    + "for account '" + accountId + "'");
+        }
+
+        final ObjectNode request = objectMapper.createObjectNode();
+        request.put("primary_payment_method", true);
+
+        // The plural billing_infos path. Recurly rejects this field on the singular /billing_info and on
+        // account creation, where the first billing info becomes primary on its own.
+        final RecurlyHttpResponse response = httpClient.put(
+                url("/accounts/" + pathSegment(accountId) + "/billing_infos/" + pathSegment(billingInfoId)),
+                authHeader(), acceptHeader(), writeJson(request), idempotencyKey);
+        requireSuccess(response, "promote billing info to primary");
+    }
+
+    @Override
     public String hostedAccountManagementUrl(final String accountId) throws BillingException {
         final String host = configService.getHostedPagesHost();
         if (!HOSTED_PAGES_HOST.matcher(StringUtils.defaultString(host)).matches()) {

@@ -30,6 +30,11 @@
 /* The invitation to leave the site sits below the control that acts here, so it reads as the fallback. */
 .subx-panel--quiet { background: #fafbfc; }
 .subx-panel--quiet .subx-note { margin: 0 0 14px; }
+.subx-check { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 14px;
+  font-weight: 400; text-transform: none; line-height: 1.4; cursor: pointer; }
+/* The theme sets margin on a bare input[type="checkbox"] (style.css:2509); same specificity,
+   so this wins on load order. */
+.subx-check input { margin: 2px 0 0; flex: none; }
 .subx-field { flex: 1 1 260px; min-width: 0; }
 /* The theme uppercases account labels; ours say ordinary words and read better
    as ordinary words, so the transform is reset rather than inherited.        */

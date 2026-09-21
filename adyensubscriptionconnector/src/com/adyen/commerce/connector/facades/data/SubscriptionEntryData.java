@@ -133,6 +133,22 @@ public class SubscriptionEntryData implements Serializable
 	}
 
 	/**
+	 * Whether this row's control can offer to put the chosen card behind the shopper's other subscriptions
+	 * too. False when it is the only one that could move, where the offer would promise nothing.
+	 */
+	private boolean paymentMethodShareable;
+
+	public boolean isPaymentMethodShareable()
+	{
+		return paymentMethodShareable;
+	}
+
+	public void setPaymentMethodShareable(final boolean paymentMethodShareable)
+	{
+		this.paymentMethodShareable = paymentMethodShareable;
+	}
+
+	/**
 	 * Cards from the shopper's Adyen vault this row could be repointed at, for a platform that accepts an
 	 * imported token as well as its own stored methods.
 	 *

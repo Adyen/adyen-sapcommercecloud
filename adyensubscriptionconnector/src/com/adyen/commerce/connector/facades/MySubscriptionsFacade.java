@@ -20,6 +20,7 @@
  */
 package com.adyen.commerce.connector.facades;
 
+import com.adyen.commerce.connector.facades.data.PaymentMethodChangeReport;
 import com.adyen.commerce.connector.facades.data.PaymentMethodChangeResult;
 import com.adyen.commerce.connector.facades.data.SubscriptionOverviewData;
 
@@ -81,5 +82,20 @@ public interface MySubscriptionsFacade
 	 * @return what happened, in the terms the page has to describe it
 	 */
 	PaymentMethodChangeResult changePaymentMethodForCurrentCustomer(String subscriptionCode,
+			String storedPaymentMethodId);
+
+	/**
+	 * The same change, then the same card put behind every other subscription this shopper has on that
+	 * platform and billing account.
+	 *
+	 * <p>A fan-out rather than one account-level call, because a platform that pins a method per
+	 * subscription does not move a pinned one when its account default changes - so nothing but touching
+	 * each subscription actually moves them all. Each is a separate call and may refuse on its own, which
+	 * is why the answer carries counts.</p>
+	 *
+	 * <p>On a platform whose change is already customer-scoped there is nothing to fan out: the first call
+	 * moved everything, and the report says so.</p>
+	 */
+	PaymentMethodChangeReport changePaymentMethodForAllSubscriptions(String subscriptionCode,
 			String storedPaymentMethodId);
 }

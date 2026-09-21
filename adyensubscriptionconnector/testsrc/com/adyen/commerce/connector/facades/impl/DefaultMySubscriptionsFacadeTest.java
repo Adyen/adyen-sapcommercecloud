@@ -57,6 +57,7 @@ import com.adyen.commerce.connector.dto.PaymentMethodChangeScope;
 import com.adyen.commerce.connector.dto.TokenImportStyle;
 import com.adyen.commerce.connector.dto.SubscriptionCancellation;
 import com.adyen.commerce.connector.facades.data.PaymentMethodChangeResult;
+import com.adyen.commerce.connector.facades.data.PaymentMethodChangeReport;
 import com.adyen.commerce.connector.facades.data.SubscriptionDisplayState;
 import com.adyen.commerce.connector.facades.data.SubscriptionOverviewData;
 import com.adyen.commerce.connector.facades.data.SubscriptionEntryData;
@@ -114,12 +115,15 @@ public class DefaultMySubscriptionsFacadeTest
 	private SubscriptionBillingConnector connector;
 
 	private DefaultMySubscriptionsFacade facade;
+	/** The storefront every row belongs to unless a test deliberately puts one somewhere else. */
+	private BaseStoreModel theStore;
 
 	@Before
 	public void setUp()
 	{
 		MockitoAnnotations.openMocks(this);
 
+		theStore = mock(BaseStoreModel.class);
 		facade = new DefaultMySubscriptionsFacade();
 		facade.setUserService(userService);
 		facade.setFlexibleSearchService(flexibleSearchService);
@@ -339,6 +343,193 @@ public class DefaultMySubscriptionsFacadeTest
 		assertEquals(PaymentMethodEnrollmentEffect.REPLACES_METHOD_ON_FILE,
 				overview.getPaymentMethodEnrollmentEffect());
 		verify(subscriptionBillingService, never()).paymentMethodEnrollmentPage(any());
+	}
+
+	@Test
+	public void putsOneCardBehindEverySubscriptionOnTheSamePlatformAndAccount() throws Exception
+	{
+		givenSubscriptionOnAPlatformThatSupportsTheChange(NormalizedSubscriptionStatus.ACTIVE);
+		givenAPinningPlatform();
+		givenSiblings(pinnedRef("sub-1", "cb-customer-1"), pinnedRef("sub-2", "cb-customer-1"),
+				pinnedRef("sub-3", "cb-customer-1"));
+
+		final PaymentMethodChangeReport report =
+				facade.changePaymentMethodForAllSubscriptions("code-1", "billing-9");
+
+		assertEquals(3, report.moved());
+		assertEquals(0, report.failed());
+		assertEquals(PaymentMethodChangeResult.CHANGED_ALL_SUBSCRIPTIONS, report.result());
+		verify(subscriptionBillingService, times(3)).changePaymentMethod(any(), any());
+	}
+
+	/** A payment method identifier means nothing under another billing account of the same shopper. */
+	@Test
+	public void leavesSubscriptionsUnderAnotherBillingAccountAlone() throws Exception
+	{
+		givenSubscriptionOnAPlatformThatSupportsTheChange(NormalizedSubscriptionStatus.ACTIVE);
+		givenAPinningPlatform();
+		givenSiblings(pinnedRef("sub-1", "cb-customer-1"), pinnedRef("sub-2", "cb-customer-OTHER"));
+
+		final PaymentMethodChangeReport report =
+				facade.changePaymentMethodForAllSubscriptions("code-1", "billing-9");
+
+		assertEquals(1, report.moved());
+		verify(subscriptionBillingService, times(1)).changePaymentMethod(any(), any());
+	}
+
+	/**
+	 * Each subscription is its own call, so one refusing says nothing about the others. The counts are
+	 * what the page needs in order to avoid calling a half-done fan-out a success.
+	 */
+	@Test
+	public void reportsCountsWhenOnlySomeOfThemMove() throws Exception
+	{
+		givenSubscriptionOnAPlatformThatSupportsTheChange(NormalizedSubscriptionStatus.ACTIVE);
+		givenAPinningPlatform();
+		givenSiblings(pinnedRef("sub-1", "cb-customer-1"), pinnedRef("sub-2", "cb-customer-1"));
+		when(subscriptionBillingService.changePaymentMethod(any(), any()))
+				.thenReturn(new PaymentMethodChangeOutcome(
+						new BillingPaymentMethodRef(BillingPlatform.CHARGEBEE, "billing-9"),
+						PaymentMethodChangeScope.SUBSCRIPTION))
+				.thenThrow(new IllegalStateException("the platform said no"));
+
+		final PaymentMethodChangeReport report =
+				facade.changePaymentMethodForAllSubscriptions("code-1", "billing-9");
+
+		assertEquals(1, report.moved());
+		assertEquals(1, report.failed());
+		assertTrue(report.isPartial());
+		// Not reported as a completed fan-out: something was left behind.
+		assertEquals(PaymentMethodChangeResult.CHANGED_THIS_SUBSCRIPTION, report.result());
+	}
+
+	/** Nothing to fan out where the platform already moves every subscription of the customer. */
+	@Test
+	public void doesNotFanOutWhenTheChangeWasAlreadyCustomerScoped() throws Exception
+	{
+		givenSubscriptionOnAPlatformThatSupportsTheChange(NormalizedSubscriptionStatus.ACTIVE);
+		givenVaultHolding("card-mine");
+
+		final PaymentMethodChangeReport report =
+				facade.changePaymentMethodForAllSubscriptions("code-1", "card-mine");
+
+		assertEquals(PaymentMethodChangeResult.CHANGED_ALL_SUBSCRIPTIONS, report.result());
+		verify(subscriptionBillingService, times(1)).changePaymentMethod(any(), any());
+	}
+
+	/** A refused first call fans out to nothing, so a failure cannot move anybody else's billing. */
+	@Test
+	public void fansOutNothingWhenTheNamedSubscriptionWasRefused() throws Exception
+	{
+		givenNoResults();
+
+		final PaymentMethodChangeReport report =
+				facade.changePaymentMethodForAllSubscriptions("someone-elses-code", "card-mine");
+
+		assertEquals(PaymentMethodChangeResult.FAILED, report.result());
+		assertEquals(0, report.moved());
+		verify(subscriptionBillingService, never()).changePaymentMethod(any(), any());
+	}
+
+	/**
+	 * A platform that pins a method per subscription: the scope the fan-out exists for. The option the
+	 * shopper posts has to be one the platform lists, since that is what choiceFor validates against.
+	 */
+	private void givenAPinningPlatform() throws Exception
+	{
+		when(connector.capabilities()).thenReturn(capabilities(PaymentMethodChangeScope.SUBSCRIPTION));
+		when(subscriptionBillingService.listPaymentMethods(any()))
+				.thenReturn(List.of(new PlatformPaymentMethod("billing-9", "Visa 4242", null, false)));
+		when(subscriptionBillingService.changePaymentMethod(any(), any()))
+				.thenReturn(new PaymentMethodChangeOutcome(
+						new BillingPaymentMethodRef(BillingPlatform.CHARGEBEE, "billing-9"),
+						PaymentMethodChangeScope.SUBSCRIPTION));
+	}
+
+	/** Puts a row in a given store, which is what decides whether two rows share a platform account. */
+	private BillingSubscriptionRefModel inStore(final BillingSubscriptionRefModel ref,
+			final BaseStoreModel store)
+	{
+		final OrderModel order = mock(OrderModel.class);
+		when(order.getStore()).thenReturn(store);
+		when(ref.getOrder()).thenReturn(order);
+		return ref;
+	}
+
+	/**
+	 * The customer reference is minted from the shopper's global SAP id, so it is the same string on every
+	 * site of a platform. Only the store tells two platform accounts apart, and sending a card into the
+	 * wrong one would use another store's credentials.
+	 */
+	@Test
+	public void leavesSubscriptionsSoldByAnotherStoreAlone() throws Exception
+	{
+		givenSubscriptionOnAPlatformThatSupportsTheChange(NormalizedSubscriptionStatus.ACTIVE);
+		givenAPinningPlatform();
+		givenSiblings(pinnedRef("sub-1", "cb-customer-1"),
+				inStore(pinnedRef("sub-2", "cb-customer-1"), mock(BaseStoreModel.class)));
+
+		final PaymentMethodChangeReport report =
+				facade.changePaymentMethodForAllSubscriptions("code-1", "billing-9");
+
+		// Not a failure either: a row the chosen card could never reach is not something to report.
+		assertEquals(1, report.moved());
+		assertEquals(0, report.failed());
+		verify(subscriptionBillingService, times(1)).changePaymentMethod(any(), any());
+	}
+
+	@Test
+	public void offersToShareOneCardOnlyWhenAnotherRowWouldActuallyMove() throws Exception
+	{
+		givenSubscriptionOnAPlatformThatSupportsTheChange(NormalizedSubscriptionStatus.ACTIVE);
+		givenAPinningPlatform();
+		givenSiblings(pinnedRef("sub-1", "cb-customer-1"));
+
+		assertFalse(facade.getSubscriptionsForCurrentCustomer().getSubscriptions().get(0)
+				.isPaymentMethodShareable());
+
+		givenSiblings(pinnedRef("sub-1", "cb-customer-1"), pinnedRef("sub-2", "cb-customer-1"));
+
+		assertTrue(facade.getSubscriptionsForCurrentCustomer().getSubscriptions().get(0)
+				.isPaymentMethodShareable());
+	}
+
+	/** Nothing to share where the platform already moves every subscription of the customer at once. */
+	@Test
+	public void doesNotOfferToShareOneCardOnACustomerScopedPlatform() throws Exception
+	{
+		givenSubscriptionOnAPlatformThatSupportsTheChange(NormalizedSubscriptionStatus.ACTIVE);
+		givenSiblings(pinnedRef("sub-1", "cb-customer-1"), pinnedRef("sub-2", "cb-customer-1"));
+
+		assertFalse(facade.getSubscriptionsForCurrentCustomer().getSubscriptions().get(0)
+				.isPaymentMethodShareable());
+	}
+
+	private BillingSubscriptionRefModel pinnedRef(final String externalId, final String externalCustomerId)
+	{
+		final BillingSubscriptionRefModel ref = ref(NormalizedSubscriptionStatus.ACTIVE);
+		when(ref.getPlatform()).thenReturn(BillingPlatform.CHARGEBEE);
+		when(ref.getExternalSubscriptionId()).thenReturn(externalId);
+		when(ref.getExternalCustomerId()).thenReturn(externalCustomerId);
+		return ref;
+	}
+
+	/**
+	 * The first entry answers findOwnSubscription, which takes the head of the result; the rest are the
+	 * siblings the fan-out has to find for itself.
+	 */
+	@SuppressWarnings("unchecked")
+	private void givenSiblings(final BillingSubscriptionRefModel... refs)
+	{
+		final SearchResult<BillingSubscriptionRefModel> result = mock(SearchResult.class);
+		when(result.getResult()).thenReturn(List.of(refs));
+		final SearchResult<BillingSubscriptionRefModel> none = mock(SearchResult.class);
+		when(none.getResult()).thenReturn(List.of());
+		when(flexibleSearchService.<BillingSubscriptionRefModel> search(any(FlexibleSearchQuery.class)))
+				.thenAnswer(invocation -> {
+					final String asked = ((FlexibleSearchQuery) invocation.getArgument(0)).getQuery();
+					return asked == null || asked.contains("{BillingSubscriptionRef}") ? result : none;
+				});
 	}
 
 	/** The state is re-derived from the row rather than trusted from a form that may be minutes old. */
@@ -784,17 +975,16 @@ public class DefaultMySubscriptionsFacadeTest
 		when(storedCardsFacade.getStoredCardsPageDataForCurrentCustomer()).thenReturn(page);
 	}
 
-	private static BillingSubscriptionRefModel ref(final NormalizedSubscriptionStatus status)
+	private BillingSubscriptionRefModel ref(final NormalizedSubscriptionStatus status)
 	{
 		final BillingSubscriptionRefModel ref = mock(BillingSubscriptionRefModel.class);
 		when(ref.getCode()).thenReturn("code-1");
 		when(ref.getStatus()).thenReturn(status.name());
 		// Present by default: absent, the row lands in SETTING_UP, which is a state of its own.
 		when(ref.getPlatformUpdatedAt()).thenReturn(new Date());
-		final OrderModel order = mock(OrderModel.class);
-		when(order.getStore()).thenReturn(mock(BaseStoreModel.class));
-		when(ref.getOrder()).thenReturn(order);
-		return ref;
+		// One store for every row unless a test says otherwise: the store is what selects the platform
+		// account, so rows sharing a storefront must share it here too.
+		return inStore(ref, theStore);
 	}
 
 	@SuppressWarnings("unchecked")

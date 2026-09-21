@@ -151,6 +151,44 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
                 enrollment);
     }
 
+    /**
+     * Also make the chosen card the account's default, where the store asks for it.
+     *
+     * <p>Never fatal. The subscription is already billing to the card by the time this runs, so a failure
+     * here leaves the shopper's request fulfilled and only the account default stale; reporting it as a
+     * failed change would be false, and a retry would repeat a call that already succeeded.</p>
+     */
+    protected void promoteToPrimaryIfConfigured(final PaymentMethodChangeRequest request,
+                                                final String billingInfoId) {
+        if (!configService.isPromoteChosenCardToPrimaryEnabled()) {
+            return;
+        }
+        try {
+            // Read first. Promotion is account-wide and Recurly retries collection on unpaid invoices tied
+            // to the billing info, so repeating it - which putting one card behind several subscriptions
+            // would - must not repeat that. Already primary means there is nothing to do.
+            if (isAlreadyPrimary(request.customer().externalId(), billingInfoId)) {
+                return;
+            }
+            apiClient.promoteBillingInfoToPrimary(request.customer().externalId(), billingInfoId,
+                    operationKey(request.idempotencyKey(), "primary"));
+        } catch (final BillingException e) {
+            ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
+                    .field("billing_info_id", billingInfoId)
+                    .field("external_id", request.customer().externalId())
+                    .field("error_class", e.getClass().getSimpleName())
+                    .warn(LOG);
+        }
+    }
+
+    /** Whether the account already bills this card by default, so promoting it would change nothing. */
+    protected boolean isAlreadyPrimary(final String accountId, final String billingInfoId)
+            throws BillingException {
+        return apiClient.listBillingInfos(accountId).stream()
+                .anyMatch(method -> StringUtils.equals(billingInfoId, method.id())
+                        && method.defaultForCustomer());
+    }
+
     @Override
     public String listedPaymentMethodId(final String externalPaymentMethodId) {
         // Both shapes name the same billing info, and only the id appears in listBillingInfos. Never
@@ -218,6 +256,7 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
             try {
                 apiClient.assignBillingInfo(subscriptionId, billingInfoId,
                         operationKey(request.idempotencyKey(), "payment-method"));
+                promoteToPrimaryIfConfigured(request, billingInfoId);
             } catch (final BillingException e) {
                 ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
                         .failure(startedAt, e)

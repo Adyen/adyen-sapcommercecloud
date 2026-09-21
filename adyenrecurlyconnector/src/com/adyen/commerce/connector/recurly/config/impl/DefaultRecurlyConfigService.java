@@ -160,6 +160,12 @@ public class DefaultRecurlyConfigService implements RecurlyConfigService {
     }
 
     @Override
+    public boolean isPromoteChosenCardToPrimaryEnabled() {
+        final RecurlyConfigModel config = findRecurlyConfig();
+        return config != null && Boolean.TRUE.equals(config.getPromoteChosenCardToPrimary());
+    }
+
+    @Override
     public boolean isNetworkTransactionIdOnBillingInfoEnabled() {
         final RecurlyConfigModel config = findRecurlyConfig();
         return config != null

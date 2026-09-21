@@ -67,6 +67,12 @@ public interface RecurlyConfigService {
     boolean isExternalNtidFeatureEnabledOrFalse();
 
     /**
+     * Whether a card a shopper points a subscription at should also become the account's primary billing
+     * info. Account-wide in effect, so it is its own switch rather than part of the change itself.
+     */
+    boolean isPromoteChosenCardToPrimaryEnabled();
+
+    /**
      * Whether to put the network transaction id on the billing-info import itself. Unproven against
      * Recurly, so it is separate from {@link #isExternalNtidFeatureEnabled()} and defaults off.
      */

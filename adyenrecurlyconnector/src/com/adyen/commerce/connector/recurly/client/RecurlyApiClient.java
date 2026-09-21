@@ -52,6 +52,17 @@ public interface RecurlyApiClient {
     void assignBillingInfo(String subscriptionId, String billingInfoId, String idempotencyKey)
             throws BillingException;
 
+    /**
+     * Make this billing info the account's primary one
+     * ({@code PUT /accounts/\{id\}/billing_infos/\{billing_info_id\}} with {@code primary_payment_method}).
+     *
+     * <p>Account-wide, not subscription-scoped: every subscription of this customer that is not pinned to a
+     * specific billing info follows the primary and therefore moves. Recurly also attempts collection on
+     * unpaid invoices tied to the billing info being updated.</p>
+     */
+    void promoteBillingInfoToPrimary(String accountId, String billingInfoId, String idempotencyKey)
+            throws BillingException;
+
     void updateSubscription(String subscriptionId, String planCode, Integer quantity, String idempotencyKey)
             throws BillingException;
 

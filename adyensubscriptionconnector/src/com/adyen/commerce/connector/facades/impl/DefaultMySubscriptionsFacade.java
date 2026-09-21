@@ -25,6 +25,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.Callable;
 
 import org.apache.commons.lang3.StringUtils;
@@ -45,6 +46,7 @@ import com.adyen.commerce.connector.dto.NormalizedSubscriptionStatus;
 import com.adyen.commerce.connector.dto.SubscriptionCancellation;
 import com.adyen.commerce.connector.facades.MySubscriptionsFacade;
 import com.adyen.commerce.connector.facades.data.PaymentMethodChangeResult;
+import com.adyen.commerce.connector.facades.data.PaymentMethodChangeReport;
 import com.adyen.commerce.connector.facades.data.SubscriptionDisplayState;
 import com.adyen.commerce.connector.facades.data.SubscriptionEntryData;
 import com.adyen.commerce.connector.facades.data.SubscriptionOverviewData;
@@ -123,6 +125,8 @@ public class DefaultMySubscriptionsFacade implements MySubscriptionsFacade
 		overview.setSubscriptions(entries);
 		overview.setOrdersAwaitingSetup(findOrdersAwaitingSetup(customer));
 		applyPaymentMethodEnrollmentOffer(overview, refs);
+		// Needs the references, not the rows: which billing account a row sits under is not on screen.
+		markRowsThatCouldShareOneCard(overview, refs);
 		// Reads the entries just built rather than querying again: the offer has to describe the rows the
 		// shopper is looking at.
 		applyPaymentMethodChangeOffer(overview);
@@ -276,6 +280,123 @@ public class DefaultMySubscriptionsFacade implements MySubscriptionsFacade
 		{
 			LOG.error("Could not change the payment method for subscription '{}'.", subscriptionCode, e);
 			return PaymentMethodChangeResult.FAILED;
+		}
+	}
+
+	@Override
+	public PaymentMethodChangeReport changePaymentMethodForAllSubscriptions(final String subscriptionCode,
+			final String storedPaymentMethodId)
+	{
+		// The row the shopper named goes through the single-subscription path first, with every guard that
+		// path applies, and nothing fans out until it has succeeded. Siblings are guarded separately, in
+		// siblingsOf and in the change itself - a guard added to one side is not inherited by the other.
+		final PaymentMethodChangeResult first =
+				changePaymentMethodForCurrentCustomer(subscriptionCode, storedPaymentMethodId);
+		if (first != PaymentMethodChangeResult.CHANGED_THIS_SUBSCRIPTION)
+		{
+			// A customer-scoped platform already moved everything, and a refusal has nothing to fan out.
+			return PaymentMethodChangeReport.of(first);
+		}
+
+		final CustomerModel customer = currentCustomer();
+		final BillingSubscriptionRefModel named = findOwnSubscription(customer, subscriptionCode);
+		if (named == null)
+		{
+			return PaymentMethodChangeReport.of(first);
+		}
+
+		int moved = 1;
+		int failed = 0;
+		for (final BillingSubscriptionRefModel other : siblingsOf(customer, named))
+		{
+			if (movePaymentMethod(customer, other, storedPaymentMethodId))
+			{
+				moved++;
+			}
+			else
+			{
+				failed++;
+			}
+		}
+
+		final PaymentMethodChangeResult result = failed == 0 && moved > 1
+				? PaymentMethodChangeResult.CHANGED_ALL_SUBSCRIPTIONS
+				: PaymentMethodChangeResult.CHANGED_THIS_SUBSCRIPTION;
+		if (failed > 0)
+		{
+			LOG.warn("Put one card behind {} of this shopper's subscriptions on platform {}; {} could not "
+					+ "be moved.", Integer.valueOf(moved), named.getPlatform(), Integer.valueOf(failed));
+		}
+		return new PaymentMethodChangeReport(result, moved, failed);
+	}
+
+	/**
+	 * The shopper's other subscriptions that the same card could actually be put behind.
+	 *
+	 * <p>Same store and same platform. The store is what decides it: credentials, site and the whole
+	 * payment-method namespace hang off the store's config, while {@code externalCustomerId} is minted
+	 * from the shopper's global SAP id and is therefore the same string on every site of a platform - it
+	 * identifies the shopper, not the account. Comparing it alone would send a card into another site's
+	 * account under another store's credentials.</p>
+	 *
+	 * <p>Rows that could not be acted on anyway are left out here rather than counted as failures. Each
+	 * surviving row is still re-checked individually inside the loop, at the cost of a listing call per
+	 * row: ownership is worth re-establishing per subscription, and the group is small by nature.</p>
+	 */
+	protected List<BillingSubscriptionRefModel> siblingsOf(final CustomerModel customer,
+			final BillingSubscriptionRefModel named)
+	{
+		final List<BillingSubscriptionRefModel> siblings = new ArrayList<>();
+		for (final BillingSubscriptionRefModel other : findSubscriptions(customer))
+		{
+			// Identified by what the platform calls it, not by PK: that is the identity the change acts on,
+			// and it is the one a row must have before it is changeable at all.
+			if (StringUtils.equals(other.getExternalSubscriptionId(), named.getExternalSubscriptionId())
+					|| other.getPlatform() != named.getPlatform()
+					|| !StringUtils.equals(other.getExternalCustomerId(), named.getExternalCustomerId())
+					|| !Objects.equals(storeOf(other), storeOf(named))
+					|| storeOf(other) == null
+					|| !displayState(other).isPaymentMethodChangeable()
+					// Its own store's configuration decides, and two stores selling on one platform need
+					// not agree. A row nothing would have offered is left out rather than counted as a
+					// failure the shopper is then told about.
+					|| !declaredSupportFor(other).isSupported())
+			{
+				continue;
+			}
+			siblings.add(other);
+		}
+		return siblings;
+	}
+
+	/**
+	 * What makes two rows share one payment-method namespace: the store that selects the platform account,
+	 * the platform, and the customer reference under it. The same key the fan-out groups on, so the offer
+	 * and what the offer does cannot drift apart.
+	 */
+	protected String accountKeyOf(final BillingSubscriptionRefModel ref)
+	{
+		final BaseStoreModel store = storeOf(ref);
+		return (store == null ? "no-store" : store.getUid()) + "/" + ref.getPlatform().getCode()
+				+ "/" + ref.getExternalCustomerId();
+	}
+
+	/**
+	 * One subscription of the fan-out. Answers only whether it moved: a platform refusing this row says
+	 * nothing about the others, so a failure here is counted rather than thrown.
+	 */
+	protected boolean movePaymentMethod(final CustomerModel customer,
+			final BillingSubscriptionRefModel ref, final String storedPaymentMethodId)
+	{
+		try
+		{
+			changeInStoreContext(customer, ref, declaredSupportFor(ref), storedPaymentMethodId);
+			return true;
+		}
+		catch (final RuntimeException e)
+		{
+			LOG.warn("Could not also move subscription '{}' onto the chosen payment method.", ref.getCode(), e);
+			return false;
 		}
 	}
 
@@ -782,6 +903,36 @@ public class DefaultMySubscriptionsFacade implements MySubscriptionsFacade
 					|| (pageControlOffered
 							&& entry.getPaymentMethodChangeScope() == PaymentMethodChangeScope.CUSTOMER));
 		}
+	}
+
+	/**
+	 * Marks the rows whose control may also offer to move the shopper's other subscriptions.
+	 *
+	 * <p>Only rows a platform pins individually: where the change is already customer-scoped the offer
+	 * would be a second name for what the control does anyway. Counted over the page first, because a lone
+	 * subscription has nothing to share a card with.</p>
+	 */
+	protected void markRowsThatCouldShareOneCard(final SubscriptionOverviewData overview,
+			final List<BillingSubscriptionRefModel> refs)
+	{
+		// Grouped exactly as the fan-out groups, so the offer is never made to a row it would move nothing
+		// for.
+		final Map<String, List<SubscriptionEntryData>> byAccount = new HashMap<>();
+		final List<SubscriptionEntryData> entries = overview.getSubscriptions();
+		for (int i = 0; i < entries.size() && i < refs.size(); i++)
+		{
+			final SubscriptionEntryData entry = entries.get(i);
+			if (!entry.isPaymentMethodChangeable()
+					|| entry.getPaymentMethodChangeScope() != PaymentMethodChangeScope.SUBSCRIPTION)
+			{
+				continue;
+			}
+			byAccount.computeIfAbsent(accountKeyOf(refs.get(i)), key -> new ArrayList<>()).add(entry);
+		}
+		byAccount.values().stream()
+				.filter(group -> group.size() > 1)
+				.flatMap(List::stream)
+				.forEach(entry -> entry.setPaymentMethodShareable(true));
 	}
 
 	/**

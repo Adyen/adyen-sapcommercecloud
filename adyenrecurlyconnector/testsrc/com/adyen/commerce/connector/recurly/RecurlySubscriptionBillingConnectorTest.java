@@ -8,6 +8,7 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -16,6 +17,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import com.adyen.commerce.connector.exception.ConnectorNotConfiguredException;
@@ -27,6 +29,7 @@ import org.mockito.MockitoAnnotations;
 
 import com.adyen.commerce.connector.dto.AdyenTokenHandle;
 import com.adyen.commerce.connector.exception.CapabilityUnsupportedException;
+import com.adyen.commerce.connector.dto.PlatformPaymentMethod;
 import com.adyen.commerce.connector.dto.PaymentMethodSource;
 import com.adyen.commerce.connector.dto.PaymentMethodChoice;
 import com.adyen.commerce.connector.dto.PaymentMethodChangeSupport;
@@ -393,6 +396,70 @@ public class RecurlySubscriptionBillingConnectorTest
      * Activation stores the packed reference and a repoint stores the bare id. Both name the same billing
      * info, and the page compares whichever it finds against what listBillingInfos returned.
      */
+    @Test
+    public void leavesTheAccountDefaultAloneUnlessTheStoreAsksForIt() throws Exception {
+        when(configService.isPaymentMethodChangeEnabledOrFalse()).thenReturn(true);
+
+        connector.changePaymentMethod(repointTo("billing-9"));
+
+        verify(apiClient).assignBillingInfo(eq("uuid-sub-1"), eq("billing-9"), any());
+        verify(apiClient, never()).promoteBillingInfoToPrimary(any(), any(), any());
+    }
+
+    @Test
+    public void alsoMakesTheChosenCardTheAccountDefaultWhereTheStoreAsksForIt() throws Exception {
+        when(configService.isPaymentMethodChangeEnabledOrFalse()).thenReturn(true);
+        when(configService.isPromoteChosenCardToPrimaryEnabled()).thenReturn(true);
+        when(apiClient.listBillingInfos("code-customer")).thenReturn(List.of(
+                new PlatformPaymentMethod("billing-9", "Visa 4242", null, false)));
+
+        connector.changePaymentMethod(repointTo("billing-9"));
+
+        verify(apiClient).promoteBillingInfoToPrimary(eq("code-customer"), eq("billing-9"), any());
+    }
+
+    /**
+     * Putting one card behind several subscriptions calls this once per subscription, and promotion is
+     * account-wide: Recurly retries collection on unpaid invoices each time, so a card that is already the
+     * default must not be promoted again.
+     */
+    @Test
+    public void doesNotPromoteACardThatIsAlreadyTheAccountDefault() throws Exception {
+        when(configService.isPaymentMethodChangeEnabledOrFalse()).thenReturn(true);
+        when(configService.isPromoteChosenCardToPrimaryEnabled()).thenReturn(true);
+        when(apiClient.listBillingInfos("code-customer")).thenReturn(List.of(
+                new PlatformPaymentMethod("billing-9", "Visa 4242", null, true)));
+
+        connector.changePaymentMethod(repointTo("billing-9"));
+
+        verify(apiClient).assignBillingInfo(eq("uuid-sub-1"), eq("billing-9"), any());
+        verify(apiClient, never()).promoteBillingInfoToPrimary(any(), any(), any());
+    }
+
+    /**
+     * The subscription is already billing to the card by then, so a failed promotion leaves the shopper's
+     * request fulfilled; reporting a failed change would be false.
+     */
+    @Test
+    public void aFailedPromotionDoesNotFailTheChange() throws Exception {
+        when(configService.isPaymentMethodChangeEnabledOrFalse()).thenReturn(true);
+        when(configService.isPromoteChosenCardToPrimaryEnabled()).thenReturn(true);
+        doThrow(new PreconditionFailedException("nope"))
+                .when(apiClient).promoteBillingInfoToPrimary(any(), any(), any());
+
+        final PaymentMethodChangeOutcome outcome = connector.changePaymentMethod(repointTo("billing-9"));
+
+        assertEquals(PaymentMethodChangeScope.SUBSCRIPTION, outcome.appliedScope());
+    }
+
+    private PaymentMethodChangeRequest repointTo(final String billingInfoId) {
+        return new PaymentMethodChangeRequest(
+                new BillingCustomerRef(BillingPlatform.RECURLY, "code-customer"),
+                new BillingSubscriptionRef(BillingPlatform.RECURLY, "uuid-sub-1"),
+                new PaymentMethodChoice.AlreadyOnPlatform(billingInfoId),
+                "key-1");
+    }
+
     @Test
     public void narrowsEitherShapeOfStoredReferenceToTheListedBillingInfoId() {
         assertEquals("billing-1", connector.listedPaymentMethodId("billing-1::ntid::NTID-42"));

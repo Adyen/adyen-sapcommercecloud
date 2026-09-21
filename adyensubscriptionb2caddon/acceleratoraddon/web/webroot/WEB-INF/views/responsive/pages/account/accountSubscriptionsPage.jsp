@@ -258,6 +258,16 @@
                                                     <p class="subx-note">
                                                         <spring:theme code="text.account.subscriptions.paymentMethod.note.SUBSCRIPTION"/>
                                                     </p>
+                                                    <%-- Only where the shopper has another subscription this card could move
+                                                         to. The provider pins each one separately, so moving them all means
+                                                         touching each - there is no account-level switch that would. --%>
+                                                    <c:if test="${subscription.paymentMethodShareable}">
+                                                        <label class="subx-check" for="subxAll-${row.index}">
+                                                            <input type="checkbox" id="subxAll-${row.index}"
+                                                                   name="applyToAll" value="true"/>
+                                                            <spring:theme code="text.account.subscriptions.paymentMethod.applyToAll"/>
+                                                        </label>
+                                                    </c:if>
                                                     <button type="submit" class="btn btn-default subx-btn">
                                                         <spring:theme code="text.account.subscriptions.paymentMethod.row.submit"/>
                                                     </button>
