@@ -20,7 +20,7 @@
  */
 package com.adyen.v6.populator;
 
-import javax.annotation.Nonnull;
+import jakarta.annotation.Nonnull;
 import de.hybris.platform.commercefacades.order.data.OrderEntryData;
 import de.hybris.platform.core.model.order.AbstractOrderEntryModel;
 import de.hybris.platform.commercefacades.order.converters.populator.OrderEntryPopulator;

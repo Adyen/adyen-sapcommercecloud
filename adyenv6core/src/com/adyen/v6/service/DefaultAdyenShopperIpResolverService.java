@@ -4,7 +4,7 @@ import de.hybris.platform.servicelayer.config.ConfigurationService;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 
 public class DefaultAdyenShopperIpResolverService implements AdyenShopperIpResolverService {
@@ -44,8 +44,12 @@ public class DefaultAdyenShopperIpResolverService implements AdyenShopperIpResol
 
         String headerValue = request.getHeader(X_FORWARDED_FOR);
         if (StringUtils.isNotEmpty(headerValue)) {
+            LOG.debug("Using header: " + X_FORWARDED_FOR + " with value: " + headerValue);
+
             return headerValue.split(",")[0].trim();
         }
+
+        LOG.debug("Using getRemoteAddr from request");
 
         return request.getRemoteAddr();
     }

@@ -28,7 +28,7 @@
 <div class="chckt-pm chckt-pm-card js-chckt-pm js-chckt-pm__pm-holder" data-additional-required="" data-pm="card">
     <input type="hidden" name="txvariant" value="card">
     <div class="chckt-pm__header js-chckt-pm__header">
-        <adyen:methodSelector name="adyen_cc"/>
+        <adyen:methodSelector name="card"/>
         <span class="chckt-pm__name js-chckt-pm__name"><spring:theme code="payment.method.label.information"/></span>
         <span class="chckt-pm__image">
             <span id="cardLogos"></span>
@@ -36,7 +36,7 @@
         </span>
     </div>
 
-    <div class="chckt-pm__details js-chckt-pm__details payment_method_details" id="dd_method_adyen_cc">
+    <div class="chckt-pm__details js-chckt-pm__details payment_method_details" id="dd_method_card">
         <div class="chckt-form chckt-form--max-width">
             <c:if test="${showComboCard}">
                 <div class="adyen-checkout__dropdown adyen-checkout__field adyen-checkout__input--large">

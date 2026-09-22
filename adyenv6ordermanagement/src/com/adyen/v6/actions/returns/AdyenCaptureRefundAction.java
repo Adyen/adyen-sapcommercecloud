@@ -24,7 +24,6 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.log4j.Logger;
-import org.springframework.beans.factory.annotation.Required;
 import com.adyen.v6.actions.AbstractWaitableAction;
 import de.hybris.platform.basecommerce.enums.ReturnStatus;
 import de.hybris.platform.payment.AdapterException;
@@ -167,7 +166,7 @@ public class AdyenCaptureRefundAction extends AbstractWaitableAction<ReturnProce
         return paymentService;
     }
 
-    @Required
+
     public void setPaymentService(final PaymentService paymentService) {
         this.paymentService = paymentService;
     }
@@ -176,7 +175,7 @@ public class AdyenCaptureRefundAction extends AbstractWaitableAction<ReturnProce
         return refundAmountCalculationService;
     }
 
-    @Required
+
     public void setRefundAmountCalculationService(RefundAmountCalculationService refundAmountCalculationService) {
         this.refundAmountCalculationService = refundAmountCalculationService;
     }

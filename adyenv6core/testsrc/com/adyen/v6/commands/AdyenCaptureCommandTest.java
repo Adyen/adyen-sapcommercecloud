@@ -38,7 +38,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.runners.MockitoJUnitRunner;
+import org.mockito.junit.MockitoJUnitRunner;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -157,7 +157,7 @@ public class AdyenCaptureCommandTest {
     public void shouldReturnTrueForSupportedMethods() {
         // All supported payment methods
         String[] supportedMethods = {
-                "card", "adyen_cc", "scheme", "paypal", "klarna", "klarna_account", "klarna_paynow", "afterpay_default",
+                "card", "scheme", "paypal", "klarna", "klarna_account", "klarna_paynow", "afterpay_default",
                 "afterpaytouch", "clearpay", "ratepay", "afterpay_default", "sepadirectdebit", "applepay",
                 "paywithgoogle", "googlepay", "amazonpay", "twint"
         };

@@ -1,21 +1,26 @@
 package com.adyen.v6.service;
 
 import com.adyen.commerce.services.AdyenRequestService;
+import com.adyen.model.RequestOptions;
 import com.adyen.model.checkout.*;
 import com.adyen.service.checkout.ModificationsApi;
+import com.adyen.service.exception.ApiException;
 import com.adyen.v6.util.AmountUtil;
 import de.hybris.platform.store.BaseStoreModel;
 import org.apache.log4j.Logger;
+import org.springframework.retry.support.RetryTemplate;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.Currency;
+import java.util.UUID;
 
 public class DefaultAdyenModificationsApiService extends AbstractAdyenApiService implements AdyenModificationsApiService {
 
     private static final Logger LOG = Logger.getLogger(DefaultAdyenModificationsApiService.class);
 
-    public DefaultAdyenModificationsApiService(BaseStoreModel baseStore, String merchantAccount, final AdyenRequestService adyenRequestService) {
-        super(baseStore, merchantAccount, adyenRequestService);
+    public DefaultAdyenModificationsApiService(BaseStoreModel baseStore, String merchantAccount, final AdyenRequestService adyenRequestService, final RetryTemplate adyenCustomerInteractionRetryTemplate, final RetryTemplate adyenBackgroundProcessRetryTemplate) {
+        super(baseStore, merchantAccount, adyenRequestService, adyenCustomerInteractionRetryTemplate, adyenBackgroundProcessRetryTemplate);
     }
 
     @Override
@@ -29,11 +34,26 @@ public class DefaultAdyenModificationsApiService extends AbstractAdyenApiService
         captureRequest.setReference(merchantReference);
         captureRequest.setMerchantAccount(merchantAccount);
 
-        LOG.debug(captureRequest);
-        PaymentCaptureResponse paymentCaptureResponse = modificationsApi.captureAuthorisedPayment(pspReference, captureRequest);
-        LOG.debug(paymentCaptureResponse);
+        RequestOptions requestOptions = new RequestOptions();
+        requestOptions.setIdempotencyKey(UUID.randomUUID().toString());
 
-        return paymentCaptureResponse;
+        try {
+            return adyenBackgroundProcessRetryTemplate.execute(context -> {
+                LOG.debug(captureRequest);
+                PaymentCaptureResponse paymentCaptureResponse = modificationsApi.captureAuthorisedPayment(pspReference, captureRequest, requestOptions);
+                LOG.debug(paymentCaptureResponse);
+
+                return paymentCaptureResponse;
+            });
+        } catch (Exception e) {
+            if (e instanceof ApiException) {
+                throw (ApiException) e;
+            } else if (e instanceof IOException) {
+                throw (IOException) e;
+            } else {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
 
@@ -47,11 +67,25 @@ public class DefaultAdyenModificationsApiService extends AbstractAdyenApiService
         reversalRequest.setReference(merchantReference);
         reversalRequest.setMerchantAccount(merchantAccount);
 
-        LOG.debug(reversalRequest);
-        PaymentReversalResponse paymentReversalResponse = modificationsApi.refundOrCancelPayment(paymentPspReference, reversalRequest);
-        LOG.debug(paymentReversalResponse);
+        RequestOptions requestOptions = new RequestOptions();
+        requestOptions.setIdempotencyKey(UUID.randomUUID().toString());
+        try {
+            return adyenBackgroundProcessRetryTemplate.execute(context -> {
+                LOG.debug(reversalRequest);
+                PaymentReversalResponse paymentReversalResponse = modificationsApi.refundOrCancelPayment(paymentPspReference, reversalRequest, requestOptions);
+                LOG.debug(paymentReversalResponse);
 
-        return paymentReversalResponse;
+                return paymentReversalResponse;
+            });
+        } catch (Exception e) {
+            if (e instanceof ApiException) {
+                throw (ApiException) e;
+            } else if (e instanceof IOException) {
+                throw (IOException) e;
+            } else {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     public PaymentRefundResponse refund(final BigDecimal amount, final Currency currency, final String paymentPspReference, final String reference) throws Exception {
@@ -64,11 +98,26 @@ public class DefaultAdyenModificationsApiService extends AbstractAdyenApiService
         paymentRefundRequest.setMerchantAccount(merchantAccount);
         paymentRefundRequest.setReference(reference);
 
-        LOG.debug(paymentRefundRequest);
-        PaymentRefundResponse paymentRefundResponse = modificationsApi.refundCapturedPayment(paymentPspReference, paymentRefundRequest);
-        LOG.debug(paymentRefundResponse);
+        RequestOptions requestOptions = new RequestOptions();
+        requestOptions.setIdempotencyKey(UUID.randomUUID().toString());
 
-        return paymentRefundResponse;
+        try {
+            return adyenBackgroundProcessRetryTemplate.execute(context -> {
+                LOG.debug(paymentRefundRequest);
+                PaymentRefundResponse paymentRefundResponse = modificationsApi.refundCapturedPayment(paymentPspReference, paymentRefundRequest, requestOptions);
+                LOG.debug(paymentRefundResponse);
+
+                return paymentRefundResponse;
+            });
+        } catch (Exception e) {
+            if (e instanceof ApiException) {
+                throw (ApiException) e;
+            } else if (e instanceof IOException) {
+                throw (IOException) e;
+            } else {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
 }

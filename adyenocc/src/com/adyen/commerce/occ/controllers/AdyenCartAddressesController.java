@@ -23,7 +23,7 @@ import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.Errors;
 import org.springframework.web.bind.annotation.*;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 
 import static com.adyen.commerce.constants.AdyenoccConstants.ADYEN_USER_CART_PREFIX;
 

@@ -5,6 +5,7 @@ import com.adyen.Config;
 import com.adyen.commerce.services.AdyenRequestService;
 import com.adyen.enums.Environment;
 import de.hybris.platform.store.BaseStoreModel;
+import org.springframework.retry.support.RetryTemplate;
 
 import static com.adyen.v6.constants.Adyenv6coreConstants.PLUGIN_NAME;
 import static com.adyen.v6.constants.Adyenv6coreConstants.PLUGIN_VERSION;
@@ -16,14 +17,18 @@ public abstract class AbstractAdyenApiService {
     protected AdyenRequestService adyenRequestService;
     protected Config config;
     protected Client client;
+    protected RetryTemplate adyenCustomerInteractionRetryTemplate;
+    protected RetryTemplate adyenBackgroundProcessRetryTemplate;
 
     private AbstractAdyenApiService() {
     }
 
-    public AbstractAdyenApiService(final BaseStoreModel baseStore, final String merchantAccount, final AdyenRequestService adyenRequestService) {
+    public AbstractAdyenApiService(final BaseStoreModel baseStore, final String merchantAccount, final AdyenRequestService adyenRequestService, final RetryTemplate adyenCustomerInteractionRetryTemplate, final RetryTemplate adyenBackgroundProcessRetryTemplate) {
         this.baseStore = baseStore;
         this.merchantAccount = merchantAccount;
         this.adyenRequestService = adyenRequestService;
+        this.adyenCustomerInteractionRetryTemplate = adyenCustomerInteractionRetryTemplate;
+        this.adyenBackgroundProcessRetryTemplate = adyenBackgroundProcessRetryTemplate;
         config = new Config();
         if (Boolean.TRUE.equals(baseStore.getAdyenTestMode())) {
             config.setEnvironment(Environment.TEST);
@@ -42,6 +47,12 @@ public abstract class AbstractAdyenApiService {
             this.config.setLiveEndpointUrlPrefix(baseStore.getAdyenAPIEndpointPrefix());
         }
     }
+
+    /** The Adyen merchant account this service talks to; a vaulted token is only valid against it. */
+    public String getMerchantAccount() {
+        return merchantAccount;
+    }
+
 
 
     public BaseStoreModel getBaseStore() {

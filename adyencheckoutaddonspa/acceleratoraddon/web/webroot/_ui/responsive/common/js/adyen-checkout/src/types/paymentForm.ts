@@ -6,6 +6,9 @@ export interface PlaceOrderRequest {
     billingAddress?: AddressData;
     storefrontType: string
     storefrontVersion: string;
+    
+    //Partial payment support
+    partialPaymentId?: string;
 }
 
 export interface AddressData {

@@ -21,7 +21,6 @@
 package com.adyen.v6.actions.order;
 
 import org.apache.log4j.Logger;
-import org.springframework.beans.factory.annotation.Required;
 import de.hybris.platform.core.enums.OrderStatus;
 import de.hybris.platform.core.model.order.OrderModel;
 import de.hybris.platform.orderprocessing.model.OrderProcessModel;
@@ -65,7 +64,6 @@ public class AdyenTakePaymentAction extends AbstractSimpleDecisionAction<OrderPr
         return paymentService;
     }
 
-    @Required
     public void setPaymentService(final PaymentService paymentService) {
         this.paymentService = paymentService;
     }

@@ -13,11 +13,12 @@ public class AmountUtil {
 
     public static Amount createAmount(BigDecimal value, String currency) {
         Assert.notNull(value, "Value cannot be null");
+        Assert.isTrue(value.signum() >= 0, "amount must be non-negative");
         Assert.isTrue(StringUtils.isNotBlank(currency), "Currency cannot be null or empty");
         Amount amount = new Amount();
         amount.setCurrency(currency);
         int scale = Util.getDecimalPlaces(currency);
-        amount.setValue(BigDecimal.TEN.pow(scale).multiply(value.setScale(scale, RoundingMode.HALF_UP)).longValue());
+        amount.setValue(BigDecimal.TEN.pow(scale).multiply(value.setScale(scale, RoundingMode.HALF_EVEN)).longValue());
         return amount;
     }
 
@@ -28,6 +29,19 @@ public class AmountUtil {
                 RoundingMode.HALF_EVEN);
         return BigDecimal.valueOf(totalTax == null ? 0d : totalTax)
                 .setScale(2, RoundingMode.HALF_EVEN).add(totalPriceWithoutTaxBD);
+    }
+
+    /**
+     * Convert amount from minor currency units (cents) to major currency units
+     * @param minorUnits the amount in minor units (e.g., cents)
+     * @return the amount in major currency units with proper scale, or null if input is null
+     */
+    public static BigDecimal convertFromMinorUnits(Long minorUnits, String currency) {
+        if (minorUnits == null) {
+            return null;
+        }
+        int scale = Util.getDecimalPlaces(currency);
+        return BigDecimal.valueOf(minorUnits).divide(BigDecimal.TEN.pow(scale), scale, RoundingMode.HALF_EVEN);
     }
 
 }

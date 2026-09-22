@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ [y] hybris Platform
+
+ Copyright (c) 2017 SAP SE or an SAP affiliate company.  All rights reserved.
+
+ This software is the confidential and proprietary information of SAP
+ ("Confidential Information"). You shall not disclose such Confidential
+ Information and shall use it only in accordance with the terms of the
+ license agreement you entered into with SAP.
+-->
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:security="http://www.springframework.org/schema/security"
+       xmlns:mvc="http://www.springframework.org/schema/mvc"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+		http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/context
+		http://www.springframework.org/schema/context/spring-context.xsd
+		http://www.springframework.org/schema/mvc
+		http://www.springframework.org/schema/mvc/spring-mvc.xsd
+		http://www.springframework.org/schema/security 
+		http://www.springframework.org/schema/security/spring-security.xsd">
+		
+	<context:annotation-config />
+	<context:component-scan base-package="com.adyen.commerce" scope-resolver="de.hybris.platform.spring.IgnoreTenantScopeMetadataResolver" />
+	
+	<!-- json and xml conversion -->
+	
+	<!-- 
+	jsonHttpMessageConverter and xmlHttpMessageConverter are default message converters declared in webservicescommons.
+	If custom configuration is needed for this web service please remove jsonHttpMessageConverter and xmlHttpMessageConverter from message-converters list and uncomment 
+	customJsonHttpMessageConverter and customXmlHttpMessageConverter declarations.
+	Changes done in custom message converters like adapter list will affect only this web service.
+	 -->
+	<mvc:annotation-driven>
+		<mvc:message-converters>
+			<ref bean="jsonHttpMessageConverter"/>
+			<ref bean="xmlHttpMessageConverter"/>
+		</mvc:message-converters>
+	</mvc:annotation-driven>
+
+	<!-- This tag allows for mapping the DispatcherServlet to "/" (thus overriding the mapping of the container's default Servlet), while 
+		still allowing static resource requests to be handled by the container's default Servlet. It configures a DefaultServletHttpRequestHandler 
+		with a URL mapping (given a lowest precedence order) of "/**". This handler will forward all requests to the default Servlet. -->
+	<mvc:default-servlet-handler />
+
+	<!-- Support for @CacheControl annotation -->
+	<mvc:interceptors>
+		<bean class="de.hybris.platform.webservicescommons.interceptors.CacheControlHandlerInterceptor"/>
+	</mvc:interceptors>
+	
+	<!-- Load additional configuration -->
+
+	<bean id="jspViewResolver" class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+		<property name="viewClass" value="org.springframework.web.servlet.view.JstlView" />
+		<property name="prefix" value="/WEB-INF/jsp/" />
+		<property name="suffix" value=".jsp" />
+	</bean>
+
+	<security:global-method-security pre-post-annotations="enabled" proxy-target-class="true" secured-annotations="enabled" />
+	
+	<mvc:resources mapping="**/swagger-ui.html" location="classpath:/META-INF/resources/"/>
+	<mvc:resources mapping="/webjars/**" location="classpath:/META-INF/resources/webjars/"/>
+
+</beans>

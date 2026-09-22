@@ -1,7 +1,7 @@
-import {PaymentMethod} from "@adyen/adyen-web";
+import {RawPaymentMethod} from "@adyen/adyen-web";
 
 export interface AdyenConfigData {
-    paymentMethods: PaymentMethod[];
+    paymentMethods: RawPaymentMethod[];
     storedPaymentMethodList: StoredPaymentMethodData[];
     issuerLists: Map<string, string>;
     creditCardLabel: string;
@@ -27,6 +27,8 @@ export interface AdyenConfigData {
     merchantDisplayName: string,
     shopperEmail: string,
     clickToPayLocale: string,
+    installmentOptions?: AdyenInstallmentOptions;
+    skipCvcForOneClick: boolean;
 }
 
 interface StoredPaymentMethodData {
@@ -53,4 +55,16 @@ interface AmountData {
 interface AllowedCard {
     code: string,
     type: string
+}
+
+interface AdyenInstallmentOptions {
+    card?: {
+        values?: number[];
+        plans?: string[];
+    };
+    showInstallmentAmounts?: {
+        values?: number[];
+        plans?: string[];
+    };
+    [key: string]: any;
 }

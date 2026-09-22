@@ -30,7 +30,8 @@ import de.hybris.platform.payment.dto.TransactionStatusDetails;
 import de.hybris.platform.payment.enums.PaymentTransactionType;
 import de.hybris.platform.payment.model.PaymentTransactionEntryModel;
 import de.hybris.platform.payment.model.PaymentTransactionModel;
-import org.apache.commons.collections.CollectionUtils;
+import org.springframework.util.CollectionUtils;
+
 
 import java.math.BigDecimal;
 import java.util.List;

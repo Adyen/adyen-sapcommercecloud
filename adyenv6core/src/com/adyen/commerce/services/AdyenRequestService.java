@@ -1,8 +1,7 @@
 package com.adyen.commerce.services;
 
-import com.adyen.model.checkout.PaymentRequest;
-import com.adyen.model.recurring.DisableRequest;
-import com.adyen.model.recurring.RecurringDetailsRequest;
+import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
+import com.adyen.model.checkout.*;
 import com.adyen.v6.enums.RecurringContractMode;
 import com.adyen.v6.model.RequestInfo;
 import de.hybris.platform.commercefacades.order.data.CartData;
@@ -42,12 +41,23 @@ public interface AdyenRequestService {
                                         final RequestInfo requestInfo,
                                         final CustomerModel customerModel,
                                         final RecurringContractMode recurringContractMode,
-                                        final Boolean guestUserTokenizationEnabled);
-
-    RecurringDetailsRequest createListRecurringDetailsRequest(final String merchantAccount, final String customerId);
-
-    DisableRequest createDisableRequest(final String merchantAccount, final String customerId, final String recurringReference);
+                                        final Boolean guestUserTokenizationEnabled,
+                                        final AdyenPartialPaymentOrderData partialPaymentOrderData);
 
     void decoratePayPalSubmitPaymentRequest(final String merchantAccount, final PaymentRequest paymentRequest,
                                                     final RequestInfo requestInfo);
+
+    PaymentRequest createPartialPaymentRequest(final String merchantAccount,
+                                               final CartData cartData,
+                                               final PaymentRequest originPaymentsRequest,
+                                               final RequestInfo requestInfo,
+                                               final CustomerModel customerModel,
+                                               final RecurringContractMode recurringContractMode,
+                                               final Boolean guestUserTokenizationEnabled,
+                                               final java.math.BigDecimal customAmount,
+                                               final String currency);
+
+    PaymentRequest createZeroAuthPaymentsRequest(String merchantAccount,
+                                                 CustomerModel customerModel,
+                                                 CheckoutPaymentMethod paymentMethod);
 }

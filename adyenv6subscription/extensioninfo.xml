@@ -27,7 +27,9 @@
         <requires-extension name="subscriptionservices"/>
 
         
-        <coremodule generated="true" manager="com.adyen.v6.jalo.Adyenv6subscriptionManager" packageroot="com.adyen.v6"/>
+        <coremodule generated="true" manager="com.adyen.commerce.jalo.Adyenv6subscriptionManager" packageroot="com.adyen.commerce"/>
+
+        <webmodule jspcompile="false" webroot="/adyenv6subscription"/>
     </extension>
               
 

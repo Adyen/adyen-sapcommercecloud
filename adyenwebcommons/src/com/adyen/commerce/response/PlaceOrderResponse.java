@@ -11,6 +11,11 @@ public class PlaceOrderResponse {
     private PaymentResponseAction paymentsAction;
     private PaymentResponse paymentsResponse;
     private PaymentDetailsResponse paymentDetailsResponse;
+    
+    // Partial payment specific fields
+    private boolean isPartialPayment;
+    private String partialPaymentId;
+    private String pspReference;  // PSP reference for the partial payment
 
     public String getOrderNumber() {
         return orderNumber;
@@ -58,5 +63,29 @@ public class PlaceOrderResponse {
 
     public void setPaymentDetailsResponse(PaymentDetailsResponse paymentDetailsResponse) {
         this.paymentDetailsResponse = paymentDetailsResponse;
+    }
+
+    public boolean isPartialPayment() {
+        return isPartialPayment;
+    }
+
+    public void setPartialPayment(boolean partialPayment) {
+        isPartialPayment = partialPayment;
+    }
+
+    public String getPartialPaymentId() {
+        return partialPaymentId;
+    }
+
+    public void setPartialPaymentId(String partialPaymentId) {
+        this.partialPaymentId = partialPaymentId;
+    }
+
+    public String getPspReference() {
+        return pspReference;
+    }
+
+    public void setPspReference(String pspReference) {
+        this.pspReference = pspReference;
     }
 }

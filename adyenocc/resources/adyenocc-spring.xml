@@ -13,7 +13,8 @@
            http://www.springframework.org/schema/context/spring-context.xsd">
 
     <context:annotation-config/>
-	<context:component-scan base-package="com.adyen.commerce.occ.controllers"/>
+ <context:component-scan base-package="com.adyen.commerce.occ.controllers"/>
+ <context:component-scan base-package="com.adyen.commerce.occ.validators"/>
 
 
 	<bean id="adyenOccAddressValidator"

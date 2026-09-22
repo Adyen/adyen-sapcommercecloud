@@ -2,6 +2,7 @@ package com.adyen.v6.listeners;
 
 import com.adyen.v6.events.OfferClosedEvent;
 import com.adyen.v6.model.AdyenNotificationModel;
+import de.hybris.platform.payment.model.PaymentTransactionModel;
 import org.apache.log4j.Logger;
 
 import java.util.Date;
@@ -18,8 +19,9 @@ public class OfferClosedNotificationEventListener extends AbstractNotificationEv
     @Override
     protected void onEvent(final OfferClosedEvent event) {
         AdyenNotificationModel notificationInfoModel = event.getNotificationRequestItem();
+        PaymentTransactionModel transactionModel = getPaymentTransactionRepository().getTransactionModel(notificationInfoModel.getOriginalReference());
         try {
-            getAdyenNotificationService().processOfferClosedEvent(notificationInfoModel);
+            getAdyenNotificationService().processCancelEvent(notificationInfoModel, transactionModel);
             LOG.info("Offer closed notification with PSPReference " + notificationInfoModel.getPspReference() + " was processed");
             notificationInfoModel.setProcessedAt(new Date());
             getModelService().save(notificationInfoModel);

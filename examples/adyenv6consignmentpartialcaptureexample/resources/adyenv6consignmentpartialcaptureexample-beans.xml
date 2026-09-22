@@ -22,9 +22,9 @@
 
 	<bean class="com.adyen.v6.data.AnnotatedPojo">
 
-		<import type="javax.xml.bind.annotation.XmlRootElement"/>
-		<import type="javax.xml.bind.annotation.XmlElements"/>
-		<import type="javax.xml.bind.annotation.XmlElement"/>
+		<import type="jakarta.xml.bind.annotation.XmlRootElement"/>
+		<import type="jakarta.xml.bind.annotation.XmlElements"/>
+		<import type="jakarta.xml.bind.annotation.XmlElement"/>
 
 		<annotations>@XmlRootElement</annotations>
 		

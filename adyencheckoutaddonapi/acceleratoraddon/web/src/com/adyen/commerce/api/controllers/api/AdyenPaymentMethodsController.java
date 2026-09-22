@@ -2,7 +2,7 @@ package com.adyen.commerce.api.controllers.api;
 
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.dto.CheckoutConfigDTO;
-import com.adyen.v6.facades.AdyenCheckoutFacade;
+import com.adyen.commerce.facades.AdyenCheckoutFacade;
 import de.hybris.platform.acceleratorstorefrontcommons.annotations.RequireHardLogIn;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;

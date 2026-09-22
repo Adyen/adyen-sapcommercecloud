@@ -3,7 +3,7 @@ package com.adyen.commerce.occ.controllers;
 
 import com.adyen.commerce.constants.AdyenoccConstants;
 import com.adyen.commerce.data.DataCollectionConfiguration;
-import com.adyen.v6.facades.AdyenDataCollectionFacade;
+import com.adyen.commerce.facades.AdyenDataCollectionFacade;
 import de.hybris.platform.commerceservices.request.mapping.annotation.ApiVersion;
 import de.hybris.platform.webservicescommons.swagger.ApiBaseSiteIdUserIdAndCartIdParam;
 import io.swagger.v3.oas.annotations.Operation;

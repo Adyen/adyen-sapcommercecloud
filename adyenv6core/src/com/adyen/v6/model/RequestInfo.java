@@ -20,9 +20,10 @@
  */
 package com.adyen.v6.model;
 
-import javax.servlet.http.HttpServletRequest;
-
 import com.adyen.v6.constants.StorefrontType;
+import jakarta.servlet.http.HttpServletRequest;
+
+
 
 public class RequestInfo {
 
@@ -37,10 +38,10 @@ public class RequestInfo {
     private StorefrontType storefrontType;
     private String storefrontVersion;
 
-    public RequestInfo(HttpServletRequest request) {
+    public RequestInfo(HttpServletRequest request, String shopperIp) {
         this.userAgent = request.getHeader(USER_AGENT_HEADER);
         this.acceptHeader = request.getHeader(ACCEPT_HEADER);
-        this.shopperIp = request.getRemoteAddr();
+        this.shopperIp = shopperIp;
         this.origin = getOrigin(request);
     }
 
@@ -58,10 +59,6 @@ public class RequestInfo {
 
     public String getOrigin() {
         return this.origin;
-    }
-
-    public static RequestInfo empty() {
-        return new RequestInfo();
     }
 
     public String getUserAgent() {

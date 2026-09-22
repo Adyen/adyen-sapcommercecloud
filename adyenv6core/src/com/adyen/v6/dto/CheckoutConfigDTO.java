@@ -41,6 +41,8 @@ public class CheckoutConfigDTO {
     private String merchantDisplayName;
     private String shopperEmail;
     private String clickToPayLocale;
+    private InstallmentOptionsDTO installmentOptions;
+    private boolean skipCvcForOneClick;
 
     // Getters and setters for the new field
     public ExpressPaymentConfigDto getExpressPaymentConfig() {
@@ -265,5 +267,21 @@ public class CheckoutConfigDTO {
 
     public void setClickToPayLocale(String clickToPayLocale) {
         this.clickToPayLocale = clickToPayLocale;
+    }
+
+    public InstallmentOptionsDTO getInstallmentOptions() {
+        return installmentOptions;
+    }
+
+    public void setInstallmentOptions(InstallmentOptionsDTO installmentOptions) {
+        this.installmentOptions = installmentOptions;
+    }
+
+    public boolean isSkipCvcForOneClick() {
+        return skipCvcForOneClick;
+    }
+
+    public void setSkipCvcForOneClick(boolean skipCvcForOneClick) {
+        this.skipCvcForOneClick = skipCvcForOneClick;
     }
 }

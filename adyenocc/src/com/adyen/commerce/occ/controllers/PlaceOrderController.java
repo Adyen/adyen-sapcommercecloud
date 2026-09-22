@@ -7,14 +7,18 @@ import com.adyen.commerce.occ.api.AdyenPlaceOrderApi;
 import com.adyen.commerce.request.PlaceOrderRequest;
 import com.adyen.commerce.response.OCCPlaceOrderResponse;
 import com.adyen.model.checkout.PaymentDetailsRequest;
-import com.adyen.v6.facades.AdyenCheckoutFacade;
+import com.adyen.commerce.facades.AdyenCheckoutFacade;
 import com.adyen.v6.resolver.OccPaymentRedirectReturnUrlResolver;
+import com.adyen.v6.service.AdyenPartialPaymentService;
+import com.adyen.v6.service.AdyenShopperIpResolverService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import de.hybris.platform.acceleratorfacades.flow.CheckoutFlowFacade;
 import de.hybris.platform.acceleratorservices.urlresolver.SiteBaseUrlResolutionService;
 import de.hybris.platform.commercefacades.order.CartFacade;
 import de.hybris.platform.commerceservices.request.mapping.annotation.ApiVersion;
 import de.hybris.platform.commerceservices.strategies.CheckoutCustomerStrategy;
+import de.hybris.platform.order.InvalidCartException;
+import de.hybris.platform.order.exceptions.CalculationException;
 import de.hybris.platform.site.BaseSiteService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -24,8 +28,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
-import javax.annotation.Resource;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
 
 @RestController
 @ApiVersion("v2")
@@ -55,6 +59,12 @@ public class PlaceOrderController extends PlaceOrderControllerBase implements Ad
     @Autowired
     private OccPaymentRedirectReturnUrlResolver occPaymentRedirectReturnUrlResolver;
 
+    @Autowired
+    private AdyenShopperIpResolverService adyenShopperIpResolverService;
+
+    @Resource(name = "adyenPartialPaymentService")
+    private AdyenPartialPaymentService adyenPartialPaymentService;
+
     @Override
     @Secured({"ROLE_CUSTOMERGROUP", "ROLE_CLIENT", "ROLE_CUSTOMERMANAGERGROUP", "ROLE_TRUSTED_CLIENT"})
     @PostMapping(value = AdyenoccConstants.ADYEN_USER_CART_PREFIX + "/place-order", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -75,6 +85,13 @@ public class PlaceOrderController extends PlaceOrderControllerBase implements Ad
         return ResponseEntity.ok(response);
     }
 
+    @Override
+    @Secured({"ROLE_CUSTOMERGROUP", "ROLE_TRUSTED_CLIENT", "ROLE_CUSTOMERMANAGERGROUP"})
+    @PostMapping(value = AdyenoccConstants.ADYEN_USER_CART_PREFIX + "/payment/cancel")
+    public ResponseEntity<Void> onCancel() throws InvalidCartException, CalculationException {
+        super.handleCancel();
+        return ResponseEntity.ok().build();
+    }
 
     @Override
     public String getPaymentRedirectReturnUrl() {
@@ -114,5 +131,15 @@ public class PlaceOrderController extends PlaceOrderControllerBase implements Ad
     @Override
     public CheckoutCustomerStrategy getCheckoutCustomerStrategy() {
         return checkoutCustomerStrategy;
+    }
+
+    @Override
+    public AdyenShopperIpResolverService getAdyenShopperIpResolverService() {
+        return adyenShopperIpResolverService;
+    }
+
+    @Override
+    public AdyenPartialPaymentService getAdyenPartialPaymentService() {
+        return adyenPartialPaymentService;
     }
 }

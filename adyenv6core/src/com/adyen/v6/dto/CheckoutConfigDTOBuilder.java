@@ -159,6 +159,16 @@ public class CheckoutConfigDTOBuilder {
         return this;
     }
 
+    public CheckoutConfigDTOBuilder setInstallmentOptions(InstallmentOptionsDTO installmentOptions) {
+        checkoutConfigDTO.setInstallmentOptions(installmentOptions);
+        return this;
+    }
+
+    public CheckoutConfigDTOBuilder setSkipCvcForOneClick(boolean skipCvcForOneClick) {
+        checkoutConfigDTO.setSkipCvcForOneClick(skipCvcForOneClick);
+        return this;
+    }
+
     public CheckoutConfigDTO build() {
         return checkoutConfigDTO;
     }

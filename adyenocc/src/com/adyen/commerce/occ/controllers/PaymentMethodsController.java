@@ -4,15 +4,17 @@
 package com.adyen.commerce.occ.controllers;
 
 import com.adyen.commerce.constants.AdyenoccConstants;
+import com.adyen.commerce.facades.AdyenCheckoutFacade;
+import com.adyen.commerce.facades.AdyenExpressCheckoutFacade;
 import com.adyen.commerce.occ.api.AdyenPaymentMethodsApi;
 import com.adyen.service.exception.ApiException;
-import com.adyen.v6.facades.AdyenCheckoutFacade;
-import com.adyen.v6.facades.AdyenExpressCheckoutFacade;
+import com.adyen.v6.exceptions.AdyenCheckoutConfigurationException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import de.hybris.platform.commerceservices.request.mapping.annotation.ApiVersion;
 import de.hybris.platform.order.exceptions.CalculationException;
+import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.annotation.Secured;
@@ -24,6 +26,10 @@ import org.springframework.web.bind.annotation.RestController;
 @ApiVersion("v2")
 public class PaymentMethodsController implements AdyenPaymentMethodsApi
 {
+    private static final Logger LOG = Logger.getLogger(PaymentMethodsController.class);
+
+    private static final String ERROR_CHECKOUT_CONFIGURATION_FAILED = "Unable to retrieve checkout configuration";
+
     protected static ObjectMapper objectMapper;
 
     static {
@@ -59,5 +65,17 @@ public class PaymentMethodsController implements AdyenPaymentMethodsApi
     public ResponseEntity<String> getExpressCartCheckoutConfiguration() throws ApiException, JsonProcessingException, CalculationException {
         String response = objectMapper.writeValueAsString(adyenCheckoutFacade.initializeExpressCheckoutCartPageDataOCC());
         return ResponseEntity.ok().body(response);
+    }
+
+    @Override
+    @Secured({"ROLE_CUSTOMERGROUP", "ROLE_TRUSTED_CLIENT", "ROLE_CUSTOMERMANAGERGROUP"})
+    @GetMapping(value = AdyenoccConstants.ADYEN_USER_PREFIX + "/checkout-configuration")
+    public ResponseEntity<String> getConfigurationForDropInForZeroAuth() throws JsonProcessingException {
+        try {
+            return ResponseEntity.ok(objectMapper.writeValueAsString(adyenCheckoutFacade.getConfig()));
+        } catch (AdyenCheckoutConfigurationException e) {
+            LOG.error("Error retrieving checkout configuration for zero auth drop-in", e);
+            return ResponseEntity.internalServerError().body(ERROR_CHECKOUT_CONFIGURATION_FAILED);
+        }
     }
 }

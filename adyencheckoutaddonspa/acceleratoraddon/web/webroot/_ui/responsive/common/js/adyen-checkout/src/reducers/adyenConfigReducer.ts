@@ -28,6 +28,7 @@ export const adyenConfigInitialState : AdyenConfigData = {
     merchantDisplayName: "",
     shopperEmail: "",
     clickToPayLocale: "",
+    skipCvcForOneClick: false,
 }
 
 export function adyenConfigReducer(adyenConfig: AdyenConfigData, action: RootAction): AdyenConfigData {

@@ -17,6 +17,7 @@
 		<requires-extension name="addonsupport"/>
 		<requires-extension name="adyenv6core"/>
 		<requires-extension name="acceleratorstorefrontcommons"/>
+        <requires-extension name="adyenwebcommons"/>
 
 		<coremodule generated="true" manager="com.adyen.v6.jalo.Adyenv6b2ccheckoutaddonManager" packageroot="com.adyen.v6"/>
 	</extension>

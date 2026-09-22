@@ -22,25 +22,26 @@
 package com.adyen.v6.interceptors;
 
 import com.adyen.v6.utils.SameSiteCookieAttributeAppenderUtils;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.ModelAndView;
-import org.springframework.web.servlet.handler.HandlerInterceptorAdapter;
-
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 
 /*
  * This class uses code written by Igor Zarvanskyi and published on https://clutcher.github.io/post/hybris/same_site_login_issue/
  */
-public class SameSiteCookieHandlerInterceptorAdapter extends HandlerInterceptorAdapter {
+public class SameSiteCookieHandlerInterceptorAdapter implements HandlerInterceptor {
 
     private SameSiteCookieAttributeAppenderUtils sameSiteCookieAttributeAppenderUtils;
 
     @Override
-    public void postHandle(HttpServletRequest servletRequest, HttpServletResponse servletResponse, Object handler, ModelAndView modelAndView) {
-        getSameSiteCookieAttributeAppenderUtils().addSameSiteAttribute(servletRequest, servletResponse);
+    public void postHandle(HttpServletRequest servletRequest, HttpServletResponse servletResponse, Object handler, ModelAndView modelAndView) throws Exception {
+        if (getSameSiteCookieAttributeAppenderUtils() != null) {
+            getSameSiteCookieAttributeAppenderUtils().addSameSiteAttribute(servletRequest, servletResponse);
+        }
     }
 
-    protected SameSiteCookieAttributeAppenderUtils getSameSiteCookieAttributeAppenderUtils() {
+    public SameSiteCookieAttributeAppenderUtils getSameSiteCookieAttributeAppenderUtils() {
         return sameSiteCookieAttributeAppenderUtils;
     }
 

@@ -17,8 +17,12 @@
            http://www.springframework.org/schema/beans/spring-beans.xsd">
 
 	<bean id="adyenv6backofficeLabelLocator" class="com.hybris.cockpitng.util.labels.ResourcesLabelLocator" scope="singleton" init-method="init" lazy-init="false">
-  		<property name="location" value="/adyenv6backoffice-backoffice-labels/"/>
-  		<property name="name" value="labels"/>
-  	</bean>
+	 		<property name="location" value="/adyenv6backoffice-backoffice-labels/"/>
+	 		<property name="name" value="labels"/>
+	 	</bean>
+
+	<!-- Adyen Backoffice Action Beans -->
+	<bean id="adyenCancelOrderAction" class="com.adyen.v6.backoffice.widgets.actions.cancel.AdyenCancelOrderAction"/>
+	<bean id="adyenCaptureOrderAction" class="com.adyen.v6.backoffice.widgets.actions.capture.AdyenCaptureOrderAction"/>
 
 </beans>

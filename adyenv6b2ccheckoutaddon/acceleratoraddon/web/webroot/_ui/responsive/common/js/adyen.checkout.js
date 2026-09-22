@@ -15,6 +15,26 @@ const ErrorMessages = {
     TermsNotAccepted: 'checkout.error.terms.not.accepted'
 };
 
+function registerIrisQrCodeComponent(checkout) {
+    if (!window.AdyenWeb || !AdyenWeb.PromptPay) {
+        return;
+    }
+
+    if (!AdyenWeb.IrisQrCode) {
+        AdyenWeb.IrisQrCode = class IrisQrCode extends AdyenWeb.PromptPay {};
+        AdyenWeb.IrisQrCode.type = 'iris';
+        AdyenWeb.IrisQrCode.txVariants = ['iris'];
+    }
+
+    if (AdyenWeb.AdyenCheckout && typeof AdyenWeb.AdyenCheckout.register === 'function') {
+        AdyenWeb.AdyenCheckout.register(AdyenWeb.IrisQrCode);
+    }
+
+    if (checkout && typeof checkout.register === 'function') {
+        checkout.register(AdyenWeb.IrisQrCode);
+    }
+}
+
 // Helper Functions
 function showAlert(message) {
     window.alert(message);
@@ -46,6 +66,8 @@ class AdyenCheckoutHelper {
     i =0;
 
     async initiateCheckout(initConfig, paymentMethodConfigs) {
+        registerIrisQrCodeComponent();
+
         const configuration = {
             ...initConfig,
             analytics: {
@@ -62,6 +84,7 @@ class AdyenCheckoutHelper {
             }
         };
         this.checkout = await AdyenWeb.AdyenCheckout(configuration);
+        registerIrisQrCodeComponent(this.checkout);
         this.factory = new PaymentComponentFactory(this.checkout, this);
         this.factory.createFromConfigs(paymentMethodConfigs);
     }
@@ -327,5 +350,4 @@ class AdyenCheckoutHelper {
 
     }
 }
-
 

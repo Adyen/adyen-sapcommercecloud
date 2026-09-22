@@ -11,7 +11,7 @@ import de.hybris.platform.servicelayer.model.ModelService;
 
 import java.time.Instant;
 import java.util.Date;
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 
 import org.assertj.core.util.Lists;
 import org.zkoss.zk.ui.Component;

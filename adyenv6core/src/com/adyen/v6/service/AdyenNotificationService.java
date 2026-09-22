@@ -82,12 +82,6 @@ public interface AdyenNotificationService {
     PaymentTransactionEntryModel processRefundEvent(AdyenNotificationModel notificationItem);
 
     /**
-     * Process notification with eventCode=OFFER_CLOSED
-     * @return
-     */
-    PaymentTransactionModel processOfferClosedEvent(AdyenNotificationModel notificationItem);
-
-    /**
      * Process notification with eventCode=CHARGEBACK
      * @return
      */

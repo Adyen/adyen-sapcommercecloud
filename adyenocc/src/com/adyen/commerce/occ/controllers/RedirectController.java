@@ -7,12 +7,14 @@ import com.adyen.commerce.constants.AdyenoccConstants;
 import com.adyen.commerce.controllerbase.RedirectControllerBase;
 import com.adyen.commerce.occ.api.RedirectApi;
 import com.adyen.model.checkout.PaymentDetailsRequest;
-import com.adyen.v6.facades.AdyenCheckoutFacade;
+import com.adyen.commerce.facades.AdyenCheckoutFacade;
 import de.hybris.platform.commercefacades.order.data.OrderData;
 import de.hybris.platform.commerceservices.i18n.CommerceCommonI18NService;
 import de.hybris.platform.commerceservices.request.mapping.annotation.ApiVersion;
 import de.hybris.platform.servicelayer.config.ConfigurationService;
+import de.hybris.platform.servicelayer.session.SessionService;
 import de.hybris.platform.site.BaseSiteService;
+import de.hybris.platform.store.services.BaseStoreService;
 import io.swagger.v3.oas.annotations.Parameter;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Controller;
@@ -21,8 +23,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 
-import javax.annotation.Resource;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.Base64;
 
 import static com.adyen.commerce.constants.AdyenwebcommonsConstants.REDIRECT_PREFIX;
@@ -45,6 +47,12 @@ public class RedirectController extends RedirectControllerBase implements Redire
 
     @Resource(name = "baseSiteService")
     private BaseSiteService baseSiteService;
+
+    @Resource(name = "baseStoreService")
+    private BaseStoreService baseStoreService;
+
+    @Resource(name = "sessionService")
+    private SessionService sessionService;
 
     @Override
     @GetMapping(value = REDIRECT_URL)
@@ -99,5 +107,15 @@ public class RedirectController extends RedirectControllerBase implements Redire
     @Override
     public AdyenCheckoutFacade getAdyenCheckoutFacade() {
         return adyenCheckoutFacade;
+    }
+
+    @Override
+    public SessionService getSessionService() {
+        return sessionService;
+    }
+
+    @Override
+    public BaseStoreService getBaseStoreService() {
+        return baseStoreService;
     }
 }

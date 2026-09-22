@@ -1,10 +1,10 @@
 package com.adyen.commerce.services.impl;
 
+import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
+import com.adyen.commerce.decorator.AdyenPaymentRequestDecorator;
 import com.adyen.commerce.services.AdyenRequestService;
+import com.adyen.commerce.util.AddressUtil;
 import com.adyen.model.checkout.*;
-import com.adyen.model.recurring.DisableRequest;
-import com.adyen.model.recurring.RecurringDetailsRequest;
-import com.adyen.v6.constants.Adyenv6coreConstants;
 import com.adyen.v6.enums.RecurringContractMode;
 import com.adyen.v6.model.RequestInfo;
 import de.hybris.platform.commercefacades.order.data.CartData;
@@ -15,21 +15,20 @@ import de.hybris.platform.core.model.user.CustomerModel;
 import de.hybris.platform.order.CartService;
 import de.hybris.platform.servicelayer.config.ConfigurationService;
 import de.hybris.platform.store.services.BaseStoreService;
-import org.apache.commons.configuration.Configuration;
+
+import org.apache.commons.configuration2.Configuration;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 
 import java.math.BigDecimal;
 import java.util.*;
 
-import static com.adyen.v6.constants.Adyenv6coreConstants.*;
+import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_SCHEME;
 
 public class DefaultAdyenRequestService implements AdyenRequestService {
     private static final Logger LOG = Logger.getLogger(DefaultAdyenRequestService.class);
 
     // Configuration constants
-    private static final String PLATFORM_NAME = "SAP Commerce";
-    private static final String PLATFORM_VERSION_PROPERTY = "build.version.api";
     protected static final String IS_3DS2_ALLOWED_PROPERTY = "is3DS2allowed";
     protected static final String L2L3_EDS_SUPPORTED_BRANDS = "adyen.l2l3eds.supported.brands";
     protected static final String L2L3_EDS_SUPPORTED_COUNTRIES = "adyen.l2l3eds.supported.countries";
@@ -39,15 +38,21 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
     protected final CartService cartService;
     protected final ConfigurationService configurationService;
     protected final PaymentMethodHandlerFactory paymentMethodHandlerFactory;
+    protected final ApplicationInfoService applicationInfoService;
+    protected final List<AdyenPaymentRequestDecorator> paymentRequestDecorators;
 
-    public DefaultAdyenRequestService(BaseStoreService baseStoreService, 
-                                    CartService cartService, 
-                                    ConfigurationService configurationService,
-                                    PaymentMethodHandlerFactory paymentMethodHandlerFactory) {
+    public DefaultAdyenRequestService(BaseStoreService baseStoreService,
+                                      CartService cartService,
+                                      ConfigurationService configurationService,
+                                      PaymentMethodHandlerFactory paymentMethodHandlerFactory,
+                                      ApplicationInfoService applicationInfoService,
+                                      List<AdyenPaymentRequestDecorator>  paymentRequestDecorators) {
         this.baseStoreService = baseStoreService;
         this.cartService = cartService;
         this.configurationService = configurationService;
         this.paymentMethodHandlerFactory = paymentMethodHandlerFactory;
+        this.applicationInfoService = applicationInfoService;
+        this.paymentRequestDecorators = paymentRequestDecorators;
     }
 
     @Override
@@ -83,34 +88,82 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
                                               final RequestInfo requestInfo,
                                               final CustomerModel customerModel,
                                               final RecurringContractMode recurringContractMode,
-                                              final Boolean guestUserTokenizationEnabled) {
+                                              final Boolean guestUserTokenizationEnabled,
+                                              final AdyenPartialPaymentOrderData partialPaymentOrderData) {
         
         validatePaymentRequestInputs(merchantAccount, cartData, requestInfo, customerModel);
 
         PaymentRequest paymentRequest = buildBasePaymentRequest(
-            merchantAccount, cartData, originPaymentsRequest, requestInfo, customerModel);
+            merchantAccount, cartData, originPaymentsRequest, requestInfo, customerModel, partialPaymentOrderData);
 
         handlePaymentMethodSpecificLogic(paymentRequest, cartData, originPaymentsRequest, 
+            recurringContractMode, customerModel, guestUserTokenizationEnabled);
+
+        for (AdyenPaymentRequestDecorator paymentRequestDecorator : paymentRequestDecorators) {
+            paymentRequestDecorator.decoratePaymentRequest(paymentRequest, cartData, originPaymentsRequest, requestInfo, customerModel);
+        }
+
+        return paymentRequest;
+    }
+
+    /**
+     * Create payment request for partial payments with custom amount
+     */
+    public PaymentRequest createPartialPaymentRequest(final String merchantAccount,
+                                                    final CartData cartData,
+                                                    final PaymentRequest originPaymentsRequest,
+                                                    final RequestInfo requestInfo,
+                                                    final CustomerModel customerModel,
+                                                    final RecurringContractMode recurringContractMode,
+                                                    final Boolean guestUserTokenizationEnabled,
+                                                    final java.math.BigDecimal customAmount,
+                                                    final String currency) {
+        
+        validatePaymentRequestInputs(merchantAccount, cartData, requestInfo, customerModel);
+        
+        if (customAmount == null || customAmount.compareTo(java.math.BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Custom amount must be positive for partial payments");
+        }
+        
+        if (org.apache.commons.lang3.StringUtils.isEmpty(currency)) {
+            throw new IllegalArgumentException("Currency cannot be null or empty for partial payments");
+        }
+
+        PaymentRequest paymentRequest = buildPartialPaymentRequest(
+            merchantAccount, cartData, originPaymentsRequest, requestInfo, customerModel, customAmount, currency);
+
+        handlePaymentMethodSpecificLogic(paymentRequest, cartData, originPaymentsRequest,
             recurringContractMode, customerModel, guestUserTokenizationEnabled);
 
         return paymentRequest;
     }
 
     @Override
-    public RecurringDetailsRequest createListRecurringDetailsRequest(final String merchantAccount, final String customerId) {
-        validateRecurringRequestInputs(merchantAccount, customerId);
-        return new RecurringDetailsRequest()
-            .merchantAccount(merchantAccount)
-            .shopperReference(customerId);
-    }
+    public PaymentRequest createZeroAuthPaymentsRequest(final String merchantAccount,
+                                                        final CustomerModel customerModel,
+                                                        final CheckoutPaymentMethod paymentMethod) {
 
-    @Override
-    public DisableRequest createDisableRequest(final String merchantAccount, final String customerId, final String recurringReference) {
-        validateDisableRequestInputs(merchantAccount, customerId, recurringReference);
-        return new DisableRequest()
-            .merchantAccount(merchantAccount)
-            .shopperReference(customerId)
-            .recurringDetailReference(recurringReference);
+        if (paymentMethod == null) {
+            throw new IllegalArgumentException("paymentMethod cannot be null");
+        }
+
+        PaymentRequest paymentRequest = new PaymentRequest();
+
+        String currency = baseStoreService.getCurrentBaseStore().getDefaultCurrency().getIsocode();
+        Amount zero = new Amount();
+        zero.setCurrency(currency);
+        zero.setValue(0L);
+
+        paymentRequest.setAmount(zero);
+        paymentRequest.setPaymentMethod(paymentMethod);
+        paymentRequest.setMerchantAccount(merchantAccount);
+        paymentRequest.reference("ZERO-AUTH_" + UUID.randomUUID());
+        paymentRequest.setShopperReference(customerModel.getCustomerID());
+        paymentRequest.setShopperInteraction(PaymentRequest.ShopperInteractionEnum.ECOMMERCE);
+        paymentRequest.setRecurringProcessingModel(PaymentRequest.RecurringProcessingModelEnum.CARDONFILE);
+        paymentRequest.setStorePaymentMethod(true);
+        paymentRequest.setChannel(PaymentRequest.ChannelEnum.WEB);
+        return paymentRequest;
     }
 
     @Override
@@ -125,7 +178,7 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
         paymentRequest.setShopperIP(requestInfo.getShopperIp());
         paymentRequest.setOrigin(requestInfo.getOrigin());
         paymentRequest.setShopperLocale(requestInfo.getShopperLocale());
-        paymentRequest.setApplicationInfo(createApplicationInfo(requestInfo));
+        paymentRequest.setApplicationInfo(applicationInfoService.createApplicationInfo(requestInfo));
     }
 
     // Private helper methods
@@ -259,7 +312,7 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
 
     protected PaymentRequest buildBasePaymentRequest(String merchantAccount, CartData cartData,
                                                  PaymentRequest originPaymentsRequest, RequestInfo requestInfo, 
-                                                 CustomerModel customerModel) {
+                                                 CustomerModel customerModel, AdyenPartialPaymentOrderData partialPaymentOrderData) {
         
         PaymentRequestBuilder builder = new PaymentRequestBuilder()
             .merchantAccount(merchantAccount)
@@ -269,12 +322,58 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
             .shopperDetails(customerModel)
             .requestInfo(requestInfo)
             .redirectMethods()
-            .countryCode(getCountryCode(cartData))
-            .company(createCompany(cartData));
+            .countryCode(AddressUtil.getCountryCode(getBillingAddress(cartData), cartData.getDeliveryAddress()))
+            .company(createCompany(cartData))
+            .shopperConversionId(cartData.getAdyenShopperConversionId());
+
+        if (partialPaymentOrderData != null) {
+            builder.amount(partialPaymentOrderData.getRemainingAmount(), partialPaymentOrderData.getCurrency().getIsocode());
+        }
 
         // Set return URL
         String returnUrl = StringUtils.isNotEmpty(cartData.getAdyenReturnUrl()) ? 
             cartData.getAdyenReturnUrl() : 
+            (originPaymentsRequest != null ? originPaymentsRequest.getReturnUrl() : null);
+        builder.returnUrl(returnUrl);
+
+        // Set addresses
+        AddressData billingAddress = getBillingAddress(cartData);
+        AddressData deliveryAddress = cartData.getDeliveryAddress();
+        
+        PaymentRequest paymentRequest = builder.build();
+        paymentRequest.setDeliveryAddress(AddressConverter.convertToDeliveryAddress(deliveryAddress));
+        paymentRequest.setBillingAddress(AddressConverter.convertToBillingAddress(billingAddress));
+        paymentRequest.setInstallments(originPaymentsRequest != null ? originPaymentsRequest.getInstallments() : null);
+        
+        if (billingAddress != null) {
+            paymentRequest.setTelephoneNumber(billingAddress.getPhone());
+        }
+
+        paymentRequest.setApplicationInfo(applicationInfoService.createApplicationInfo(requestInfo));
+        setRiskData(paymentRequest, cartData, originPaymentsRequest);
+
+        return paymentRequest;
+    }
+
+    protected PaymentRequest buildPartialPaymentRequest(String merchantAccount, CartData cartData,
+                                                      PaymentRequest originPaymentsRequest, RequestInfo requestInfo,
+                                                      CustomerModel customerModel, java.math.BigDecimal customAmount, String currency) {
+        
+        PaymentRequestBuilder builder = new PaymentRequestBuilder()
+            .merchantAccount(merchantAccount)
+            .amount(customAmount, currency)
+                .reference(originPaymentsRequest.getReference())
+            .browserInfo(requestInfo.getUserAgent(), requestInfo.getAcceptHeader())
+            .shopperDetails(customerModel)
+            .requestInfo(requestInfo)
+            .redirectMethods()
+            .countryCode(AddressUtil.getCountryCode(getBillingAddress(cartData), cartData.getDeliveryAddress()))
+            .company(createCompany(cartData))
+            .order(originPaymentsRequest.getOrder());
+
+        // Set return URL
+        String returnUrl = StringUtils.isNotEmpty(cartData.getAdyenReturnUrl()) ?
+            cartData.getAdyenReturnUrl() :
             (originPaymentsRequest != null ? originPaymentsRequest.getReturnUrl() : null);
         builder.returnUrl(returnUrl);
 
@@ -290,7 +389,7 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
             paymentRequest.setTelephoneNumber(billingAddress.getPhone());
         }
 
-        paymentRequest.setApplicationInfo(createApplicationInfo(requestInfo));
+        paymentRequest.setApplicationInfo(applicationInfoService.createApplicationInfo(requestInfo));
         setRiskData(paymentRequest, cartData, originPaymentsRequest);
 
         return paymentRequest;
@@ -315,13 +414,15 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
 
         // Use payment method handler
         paymentMethodHandlerFactory.getHandler(paymentMethod)
-            .ifPresent(handler -> handler.updatePaymentRequest(paymentRequest, cartData, 
+                .ifPresent(handler -> handler.updatePaymentRequest(paymentRequest, cartData,
                 recurringContractMode, customerModel, is3DS2Allowed, guestUserTokenizationEnabled));
     }
 
+    /**
+     * Carries the shopper's "remember my card" choice over from the request the component sent.
+     * The handler run right afterwards weighs it against the store configuration and has the final say.
+     */
     protected void copySchemePaymentSettings(PaymentRequest paymentRequest, PaymentRequest originPaymentsRequest) {
-        paymentRequest.setEnableOneClick(originPaymentsRequest.getEnableOneClick());
-        paymentRequest.setEnableRecurring(originPaymentsRequest.getEnableRecurring());
         paymentRequest.setStorePaymentMethod(originPaymentsRequest.getStorePaymentMethod());
     }
 
@@ -344,34 +445,6 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
         return null;
     }
 
-    protected String getCountryCode(CartData cartData) {
-        return Optional.ofNullable(getBillingAddress(cartData))
-            .or(() -> Optional.ofNullable(cartData.getDeliveryAddress()))
-            .map(AddressData::getCountry)
-            .map(country -> country.getIsocode())
-            .orElse("");
-    }
-
-    private ApplicationInfo createApplicationInfo(RequestInfo requestInfo) {
-        ApplicationInfo applicationInfo = new ApplicationInfo();
-        
-        CommonField version = new CommonField()
-            .name(String.format("%s [%s]", PLUGIN_NAME, requestInfo.getStorefrontType().getValue()))
-            .version(StringUtils.isNotEmpty(requestInfo.getStorefrontVersion()) ? 
-                String.format("%s [%s]", PLUGIN_VERSION, requestInfo.getStorefrontVersion()) : PLUGIN_VERSION);
-
-        ExternalPlatform externalPlatform = new ExternalPlatform()
-            .name(PLATFORM_NAME)
-            .version(getPlatformVersion())
-            .integrator(Adyenv6coreConstants.INTEGRATOR);
-
-        applicationInfo.setExternalPlatform(externalPlatform);
-        applicationInfo.setMerchantApplication(version);
-        applicationInfo.setAdyenPaymentSource(version);
-        
-        return applicationInfo;
-    }
-
     protected void setRiskData(PaymentRequest paymentRequest, CartData cartData, PaymentRequest originPaymentsRequest) {
         // Priority: origin request risk data, then cart risk data
         if (originPaymentsRequest != null && originPaymentsRequest.getRiskData() != null) {
@@ -381,10 +454,6 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
             riskData.setClientData(cartData.getRiskData());
             paymentRequest.setRiskData(riskData);
         }
-    }
-
-    protected String getPlatformVersion() {
-        return configurationService.getConfiguration().getString(PLATFORM_VERSION_PROPERTY);
     }
 
     protected Boolean is3DS2Allowed() {

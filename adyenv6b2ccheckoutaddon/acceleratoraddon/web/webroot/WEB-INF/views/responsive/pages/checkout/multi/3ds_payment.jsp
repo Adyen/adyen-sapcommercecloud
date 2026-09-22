@@ -1,21 +1,10 @@
 <%@ page trimDirectiveWhitespaces="true" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <%@ taglib prefix="adyen" tagdir="/WEB-INF/tags/addons/adyenv6b2ccheckoutaddon/responsive" %>
-<%@ taglib prefix="json" uri="http://www.atg.com/taglibs/json" %>
 <html>
 <head>
     <adyen:adyenLibrary/>
-    <c:set var="initConfig">
-        <json:object escapeXml="false">
-            <json:property name="locale" value="${shopperLocale}"/>
-            <json:property name="environment" value="${environmentMode}"/>
-            <json:property name="clientKey" value="${clientKey}"/>
-            <json:property name="countryCode" value="${countryCode}"/>
-            <json:object name="risk" escapeXml="false">
-                <json:property name="enabled" value="${false}"/>
-            </json:object>
-        </json:object>
-    </c:set>
+    <c:set var="initConfig">{"locale":"${shopperLocale}","environment":"${environmentMode}","clientKey":"${clientKey}","countryCode":"${countryCode}"}</c:set>
     <script type="text/javascript">
 
         const { AdyenCheckout, Dropin, Card, PayPal, GooglePay,

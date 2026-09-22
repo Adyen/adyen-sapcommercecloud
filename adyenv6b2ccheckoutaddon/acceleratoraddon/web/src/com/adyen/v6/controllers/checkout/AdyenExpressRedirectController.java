@@ -2,7 +2,7 @@ package com.adyen.v6.controllers.checkout;
 
 import com.adyen.model.checkout.PaymentCompletionDetails;
 import com.adyen.model.checkout.PaymentDetailsResponse;
-import com.adyen.v6.facades.AdyenCheckoutFacade;
+import com.adyen.commerce.facades.AdyenCheckoutFacade;
 import de.hybris.platform.acceleratorstorefrontcommons.annotations.RequireHardLogIn;
 import de.hybris.platform.acceleratorstorefrontcommons.controllers.util.GlobalMessages;
 import de.hybris.platform.commercefacades.order.OrderFacade;
@@ -14,6 +14,7 @@ import de.hybris.platform.commerceservices.strategies.CheckoutCustomerStrategy;
 import de.hybris.platform.commerceservices.url.UrlResolver;
 import de.hybris.platform.order.InvalidCartException;
 import de.hybris.platform.order.exceptions.CalculationException;
+import jakarta.annotation.Resource;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.log4j.Logger;
@@ -24,7 +25,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.Arrays;
 import java.util.List;
 
@@ -38,19 +39,19 @@ public class AdyenExpressRedirectController {
 
     protected static final String REDIRECT_URL_ORDER_CONFIRMATION = REDIRECT_PREFIX + "/checkout/orderConfirmation/";
 
-    @Autowired
+    @Resource
     private OrderFacade orderFacade;
 
-    @Autowired
+    @Resource
     private AdyenCheckoutFacade adyenCheckoutFacade;
 
-    @Autowired
+    @Resource
     private CheckoutCustomerStrategy checkoutCustomerStrategy;
 
-    @Autowired
+    @Resource
     private ProductFacade productFacade;
 
-    @Autowired
+    @Resource
     private UrlResolver<ProductData> productDataUrlResolver;
 
     @GetMapping(value = CHECKOUT_RESULT_URL)

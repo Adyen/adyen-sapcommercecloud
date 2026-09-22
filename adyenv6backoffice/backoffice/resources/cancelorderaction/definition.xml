@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 
 <action-definition id="com.adyen.v6.backoffice.widgets.actions.adyencancelorderaction"
-                   extends="de.hybris.ordermanagementbackoffice.actions.order.cancelorderaction"
                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                    xsi:noNamespaceSchemaLocation="http://www.hybris.com/schema/cockpitng/action-definition.xsd">
 
