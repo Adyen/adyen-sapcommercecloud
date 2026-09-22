@@ -5,26 +5,18 @@ import java.util.List;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 
-public class WebhookDataWsDTO {
+public class WebhookCreateRequestWsDTO {
 
-    private String id;
     private String type;
     private String description;
     private String url;
     private Boolean active;
     private String communicationFormat;
-    private Boolean hasError;
     private AdditionalSettingsWsDTO additionalSettings;
+    private String username;
+    private String password;
 
-    public WebhookDataWsDTO() {
-    }
-
-    public String getId() {
-        return id;
-    }
-
-    public void setId(String id) {
-        this.id = id;
+    public WebhookCreateRequestWsDTO() {
     }
 
     public String getType() {
@@ -67,19 +59,27 @@ public class WebhookDataWsDTO {
         this.communicationFormat = communicationFormat;
     }
 
-    public Boolean getHasError() {
-        return hasError;
-    }
-
-    public void setHasError(Boolean hasError) {
-        this.hasError = hasError;
-    }
-
     public AdditionalSettingsWsDTO getAdditionalSettings() {
         return additionalSettings;
     }
 
     public void setAdditionalSettings(AdditionalSettingsWsDTO additionalSettings) {
         this.additionalSettings = additionalSettings;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
     }
 }
