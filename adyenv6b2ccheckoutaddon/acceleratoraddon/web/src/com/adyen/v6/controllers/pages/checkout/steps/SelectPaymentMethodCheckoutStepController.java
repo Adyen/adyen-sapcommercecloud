@@ -60,6 +60,7 @@ import java.util.GregorianCalendar;
 import java.util.List;
 
 import static com.adyen.v6.constants.AdyenControllerConstants.Views.Pages.MultiStepCheckout.BillingAddressformPage;
+import static com.adyen.v6.constants.Adyenv6coreConstants.CHECKOUT_ERROR_KONBINI_TELEPHONE_MISSING;
 import static de.hybris.platform.acceleratorstorefrontcommons.constants.WebConstants.BREADCRUMBS_KEY;
 import static org.springframework.web.bind.annotation.RequestMethod.GET;
 import static org.springframework.web.bind.annotation.RequestMethod.POST;
@@ -76,6 +77,8 @@ public class SelectPaymentMethodCheckoutStepController extends AbstractCheckoutS
 
     protected static final String ADYEN_PAYMENT_FORM = "adyenPaymentForm";
     protected static final String CSE_GENERATION_TIME = "generationTime";
+    protected static final String CHECKOUT_ERROR_PAYMENT_FORM_INVALID =
+            "checkout.error.paymentethod.formentry.invalid";
 
     private static final String CART_DATA_ATTR = "cartData";
 
@@ -203,7 +206,12 @@ public class SelectPaymentMethodCheckoutStepController extends AbstractCheckoutS
 
         if (bindingResult.hasGlobalErrors()|| bindingResult.hasErrors()|| isSessionCartInvalid()) {
             LOGGER.debug(bindingResult.getAllErrors().stream().map(error -> (error.getCode())).reduce((x, y) -> (x = x + y)));
-            GlobalMessages.addErrorMessage(model, "checkout.error.paymentethod.formentry.invalid");
+            String errorMessage = bindingResult.getAllErrors().stream()
+                    .map(error -> error.getCode())
+                    .filter(CHECKOUT_ERROR_KONBINI_TELEPHONE_MISSING::equals)
+                    .findFirst()
+                    .orElse(CHECKOUT_ERROR_PAYMENT_FORM_INVALID);
+            GlobalMessages.addErrorMessage(model, errorMessage);
             if (adyenPaymentForm.getBillingAddress() != null) {
                adyenPaymentForm.resetFormExceptBillingAddress();
             }
