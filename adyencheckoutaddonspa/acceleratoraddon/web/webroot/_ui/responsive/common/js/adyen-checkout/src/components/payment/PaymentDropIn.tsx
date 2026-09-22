@@ -145,7 +145,6 @@ export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
             hasHolderName: true,
             holderNameRequired: adyenConfig.cardHolderNameRequired,
             enableStoreDetails: adyenConfig.showRememberTheseDetails,
-            hideCVC: adyenConfig.skipCvcForOneClick,
             clickToPayConfiguration: {
                 merchantDisplayName: adyenConfig.merchantDisplayName,
                 shopperEmail: adyenConfig.shopperEmail,
@@ -161,12 +160,19 @@ export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
     }, [
         adyenConfig.cardHolderNameRequired,
         adyenConfig.showRememberTheseDetails,
-        adyenConfig.skipCvcForOneClick,
         adyenConfig.merchantDisplayName,
         adyenConfig.shopperEmail,
         adyenConfig.clickToPayLocale,
         adyenConfig.installmentOptions
     ]);
+
+    // Separate from getAdyenCardConfig: the Adyen Drop-in resolves stored/one-click
+    // card instances against paymentMethodsConfiguration.storedCard, not .card, so
+    // hideCVC must live here to only ever skip CVC for stored payment methods.
+    const getAdyenStoredCardConfig = useCallback((): CardConfiguration => ({
+        type: 'card',
+        hideCVC: adyenConfig.skipCvcForOneClick,
+    }), [adyenConfig.skipCvcForOneClick]);
 
     const initializeDropIn = useCallback(async () => {
         if (!adyenConfig.adyenClientKey || !paymentRef.current) {
@@ -187,6 +193,7 @@ export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
             const dropIn = new Dropin(adyenCheckout, {
                 paymentMethodsConfiguration: {
                     card: getAdyenCardConfig(),
+                    storedCard: getAdyenStoredCardConfig(),
                     econtext: econtextConfiguration,
                     econtext_atm: econtextConfiguration,
                     econtext_online: econtextConfiguration,
@@ -233,7 +240,8 @@ export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
         shippingAddress?.firstName,
         shippingAddress?.lastName,
         getAdyenCheckoutConfig,
-        getAdyenCardConfig
+        getAdyenCardConfig,
+        getAdyenStoredCardConfig
     ]);
 
     useEffect(() => {
