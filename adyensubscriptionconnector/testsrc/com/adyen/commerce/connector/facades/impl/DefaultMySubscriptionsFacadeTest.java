@@ -45,6 +45,7 @@ import org.mockito.MockitoAnnotations;
 
 import com.adyen.commerce.connector.dto.AdyenTokenHandle;
 import com.adyen.commerce.connector.dto.BillingPaymentMethodRef;
+import com.adyen.commerce.connector.dto.CardMetadata;
 import com.adyen.commerce.connector.dto.ConnectorCapabilities;
 import com.adyen.commerce.connector.dto.PaymentMethodEnrollmentSupport;
 import com.adyen.commerce.connector.dto.PaymentMethodEnrollmentEffect;
@@ -503,6 +504,85 @@ public class DefaultMySubscriptionsFacadeTest
 
 		assertFalse(facade.getSubscriptionsForCurrentCustomer().getSubscriptions().get(0)
 				.isPaymentMethodShareable());
+	}
+
+	/**
+	 * The same physical card reaches the page twice - once as a vaulted token, once as the billing info
+	 * that token was imported into. It is offered once, as the platform's own, because pointing at
+	 * something the platform already holds imports nothing and needs no network transaction id.
+	 */
+	@Test
+	public void offersACardTheProviderAlreadyImportedOnlyOnce() throws Exception
+	{
+		givenSubscriptionOnAPlatformThatSupportsTheChange(NormalizedSubscriptionStatus.ACTIVE);
+		givenAVaultAndAPlatformThatAcceptsIt();
+		givenVaultHoldingDescribedCards("token-1", "token-2");
+		when(subscriptionBillingService.listPaymentMethods(any())).thenReturn(List.of(
+				new PlatformPaymentMethod("billing-1", "Saved payment method", null, true, "token-1")));
+
+		final SubscriptionEntryData entry = facade.getSubscriptionsForCurrentCustomer().getSubscriptions().get(0);
+
+		assertEquals(1, entry.getPaymentMethodOptions().size());
+		assertEquals("billing-1", entry.getPaymentMethodOptions().get(0).id());
+		// token-1 is gone from the vault group; token-2, which the provider does not hold, stays.
+		assertEquals(1, entry.getAdyenVaultOptions().size());
+		assertEquals("token-2", entry.getAdyenVaultOptions().get(0).id());
+	}
+
+	/** The provider cannot describe an imported token, so the entry borrows the name the vault gives it. */
+	@Test
+	public void namesAnImportedCardTheWayTheVaultNamesIt() throws Exception
+	{
+		givenSubscriptionOnAPlatformThatSupportsTheChange(NormalizedSubscriptionStatus.ACTIVE);
+		givenAVaultAndAPlatformThatAcceptsIt();
+		givenVaultHoldingDescribedCards("token-1", "token-2");
+		when(subscriptionBillingService.listPaymentMethods(any())).thenReturn(List.of(
+				new PlatformPaymentMethod("billing-1", "Saved payment method", null, true, "token-1")));
+
+		final SubscriptionEntryData entry = facade.getSubscriptionsForCurrentCustomer().getSubscriptions().get(0);
+
+		assertEquals("\u2022\u2022\u2022\u2022 1111", entry.getPaymentMethodOptions().get(0).displayLabel());
+	}
+
+	/** A platform that describes the card itself is the better authority and keeps its own label. */
+	@Test
+	public void keepsTheProvidersOwnLabelWhenItDescribesTheCard() throws Exception
+	{
+		givenSubscriptionOnAPlatformThatSupportsTheChange(NormalizedSubscriptionStatus.ACTIVE);
+		givenAVaultAndAPlatformThatAcceptsIt();
+		givenVaultHoldingDescribedCards("token-1", "token-2");
+		when(subscriptionBillingService.listPaymentMethods(any())).thenReturn(List.of(
+				new PlatformPaymentMethod("billing-1", "Visa 4242",
+						new CardMetadata("visa", "4242", null, null, null), true, "token-1")));
+
+		final SubscriptionEntryData entry = facade.getSubscriptionsForCurrentCustomer().getSubscriptions().get(0);
+
+		assertEquals("Visa 4242", entry.getPaymentMethodOptions().get(0).displayLabel());
+	}
+
+	/** Cards the vault can actually describe, which is what makes the borrowed label observable. */
+	private void givenVaultHoldingDescribedCards(final String... ids)
+	{
+		final StoredCardsPageData page = mock(StoredCardsPageData.class);
+		final List<StoredPaymentMethodResource> cards = new java.util.ArrayList<>();
+		for (int i = 0; i < ids.length; i++)
+		{
+			final StoredPaymentMethodResource card = new StoredPaymentMethodResource();
+			card.setId(ids[i]);
+			card.setLastFour(String.valueOf(1111 * (i + 1)));
+			cards.add(card);
+		}
+		when(page.getStoredCards()).thenReturn(cards);
+		when(storedCardsFacade.getStoredCardsPageDataForCurrentCustomer()).thenReturn(page);
+	}
+
+	private void givenAVaultAndAPlatformThatAcceptsIt() throws Exception
+	{
+		when(connector.capabilities()).thenReturn(new ConnectorCapabilities(false, true, false, true, true,
+				TokenImportStyle.SLASH_JOINED,
+				new PaymentMethodChangeSupport(PaymentMethodChangeScope.SUBSCRIPTION,
+						Set.of(PaymentMethodSource.ALREADY_ON_PLATFORM, PaymentMethodSource.ADYEN_VAULTED_TOKEN)),
+				PaymentMethodEnrollmentSupport.NONE));
 	}
 
 	private BillingSubscriptionRefModel pinnedRef(final String externalId, final String externalCustomerId)

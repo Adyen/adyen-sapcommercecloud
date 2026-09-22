@@ -728,6 +728,27 @@ public class DefaultRecurlyApiClientTest
         assertFalse(methods.get(1).defaultForCustomer());
     }
 
+    /**
+     * The page has to recognise that a billing info and a card in the shopper's vault are one instrument,
+     * and the imported token is the only thing that says so.
+     */
+    @Test
+    public void reportsTheGatewayTokenABillingInfoWasImportedFrom() throws Exception
+    {
+        when(httpClient.get(BASE + "/accounts/code-customer/billing_infos", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, "[{\"id\":\"billing-1\","
+                        + "\"payment_gateway_references\":[{\"token\":\"token-1\"}],"
+                        + "\"payment_method\":{\"object\":\"gateway_token\"}},"
+                        + "{\"id\":\"billing-2\",\"payment_method\":{\"card_type\":\"Visa\","
+                        + "\"last_four\":\"4242\"}}]"));
+
+        final List<PlatformPaymentMethod> methods = client.listBillingInfos("code-customer");
+
+        assertEquals("token-1", methods.get(0).importedTokenId());
+        // A card Recurly holds itself was imported from nothing, and must not correlate with any token.
+        assertNull(methods.get(1).importedTokenId());
+    }
+
     @Test
     public void keepsTheNetworkTransactionIdOffTheBillingInfoUntilItsOwnSwitchIsOn() throws Exception
     {

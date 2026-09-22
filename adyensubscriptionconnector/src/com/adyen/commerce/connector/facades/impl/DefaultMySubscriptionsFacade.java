@@ -26,7 +26,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -616,6 +618,62 @@ public class DefaultMySubscriptionsFacade implements MySubscriptionsFacade
 	}
 
 	/**
+	 * Puts each physical card on the row's list once.
+	 *
+	 * <p>A vaulted card the platform has already imported appears in both lists under two identifiers. It
+	 * is offered as the platform's own, because pointing a subscription at something the platform already
+	 * holds imports nothing and needs no network transaction id, while choosing it from the vault would
+	 * re-import it only to arrive at the same method. The platform's entry borrows the vault's label when
+	 * the platform cannot describe the card itself, which is the normal case for an imported token.</p>
+	 *
+	 * <p>One option is no choice - it is what is already billing - but one of each is.</p>
+	 */
+	protected void offerOnePerCard(final SubscriptionEntryData entry,
+			final List<PlatformPaymentMethod> onPlatform, final List<PlatformPaymentMethod> inVault)
+	{
+		final Set<String> alreadyImported = onPlatform.stream()
+				.map(PlatformPaymentMethod::importedTokenId)
+				.filter(StringUtils::isNotBlank)
+				.collect(Collectors.toSet());
+
+		final List<PlatformPaymentMethod> vaultOnly = inVault.stream()
+				.filter(card -> !alreadyImported.contains(card.id()))
+				.toList();
+		final List<PlatformPaymentMethod> described = onPlatform.stream()
+				.map(method -> describedFromVault(method, inVault))
+				.toList();
+
+		if (described.size() + vaultOnly.size() < 2)
+		{
+			return;
+		}
+		entry.setPaymentMethodOptions(described);
+		entry.setAdyenVaultOptions(vaultOnly);
+	}
+
+	/**
+	 * The same platform method, named as the vault names the card it was imported from.
+	 *
+	 * <p>Only where the platform gave no card detail of its own: a platform that can describe the card is
+	 * the better authority on how it holds it.</p>
+	 */
+	protected PlatformPaymentMethod describedFromVault(final PlatformPaymentMethod method,
+			final List<PlatformPaymentMethod> inVault)
+	{
+		if (StringUtils.isBlank(method.importedTokenId())
+				|| (method.card() != null && StringUtils.isNotBlank(method.card().last4())))
+		{
+			return method;
+		}
+		return inVault.stream()
+				.filter(card -> StringUtils.equals(method.importedTokenId(), card.id()))
+				.findFirst()
+				.map(card -> new PlatformPaymentMethod(method.id(), card.displayLabel(), card.card(),
+						method.defaultForCustomer(), method.importedTokenId()))
+				.orElse(method);
+	}
+
+	/**
 	 * The shopper's Adyen-vaulted cards that this row's platform could actually be pointed at.
 	 *
 	 * <p>A platform that charges an imported token as a merchant-initiated transaction needs the network
@@ -1053,22 +1111,18 @@ public class DefaultMySubscriptionsFacade implements MySubscriptionsFacade
 		entry.setPaymentMethodChangeable(manageable && scope.isSupported()
 				&& state.isPaymentMethodChangeable() && StringUtils.isNotBlank(ref.getCode()));
 
-		// Only for a row that will carry its own control: this is a remote call to the billing platform,
-		// not something to make behind every row of every page view.
+		// Only for a row that will carry its own control: these are remote calls to the billing platform and
+		// to the shopper's vault, not something to make behind every row of every page view.
 		if (entry.isPaymentMethodChangeable() && scope == PaymentMethodChangeScope.SUBSCRIPTION)
 		{
-			final List<PlatformPaymentMethod> offered = methodsByCustomer.computeIfAbsent(
-					ref.getPlatform().getCode() + "/" + ref.getExternalCustomerId(),
-					key -> platformMethodsFor(ref));
-			// Fewer than two is not a choice: the only thing on the list is what is already billing. Most
-			// accounts hold exactly one, so this is the common case rather than an edge.
-			entry.setPaymentMethodOptions(offered.size() < 2 ? List.of() : offered);
+			final List<PlatformPaymentMethod> onPlatform = methodsByCustomer.computeIfAbsent(
+					accountKeyOf(ref), key -> platformMethodsFor(ref));
+			final List<PlatformPaymentMethod> inVault =
+					support.accepts(PaymentMethodSource.ADYEN_VAULTED_TOKEN)
+							? vaultOptionsFor(ref, vaultOnce)
+							: List.<PlatformPaymentMethod> of();
+			offerOnePerCard(entry, onPlatform, inVault);
 			entry.setCurrentPaymentMethodId(currentPaymentMethodIdOf(ref));
-		}
-
-		if (entry.isPaymentMethodChangeable() && support.accepts(PaymentMethodSource.ADYEN_VAULTED_TOKEN))
-		{
-			entry.setAdyenVaultOptions(vaultOptionsFor(ref, vaultOnce));
 		}
 
 		final AbstractOrderModel order = ref.getOrder();

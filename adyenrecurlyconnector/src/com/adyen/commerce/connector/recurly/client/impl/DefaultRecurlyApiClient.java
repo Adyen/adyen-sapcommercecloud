@@ -240,7 +240,8 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
                 continue;
             }
             methods.add(new PlatformPaymentMethod(id, describeBillingInfo(billingInfo),
-                    cardMetadataOf(billingInfo), billingInfo.path("primary_payment_method").asBoolean(false)));
+                    cardMetadataOf(billingInfo), billingInfo.path("primary_payment_method").asBoolean(false),
+                    importedTokenOf(billingInfo)));
         }
         return methods;
     }
@@ -287,6 +288,21 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
             return null;
         }
         return "https://" + host + "/account/" + pathSegment(hostedLoginToken);
+    }
+
+    /**
+     * The gateway token this billing info was imported from, if it was. The same field
+     * {@link #billingInfoMatches} deduplicates on, read here so the page can recognise a card it is also
+     * about to offer from the shopper's vault.
+     */
+    protected String importedTokenOf(final JsonNode billingInfo) {
+        for (final JsonNode reference : billingInfo.path("payment_gateway_references")) {
+            final String token = reference.path("token").asText(null);
+            if (StringUtils.isNotBlank(token)) {
+                return token;
+            }
+        }
+        return null;
     }
 
     /**

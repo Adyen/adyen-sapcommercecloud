@@ -30,12 +30,20 @@ package com.adyen.commerce.connector.dto;
  * <p>{@code id} is the platform's own identifier and is never a vendor-encoded composite - it travels back
  * verbatim in a {@link PaymentMethodChoice.AlreadyOnPlatform}.</p>
  */
-public record PlatformPaymentMethod(String id, String displayLabel, CardMetadata card, boolean defaultForCustomer)
+public record PlatformPaymentMethod(String id, String displayLabel, CardMetadata card,
+                                    boolean defaultForCustomer, String importedTokenId)
 {
 	public PlatformPaymentMethod
 	{
 		Dtos.requireText(id, "id");
 		Dtos.requireText(displayLabel, "displayLabel");
+	}
+
+	/** For a platform that does not report where a method came from, or a method that was not imported. */
+	public PlatformPaymentMethod(final String id, final String displayLabel, final CardMetadata card,
+			final boolean defaultForCustomer)
+	{
+		this(id, displayLabel, card, defaultForCustomer, null);
 	}
 
 	/**
@@ -62,5 +70,15 @@ public record PlatformPaymentMethod(String id, String displayLabel, CardMetadata
 	public boolean isDefaultForCustomer()
 	{
 		return defaultForCustomer;
+	}
+
+	/**
+	 * The vaulted-token identifier this method was imported from, or {@code null} when the platform does
+	 * not say. It is what lets the page tell that a card offered from the shopper's vault and one the
+	 * platform already holds are the same instrument, rather than offering it twice under two names.
+	 */
+	public String getImportedTokenId()
+	{
+		return importedTokenId;
 	}
 }

@@ -160,19 +160,23 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
      */
     protected void promoteToPrimaryIfConfigured(final PaymentMethodChangeRequest request,
                                                 final String billingInfoId) {
-        if (!configService.isPromoteChosenCardToPrimaryEnabled()) {
-            return;
-        }
+        // Everything is inside the try, the configuration read included: by the time this runs the
+        // subscription is already billing to the card, so nothing here may turn a completed change into a
+        // failure. That covers a store whose column has not been added yet, which would otherwise raise a
+        // JaloSystemException straight through the change.
         try {
-            // Read first. Promotion is account-wide and Recurly retries collection on unpaid invoices tied
-            // to the billing info, so repeating it - which putting one card behind several subscriptions
-            // would - must not repeat that. Already primary means there is nothing to do.
+            if (!configService.isPromoteChosenCardToPrimaryEnabled()) {
+                return;
+            }
+            // Read before writing. Promotion is account-wide and Recurly retries collection on unpaid
+            // invoices tied to the billing info, so repeating it - which putting one card behind several
+            // subscriptions would - must not repeat that. Already primary means there is nothing to do.
             if (isAlreadyPrimary(request.customer().externalId(), billingInfoId)) {
                 return;
             }
             apiClient.promoteBillingInfoToPrimary(request.customer().externalId(), billingInfoId,
                     operationKey(request.idempotencyKey(), "primary"));
-        } catch (final BillingException e) {
+        } catch (final BillingException | RuntimeException e) {
             ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
                     .field("billing_info_id", billingInfoId)
                     .field("external_id", request.customer().externalId())

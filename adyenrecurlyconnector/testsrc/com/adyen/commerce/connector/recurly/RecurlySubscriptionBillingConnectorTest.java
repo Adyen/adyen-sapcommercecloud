@@ -437,6 +437,22 @@ public class RecurlySubscriptionBillingConnectorTest
     }
 
     /**
+     * The promotion is an extra, and its configuration lives in a column a store may not have yet. Reading
+     * it must not be able to undo a change that already happened on the platform.
+     */
+    @Test
+    public void aPromotionWhoseConfigurationCannotBeReadDoesNotFailTheChange() throws Exception {
+        when(configService.isPaymentMethodChangeEnabledOrFalse()).thenReturn(true);
+        when(configService.isPromoteChosenCardToPrimaryEnabled())
+                .thenThrow(new IllegalStateException("no attribute RecurlyConfig.promoteChosenCardToPrimary found"));
+
+        final PaymentMethodChangeOutcome outcome = connector.changePaymentMethod(repointTo("billing-9"));
+
+        verify(apiClient).assignBillingInfo(eq("uuid-sub-1"), eq("billing-9"), any());
+        assertEquals(PaymentMethodChangeScope.SUBSCRIPTION, outcome.appliedScope());
+    }
+
+    /**
      * The subscription is already billing to the card by then, so a failed promotion leaves the shopper's
      * request fulfilled; reporting a failed change would be false.
      */

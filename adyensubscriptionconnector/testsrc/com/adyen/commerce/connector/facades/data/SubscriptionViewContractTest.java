@@ -73,7 +73,7 @@ public class SubscriptionViewContractTest
 	 * properties at all unless the accessors are added by hand.</p>
 	 */
 	private static final List<String> OPTION_PROPERTIES = Arrays.asList(
-			"id", "displayLabel", "card", "defaultForCustomer");
+			"id", "displayLabel", "card", "defaultForCustomer", "importedTokenId");
 
 	/** Read on the state enum from inside a row: {@code ${subscription.state.<name>}}. */
 	private static final List<String> STATE_PROPERTIES = Arrays.asList(
