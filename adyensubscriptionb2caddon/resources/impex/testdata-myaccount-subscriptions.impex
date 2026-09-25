@@ -1,0 +1,138 @@
+# -----------------------------------------------------------------------
+# Test fixture for the "My subscriptions" page. NOT imported by anything - paste it into
+# hac > Console > ImpEx Import by hand, on a development machine only.
+#
+# It exists because every interesting thing this page does is a branch on state, and the states are
+# reached through a billing platform over days or weeks: a subscription is not PAST_DUE until a renewal
+# fails, and not ENDED until its term runs out. Waiting for that is not a way to check the wording.
+#
+# One row per display state, so the whole table can be read on one screen and any state that renders
+# badly is visible next to the ones that do not.
+#
+# Each subscription needs its own order: the page derives the shopper's store from the order (that is
+# where the connector's credentials come from), and the reference type allows one row per order per
+# platform. The orders are created here, have no entries, and will therefore also appear - looking empty -
+# in the shopper's order history. That is the price of the fixture and the reason it is not project data.
+#
+# To remove everything again, see the REMOVE block at the bottom.
+# -----------------------------------------------------------------------
+
+# --- Set these to match the environment before importing. --------------------------------------------
+#
+# $customer MUST already exist on this instance, and must be an account you can actually sign in as -
+# the page lives behind ROLE_CUSTOMERGROUP, so a shopper you cannot log in as is a fixture you cannot
+# look at. This file deliberately does not create the customer: doing so would mean setting a password
+# here, and a password committed to a repository is worse than a manual step.
+#
+# An account that exists on a colleague's environment is not the same as one that exists here - that is
+# what "could not resolve item for <uid>" means, and every other failure in this file cascades from it,
+# because the orders cannot be created and then the references have no order to point at.
+#
+# Three separate queries, because the answers come from three unrelated types:
+#   SELECT {uid} FROM {Customer} WHERE {uid} LIKE '%@%'
+#   SELECT {uid} FROM {BaseStore}
+#   SELECT {uid} FROM {BaseSite}
+# The store and the site usually share a uid on this storefront, but they are different items and a
+# project that renamed one of them will have them differ.
+$customer=test@test.pl
+$store=electronics
+$site=electronics
+$currency=USD
+
+# A real product code gives the row a real name; the last subscription deliberately uses one that does
+# not exist, to exercise the fallback that shows the code when the catalogue no longer has the product.
+$product=2278102
+$goneProduct=SUB-GONE-999
+
+$platform=CHARGEBEE
+$dateFormat=yyyy-MM-dd HH:mm:ss
+
+# Dates are literal rather than relative because impex has no clock, so this fixture has an expiry date and
+# it fails SILENTLY - no import error, just rows that stop demonstrating the state they were written for.
+# The invariant is  $past < $recently < TODAY < $soon < $future.
+#
+#   REVIEW BEFORE 2027-03-20. On that date $soon stops being in the future and row 04 stops being
+#   "starting soon"; on 2027-06-15 $future goes the same way and rows 01, 02, 05, 06, 07 and 09 follow it.
+#
+# $soon and $future are deliberately far out; $past and $recently must stay behind today and so are left
+# where they are. Moving the pair forward is the whole maintenance job.
+$past=2026-07-15 10:00:00
+$recently=2026-08-15 10:00:00
+$soon=2027-03-20 10:00:00
+$future=2027-06-15 10:00:00
+
+# --- The orders the references hang off ---------------------------------------------------------------
+INSERT_UPDATE Order;code[unique=true];user(uid);currency(isocode);date[dateformat=$dateFormat];net;store(uid);site(uid)
+;SUBTEST-01;$customer;$currency;$recently;false;$store;$site
+;SUBTEST-02;$customer;$currency;$recently;false;$store;$site
+;SUBTEST-03;$customer;$currency;$recently;false;$store;$site
+;SUBTEST-04;$customer;$currency;$recently;false;$store;$site
+;SUBTEST-05;$customer;$currency;$recently;false;$store;$site
+;SUBTEST-06;$customer;$currency;$recently;false;$store;$site
+;SUBTEST-07;$customer;$currency;$recently;false;$store;$site
+;SUBTEST-08;$customer;$currency;$past;false;$store;$site
+;SUBTEST-09;$customer;$currency;$recently;false;$store;$site
+;SUBTEST-10;$customer;$currency;$recently;false;$store;$site
+
+# --- One subscription per display state ---------------------------------------------------------------
+#
+# platformUpdatedAt is the field that decides "has any platform ever confirmed this": only a
+# reconciliation writes it, so leaving it empty is what produces the "still setting this up" row. Every
+# other row sets it, or it would land there too whatever its status says.
+#
+# Expected on screen, in order:
+#   01  Active. Renews on 15 June 2027.                             [Cancel renewal]
+#   02  Won't renew. You have access until 15 June 2027.            -
+#   03  We're still setting this up with our billing provider.      -
+#   04  Starts on 20 March 2027.                                    [Cancel renewal]
+#   05  We couldn't take the last payment...                        [Cancel renewal]
+#   06  Won't renew, and there's an unpaid invoice...               -
+#   07  Paused. Please contact us to resume it.                     -
+#   08  Ended on 15 July 2026.                                      -
+#   09  We can't show the status of this subscription right now.    -   (unmapped status literal)
+INSERT_UPDATE BillingSubscriptionRef;platform(code)[unique=true];externalSubscriptionId[unique=true];code;productCode;status;quantity;currencyIsoCode;currentPeriodStart[dateformat=$dateFormat];currentPeriodEnd[dateformat=$dateFormat];cancelAtPeriodEnd;platformUpdatedAt[dateformat=$dateFormat];lastSyncedAt[dateformat=$dateFormat];order(Order.code);customer(uid);idempotencyKey
+;$platform;sub-test-01;code-test-01;$product;ACTIVE;1;$currency;$recently;$future;false;$recently;$recently;SUBTEST-01;$customer;SUBTEST-01
+;$platform;sub-test-02;code-test-02;$product;ACTIVE;1;$currency;$recently;$future;true;$recently;$recently;SUBTEST-02;$customer;SUBTEST-02
+;$platform;sub-test-03;code-test-03;$product;PENDING;1;$currency;;;false;;;SUBTEST-03;$customer;SUBTEST-03
+;$platform;sub-test-04;code-test-04;$product;PENDING;1;$currency;$soon;$future;false;$recently;$recently;SUBTEST-04;$customer;SUBTEST-04
+;$platform;sub-test-05;code-test-05;$product;PAST_DUE;1;$currency;$recently;$future;false;$recently;$recently;SUBTEST-05;$customer;SUBTEST-05
+;$platform;sub-test-06;code-test-06;$product;PAST_DUE;1;$currency;$recently;$future;true;$recently;$recently;SUBTEST-06;$customer;SUBTEST-06
+;$platform;sub-test-07;code-test-07;$product;PAUSED;2;$currency;$recently;$future;false;$recently;$recently;SUBTEST-07;$customer;SUBTEST-07
+;$platform;sub-test-08;code-test-08;$product;EXPIRED;1;$currency;$past;$past;false;$past;$past;SUBTEST-08;$customer;SUBTEST-08
+;$platform;sub-test-09;code-test-09;$goneProduct;transferred;1;$currency;$recently;$future;false;$recently;$recently;SUBTEST-09;$customer;SUBTEST-09
+
+# --- The banner: paid for, never activated ------------------------------------------------------------
+# SUBTEST-10 deliberately has no BillingSubscriptionRef. It is the shopper who paid and got nothing, and
+# the only reason they are not shown an empty page is this journal row.
+INSERT_UPDATE BillingActivationAttempt;order(Order.code)[unique=true];platform(code)[unique=true];status;productCode;idempotencyKey;attemptCount;firstAttemptAt[dateformat=$dateFormat];lastAttemptAt[dateformat=$dateFormat];deadLetteredAt[dateformat=$dateFormat];lastError
+;SUBTEST-10;$platform;DEAD_LETTER;$product;SUBTEST-10;3;$recently;$recently;$recently;"com.adyen.commerce.connector.exception.TerminalBillingException: fixture - no subscription was created for this order"
+
+# -----------------------------------------------------------------------
+# Cleanup. Paste this instead, on its own, to take the fixture back out.
+# Order matters: the journal and the references point at the orders.
+# -----------------------------------------------------------------------
+# REMOVE BillingActivationAttempt;order(Order.code)[unique=true];platform(code)[unique=true]
+# ;SUBTEST-10;CHARGEBEE
+#
+# REMOVE BillingSubscriptionRef;platform(code)[unique=true];externalSubscriptionId[unique=true]
+# ;CHARGEBEE;sub-test-01
+# ;CHARGEBEE;sub-test-02
+# ;CHARGEBEE;sub-test-03
+# ;CHARGEBEE;sub-test-04
+# ;CHARGEBEE;sub-test-05
+# ;CHARGEBEE;sub-test-06
+# ;CHARGEBEE;sub-test-07
+# ;CHARGEBEE;sub-test-08
+# ;CHARGEBEE;sub-test-09
+#
+# REMOVE Order;code[unique=true]
+# ;SUBTEST-01
+# ;SUBTEST-02
+# ;SUBTEST-03
+# ;SUBTEST-04
+# ;SUBTEST-05
+# ;SUBTEST-06
+# ;SUBTEST-07
+# ;SUBTEST-08
+# ;SUBTEST-09
+# ;SUBTEST-10

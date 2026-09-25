@@ -24,11 +24,13 @@ import com.adyen.model.checkout.PaymentDetailsRequest;
 import com.adyen.model.checkout.PaymentDetailsResponse;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.constants.Adyenv6coreConstants;
+import com.adyen.v6.event.AdyenPaymentAuthorizedEventPublisher;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
 import com.adyen.v6.repository.OrderRepository;
 import de.hybris.platform.commercefacades.order.data.OrderData;
 import de.hybris.platform.core.enums.OrderStatus;
+import de.hybris.platform.core.model.order.AbstractOrderModel;
 import de.hybris.platform.core.model.order.OrderModel;
 import de.hybris.platform.order.InvalidCartException;
 import de.hybris.platform.servicelayer.dto.converter.Converter;
@@ -63,6 +65,7 @@ public class DefaultThreeDSAuthorizationService implements ThreeDSAuthorizationS
     private AdyenOrderService adyenOrderService;
     private AdyenBusinessProcessService adyenBusinessProcessService;
     private Converter<OrderModel, OrderData> orderConverter;
+    private AdyenPaymentAuthorizedEventPublisher adyenPaymentAuthorizedEventPublisher;
 
     @Override
     public OrderData handle3DSResponse(PaymentDetailsRequest paymentsDetailsRequest) throws Exception {
@@ -136,9 +139,25 @@ public class DefaultThreeDSAuthorizationService implements ThreeDSAuthorizationS
 
         Map<String, String> additionalData = paymentDetailsResponse.getAdditionalData();
 
-        adyenOrderService.updatePaymentInfo(orderModel, paymentType, additionalData);
-        adyenOrderService.storeFraudReport(orderModel, paymentDetailsResponse.getPspReference(), 
+        // Cast so this binds to the single implemented method rather than to the deprecated OrderModel
+        // forwarder that only exists for callers compiled against the old signature.
+        adyenOrderService.updatePaymentInfo((AbstractOrderModel) orderModel, paymentType, additionalData);
+        if (PaymentDetailsResponse.ResultCodeEnum.AUTHORISED == paymentDetailsResponse.getResultCode()) {
+            // The place-order hook has already run for a 3DS/redirect order, so subscription activation has
+            // to be re-entered from here.
+            publishAuthorizedEvent(orderModel);
+        }
+        adyenOrderService.storeFraudReport(orderModel, paymentDetailsResponse.getPspReference(),
             paymentDetailsResponse.getFraudResult());
+    }
+
+    /**
+     * Announces the authorization once the transaction that persisted it has committed. The durability
+     * rule itself lives in {@link AdyenPaymentAuthorizedEventPublisher}, shared with the ordinary
+     * place-order path so the two cannot drift apart.
+     */
+    protected void publishAuthorizedEvent(final OrderModel orderModel) {
+        adyenPaymentAuthorizedEventPublisher.publishAuthorized(orderModel);
     }
 
     @Override
@@ -228,6 +247,11 @@ public class DefaultThreeDSAuthorizationService implements ThreeDSAuthorizationS
 
     public void setAdyenBusinessProcessService(AdyenBusinessProcessService adyenBusinessProcessService) {
         this.adyenBusinessProcessService = adyenBusinessProcessService;
+    }
+
+    public void setAdyenPaymentAuthorizedEventPublisher(
+        final AdyenPaymentAuthorizedEventPublisher adyenPaymentAuthorizedEventPublisher) {
+        this.adyenPaymentAuthorizedEventPublisher = adyenPaymentAuthorizedEventPublisher;
     }
 
     public Converter<OrderModel, OrderData> getOrderConverter() {

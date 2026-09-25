@@ -418,9 +418,11 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
                 recurringContractMode, customerModel, is3DS2Allowed, guestUserTokenizationEnabled));
     }
 
+    /**
+     * Carries the shopper's "remember my card" choice over from the request the component sent.
+     * The handler run right afterwards weighs it against the store configuration and has the final say.
+     */
     protected void copySchemePaymentSettings(PaymentRequest paymentRequest, PaymentRequest originPaymentsRequest) {
-        paymentRequest.setEnableOneClick(originPaymentsRequest.getEnableOneClick());
-        paymentRequest.setEnableRecurring(originPaymentsRequest.getEnableRecurring());
         paymentRequest.setStorePaymentMethod(originPaymentsRequest.getStorePaymentMethod());
     }
 

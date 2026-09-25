@@ -191,6 +191,15 @@
         <property name="paymentService" ref="paymentService" />
         <property name="modelService" ref="modelService" />
         <property name="calculationService" ref="calculationService" />
+        <property name="adyenOrderCancelledEventPublisher" ref="adyenOrderCancelledEventPublisher" />
+    </bean>
+
+    <!-- Announces a fully cancelled order. Nothing in this extension listens; the subscription connector
+         does, and it cannot be called directly from here because it is the one that depends on this. -->
+    <alias name="defaultAdyenOrderCancelledEventPublisher" alias="adyenOrderCancelledEventPublisher"/>
+    <bean id="defaultAdyenOrderCancelledEventPublisher"
+          class="com.adyen.v6.event.AdyenOrderCancelledEventPublisher">
+        <property name="eventService" ref="eventService"/>
     </bean>
 
     <alias name="defaultAdyenOrderService" alias="adyenOrderService"/>
@@ -209,6 +218,14 @@
     </bean>
 
     <alias name="defaultThreeDSAuthorizationService" alias="threeDSAuthorizationService"/>
+    <!-- Announces an authorization to the listeners only once it is durable. Shared by the ordinary
+         place-order path and the 3DS/redirect return, which reach that point at different moments. -->
+    <alias name="defaultAdyenPaymentAuthorizedEventPublisher" alias="adyenPaymentAuthorizedEventPublisher"/>
+    <bean id="defaultAdyenPaymentAuthorizedEventPublisher"
+          class="com.adyen.v6.event.AdyenPaymentAuthorizedEventPublisher">
+        <property name="eventService" ref="eventService"/>
+    </bean>
+
     <bean id="defaultThreeDSAuthorizationService" class="com.adyen.v6.service.DefaultThreeDSAuthorizationService">
         <property name="sessionService" ref="sessionService"/>
         <property name="orderRepository" ref="adyenOrderRepository"/>
@@ -218,6 +235,7 @@
         <property name="adyenTransactionService" ref="adyenTransactionService"/>
         <property name="adyenOrderService" ref="adyenOrderService"/>
         <property name="adyenBusinessProcessService" ref="adyenBusinessProcessService"/>
+        <property name="adyenPaymentAuthorizedEventPublisher" ref="adyenPaymentAuthorizedEventPublisher"/>
         <property name="orderConverter" ref="orderConverter"/>
     </bean>
 
@@ -251,6 +269,7 @@
         <property name="adyenTransactionService" ref="adyenTransactionService"/>
         <property name="orderRepository" ref="adyenOrderRepository"/>
         <property name="adyenOrderService" ref="adyenOrderService"/>
+        <property name="adyenPaymentAuthorizedEventPublisher" ref="adyenPaymentAuthorizedEventPublisher"/>
         <property name="checkoutCustomerStrategy" ref="checkoutCustomerStrategy"/>
         <property name="modelService" ref="modelService"/>
         <property name="commonI18NService" ref="commonI18NService"/>
@@ -285,8 +304,16 @@
         <property name="adyenCheckoutModelPopulator" ref="adyenCheckoutModelPopulator"/>
     </bean>
 
+    <alias name="defaultAdyenStoredCardAuthorisationService" alias="adyenStoredCardAuthorisationService"/>
+    <bean id="defaultAdyenStoredCardAuthorisationService"
+          class="com.adyen.commerce.services.impl.DefaultAdyenStoredCardAuthorisationService">
+        <property name="modelService" ref="modelService"/>
+        <property name="flexibleSearchService" ref="flexibleSearchService"/>
+    </bean>
+
     <alias name="defaultAdyenCheckoutApiFacade" alias="adyenCheckoutApiFacade" />
     <bean id="defaultAdyenCheckoutApiFacade" class="com.adyen.commerce.facades.impl.DefaultAdyenCheckoutApiFacade">
+        <property name="adyenStoredCardAuthorisationService" ref="adyenStoredCardAuthorisationService"/>
         <property name="countryConverter" ref="countryConverter"/>
         <property name="baseStoreService" ref="baseStoreService"/>
         <property name="sessionService" ref="sessionService"/>
@@ -297,6 +324,7 @@
         <property name="adyenTransactionService" ref="adyenTransactionService"/>
         <property name="orderRepository" ref="adyenOrderRepository"/>
         <property name="adyenOrderService" ref="adyenOrderService"/>
+        <property name="adyenPaymentAuthorizedEventPublisher" ref="adyenPaymentAuthorizedEventPublisher"/>
         <property name="checkoutCustomerStrategy" ref="checkoutCustomerStrategy"/>
         <property name="modelService" ref="modelService"/>
         <property name="commonI18NService" ref="commonI18NService"/>
