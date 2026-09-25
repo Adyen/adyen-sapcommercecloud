@@ -20,6 +20,7 @@
  */
 package com.adyen.commerce.connector.activation.impl;
 
+import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isA;
@@ -36,10 +37,12 @@ import java.util.List;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import com.adyen.commerce.connector.activation.BillingActivationAttemptService;
+import com.adyen.commerce.connector.context.impl.DefaultSubscriptionStoreContext;
 import com.adyen.commerce.connector.dto.PlanRef;
 import com.adyen.commerce.connector.dto.PlanResolutionRequest;
 import com.adyen.commerce.connector.enums.BillingPlatform;
@@ -115,16 +118,19 @@ public class DefaultSubscriptionOrderActivatorTest
 		activator = new DefaultSubscriptionOrderActivator();
 		activator.setSubscriptionBillingService(subscriptionBillingService);
 		activator.setConnectorRegistry(connectorRegistry);
-		// The real rule, shared in production with SubscriptionPaymentRequestDecorator. Stubbing it out here
-		// would let this test and the decorator's drift apart in exactly the way the shared bean prevents.
+		// The real rule, shared in production with SubscriptionPaymentRequestDecorator; stubbing it out would
+		// let this test and the decorator's drift apart.
 		activator.setSubscriptionProductRule(new DefaultSubscriptionProductRule());
 		activator.setAttemptService(attemptService);
 		activator.setSessionService(sessionService);
-		activator.setBaseSiteService(baseSiteService);
-		activator.setBaseStoreService(baseStoreService);
+		final DefaultSubscriptionStoreContext storeContext = new DefaultSubscriptionStoreContext();
+		storeContext.setSessionService(sessionService);
+		storeContext.setBaseSiteService(baseSiteService);
+		storeContext.setBaseStoreService(baseStoreService);
+		activator.setStoreContext(storeContext);
 
-		// The local view is the unit under test's own plumbing, not a collaborator to assert on: run the
-		// body inline so every test below exercises what the body actually does.
+		// The local view is the unit under test's own plumbing, not a collaborator to assert on: the body
+		// runs inline so every test below exercises it.
 		when(sessionService.executeInLocalView(any(SessionExecutionBody.class))).thenAnswer(invocation -> {
 			invocation.<SessionExecutionBody> getArgument(0).execute();
 			return null;
@@ -162,6 +168,18 @@ public class DefaultSubscriptionOrderActivatorTest
 	}
 
 	@Test
+	public void classifiesProductsInTheOrdersStore() throws Exception
+	{
+		givenEntries(product(SUB_PRODUCT));
+
+		activator.activateFor(order);
+
+		final ArgumentCaptor<PlanResolutionRequest> request = ArgumentCaptor.forClass(PlanResolutionRequest.class);
+		verify(connector).resolvePlan(request.capture());
+		assertEquals("electronics", request.getValue().baseStoreUid());
+	}
+
+	@Test
 	public void journalsASuccessfulActivationAgainstTheKeyItSent() throws Exception
 	{
 		when(subscriptionBillingService.idempotencyKeyFor(order)).thenReturn("order-1");
@@ -177,8 +195,7 @@ public class DefaultSubscriptionOrderActivatorTest
 	}
 
 	/**
-	 * The whole point of the journal: a failure the checkout never sees still has to leave a record that
-	 * the retry policy can act on.
+	 * A failure the checkout never sees still has to leave a record the retry policy can act on.
 	 */
 	@Test
 	public void journalsAFailedActivationInsteadOfLosingIt() throws Exception
@@ -194,8 +211,8 @@ public class DefaultSubscriptionOrderActivatorTest
 	}
 
 	/**
-	 * A save failure that is not the (order, platform) race — the service resolves that one itself now —
-	 * is an ordinary failure and belongs in the journal like any other.
+	 * A save failure that is not the (order, platform) race is an ordinary failure and belongs in the journal
+	 * like any other.
 	 */
 	@Test
 	public void journalsAModelSavingFailure() throws Exception
@@ -223,9 +240,9 @@ public class DefaultSubscriptionOrderActivatorTest
 	}
 
 	/**
-	 * A base site listing several stores resolves to its first one. Activating anyway would have the
-	 * connector read another store's credentials and bill a merchant account the shopper never saw, so
-	 * this refuses — and, being configuration rather than weather, refuses terminally.
+	 * A base site listing several stores resolves to its first one. Activating anyway would have the connector
+	 * read another store's credentials and bill a merchant account the shopper never saw, so this refuses, and
+	 * refuses terminally because the cause is configuration.
 	 */
 	@Test
 	public void refusesToActivateWhenTheSessionResolvesToADifferentStore() throws Exception
@@ -269,7 +286,7 @@ public class DefaultSubscriptionOrderActivatorTest
 	}
 
 	@Test
-	public void ignoresAnOrderOfOrdinaryProducts() throws Exception
+	public void ignoresAnOrderOfOrdinaryProducts()
 	{
 		givenEntries(product(PLAIN_PRODUCT), product("another-plain"));
 
@@ -279,10 +296,9 @@ public class DefaultSubscriptionOrderActivatorTest
 	}
 
 	/**
-	 * Activation is idempotent on (order, platform), so only one subscription can exist per order and a loop
-	 * would silently discard everything after the first entry. This used to activate the first and log a
-	 * warning; it now activates none, because a shopper who paid for two and received one had no record of
-	 * the second anywhere — neither the reference nor the journal has room for it.
+	 * Activation is idempotent on (order, platform), so only one subscription can exist per order: an order
+	 * carrying several activates none, because neither the reference nor the journal has room to record the
+	 * ones that would be dropped.
 	 */
 	@Test
 	public void activatesNothingWhenAnOrderCarriesSeveralSubscriptionProducts() throws Exception
@@ -295,21 +311,46 @@ public class DefaultSubscriptionOrderActivatorTest
 		verify(subscriptionBillingService, never()).activateSubscription(any(), any());
 	}
 
+	/** A subscription is activated with quantity one, so a second unit would be paid for and never delivered. */
 	@Test
-	public void countsARepeatedProductOnce() throws Exception
+	public void refusesTheSameSubscriptionProductOrderedOnTwoEntries() throws Exception
 	{
 		givenEntries(product(SUB_PRODUCT), product(SUB_PRODUCT));
 
 		activator.activateFor(order);
 
-		verify(subscriptionBillingService, times(1)).activateSubscription(order, entryProduct(SUB_PRODUCT));
+		verify(subscriptionBillingService, never()).activateSubscription(any(), any());
+		verify(attemptService).failed(any(), isA(PreconditionFailedException.class));
+	}
+
+	@Test
+	public void refusesQuantityTwoOfASubscriptionProduct() throws Exception
+	{
+		givenEntry(product(SUB_PRODUCT), 2L);
+
+		activator.activateFor(order);
+
+		verify(subscriptionBillingService, never()).activateSubscription(any(), any());
+		verify(attemptService).failed(any(), isA(PreconditionFailedException.class));
+	}
+
+	@Test
+	public void activatesQuantityOneAlongsideOrdinaryEntriesOfAnyQuantity() throws Exception
+	{
+		final ProductModel subscription = product(SUB_PRODUCT);
+		final AbstractOrderEntryModel subscriptionEntry = entry(subscription, 1L);
+		final AbstractOrderEntryModel plainEntry = entry(product(PLAIN_PRODUCT), 5L);
+		when(order.getEntries()).thenReturn(List.of(subscriptionEntry, plainEntry));
+
+		activator.activateFor(order);
+
+		verify(subscriptionBillingService).activateSubscription(order, subscription);
 	}
 
 	/**
-	 * Two different subscription products on one order used to activate the first and log a warning, which
-	 * left the shopper paying for two and holding one, with nothing on the reference or in the journal to say
-	 * so — both are keyed one row per order and platform. Refusing costs the shopper the one they would
-	 * otherwise have got; it buys a record naming both, which is the only version anybody can put right.
+	 * Two different subscription products on one order activate none. Reference and journal are both keyed one
+	 * row per order and platform, so activating the first would leave the shopper paying for two and holding
+	 * one with nothing recording the second; refusing buys a record naming both.
 	 */
 	@Test
 	public void refusesAnOrderCarryingTwoDifferentSubscriptionProducts() throws Exception
@@ -362,7 +403,7 @@ public class DefaultSubscriptionOrderActivatorTest
 	 * attempt is opened rather than before it.
 	 */
 	@Test
-	public void journalsTheGuestRefusalAgainstTheProductThatWasSold() throws Exception
+	public void journalsTheGuestRefusalAgainstTheProductThatWasSold()
 	{
 		when(subscriptionBillingService.idempotencyKeyFor(order)).thenReturn("order-1");
 		givenEntries(product(SUB_PRODUCT));
@@ -388,7 +429,7 @@ public class DefaultSubscriptionOrderActivatorTest
 	}
 
 	@Test
-	public void doesNothingForAnOrderWithoutAStore() throws Exception
+	public void doesNothingForAnOrderWithoutAStore()
 	{
 		when(order.getStore()).thenReturn(null);
 		givenEntries(product(SUB_PRODUCT));
@@ -399,7 +440,7 @@ public class DefaultSubscriptionOrderActivatorTest
 	}
 
 	@Test
-	public void doesNothingForANullOrder() throws Exception
+	public void doesNothingForANullOrder()
 	{
 		activator.activateFor(null);
 
@@ -421,9 +462,9 @@ public class DefaultSubscriptionOrderActivatorTest
 	}
 
 	/**
-	 * A store selecting a platform nothing answers for is a misconfiguration, and one that stops every
-	 * subscription in that store. It is journalled rather than only logged, which does mean an ordinary
-	 * order in such a store acquires a record too — the intended noise.
+	 * A store selecting a platform nothing answers for is a misconfiguration that stops every subscription in
+	 * that store, so it is journalled rather than only logged — at the price of an ordinary order in such a
+	 * store acquiring a record too.
 	 */
 	@Test
 	public void swallowsAMissingConnectorSoTheCheckoutStillSucceeds() throws Exception
@@ -439,7 +480,7 @@ public class DefaultSubscriptionOrderActivatorTest
 	}
 
 	@Test
-	public void swallowsAnUnexpectedRuntimeFailure() throws Exception
+	public void swallowsAnUnexpectedRuntimeFailure()
 	{
 		givenEntries(product(SUB_PRODUCT));
 		when(order.getEntries()).thenThrow(new IllegalStateException("boom"));
@@ -448,12 +489,10 @@ public class DefaultSubscriptionOrderActivatorTest
 	}
 
 	/**
-	 * The paid-order-with-no-journal regression. A resolver that breaks is not the same as a product that is
-	 * not a subscription: it used to be flattened into one, and then the order looked ordinary,
-	 * {@code chooseSubscriptionProduct} returned null and the method returned before {@code begin} was ever
-	 * called. No attempt row, so nothing for {@code SubscriptionActivationRetryJob} to find and no dead
-	 * letter — the shopper had paid and nothing would ever try again. It must now leave a record, and the
-	 * record must still not take the checkout down with it.
+	 * A resolver that breaks is not the same as a product that is not a subscription. Flattening the two would
+	 * make the order look ordinary and return before {@code begin} is called, leaving no attempt row for
+	 * {@code SubscriptionActivationRetryJob} to find on an order the shopper has paid for. It leaves a record,
+	 * and the record does not take the checkout down with it.
 	 */
 	@Test
 	public void journalsAResolverThatCannotAnswerInsteadOfCallingTheOrderOrdinary() throws Exception
@@ -465,8 +504,8 @@ public class DefaultSubscriptionOrderActivatorTest
 
 		activator.activateFor(order);
 
-		// No product code on the row: that is the marker that says "we could not tell", as opposed to a row
-		// carrying the product we did try and the platform's own refusal.
+		// No product code on the row marks an order that could not be classified, as opposed to a row carrying
+		// the product that was tried and the platform's own refusal.
 		verify(attemptService).begin(order, BillingPlatform.CHARGEBEE, null, "order-1");
 		verify(attemptService).failed(eq(attempt), any(SubscriptionProductUndecidableException.class));
 		verify(subscriptionBillingService, never()).activateSubscription(any(), any());
@@ -474,7 +513,7 @@ public class DefaultSubscriptionOrderActivatorTest
 
 	/**
 	 * An unchecked failure out of the resolver &mdash; FlexibleSearch throws unchecked &mdash; is the same
-	 * "could not tell" and gets the same durable record, rather than being caught per-entry and dropped.
+	 * unclassifiable case and gets the same durable record rather than being dropped per entry.
 	 */
 	@Test
 	public void journalsAnUncheckedResolverFailureToo() throws Exception
@@ -490,9 +529,9 @@ public class DefaultSubscriptionOrderActivatorTest
 	}
 
 	/**
-	 * The price of the above, asserted rather than left to be discovered: one unclassifiable entry defers the
-	 * whole order to the retry, even though another entry did resolve. Only one subscription per order is
-	 * activated, so going ahead would mean choosing a plan while unable to see one of the candidates.
+	 * One unclassifiable entry defers the whole order to the retry even though another entry resolved: only one
+	 * subscription per order is activated, so going ahead would mean choosing a plan while unable to see one of
+	 * the candidates.
 	 */
 	@Test
 	public void defersAMixedOrderRatherThanActivatingTheEntryThatHappenedToResolve() throws Exception
@@ -514,7 +553,7 @@ public class DefaultSubscriptionOrderActivatorTest
 	}
 
 	@Test
-	public void skipsAnEntryWithoutAUsableProduct() throws Exception
+	public void skipsAnEntryWithoutAUsableProduct()
 	{
 		final ProductModel blank = product("   ");
 		final AbstractOrderEntryModel noProduct = mock(AbstractOrderEntryModel.class);
@@ -547,19 +586,31 @@ public class DefaultSubscriptionOrderActivatorTest
 	}
 
 	/**
-	 * Built eagerly rather than in a stream mapped inside {@code when(...)}: stubbing one mock while the
-	 * stubbing of another is still open is what Mockito reports as unfinished stubbing.
+	 * Built eagerly rather than in a stream mapped inside {@code when(...)}: stubbing one mock while another's
+	 * stubbing is still open is what Mockito reports as unfinished stubbing.
 	 */
 	private void givenEntries(final ProductModel... products)
 	{
 		final List<AbstractOrderEntryModel> entries = new ArrayList<>();
 		for (final ProductModel product : products)
 		{
-			final AbstractOrderEntryModel entry = mock(AbstractOrderEntryModel.class);
-			when(entry.getProduct()).thenReturn(product);
-			entries.add(entry);
+			entries.add(entry(product, 1L));
 		}
 		when(order.getEntries()).thenReturn(entries);
+	}
+
+	private void givenEntry(final ProductModel product, final long quantity)
+	{
+		final AbstractOrderEntryModel entry = entry(product, quantity);
+		when(order.getEntries()).thenReturn(List.of(entry));
+	}
+
+	private static AbstractOrderEntryModel entry(final ProductModel product, final long quantity)
+	{
+		final AbstractOrderEntryModel entry = mock(AbstractOrderEntryModel.class);
+		when(entry.getProduct()).thenReturn(product);
+		when(entry.getQuantity()).thenReturn(quantity);
+		return entry;
 	}
 
 	private ProductModel entryProduct(final String code)

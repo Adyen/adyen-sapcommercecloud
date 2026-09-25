@@ -3,9 +3,8 @@ package com.adyen.commerce.connector.recurly.client;
 import java.util.Map;
 
 /**
- * Vendor-facing subscription create parameters after the SPI request has been normalized into Recurly
- * fields. {@code startsAt} is an ISO-8601 timestamp because Recurly's Adyen gateway-token import flow
- * must be future-dated in this adapter.
+ * Subscription create parameters in Recurly terms. {@code startsAt} is ISO-8601 and future-dated, as the
+ * Adyen gateway-token import requires.
  */
 public record RecurlySubscriptionParams(String accountId,
                                         String billingInfoId,

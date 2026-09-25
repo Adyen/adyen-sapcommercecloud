@@ -48,7 +48,9 @@ public class DefaultRecurlyWebhookParserTest
     public void setUp() throws Exception
     {
         MockitoAnnotations.openMocks(this);
-        parser = new DefaultRecurlyWebhookParser(configService, Clock.fixed(NOW, ZoneOffset.UTC));
+        parser = new DefaultRecurlyWebhookParser();
+        parser.setConfigService(configService);
+        parser.setClock(Clock.fixed(NOW, ZoneOffset.UTC));
         when(configService.getWebhookSigningKey()).thenReturn(SECRET);
         when(configService.getWebhookToleranceSeconds()).thenReturn(300);
     }
@@ -126,8 +128,8 @@ public class DefaultRecurlyWebhookParserTest
         assertNull(event.externalSubscriptionId());
         assertEquals("payment", event.attributes().get("resourceType"));
         assertEquals("uuid-payment-uuid", event.attributes().get("resourceId"));
-        // Pinned because the map used to carry the object type twice: RecurlySubscriptionBillingConnector
-        // reads resourceType/resourceId, and a second copy under another key drifts out of use unnoticed.
+        // RecurlySubscriptionBillingConnector reads resourceType and resourceId; pinning the whole key set
+        // keeps a redundant copy under another key from creeping in.
         assertEquals(Set.of("eventType", "resourceType", "resourceId"), event.attributes().keySet());
     }
 

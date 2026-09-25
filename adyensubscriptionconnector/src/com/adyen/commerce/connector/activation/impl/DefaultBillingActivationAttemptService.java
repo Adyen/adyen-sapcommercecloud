@@ -43,15 +43,13 @@ import de.hybris.platform.servicelayer.search.FlexibleSearchQuery;
 import de.hybris.platform.servicelayer.search.FlexibleSearchService;
 
 /**
- * Default journal, one row per {@code (order, platform)} — the same scope activation itself is
- * idempotent on, so repeating an activation updates a record rather than adding one.
+ * Default journal, one row per {@code (order, platform)} — the same scope activation itself is idempotent
+ * on, so repeating an activation updates a record rather than adding one.
  *
- * <h3>Two threads, one order</h3>
- * <p>A partial payment produces one Adyen notification per leg and Adyen redelivers on top of that, so
- * two activations of the same order genuinely overlap. The unique index decides which of them owns the
- * row; the loser takes the winner's row rather than failing, because both are doing the same work for
- * the same order and the count of attempts should reflect that work once. The one thing that must not
- * happen is the loser's failure erasing the winner's success, which {@link #failed} refuses to do.</p>
+ * <p>A partial payment produces one Adyen notification per leg and Adyen redelivers on top of that, so two
+ * activations of one order overlap. The unique index decides which of them owns the row and the loser
+ * continues on the winner's, since both are doing the same work and it should be counted once;
+ * {@link #failed} refuses to let a loser's failure erase a recorded success.</p>
  */
 public class DefaultBillingActivationAttemptService implements BillingActivationAttemptService
 {
@@ -72,17 +70,15 @@ public class DefaultBillingActivationAttemptService implements BillingActivation
 		final BillingActivationAttemptModel attempt = findOrCreate(order, platform);
 		if (STATUS_SUCCEEDED.equals(attempt.getStatus()))
 		{
-			// Already activated, and more than one trigger reaches this order: the place-order path announces
-			// an ordinary authorization, the 3DS return announces its own, and Adyen redelivers notifications
-			// on top of both. Reopening the record would walk a finished activation back to PENDING and spend
-			// one of the retries the policy is holding for a failure that has not happened. The caller runs on
-			// regardless; activateSubscription finds the existing subscription reference and returns it, so
-			// nothing is charged twice and succeeded() simply restamps what is already there.
+			// Already activated, and more than one trigger reaches this order: the place-order path, the 3DS
+			// return and Adyen's redeliveries all announce it. Reopening the record would walk a finished
+			// activation back to PENDING and spend one of the retries the policy holds for a real failure.
+			// The caller runs on regardless; activateSubscription finds the existing reference and returns it.
 			return attempt;
 		}
 		attempt.setProductCode(productCode);
 		attempt.setIdempotencyKey(idempotencyKey);
-		attempt.setAttemptCount(Integer.valueOf(attemptCount(attempt) + 1));
+		attempt.setAttemptCount(attemptCount(attempt) + 1);
 		attempt.setStatus(STATUS_PENDING);
 		final Date now = now();
 		if (attempt.getFirstAttemptAt() == null)
@@ -133,8 +129,8 @@ public class DefaultBillingActivationAttemptService implements BillingActivation
 			attempt.setStatus(STATUS_DEAD_LETTER);
 			attempt.setNextAttemptAt(null);
 			attempt.setDeadLetteredAt(now());
-			// The one line in this whole path worth alerting on: the shopper has been charged and there is no
-			// subscription, and nothing else is going to try again.
+			// Worth alerting on: the shopper has been charged, there is no subscription, and nothing else is
+			// going to try again.
 			LOG.error("DEAD LETTER: giving up on activating a {} subscription for order '{}' after {} attempt(s) — {}. "
 					+ "The shopper was charged and has no subscription; this needs an operator.", attempt.getPlatform(),
 					orderCode(attempt), attemptCount(attempt), verdict.reason(), failure);
@@ -167,8 +163,8 @@ public class DefaultBillingActivationAttemptService implements BillingActivation
 		final BillingActivationAttemptModel attempt = existing.get();
 		if (STATUS_SUCCEEDED.equals(attempt.getStatus()))
 		{
-			// It really did activate something once. Whatever the rule says now, that row is not ours to
-			// rewrite - the subscription it points at exists on the platform.
+			// The subscription this row points at exists on the platform, so whatever the rule says, the row
+			// is not this method's to rewrite.
 			return;
 		}
 		attempt.setStatus(STATUS_NOT_APPLICABLE);
@@ -214,8 +210,8 @@ public class DefaultBillingActivationAttemptService implements BillingActivation
 		}
 		catch (final RuntimeException e)
 		{
-			// Refreshing is an optimisation, not the point. If it fails, record the failure anyway — losing
-			// the failure entirely is worse than the small chance of overwriting a concurrent success.
+			// Refreshing is an optimisation: record the failure anyway, since losing it entirely is worse
+			// than the small chance of overwriting a concurrent success.
 			LOG.debug("Could not refresh activation attempt for order '{}' before recording a failure",
 					orderCode(attempt), e);
 			return false;
@@ -257,9 +253,8 @@ public class DefaultBillingActivationAttemptService implements BillingActivation
 			}
 			LOG.info("Concurrent activation of order '{}' on platform {} created the attempt record first; "
 					+ "continuing on it.", order.getCode(), platform, e);
-			// The winner's row is returned as it stands, deliberately without re-bumping the counter onto it.
-			// The winner already counted this activation of this order and both threads are about to do the
-			// same work; counting it twice would spend the retry budget at twice the intended rate.
+			// Returned as it stands, without re-bumping the counter: the winner already counted this
+			// activation, and counting it twice would spend the retry budget at twice the intended rate.
 			return existing.get();
 		}
 	}
@@ -303,7 +298,7 @@ public class DefaultBillingActivationAttemptService implements BillingActivation
 	protected static int attemptCount(final BillingActivationAttemptModel attempt)
 	{
 		final Integer count = attempt.getAttemptCount();
-		return count == null ? 0 : count.intValue();
+		return count == null ? 0 : count;
 	}
 
 	private static String orderCode(final BillingActivationAttemptModel attempt)

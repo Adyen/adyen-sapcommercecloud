@@ -65,6 +65,8 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 
 	private static final Logger LOG = LoggerFactory.getLogger(DefaultChargebeeApiClient.class);
 	private static final String EVENT_VENDOR_API_ERROR = "vendor_api_error";
+	private static final String SUBSCRIPTIONS_PATH = "/subscriptions/";
+	private static final String RESOURCE_SUBSCRIPTION = "subscription";
 
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -153,23 +155,23 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 				configService.getApiBaseUrl() + "/customers/" + pathSegment(params.customerId()) + "/subscription_for_items",
 				authHeader(), FormEncoder.encode(form), params.subscriptionId());
 		requireSuccess(response, "create subscription");
-		return readId(response.body(), "subscription");
+		return readId(response.body(), RESOURCE_SUBSCRIPTION);
 	}
 
 	@Override
 	public NormalizedSubscription fetchSubscription(final String subscriptionId) throws BillingException
 	{
 		final ChargebeeHttpResponse response = httpClient
-				.get(configService.getApiBaseUrl() + "/subscriptions/" + pathSegment(subscriptionId), authHeader());
+				.get(configService.getApiBaseUrl() + SUBSCRIPTIONS_PATH + pathSegment(subscriptionId), authHeader());
 		requireSuccess(response, "retrieve subscription");
 		return mapSubscription(response.body());
 	}
 
 	protected NormalizedSubscription mapSubscription(final String body) throws BillingException
 	{
-		final JsonNode root = readJson(body, "subscription");
-		final String subscriptionId = readId(root, "subscription");
-		final JsonNode subscription = root.path("subscription");
+		final JsonNode root = readJson(body, RESOURCE_SUBSCRIPTION);
+		final String subscriptionId = readId(root, RESOURCE_SUBSCRIPTION);
+		final JsonNode subscription = root.path(RESOURCE_SUBSCRIPTION);
 		final JsonNode planItem = findPlanItem(subscription);
 
 		return new NormalizedSubscription(
@@ -184,10 +186,9 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 	}
 
 	/**
-	 * Chargebee has no {@code past_due} lifecycle state — a subscription with unpaid invoices stays
-	 * {@code active} and carries the dunning signal next to it as {@code due_invoices_count}, which ships
-	 * inside the subscription resource itself. So unlike Recurly, where past-due has to be derived from a
-	 * second call listing the account's past-due invoices, one retrieve answers both questions.
+	 * Chargebee has no {@code past_due} lifecycle state: a subscription with unpaid invoices stays
+	 * {@code active} and carries the dunning signal alongside it as {@code due_invoices_count}, inside the
+	 * subscription resource itself, so one retrieve answers both questions.
 	 */
 	protected NormalizedSubscriptionStatus mapStatus(final JsonNode subscription)
 	{
@@ -206,21 +207,17 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 		return switch (chargebeeStatus.toLowerCase(Locale.ROOT))
 		{
 			case "future" -> NormalizedSubscriptionStatus.PENDING;
-			// in_trial is a live subscription that simply isn't being charged yet, and non_renewing keeps
-			// serving the customer until the term ends. Both are ACTIVE; the pending end of a non_renewing
-			// subscription travels as cancelAtPeriodEnd instead of prematurely reporting CANCELLED, which
-			// would revoke entitlement the customer has already paid for.
+			// in_trial is a live subscription that is not being charged yet, and non_renewing keeps serving
+			// the customer until the term ends. The pending end of a non_renewing subscription travels as
+			// cancelAtPeriodEnd, so entitlement the customer has paid for is not revoked early.
 			case "in_trial", "active", "non_renewing" -> NormalizedSubscriptionStatus.ACTIVE;
 			case "paused" -> NormalizedSubscriptionStatus.PAUSED;
-			// EXPIRED, not CANCELLED, and the word is worth explaining because Chargebee's own is different.
 			// By the time a subscription reaches Chargebee's "cancelled" it has stopped serving the customer,
-			// which is the one situation Recurly reports as "expired". One vocabulary, one word for it: a
-			// consumer asking "has this ended?" must not have to know which platform answered. CANCELLED is
-			// left unused by both shipped adapters — see NormalizedSubscriptionStatus.
+			// which is what the normalized vocabulary calls EXPIRED. CANCELLED is left unused by both shipped
+			// adapters — see NormalizedSubscriptionStatus.
 			case "cancelled" -> NormalizedSubscriptionStatus.EXPIRED;
-			// "transferred" (the subscription moved to another Chargebee site/entity) has no normalized
-			// equivalent: it is neither cancelled nor expired here. It stays UNKNOWN rather than being guessed
-			// at, so reconciliation leaves the local status alone instead of acting on an invented one.
+			// "transferred" (moved to another Chargebee site or entity) has no normalized equivalent, so it
+			// stays UNKNOWN and reconciliation leaves the local status alone rather than acting on a guess.
 			default -> NormalizedSubscriptionStatus.UNKNOWN;
 		};
 	}
@@ -245,9 +242,7 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 
 	/**
 	 * A Chargebee subscription carries addons and one-time charges in the same {@code subscription_items}
-	 * array as the plan, so the plan is identified by {@code item_type}, not by position. That item price id
-	 * is exactly what {@link #createSubscription} sent as {@code subscription_items[item_price_id][0]}, which
-	 * keeps the plan round-trip symmetric.
+	 * array as the plan, so the plan is identified by {@code item_type}, not by position.
 	 */
 	protected JsonNode findPlanItem(final JsonNode subscription)
 	{
@@ -308,9 +303,8 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 					"updateSubscription called with nothing to change for subscription '" + subscriptionId + "'");
 		}
 		// Chargebee's update_for_items is item-based: subscription_items[quantity][0] is meaningless without
-		// subscription_items[item_price_id][0] to say WHICH item's quantity changes. Sending quantity alone
-		// yields "subscription_items[item_price_id][0] : cannot be blank" (HTTP 400). Fail fast with a clear
-		// precondition so callers pass the (unchanged) item price alongside a quantity change.
+		// subscription_items[item_price_id][0] to say which item's quantity changes, and quantity alone
+		// yields "subscription_items[item_price_id][0] : cannot be blank" (HTTP 400).
 		if (quantity != null && StringUtils.isBlank(itemPriceId))
 		{
 			throw new PreconditionFailedException("Chargebee update_for_items requires an item price id when changing "
@@ -328,7 +322,7 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 		}
 
 		final ChargebeeHttpResponse response = httpClient.post(
-				configService.getApiBaseUrl() + "/subscriptions/" + pathSegment(subscriptionId) + "/update_for_items",
+				configService.getApiBaseUrl() + SUBSCRIPTIONS_PATH + pathSegment(subscriptionId) + "/update_for_items",
 				authHeader(), FormEncoder.encode(form), null);
 		requireSuccess(response, "update subscription");
 	}
@@ -340,7 +334,7 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 		form.put("cancel_option", atPeriodEnd ? "end_of_term" : "immediately");
 
 		final ChargebeeHttpResponse response = httpClient.post(
-				configService.getApiBaseUrl() + "/subscriptions/" + pathSegment(subscriptionId) + "/cancel_for_items",
+				configService.getApiBaseUrl() + SUBSCRIPTIONS_PATH + pathSegment(subscriptionId) + "/cancel_for_items",
 				authHeader(), FormEncoder.encode(form), null);
 		requireSuccess(response, "cancel subscription");
 	}
@@ -361,14 +355,9 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 	}
 
 	/**
-	 * Builds - never throws. It runs on the path that is already handling a failure, so anything raised
-	 * in here would replace the vendor's own explanation and lose the retryable/terminal decision the
-	 * core's retry policy is about to read.
-	 *
-	 * <p>The decision comes from {@link #isRetryable} rather than from the status alone. That method
-	 * exists precisely because {@code 409 invalid_state_for_request} is Chargebee's idempotency saying
-	 * "already in flight" - and until it was called from here it was dead code, so the one conflict this
-	 * connector is documented to retry was being turned into a dead letter.</p>
+	 * Builds - never throws. It runs on the path that is already handling a failure, so anything raised in
+	 * here would replace the vendor's own explanation and lose the retryable/terminal decision the core's
+	 * retry policy is about to read.
 	 */
 	protected BillingException toBillingException(final ChargebeeHttpResponse response, final String action)
 	{
@@ -382,10 +371,10 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 				.platform(BillingPlatform.CHARGEBEE)
 				.outcome(ConnectorLogEvent.OUTCOME_FAILURE)
 				.field("vendor_action", action.replace(' ', '_'))
-				.field("http_status", Integer.valueOf(response.statusCode()))
+				.field("http_status", response.statusCode())
 				.field("error_class", ConnectorLogEvent.httpErrorClass(response.statusCode()))
 				.field("vendor_error_code", errorCode(response.body()))
-				.field("retryable", Boolean.valueOf(retryable))
+				.field("retryable", retryable)
 				.warn(LOG);
 		if (retryable)
 		{
@@ -397,17 +386,10 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 	/**
 	 * Whether Chargebee is saying "not now" rather than "not ever".
 	 *
-	 * <p>Beyond throttling and server faults there is one conflict that has to be read this way:
-	 * {@code 409 invalid_state_for_request} is Chargebee's own idempotency answering that a request
-	 * carrying this idempotency key is <em>still in flight</em>. That is not a rejection - it means some
-	 * other caller got there first and is finishing the very work this one wanted done. It happens
-	 * routinely, because an order is announced by both the place-order path and Adyen's notification and
-	 * the two can reach the connector at the same moment.</p>
-	 *
-	 * <p>Classifying it as terminal produced a dead letter announcing that the shopper was charged and has
-	 * no subscription, seconds before the winning caller created exactly that subscription. Retried
-	 * instead, the loser comes back after the backoff, finds the subscription reference the winner
-	 * persisted, and returns it without calling Chargebee at all.</p>
+	 * <p>Beyond throttling and server faults, {@code 409 invalid_state_for_request} is Chargebee's own
+	 * idempotency answering that a request carrying this key is still in flight - another caller got there
+	 * first and is finishing the same work. Retried, the loser comes back after the backoff, finds the
+	 * subscription reference the winner persisted, and returns it without calling Chargebee at all.</p>
 	 *
 	 * <p>Matched on the error code rather than on the status alone: other 409s are genuine conflicts about
 	 * the state of a subscription, and retrying those only delays an unavoidable dead letter.</p>
@@ -422,9 +404,8 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 	}
 
 	/**
-	 * The {@code api_error_code} Chargebee returns, or {@code null} when the body is absent or not the
-	 * error shape. Deliberately reads the code and not the message: the message is prose meant for a
-	 * human and is not a contract, the code is.
+	 * The {@code api_error_code} Chargebee returns, or {@code null} when the body is absent or not the error
+	 * shape. The code is the contract; the message next to it is prose meant for a human.
 	 */
 	protected String errorCode(final String body)
 	{
@@ -433,10 +414,9 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 	}
 
 	/**
-	 * The error as a human reads it: {@code [code] message}. The message is the only part that says
-	 * <em>which</em> field or value Chargebee refused, so dropping it leaves a bare code that cannot be
-	 * acted on without reproducing the call. It belongs in the exception - which is what reaches the dead
-	 * letter - and not in the log line, where it would be unbounded and could echo shopper data.
+	 * The error as a human reads it: {@code [code] message}. The message names which field or value
+	 * Chargebee refused, so it belongs in the exception that reaches the dead letter - and not in the log
+	 * line, where it would be unbounded and could echo shopper data.
 	 */
 	protected String extractError(final String body)
 	{

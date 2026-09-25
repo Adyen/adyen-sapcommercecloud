@@ -14,7 +14,7 @@
             <deployment table="RecurlyPlanMapping" typecode="22950"/>
             <attributes>
                 <attribute qualifier="productCode" type="java.lang.String">
-                    <description>SAP subscription product code (unique key of the mapping).</description>
+                    <description>SAP subscription product code. Unique together with baseStore.</description>
                     <persistence type="property"/>
                     <modifiers optional="false" unique="true"/>
                 </attribute>
@@ -28,10 +28,18 @@
                     <persistence type="property"/>
                 </attribute>
                 <attribute qualifier="baseStore" type="BaseStore">
-                    <description>Optional store scope for per-site catalogs (informational in this cut).</description>
+                    <description>Store the mapping applies to. Empty = default for every store without its own
+                        mapping of this product; a store's own mapping wins.</description>
                     <persistence type="property"/>
+                    <modifiers unique="true"/>
                 </attribute>
             </attributes>
+            <indexes>
+                <index name="idx_rcPlanMap_prodStore" unique="true">
+                    <key attribute="productCode"/>
+                    <key attribute="baseStore"/>
+                </index>
+            </indexes>
         </itemtype>
 
         <!-- Webhook deduplication deliberately has no Recurly-specific type. It lives once, in

@@ -108,6 +108,17 @@ public class PlaceOrderControllerBaseErrorSurfacingTest {
     }
 
     @Test
+    public void subscriptionCartRefusalKeepsItsOwnMessageKey() throws Exception {
+        when(adyenCheckoutApiFacade.placeOrderWithPayment(any(), any(), any(), any()))
+                .thenThrow(new RecurringContractHelper.SubscriptionCartNotSupportedException("two subscription units"));
+
+        AdyenControllerException thrown = assertThrows(AdyenControllerException.class,
+                () -> controller.placeOrderOCC(newPlaceOrderRequest(), request));
+
+        assertEquals(RecurringContractHelper.SUBSCRIPTION_SINGLE_UNIT_ONLY, thrown.getErrorResponse().getErrorCode());
+    }
+
+    @Test
     public void anyOtherFailureStillArrivesAsTheGenericAuthorizationError() throws Exception {
         when(adyenCheckoutApiFacade.placeOrderWithPayment(any(), any(), any(), any()))
                 .thenThrow(new IllegalStateException("something genuinely broke"));

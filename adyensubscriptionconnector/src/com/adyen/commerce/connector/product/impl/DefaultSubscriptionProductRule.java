@@ -32,41 +32,30 @@ import com.adyen.commerce.connector.product.SubscriptionProductRule;
 import com.adyen.commerce.connector.spi.SubscriptionBillingConnector;
 
 import de.hybris.platform.core.model.product.ProductModel;
+import de.hybris.platform.store.BaseStoreModel;
 
 /**
- * A product is a subscription product exactly when the active connector can resolve a plan for it.
- *
- * <p>Probing is safe and cheap: both shipped resolvers answer from a FlexibleSearch over their own
- * mapping table, with no remote call and no side effect. It does mean an unmapped product is
- * indistinguishable from a non-subscription one &mdash; the failure mode is "nothing happens", which is
- * visible and harmless, unlike the alternative below.</p>
- *
- * <p>The tempting shortcut &mdash; call {@code activateSubscription} for every entry and treat
- * {@link PlanNotMappedException} as "not a subscription" &mdash; is wrong. Inside the service, plan
- * resolution runs <em>after</em> {@code ensureCustomer} and {@code importAdyenToken}, so every ordinary
- * line item in the cart would leave a real customer and an imported payment token behind on the billing
- * platform before being rejected.</p>
- *
- * <p>{@code RuntimeException} is translated here rather than left to escape as itself, because the
- * resolvers are FlexibleSearch-backed and FlexibleSearch throws unchecked: without this the one case the
- * callers most need to tell apart would be the one case the compiler never makes them handle.</p>
+ * A product is a subscription product when the connector resolves a plan for it. Resolution is a local
+ * lookup, unlike {@code activateSubscription}, which creates the customer and imports the token first.
  */
 public class DefaultSubscriptionProductRule implements SubscriptionProductRule
 {
 	@Override
-	public boolean isSubscriptionProduct(final SubscriptionBillingConnector connector, final ProductModel product)
-			throws SubscriptionProductUndecidableException
+	public boolean isSubscriptionProduct(final SubscriptionBillingConnector connector, final BaseStoreModel store,
+			final ProductModel product) throws SubscriptionProductUndecidableException
 	{
-		// Nothing to ask about, and nothing to be undecided over: an entry with no product, or a product
-		// with no code, cannot carry a plan mapping. Callers skip these before getting here; the guard is
-		// so that the rule itself has one answer for every input rather than an NPE for some.
 		if (connector == null || product == null || StringUtils.isBlank(product.getCode()))
 		{
 			return false;
 		}
+		if (store == null || StringUtils.isBlank(store.getUid()))
+		{
+			throw new SubscriptionProductUndecidableException("Cannot decide whether product '" + product.getCode()
+					+ "' is a subscription product without the store it is sold in", null);
+		}
 		try
 		{
-			connector.resolvePlan(new PlanResolutionRequest(product.getCode(), Map.of()));
+			connector.resolvePlan(new PlanResolutionRequest(product.getCode(), store.getUid(), Map.of()));
 			return true;
 		}
 		catch (final PlanNotMappedException e)
@@ -76,7 +65,7 @@ public class DefaultSubscriptionProductRule implements SubscriptionProductRule
 		catch (final BillingException | RuntimeException e)
 		{
 			throw new SubscriptionProductUndecidableException("Cannot decide whether product '" + product.getCode()
-					+ "' is a " + connector.platform() + " subscription product", e);
+					+ "' is a " + connector.platform() + " subscription product in store '" + store.getUid() + "'", e);
 		}
 	}
 }

@@ -28,14 +28,12 @@ import com.adyen.commerce.connector.exception.RetryableBillingException;
 /**
  * The single place that answers "should this be tried again, and when?".
  *
- * <p>It exists so the two failure paths — an activation the core drives itself, and an inbound webhook
- * whose retries belong to the platform — cannot drift apart on what counts as worth retrying. Both ask
- * this; only the activation path acts on {@link RetryVerdict#nextAttemptAt()}, because only it owns the
- * retry.</p>
- *
- * <p>The classification is the one {@link BillingException#isRetryable()} has always described and
- * nothing has ever consumed: {@link RetryableBillingException} may be tried again, every other
- * {@code BillingException} will fail the same way on replay and is given up on at once.</p>
+ * <p>Both failure paths ask it — an activation the core drives itself, and an inbound webhook whose retries
+ * belong to the platform — so the two cannot disagree on what is worth retrying; only the activation path
+ * acts on {@link RetryVerdict#nextAttemptAt()}, because only it owns the retry. The classification is the
+ * one {@link BillingException#isRetryable()} describes: {@link RetryableBillingException} may be tried
+ * again, every other {@code BillingException} will fail the same way on replay and is given up on at
+ * once.</p>
  */
 public interface BillingRetryPolicy
 {
@@ -43,14 +41,13 @@ public interface BillingRetryPolicy
 	 * @param failure      what went wrong
 	 * @param attemptsSoFar how many attempts have run <em>including</em> the one that just failed, so the
 	 *                      first failure arrives as 1
-	 * @param now          the clock reading to schedule from; passed in rather than read, so a caller that
-	 *                      already has one does not get a second, slightly different one
+	 * @param now          the clock reading to schedule from, passed in so one decision uses a single
+	 *                      instant
 	 */
 	RetryVerdict decide(Throwable failure, int attemptsSoFar, Instant now);
 
 	/**
-	 * The attempt count past which nothing is retried. Exposed for logging and for callers that want to
-	 * say how close to the cut-off something is without provoking a decision.
+	 * The attempt count past which nothing is retried, readable without provoking a decision.
 	 */
 	int getMaxAttempts();
 }

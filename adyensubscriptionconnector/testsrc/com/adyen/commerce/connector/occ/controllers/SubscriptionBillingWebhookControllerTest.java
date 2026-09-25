@@ -111,9 +111,8 @@ public class SubscriptionBillingWebhookControllerTest
 	}
 
 	/**
-	 * The regression this guards: the previous implementation called {@code BillingPlatform.valueOf} and
-	 * caught IllegalArgumentException, which a dynamic enum never throws — so this returned 400 from the
-	 * dispatcher instead of 404, and every junk name added an entry to the enum's static cache.
+	 * {@code BillingPlatform.valueOf} never throws IllegalArgumentException on a dynamic enum and mints a
+	 * cache entry for any string, so an unknown platform name has to be rejected by lookup instead.
 	 */
 	@Test
 	public void unknownPlatformIsRejectedWithoutTouchingTheSiteOrTheDispatcher() throws Exception
@@ -171,12 +170,12 @@ public class SubscriptionBillingWebhookControllerTest
 	}
 
 	/**
-	 * The endpoint is public and unauthenticated, so its error bodies must be constant. Echoing the path
-	 * variables back made every 404 a reflected-XSS sink and a probe oracle for site/platform names; echoing
-	 * the exception message leaked connector-side detail such as "bad signature".
+	 * The endpoint is public and unauthenticated, so its error bodies are constant. Echoing the path
+	 * variables back would make every 404 a reflected-XSS sink and a probe oracle for site and platform
+	 * names, and echoing the exception message would leak connector-side detail such as "bad signature".
 	 */
 	@Test
-	public void rejectionBodiesEchoNothingBackToTheCaller() throws Exception
+	public void rejectionBodiesEchoNothingBackToTheCaller()
 	{
 		final String script = "<script>alert(1)</script>";
 
@@ -212,7 +211,7 @@ public class SubscriptionBillingWebhookControllerTest
 	}
 
 	@Test
-	public void missingBodyIsDispatchedAsAnEmptyPayload() throws Exception
+	public void missingBodyIsDispatchedAsAnEmptyPayload()
 	{
 		final ResponseEntity<String> response = controller.receive(SITE_UID, "chargebee", null, request);
 

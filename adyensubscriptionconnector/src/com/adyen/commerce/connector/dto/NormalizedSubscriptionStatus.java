@@ -20,11 +20,9 @@ public enum NormalizedSubscriptionStatus
 	/**
 	 * Ended by an explicit cancellation that took effect immediately, as distinct from {@link #EXPIRED}.
 	 *
-	 * <p><strong>Neither shipped adapter produces this.</strong> Recurly and Chargebee both collapse the two
-	 * endings into one state, so for them "ended" is always {@link #EXPIRED}. It is kept for a platform that
-	 * really does distinguish them, and because rows written before the vocabulary settled may still carry
-	 * it — the reconciliation sweep therefore still treats it as terminal. Anything reading status to decide
-	 * whether a subscription has ended should test for {@link #EXPIRED} <em>and</em> this, not either alone.
+	 * <p>Neither shipped adapter produces it: Recurly and Chargebee collapse the two endings into one state,
+	 * so for them "ended" is always {@link #EXPIRED}. Code deciding whether a subscription has ended must
+	 * test for {@link #EXPIRED} <em>and</em> this, not either alone.</p>
 	 */
 	CANCELLED,
 

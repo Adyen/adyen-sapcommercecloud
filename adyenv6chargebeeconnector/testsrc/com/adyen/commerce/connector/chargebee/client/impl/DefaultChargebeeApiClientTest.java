@@ -153,10 +153,9 @@ public class DefaultChargebeeApiClientTest
 	}
 
 	/**
-	 * Chargebee's idempotency answering that the identical request is still in flight. Observed in
-	 * production when the place-order path and Adyen's notification announced one order at the same
-	 * moment: read as terminal it produced a dead letter saying the shopper was charged and has no
-	 * subscription, a second before the winning caller created that very subscription.
+	 * Chargebee answers an idempotent request that is still in flight with this 409, which the place-order
+	 * path and Adyen's notification hit when they announce one order at the same moment. Treating it as
+	 * terminal would dead-letter an order the winning caller is about to subscribe.
 	 */
 	@Test
 	public void mapsAnIdempotencyReplayInProgressToRetryable() throws Exception
@@ -256,9 +255,8 @@ public class DefaultChargebeeApiClientTest
 	public void updateSubscriptionRejectsQuantityWithoutItemPrice()
 	{
 		// Chargebee's update_for_items needs subscription_items[item_price_id][0] to anchor a quantity change;
-		// a quantity-only call would 400 at the API ("item_price_id[0]: cannot be blank"). Surfaced by the live
-		// Seen against the live sandbox: the guard turns that opaque remote 400 into a clear local
-		// precondition.
+		// a quantity-only call 400s at the API ("item_price_id[0]: cannot be blank"), so the guard turns an
+		// opaque remote error into a local precondition.
 		assertThrows(PreconditionFailedException.class, () -> client.updateSubscription("sub-1", null, 2));
 	}
 
@@ -328,11 +326,11 @@ public class DefaultChargebeeApiClientTest
 		assertEquals(NormalizedSubscriptionStatus.ACTIVE, statusOf("in_trial"));
 		assertEquals(NormalizedSubscriptionStatus.ACTIVE, statusOf("active"));
 		assertEquals(NormalizedSubscriptionStatus.PAUSED, statusOf("paused"));
-		// EXPIRED rather than CANCELLED: Chargebee's "cancelled" means the subscription has stopped serving
-		// the customer, which is what Recurly calls "expired". One word per situation across both adapters.
+		// Chargebee's "cancelled" means the subscription has stopped serving the customer, which is what
+		// Recurly calls "expired"; both adapters use one word per situation.
 		assertEquals(NormalizedSubscriptionStatus.EXPIRED, statusOf("cancelled"));
-		// transferred moves the subscription to another Chargebee site: neither cancelled nor expired here,
-		// so it must stay UNKNOWN instead of being guessed at.
+		// transferred moves the subscription to another Chargebee site, which is neither cancelled nor
+		// expired.
 		assertEquals(NormalizedSubscriptionStatus.UNKNOWN, statusOf("transferred"));
 	}
 

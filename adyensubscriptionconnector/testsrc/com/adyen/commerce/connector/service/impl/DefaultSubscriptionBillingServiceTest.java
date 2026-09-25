@@ -30,6 +30,7 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isA;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -42,6 +43,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Collections;
+import java.util.Set;
 import java.util.List;
 
 import org.junit.Before;
@@ -51,6 +53,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import com.adyen.commerce.connector.context.SubscriptionStoreContext;
 import com.adyen.commerce.connector.dto.AdyenTokenHandle;
 import com.adyen.commerce.connector.dto.BillingAddress;
 import com.adyen.commerce.connector.dto.BillingCustomerRef;
@@ -59,9 +62,16 @@ import com.adyen.commerce.connector.dto.BillingSubscriptionRef;
 import com.adyen.commerce.connector.dto.CancelReason;
 import com.adyen.commerce.connector.dto.CancellationTiming;
 import com.adyen.commerce.connector.dto.ConnectorCapabilities;
+import com.adyen.commerce.connector.dto.PaymentMethodEnrollmentSupport;
 import com.adyen.commerce.connector.dto.NormalizedSubscriptionStatus;
 import com.adyen.commerce.connector.dto.PlanRef;
+import com.adyen.commerce.connector.dto.PlanResolutionRequest;
 import com.adyen.commerce.connector.dto.SubscriptionCancelRequest;
+import com.adyen.commerce.connector.dto.PaymentMethodChangeOutcome;
+import com.adyen.commerce.connector.dto.PaymentMethodChangeSupport;
+import com.adyen.commerce.connector.dto.PaymentMethodChoice;
+import com.adyen.commerce.connector.dto.PaymentMethodSource;
+import com.adyen.commerce.connector.dto.PaymentMethodChangeScope;
 import com.adyen.commerce.connector.dto.SubscriptionCancellation;
 import com.adyen.commerce.connector.dto.TokenImportStyle;
 import com.adyen.commerce.connector.dto.TokenImportRequest;
@@ -136,6 +146,8 @@ public class DefaultSubscriptionBillingServiceTest
 
 	private DefaultSubscriptionBillingService service;
 
+	private InlineStoreContext storeContext;
+
 	@Before
 	public void setUp() throws Exception
 	{
@@ -149,9 +161,12 @@ public class DefaultSubscriptionBillingServiceTest
 		service.setFlexibleSearchService(flexibleSearchService);
 		service.setEventService(eventService);
 		service.setReconciliationService(reconciliationService);
+		storeContext = new InlineStoreContext();
+		service.setStoreContext(storeContext);
 		service.setClock(Clock.fixed(Instant.parse("2026-06-25T10:00:00Z"), ZoneOffset.UTC));
 
 		when(order.getStore()).thenReturn(store);
+		when(store.getUid()).thenReturn("electronics");
 		when(order.getUser()).thenReturn(customer);
 		when(order.getPaymentInfo()).thenReturn(paymentInfo);
 		when(order.getCode()).thenReturn("ORDER-1");
@@ -207,6 +222,17 @@ public class DefaultSubscriptionBillingServiceTest
 	}
 
 	@Test
+	public void shouldResolveThePlanForTheOrdersStore() throws Exception
+	{
+		service.activateSubscription(order, subProduct);
+
+		final ArgumentCaptor<PlanResolutionRequest> request = ArgumentCaptor.forClass(PlanResolutionRequest.class);
+		verify(connector).resolvePlan(request.capture());
+		assertEquals("SUB-PROD", request.getValue().productCode());
+		assertEquals("electronics", request.getValue().baseStoreUid());
+	}
+
+	@Test
 	public void shouldPassOrderPaymentAddressToTokenImport() throws Exception
 	{
 		final AddressModel address = mock(AddressModel.class);
@@ -259,9 +285,8 @@ public class DefaultSubscriptionBillingServiceTest
 
 	/**
 	 * The idempotency check is a read followed by a write with no lock in between, and Adyen sends one
-	 * notification per payment leg, so two activations of one order really do overlap. The loser is not a
-	 * failure to report: both sent the same idempotency key, so the platform returned one subscription to
-	 * both, and the winner's reference is the right answer to the question the caller asked.
+	 * notification per payment leg, so two activations of one order overlap. Both send the same idempotency
+	 * key, so the platform returns one subscription to both and the winner's reference is the right answer.
 	 */
 	@Test
 	public void shouldReturnTheWinnersRefWhenTheIdempotencyRaceIsLost() throws Exception
@@ -284,7 +309,7 @@ public class DefaultSubscriptionBillingServiceTest
 	 * activation that left no local record of itself.
 	 */
 	@Test
-	public void shouldPropagateASaveFailureThatIsNotTheRace() throws Exception
+	public void shouldPropagateASaveFailureThatIsNotTheRace()
 	{
 		when(searchResult.getResult()).thenReturn(List.of());
 		doThrow(new ModelSavingException("the database is gone")).when(modelService)
@@ -294,7 +319,7 @@ public class DefaultSubscriptionBillingServiceTest
 	}
 
 	@Test
-	public void shouldKeyTheRemoteCallOnTheOrderCode() throws Exception
+	public void shouldKeyTheRemoteCallOnTheOrderCode()
 	{
 		assertEquals(order.getCode(), service.idempotencyKeyFor(order));
 		assertNull(service.idempotencyKeyFor(null));
@@ -322,8 +347,8 @@ public class DefaultSubscriptionBillingServiceTest
 	}
 
 	/**
-	 * There is no sensible thing to assume here. Treating an absent request as "cancel now" is how the
-	 * hard-coded flag this replaced used to behave, and on one of the two platforms that is a terminate.
+	 * There is no safe default: treating an absent request as "cancel now" is a terminate on one of the two
+	 * platforms.
 	 */
 	@Test
 	public void shouldRefuseToCancelWithoutBeingToldWhenItTakesEffect() throws Exception
@@ -336,8 +361,7 @@ public class DefaultSubscriptionBillingServiceTest
 	}
 
 	/**
-	 * The timing the SPI carries has to be the one that was asked for. Nothing asserted this before, which
-	 * is exactly how a literal {@code false} survived in the one place it mattered.
+	 * The timing the SPI carries has to be the one that was asked for.
 	 */
 	@Test
 	public void shouldAskForAnEndOfPeriodCancellationWhenThatIsTheTimingRequested() throws Exception
@@ -368,10 +392,9 @@ public class DefaultSubscriptionBillingServiceTest
 	}
 
 	/**
-	 * Recurly answers a repeated idempotency key with the first response it recorded. Sharing one key
-	 * between the two timings would let an escalation from "at period end" to "now" be acknowledged with
-	 * the stored answer to the first request — the platform never hears the second one, and the caller is
-	 * told it succeeded.
+	 * Recurly answers a repeated idempotency key with the first response it recorded, so sharing one key
+	 * between the two timings would have an escalation from "at period end" to "now" acknowledged without
+	 * the platform ever hearing it.
 	 */
 	@Test
 	public void shouldGiveTheTwoTimingsDifferentIdempotencyKeys() throws Exception
@@ -411,8 +434,8 @@ public class DefaultSubscriptionBillingServiceTest
 	}
 
 	/**
-	 * The projection the sweep and the webhooks later promote. Asserted against the enum rather than the
-	 * literal so a rename of the normalized vocabulary cannot leave this one writer behind.
+	 * Asserted against the enum rather than the literal so a rename of the normalized vocabulary cannot
+	 * leave this one writer behind.
 	 */
 	@Test
 	public void shouldProjectTheNormalizedPendingStatusOnActivation() throws Exception
@@ -430,7 +453,26 @@ public class DefaultSubscriptionBillingServiceTest
 		service.cancel(subscription, SubscriptionCancellation.endOfPeriod(CancelReason.OTHER));
 
 		verify(reconciliationService).reconcile(subscription);
+		// Written down before the read-back, so the row never says "renews on" while the shopper is being
+		// told the cancellation worked. Reconciliation overwrites it with the platform's own answer.
+		verify(subscription).setCancelAtPeriodEnd(Boolean.TRUE);
+		verify(modelService).save(subscription);
 		verify(subscription, never()).setLastSyncedAt(null);
+	}
+
+	/**
+	 * An immediate cancellation leaves a status behind, not a scheduled non-renewal, and which status a
+	 * platform reports for a terminated subscription is the platform's to say — so reconciliation decides.
+	 */
+	@Test
+	public void shouldNotProjectAScheduledNonRenewalForAnImmediateCancel() throws Exception
+	{
+		final BillingSubscriptionRefModel subscription = cancellableSubscription();
+
+		service.cancel(subscription, SubscriptionCancellation.immediately(CancelReason.OTHER));
+
+		verify(reconciliationService).reconcile(subscription);
+		verify(subscription, never()).setCancelAtPeriodEnd(any());
 		verify(modelService, never()).save(subscription);
 	}
 
@@ -444,13 +486,14 @@ public class DefaultSubscriptionBillingServiceTest
 
 		verify(connector).cancelSubscription(any());
 		verify(subscription).setLastSyncedAt(null);
-		verify(modelService).save(subscription);
+		// Twice: the scheduled non-renewal written before the read-back, then the sweep flag after it failed.
+		verify(modelService, times(2)).save(subscription);
 	}
 
 	/**
-	 * The cancellation already happened on the platform, so an unchecked failure on the way back — a save
-	 * that blows up, an NPE out of a half-wired reconciliation bean — describes a stale local projection
-	 * and not a live subscription. A caller told the cancel failed retries something that is already done.
+	 * The cancellation already happened on the platform, so an unchecked failure on the way back describes a
+	 * stale local projection, not a live subscription. A caller told the cancel failed retries something
+	 * that is already done.
 	 */
 	@Test
 	public void shouldNotReportAFailedCancelWhenTheFollowUpReadThrowsUnchecked() throws Exception
@@ -463,12 +506,13 @@ public class DefaultSubscriptionBillingServiceTest
 
 		verify(connector).cancelSubscription(any());
 		verify(subscription).setLastSyncedAt(null);
-		verify(modelService).save(subscription);
+		// Twice: the scheduled non-renewal written before the read-back, then the sweep flag after it failed.
+		verify(modelService, times(2)).save(subscription);
 	}
 
 	/**
 	 * Clearing the watermark is an optimisation, not the recovery: the sweep revisits anything past its
-	 * staleness window regardless. Losing that write must not undo the point of catching in the first place.
+	 * staleness window regardless.
 	 */
 	@Test
 	public void shouldNotReportAFailedCancelWhenFlaggingForTheSweepAlsoFails() throws Exception
@@ -480,7 +524,9 @@ public class DefaultSubscriptionBillingServiceTest
 
 		service.cancel(subscription, SubscriptionCancellation.endOfPeriod(CancelReason.OTHER));
 
-		verify(modelService).save(subscription);
+		// Both writes are attempted and both blow up; neither is allowed to turn a completed cancellation
+		// into a reported failure.
+		verify(modelService, times(2)).save(subscription);
 	}
 
 	@Test
@@ -500,9 +546,8 @@ public class DefaultSubscriptionBillingServiceTest
 	@Test
 	public void billingAddressClonedFromTheDeliveryAddressIsNotConfirmed()
 	{
-		// The Adyen checkout paths copy the delivery address onto the payment info when the shopper gives
-		// no separate billing address, so a non-null payment address proves nothing on its own — the card
-		// path clones it into a different object with identical values.
+		// The card path clones the delivery address onto the payment info when the shopper gives no separate
+		// billing address, so the two are different objects with identical values.
 		final AddressModel clone = address("Bob", "Recipient", "Berlin", "10115");
 		final AddressModel original = address("Bob", "Recipient", "Berlin", "10115");
 		when(order.getPaymentAddress()).thenReturn(clone);
@@ -534,13 +579,137 @@ public class DefaultSubscriptionBillingServiceTest
 		assertNull(service.buildBillingAddress(order));
 	}
 
+	/** The connector must only be reached with the subscription's own store in context. */
+	@Test
+	public void cancelReachesTheConnectorInsideTheSubscriptionsOwnStore() throws Exception
+	{
+		final BillingSubscriptionRefModel subscription = cancellableSubscription();
+		doAnswer(invocation -> {
+			assertSame(store, storeContext.current);
+			return null;
+		}).when(connector).cancelSubscription(any());
+
+		service.cancel(subscription, SubscriptionCancellation.endOfPeriod(CancelReason.OTHER));
+
+		verify(connector).cancelSubscription(any());
+		assertNull("the store context must not outlive the call", storeContext.current);
+	}
+
+	@Test
+	public void cancelMakesNoPlatformCallWithoutAnOriginatingStore() throws Exception
+	{
+		final BillingSubscriptionRefModel subscription = cancellableSubscription();
+		when(subscription.getOrder()).thenReturn(null);
+
+		assertThrows(PreconditionFailedException.class,
+				() -> service.cancel(subscription, SubscriptionCancellation.endOfPeriod(CancelReason.OTHER)));
+
+		verify(connector, never()).cancelSubscription(any());
+		verify(reconciliationService, never()).reconcile(any());
+	}
+
+	/** A store that moved to another platform must still cancel what it created on the old one. */
+	@Test
+	public void cancelRoutesOnTheSubscriptionsPlatformNotTheStoresActiveOne() throws Exception
+	{
+		final BillingSubscriptionRefModel subscription = cancellableSubscription();
+
+		service.cancel(subscription, SubscriptionCancellation.endOfPeriod(CancelReason.OTHER));
+
+		verify(connectorRegistry).getConnector(BillingPlatform.CHARGEBEE);
+		verify(connectorRegistry, never()).getActiveConnector(any());
+	}
+
+	/** Refusing a cancellation over a merchant-account mismatch would keep billing the shopper. */
+	@Test
+	public void cancelStillGoesThroughWhenTheMerchantAccountNoLongerMatches() throws Exception
+	{
+		final BillingSubscriptionRefModel subscription = cancellableSubscription();
+		doThrow(new PreconditionFailedException("merchant account mismatch")).when(merchantAccountValidator)
+				.validate(connector, store);
+
+		service.cancel(subscription, SubscriptionCancellation.endOfPeriod(CancelReason.OTHER));
+
+		verify(merchantAccountValidator).validate(connector, store);
+		verify(connector).cancelSubscription(any());
+	}
+
+	@Test
+	public void changePaymentMethodRunsAndValidatesInTheSubscriptionsOwnStore() throws Exception
+	{
+		final BillingSubscriptionRefModel subscription = cancellableSubscription();
+		when(subscription.getExternalCustomerId()).thenReturn("cust-ext");
+		when(connector.changePaymentMethod(any())).thenAnswer(invocation -> {
+			assertSame(store, storeContext.current);
+			return new PaymentMethodChangeOutcome(new BillingPaymentMethodRef(BillingPlatform.CHARGEBEE, "pm-2"),
+					PaymentMethodChangeScope.CUSTOMER);
+		});
+
+		service.changePaymentMethod(subscription, new PaymentMethodChoice.AdyenVaultedToken(
+				new AdyenTokenHandle("MERCH", "shopper-1", "TOKEN-2", null, null)));
+
+		verify(merchantAccountValidator).validate(connector, store);
+		verify(connector).changePaymentMethod(any());
+	}
+
+	@Test
+	public void listingPaymentMethodsNeedsTheSubscriptionsOwnStore() throws Exception
+	{
+		final BillingSubscriptionRefModel subscription = cancellableSubscription();
+		when(subscription.getExternalCustomerId()).thenReturn("cust-ext");
+		when(subscription.getOrder()).thenReturn(null);
+
+		assertThrows(PreconditionFailedException.class, () -> service.listPaymentMethods(subscription));
+
+		verify(connectorRegistry, never()).getConnector(any());
+	}
+
 	private BillingSubscriptionRefModel cancellableSubscription() throws Exception
 	{
 		final BillingSubscriptionRefModel subscription = mock(BillingSubscriptionRefModel.class);
 		when(subscription.getPlatform()).thenReturn(BillingPlatform.CHARGEBEE);
 		when(subscription.getExternalSubscriptionId()).thenReturn("sub-ext");
+		when(subscription.getOrder()).thenReturn(order);
 		when(connectorRegistry.getConnector(BillingPlatform.CHARGEBEE)).thenReturn(connector);
 		return subscription;
+	}
+
+	/** Runs the work inline and records which store was in context while it ran. */
+	private static final class InlineStoreContext implements SubscriptionStoreContext
+	{
+		private BaseStoreModel current;
+
+		@Override
+		public BaseStoreModel storeOf(final BillingSubscriptionRefModel subscription)
+		{
+			return subscription.getOrder() == null ? null : subscription.getOrder().getStore();
+		}
+
+		@Override
+		public <T> T callInStoreOf(final BillingSubscriptionRefModel subscription, final StoreBoundWork<T> work)
+				throws BillingException
+		{
+			final BaseStoreModel store = storeOf(subscription);
+			if (store == null)
+			{
+				throw new PreconditionFailedException("no originating store");
+			}
+			current = store;
+			try
+			{
+				return work.call(store);
+			}
+			finally
+			{
+				current = null;
+			}
+		}
+
+		@Override
+		public void establish(final AbstractOrderModel order, final BaseStoreModel store)
+		{
+			// Nothing to establish outside a session.
+		}
 	}
 
 	private static AddressModel address(final String first, final String last, final String town, final String postal)
@@ -555,11 +724,15 @@ public class DefaultSubscriptionBillingServiceTest
 
 	private static ConnectorCapabilities noNtidCaps()
 	{
-		return new ConnectorCapabilities(false, true, false, true, true, TokenImportStyle.SLASH_JOINED);
+		return new ConnectorCapabilities(false, true, false, true, true, TokenImportStyle.SLASH_JOINED,
+				new PaymentMethodChangeSupport(PaymentMethodChangeScope.CUSTOMER,
+						Set.of(PaymentMethodSource.ADYEN_VAULTED_TOKEN)),
+				PaymentMethodEnrollmentSupport.NONE);
 	}
 
 	private static ConnectorCapabilities requiresNtidCaps()
 	{
-		return new ConnectorCapabilities(true, false, false, true, false, TokenImportStyle.SEPARATE_FIELDS);
+		return new ConnectorCapabilities(true, false, false, true, false, TokenImportStyle.SEPARATE_FIELDS,
+				PaymentMethodChangeSupport.NONE, PaymentMethodEnrollmentSupport.NONE);
 	}
 }

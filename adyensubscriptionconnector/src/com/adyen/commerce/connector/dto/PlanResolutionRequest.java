@@ -23,14 +23,15 @@ package com.adyen.commerce.connector.dto;
 import java.util.Map;
 
 /**
- * Request to resolve a SAP subscription product code to a platform plan/price reference.
- * The connector owns the mapping; the core owns this contract.
+ * Resolves a SAP subscription product to a platform plan for one base store. The connector owns the mapping;
+ * a mapping for the store wins over a mapping without a store.
  */
-public record PlanResolutionRequest(String productCode, Map<String, String> context)
+public record PlanResolutionRequest(String productCode, String baseStoreUid, Map<String, String> context)
 {
 	public PlanResolutionRequest
 	{
 		Dtos.requireText(productCode, "productCode");
+		Dtos.requireText(baseStoreUid, "baseStoreUid");
 		context = Dtos.immutableCopy(context);
 	}
 }

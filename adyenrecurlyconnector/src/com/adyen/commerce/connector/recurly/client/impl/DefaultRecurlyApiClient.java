@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -26,6 +27,7 @@ import org.slf4j.LoggerFactory;
 import com.adyen.commerce.connector.dto.BillingAddress;
 import com.adyen.commerce.connector.dto.BillingSubscriptionRef;
 import com.adyen.commerce.connector.dto.CardMetadata;
+import com.adyen.commerce.connector.dto.PlatformPaymentMethod;
 import com.adyen.commerce.connector.dto.NormalizedSubscription;
 import com.adyen.commerce.connector.dto.NormalizedSubscriptionStatus;
 import com.adyen.commerce.connector.enums.BillingPlatform;
@@ -45,37 +47,41 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
-/**
- * Default Recurly client. It intentionally keeps vendor JSON translation inside the adapter and
- * surfaces only normalized {@link BillingException} failures to the SPI layer.
- */
+/** Recurly v3 REST client. Vendor JSON stays inside; failures surface as {@link BillingException}. */
 public class DefaultRecurlyApiClient implements RecurlyApiClient {
-    /**
-     * Recurly's own name for a subscription that has been cancelled but keeps serving the customer until
-     * {@code current_period_ends_at}. Shared by the status mapping and the {@code cancelAtPeriodEnd}
-     * derivation so the literal lives in one place - it keeps the spelling in step, nothing more; the two
-     * readings of this state still have to be kept consistent by hand.
-     */
+    /** Stopped renewing but still serving until {@code current_period_ends_at}. */
     protected static final String STATE_CANCELED = "canceled";
 
+    private static final String BULLETS = "\u2022\u2022\u2022\u2022";
+
+    /** Shown when Recurly reports no card detail, as for an externally vaulted token. */
+    private static final String GENERIC_METHOD_LABEL = "Saved payment method";
+
     private static final Logger LOG = LoggerFactory.getLogger(DefaultRecurlyApiClient.class);
+
+    /** Bare host names only, so the configured value cannot point the shopper's link at another origin. */
+    private static final Pattern HOSTED_PAGES_HOST =
+            Pattern.compile("[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)+");
     private static final String EVENT_VENDOR_API_ERROR = "vendor_api_error";
     private static final int HTTP_TOO_MANY_REQUESTS = 429;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    private final RecurlyHttpClient httpClient;
-    private final RecurlyConfigService configService;
+    private static final String ACCOUNTS_PATH = "/accounts/";
+    private static final String SUBSCRIPTIONS_PATH = "/subscriptions/";
+    private static final String FIELD_ACCOUNT = "account";
+    private static final String FIELD_FIRST_NAME = "first_name";
+    private static final String FIELD_LAST_NAME = "last_name";
+    private static final String FIELD_QUANTITY = "quantity";
+    private static final String RESOURCE_INVOICE = "invoice";
 
-    public DefaultRecurlyApiClient(final RecurlyHttpClient httpClient, final RecurlyConfigService configService) {
-        this.httpClient = httpClient;
-        this.configService = configService;
-    }
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    private RecurlyHttpClient httpClient;
+    private RecurlyConfigService configService;
 
     @Override
     public String ensureCustomer(final String customerId, final String email, final String firstName,
                                  final String lastName) throws BillingException {
         final String accountId = accountCodeId(customerId);
-        final RecurlyHttpResponse existing = httpClient.get(url("/accounts/" + pathSegment(accountId)), authHeader(),
+        final RecurlyHttpResponse existing = httpClient.get(url(ACCOUNTS_PATH + pathSegment(accountId)), authHeader(),
                 acceptHeader());
         if (existing.statusCode() == HTTP_OK) {
             synchronizeAccountProfile(accountId, existing.body(), email, firstName, lastName);
@@ -92,8 +98,8 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
         final ObjectNode request = objectMapper.createObjectNode();
         putIfNotBlank(request, "code", customerId);
         putIfNotBlank(request, "email", email);
-        putIfNotBlank(request, "first_name", firstName);
-        putIfNotBlank(request, "last_name", lastName);
+        putIfNotBlank(request, FIELD_FIRST_NAME, firstName);
+        putIfNotBlank(request, FIELD_LAST_NAME, lastName);
         final RecurlyHttpResponse response = httpClient.post(url("/accounts"), authHeader(), acceptHeader(),
                 writeJson(request), accountId);
         requireSuccess(response, "create account");
@@ -103,12 +109,14 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
     @Override
     public String importAdyenToken(final String accountId, final String shopperReference,
                                    final String storedPaymentMethodId, final CardMetadata card,
+                                   final String networkTransactionId,
                                    final BillingAddress billingAddress) throws BillingException {
         if (!configService.isWalletEnabled()) {
-            return importPrimaryAdyenToken(accountId, shopperReference, storedPaymentMethodId, card, billingAddress);
+            return importPrimaryAdyenToken(accountId, shopperReference, storedPaymentMethodId, card,
+                    networkTransactionId, billingAddress);
         }
 
-        final String billingInfosPath = "/accounts/" + pathSegment(accountId) + "/billing_infos";
+        final String billingInfosPath = ACCOUNTS_PATH + pathSegment(accountId) + "/billing_infos";
         final RecurlyHttpResponse existing = httpClient.get(url(billingInfosPath), authHeader(), acceptHeader());
         requireSuccess(existing, "list billing infos");
 
@@ -119,7 +127,8 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
             }
         }
 
-        final ObjectNode request = buildAdyenBillingInfo(shopperReference, storedPaymentMethodId, card, billingAddress);
+        final ObjectNode request = buildAdyenBillingInfo(shopperReference, storedPaymentMethodId, card,
+                networkTransactionId, billingAddress);
         if (!billingInfos.isEmpty()) {
             request.put("primary_payment_method", false);
         }
@@ -134,14 +143,14 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
     public String createSubscription(final RecurlySubscriptionParams params) throws BillingException {
         final ObjectNode request = objectMapper.createObjectNode();
 
-        final ObjectNode account = request.putObject("account");
+        final ObjectNode account = request.putObject(FIELD_ACCOUNT);
         putIfNotBlank(account, "code", accountCode(params.accountId()));
 
         if (configService.isWalletEnabled()) {
             putIfNotBlank(request, "billing_info_id", params.billingInfoId());
         }
         putIfNotBlank(request, "plan_code", params.planCode());
-        request.put("quantity", Math.max(1, params.quantity()));
+        request.put(FIELD_QUANTITY, Math.max(1, params.quantity()));
         putIfNotBlank(request, "currency", params.currencyIsoCode());
         putIfNotBlank(request, "starts_at", params.startsAt());
         putIfNotBlank(request, "network_transaction_id", params.networkTransactionId());
@@ -165,21 +174,21 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
 
     protected String importPrimaryAdyenToken(final String accountId, final String shopperReference,
                                              final String storedPaymentMethodId, final CardMetadata card,
+                                             final String networkTransactionId,
                                              final BillingAddress billingAddress) throws BillingException {
-        final String accountPath = "/accounts/" + pathSegment(accountId);
+        final String accountPath = ACCOUNTS_PATH + pathSegment(accountId);
         final RecurlyHttpResponse account = httpClient.get(url(accountPath), authHeader(), acceptHeader());
         if (account.statusCode() == HTTP_NOT_FOUND) {
             final ObjectNode request = objectMapper.createObjectNode();
             putIfNotBlank(request, "code", accountCode(accountId));
-            // Only a confirmed billing address names the account. An address inferred from the delivery
-            // address carries the recipient's name, and on a gift order that is not the account holder —
-            // every future invoice would be issued to the wrong person.
+            // Only a confirmed billing address names the account: an inferred one carries the recipient's name.
             if (billingAddress != null && billingAddress.confirmed()) {
-                putIfNotBlank(request, "first_name", billingAddress.firstName());
-                putIfNotBlank(request, "last_name", billingAddress.lastName());
+                putIfNotBlank(request, FIELD_FIRST_NAME, billingAddress.firstName());
+                putIfNotBlank(request, FIELD_LAST_NAME, billingAddress.lastName());
             }
             request.set("billing_info",
-                    buildAdyenBillingInfo(shopperReference, storedPaymentMethodId, card, billingAddress));
+                    buildAdyenBillingInfo(shopperReference, storedPaymentMethodId, card, networkTransactionId,
+                            billingAddress));
 
             final RecurlyHttpResponse response = httpClient.post(url("/accounts"), authHeader(), acceptHeader(),
                     writeJson(request), fingerprintedKey(accountId + "/primary-adyen", storedPaymentMethodId));
@@ -205,11 +214,126 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
         }
 
         final ObjectNode billingInfo = buildAdyenBillingInfo(
-                shopperReference, storedPaymentMethodId, card, billingAddress);
+                shopperReference, storedPaymentMethodId, card, networkTransactionId, billingAddress);
         final RecurlyHttpResponse response = httpClient.put(url(billingInfoPath), authHeader(), acceptHeader(),
                 writeJson(billingInfo), fingerprintedKey(accountId + "/primary-adyen", storedPaymentMethodId));
         requireSuccess(response, "set primary Adyen billing info");
         return readId(response.body());
+    }
+
+    @Override
+    public List<PlatformPaymentMethod> listBillingInfos(final String accountId) throws BillingException {
+        final RecurlyHttpResponse response = httpClient.get(
+                url(ACCOUNTS_PATH + pathSegment(accountId) + "/billing_infos"), authHeader(), acceptHeader());
+        requireSuccess(response, "list billing infos");
+
+        final List<PlatformPaymentMethod> methods = new ArrayList<>();
+        for (final JsonNode billingInfo : readBillingInfos(response.body())) {
+            final String id = billingInfo.path("id").asText(null);
+            if (StringUtils.isBlank(id)) {
+                continue;
+            }
+            methods.add(new PlatformPaymentMethod(id, describeBillingInfo(billingInfo),
+                    cardMetadataOf(billingInfo), billingInfo.path("primary_payment_method").asBoolean(false),
+                    importedTokenOf(billingInfo)));
+        }
+        return methods;
+    }
+
+    @Override
+    public void promoteBillingInfoToPrimary(final String accountId, final String billingInfoId,
+                                            final String idempotencyKey) throws BillingException {
+        if (StringUtils.isBlank(billingInfoId)) {
+            throw new PreconditionFailedException("promoteBillingInfoToPrimary called without a billing info "
+                    + "for account '" + accountId + "'");
+        }
+
+        final ObjectNode request = objectMapper.createObjectNode();
+        request.put("primary_payment_method", true);
+
+        // Plural billing_infos path: the singular /billing_info rejects this field.
+        final RecurlyHttpResponse response = httpClient.put(
+                url(ACCOUNTS_PATH + pathSegment(accountId) + "/billing_infos/" + pathSegment(billingInfoId)),
+                authHeader(), acceptHeader(), writeJson(request), idempotencyKey);
+        requireSuccess(response, "promote billing info to primary");
+    }
+
+    @Override
+    public String hostedAccountManagementUrl(final String accountId) throws BillingException {
+        final String host = configService.getHostedPagesHost();
+        if (!HOSTED_PAGES_HOST.matcher(StringUtils.defaultString(host)).matches()) {
+            LOG.warn("Recurly hosted pages are enabled but hostedPagesHost is not a bare host name; "
+                    + "not offering the shopper a link.");
+            return null;
+        }
+
+        final RecurlyHttpResponse response = httpClient.get(
+                url(ACCOUNTS_PATH + pathSegment(accountId)), authHeader(), acceptHeader());
+        requireSuccess(response, "retrieve account");
+
+        // A credential: it signs the holder into the account. Never logged.
+        final String hostedLoginToken =
+                readJson(response.body(), FIELD_ACCOUNT).path("hosted_login_token").asText(null);
+        if (StringUtils.isBlank(hostedLoginToken)) {
+            return null;
+        }
+        return "https://" + host + "/account/" + pathSegment(hostedLoginToken);
+    }
+
+    /** The gateway token this billing info was imported from, if any; lets the page match it to a vaulted card. */
+    protected String importedTokenOf(final JsonNode billingInfo) {
+        for (final JsonNode reference : billingInfo.path("payment_gateway_references")) {
+            final String token = reference.path("token").asText(null);
+            if (StringUtils.isNotBlank(token)) {
+                return token;
+            }
+        }
+        return null;
+    }
+
+    /** Shopper-facing label of a billing info. */
+    protected String describeBillingInfo(final JsonNode billingInfo) {
+        final JsonNode paymentMethod = billingInfo.path("payment_method");
+        final String cardType = paymentMethod.path("card_type").asText(null);
+        final String lastFour = paymentMethod.path("last_four").asText(null);
+        if (StringUtils.isNotBlank(lastFour)) {
+            return StringUtils.isBlank(cardType) ? BULLETS + " " + lastFour
+                    : cardType + " " + BULLETS + " " + lastFour;
+        }
+        // Not payment_method.object: for a vaulted token that is the API enum "gateway_token".
+        return GENERIC_METHOD_LABEL;
+    }
+
+    /** Display detail only; absent fields simply mean the page shows less. */
+    protected CardMetadata cardMetadataOf(final JsonNode billingInfo) {
+        final JsonNode paymentMethod = billingInfo.path("payment_method");
+        final String lastFour = paymentMethod.path("last_four").asText(null);
+        if (StringUtils.isBlank(lastFour)) {
+            return null;
+        }
+        final String month = paymentMethod.path("exp_month").asText(null);
+        final String year = paymentMethod.path("exp_year").asText(null);
+        final String expiry = StringUtils.isAnyBlank(month, year) ? null
+                : StringUtils.leftPad(month, 2, '0') + "/" + year;
+        return new CardMetadata(paymentMethod.path("card_type").asText(null), lastFour, null, expiry, null);
+    }
+
+    @Override
+    public void assignBillingInfo(final String subscriptionId, final String billingInfoId,
+                                  final String idempotencyKey) throws BillingException {
+        if (StringUtils.isBlank(billingInfoId)) {
+            throw new PreconditionFailedException(
+                    "assignBillingInfo called without a billing info for subscription '" + subscriptionId + "'");
+        }
+
+        final ObjectNode request = objectMapper.createObjectNode();
+        request.put("billing_info_id", billingInfoId);
+
+        // PUT, not /change: /change alters what is billed and raises an invoice.
+        final RecurlyHttpResponse response = httpClient.put(
+                url(SUBSCRIPTIONS_PATH + pathSegment(subscriptionId)), authHeader(), acceptHeader(),
+                writeJson(request), idempotencyKey);
+        requireSuccess(response, "assign billing info to subscription");
     }
 
     @Override
@@ -223,11 +347,11 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
         final ObjectNode request = objectMapper.createObjectNode();
         putIfNotBlank(request, "plan_code", planCode);
         if (quantity != null) {
-            request.put("quantity", quantity.intValue());
+            request.put(FIELD_QUANTITY, quantity.intValue());
         }
 
         final RecurlyHttpResponse response = httpClient.post(
-                url("/subscriptions/" + pathSegment(subscriptionId) + "/change"), authHeader(), acceptHeader(),
+                url(SUBSCRIPTIONS_PATH + pathSegment(subscriptionId) + "/change"), authHeader(), acceptHeader(),
                 writeJson(request), idempotencyKey);
         requireSuccess(response, "update subscription");
     }
@@ -238,14 +362,14 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
         final ObjectNode request = objectMapper.createObjectNode();
         request.put("timeframe", "bill_date");
         final RecurlyHttpResponse response = httpClient.put(
-                url("/subscriptions/" + pathSegment(subscriptionId) + "/cancel"), authHeader(), acceptHeader(),
+                url(SUBSCRIPTIONS_PATH + pathSegment(subscriptionId) + "/cancel"), authHeader(), acceptHeader(),
                 writeJson(request), idempotencyKey);
         requireSuccess(response, "cancel subscription at next bill date");
     }
 
     @Override
     public void terminate(final String subscriptionId, final String idempotencyKey) throws BillingException {
-        final RecurlyHttpResponse response = httpClient.delete(url("/subscriptions/" + pathSegment(subscriptionId)),
+        final RecurlyHttpResponse response = httpClient.delete(url(SUBSCRIPTIONS_PATH + pathSegment(subscriptionId)),
                 authHeader(), acceptHeader(), idempotencyKey);
         requireSuccess(response, "terminate subscription");
     }
@@ -260,7 +384,7 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
         final String path;
         if ("payment".equals(resourceType)) {
             path = "/transactions/" + pathSegment(resourceId);
-        } else if ("invoice".equals(resourceType) || "charge_invoice".equals(resourceType)) {
+        } else if (RESOURCE_INVOICE.equals(resourceType) || "charge_invoice".equals(resourceType)) {
             path = "/invoices/" + pathSegment(resourceId);
         } else {
             return List.of();
@@ -271,12 +395,12 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
         final JsonNode resource = readJson(response.body(), "webhook " + resourceType);
         final Set<String> subscriptionIds = new LinkedHashSet<>();
         collectSubscriptionIds(resource, subscriptionIds);
-        collectSubscriptionIds(resource.path("invoice"), subscriptionIds);
+        collectSubscriptionIds(resource.path(RESOURCE_INVOICE), subscriptionIds);
 
         if (subscriptionIds.isEmpty() && "payment".equals(resourceType)) {
-            final String invoiceId = resource.path("invoice").path("id").asText(null);
+            final String invoiceId = resource.path(RESOURCE_INVOICE).path("id").asText(null);
             if (StringUtils.isNotBlank(invoiceId)) {
-                return resolveWebhookSubscriptionIds("invoice", invoiceId);
+                return resolveWebhookSubscriptionIds(RESOURCE_INVOICE, invoiceId);
             }
         }
         return new ArrayList<>(subscriptionIds);
@@ -287,7 +411,7 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
             throws BillingException
     {
         final RecurlyHttpResponse response = httpClient.get(
-                url("/subscriptions/" + pathSegment(subscriptionId)),
+                url(SUBSCRIPTIONS_PATH + pathSegment(subscriptionId)),
                 authHeader(),
                 acceptHeader());
 
@@ -309,20 +433,14 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
                 new BillingSubscriptionRef(BillingPlatform.RECURLY, subscriptionId),
                 status,
                 subscription.path("plan").path("code").asText(null),
-                subscription.path("quantity").asInt(1),
+                subscription.path(FIELD_QUANTITY).asInt(1),
                 parseInstant(subscription.path("current_period_started_at")),
                 parseInstant(subscription.path("current_period_ends_at")),
                 isCancelAtPeriodEnd(subscription),
                 parseInstant(subscription.path("updated_at")));
     }
 
-    /**
-     * The pending end is read from the state itself, not from {@code auto_renew} alone. A {@code canceled}
-     * subscription is by definition no longer renewing, and leaving the answer to {@code auto_renew} would
-     * make it depend on a second field being present: {@code asBoolean(true)} reads a missing flag as
-     * "renewing", which would contradict the state right next to it and hide the pending end from every
-     * caller that only looks at {@code cancelAtPeriodEnd}.
-     */
+    /** A {@code canceled} state wins over a missing {@code auto_renew}, which would otherwise read as renewing. */
     protected boolean isCancelAtPeriodEnd(final JsonNode subscription) {
         return STATE_CANCELED.equalsIgnoreCase(subscription.path("state").asText(null))
                 || !subscription.path("auto_renew").asBoolean(true);
@@ -330,8 +448,8 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
 
     protected boolean hasPastDueInvoice(final JsonNode subscription, final String requestedSubscriptionId,
                                         final String normalizedSubscriptionId) throws BillingException {
-        final String accountId = subscription.path("account").path("id").asText(null);
-        final String accountCode = subscription.path("account").path("code").asText(null);
+        final String accountId = subscription.path(FIELD_ACCOUNT).path("id").asText(null);
+        final String accountCode = subscription.path(FIELD_ACCOUNT).path("code").asText(null);
         final String accountReference = StringUtils.isNotBlank(accountId)
                 ? accountId
                 : StringUtils.isNotBlank(accountCode) ? "code-" + accountCode : null;
@@ -339,11 +457,9 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
             throw new TerminalBillingException("Recurly subscription response missing account id and code");
         }
 
-        // A page URL is now only required to sit under the configured base, so a cursor that points back
-        // at a page already read would keep this walk calling Recurly forever. No legitimate pagination
-        // repeats a page, so treat it as the malformed response it is instead of spinning.
+        // A cursor pointing back at a page already read would otherwise loop forever.
         final Set<String> visitedPages = new LinkedHashSet<>();
-        String nextUrl = url("/accounts/" + pathSegment(accountReference) + "/invoices?state=past_due&limit=200");
+        String nextUrl = url(ACCOUNTS_PATH + pathSegment(accountReference) + "/invoices?state=past_due&limit=200");
         while (StringUtils.isNotBlank(nextUrl)) {
             validateRecurlyPageUrl(nextUrl);
             if (!visitedPages.add(nextUrl)) {
@@ -366,16 +482,9 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
         return false;
     }
 
-    /**
-     * Recurly returns {@code next} as a site-relative path, so it is only a usable URL once joined to the
-     * configured base. Resolution deliberately vouches for nothing: every page URL still goes through
-     * {@link #validateRecurlyPageUrl(String)} before it is called, so a spoofed or corrupted response
-     * cannot aim the credentialed request at a host other than the configured one.
-     */
+    /** Joins Recurly's site-relative {@code next} to the base; {@link #validateRecurlyPageUrl} still checks it. */
     protected String resolvePageUrl(final String next) throws BillingException {
-        // A protocol-relative reference ("//host/path") names its own authority, so it is not a
-        // site-relative path. Leaving it untouched lets the guard below reject it as the foreign
-        // host it is, instead of hiding it behind the configured base.
+        // "//host/path" names its own host; left as is, the validation rejects it.
         if (StringUtils.startsWith(next, "/") && !StringUtils.startsWith(next, "//")) {
             return url(next);
         }
@@ -402,15 +511,8 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
     }
 
     /**
-     * Recurly's {@code canceled} is not the end of a subscription: it stops renewing but keeps serving the
-     * customer until {@code current_period_ends_at}, and Recurly can reactivate it. Reporting it as
-     * CANCELLED would revoke entitlement the customer has already paid for, and it would give one
-     * normalized vocabulary two words for one situation — the Chargebee adapter normalizes exactly this
-     * state, {@code non_renewing}, to ACTIVE. So {@code canceled} is ACTIVE here too and the pending end
-     * travels as {@code cancelAtPeriodEnd}. Nothing is lost from the terminal end: {@code expired} is the
-     * state Recurly moves a subscription into once its term has actually run out, and it maps to EXPIRED —
-     * the same value Chargebee's {@code cancelled} maps to, so "this has ended" is one word across both
-     * adapters. Neither of them produces CANCELLED; see {@code NormalizedSubscriptionStatus}.
+     * {@code canceled} still serves until the period ends, so it is ACTIVE with {@code cancelAtPeriodEnd};
+     * {@code expired} is EXPIRED. Same mapping as Chargebee's {@code non_renewing} and {@code cancelled}.
      */
     protected NormalizedSubscriptionStatus mapStatus(final String recurlyState) {
         if (StringUtils.isBlank(recurlyState)) {
@@ -458,12 +560,7 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
         }
     }
 
-    /**
-     * Builds - never throws. Nothing in here may fail: it runs on the path that is already handling a
-     * failure, and an exception raised while classifying one would replace the HTTP status and the
-     * vendor's own explanation with an unrelated message, and lose the retryable/terminal decision the
-     * core's retry policy is about to read.
-     */
+    /** Never throws: it runs while a failure is already being handled. */
     protected BillingException toBillingException(final RecurlyHttpResponse response, final String action) {
         final String detail = extractError(response.body());
         final String message = "Recurly " + action + " failed (HTTP " + response.statusCode() + ")"
@@ -471,16 +568,15 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
         final boolean retryable = response.statusCode() == HTTP_CLIENT_TIMEOUT || response.statusCode() == HTTP_CONFLICT
                 || response.statusCode() == HTTP_TOO_MANY_REQUESTS || response.statusCode() >= HTTP_INTERNAL_ERROR
                 || StringUtils.containsIgnoreCase(detail, "simultaneous_request");
-        // The vendor's error code only. The prose that comes with it can echo submitted values back, so
-        // it stays in the exception - which travels to the dead letter - and out of the log line.
+        // Only the error code is logged: the vendor's message can echo submitted values.
         ConnectorLogEvent.of(EVENT_VENDOR_API_ERROR)
                 .platform(BillingPlatform.RECURLY)
                 .outcome(ConnectorLogEvent.OUTCOME_FAILURE)
                 .field("vendor_action", action.replace(' ', '_'))
-                .field("http_status", Integer.valueOf(response.statusCode()))
+                .field("http_status", response.statusCode())
                 .field("error_class", ConnectorLogEvent.httpErrorClass(response.statusCode()))
                 .field("vendor_error_code", errorCode(response.body()))
-                .field("retryable", Boolean.valueOf(retryable))
+                .field("retryable", retryable)
                 .warn(LOG);
         if (retryable) {
             return new RetryableBillingException(message);
@@ -488,11 +584,7 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
         return new TerminalBillingException(message);
     }
 
-    /**
-     * The error as a human reads it: {@code [type] message}. The message is the only part that says
-     * <em>which</em> field or value Recurly refused, so dropping it leaves a bare code that cannot be
-     * acted on without reproducing the call.
-     */
+    /** {@code [type] message}, for the exception text. */
     protected String extractError(final String body) {
         final JsonNode node = readErrorTree(body);
         if (node == null) {
@@ -506,17 +598,13 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
         return (type == null ? "" : "[" + type + "] ") + StringUtils.defaultString(message);
     }
 
-    /**
-     * Just the machine-readable error type, for log labels: bounded cardinality and no shopper data.
-     */
+    /** The machine-readable error type, for log labels. */
     protected String errorCode(final String body) {
         final JsonNode node = readErrorTree(body);
         return node == null ? null : errorType(node);
     }
 
-    /**
-     * Recurly returns some errors at the top level and wraps others in {@code error}.
-     */
+    /** Recurly returns some errors at the top level and wraps others in {@code error}. */
     protected static String errorType(final JsonNode node) {
         return node.path("type").asText(node.path("error").path("type").asText(null));
     }
@@ -544,11 +632,6 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
         return id.asText();
     }
 
-    /**
-     * For callers holding only the raw body. Parsing is the sole reason this overload exists, so a caller
-     * that has already parsed the response must use {@link #readSubscriptionId(JsonNode)} rather than pay
-     * for a second parse of the same payload.
-     */
     protected String readSubscriptionId(final String body) throws BillingException {
         try {
             return readSubscriptionId(objectMapper.readTree(body));
@@ -557,10 +640,7 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
         }
     }
 
-    /**
-     * JSON subscription webhooks identify subscriptions by UUID. Persist the API-compatible
-     * {@code uuid-...} identifier so outbound lifecycle calls and inbound reconciliation use the same key.
-     */
+    /** {@code uuid-<uuid>}, the id form both the API and the webhooks accept. */
     protected String readSubscriptionId(final JsonNode subscription) throws BillingException {
         final String uuid = subscription.path("uuid").asText(null);
         if (StringUtils.isNotBlank(uuid)) {
@@ -597,11 +677,10 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
             return;
         }
 
-        // Same rule as the account: an inferred address still carries a usable address, but its name is
-        // the recipient's, not the cardholder's, so it must not be sent as the billing name.
+        // An inferred address carries the recipient's name, not the cardholder's.
         if (billingAddress.confirmed()) {
-            putIfNotBlank(request, "first_name", billingAddress.firstName());
-            putIfNotBlank(request, "last_name", billingAddress.lastName());
+            putIfNotBlank(request, FIELD_FIRST_NAME, billingAddress.firstName());
+            putIfNotBlank(request, FIELD_LAST_NAME, billingAddress.lastName());
         }
         final ObjectNode address = request.putObject("address");
         putIfNotBlank(address, "street1", billingAddress.street1());
@@ -614,7 +693,8 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
     }
 
     protected ObjectNode buildAdyenBillingInfo(final String shopperReference, final String storedPaymentMethodId,
-                                               final CardMetadata card, final BillingAddress billingAddress)
+                                               final CardMetadata card, final String networkTransactionId,
+                                               final BillingAddress billingAddress)
             throws BillingException {
         final ObjectNode billingInfo = objectMapper.createObjectNode();
         putIfNotBlank(billingInfo, "gateway_code", configService.getGatewayCode());
@@ -626,9 +706,13 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
         final ObjectNode reference = references.addObject();
         putIfNotBlank(reference, "token", storedPaymentMethodId);
 
+        // Recurly documents the NTID only on /subscriptions and /purchases, so this is behind its own switch.
+        if (configService.isNetworkTransactionIdOnBillingInfoEnabled()) {
+            putIfNotBlank(billingInfo, "network_transaction_id", networkTransactionId);
+        }
+
         if (card != null) {
-            // Recurly derives display metadata such as last four from the imported gateway token. The API rejects
-            // last_four in this request shape, so only accepted non-sensitive expiry metadata is forwarded.
+            // Recurly derives last four from the token and rejects it here; only the expiry is sent.
             addExpiry(billingInfo, card.expiry());
         }
         addBillingAddress(billingInfo, billingAddress);
@@ -637,16 +721,16 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
 
     protected void synchronizeAccountProfile(final String accountId, final String responseBody, final String email,
                                              final String firstName, final String lastName) throws BillingException {
-        final JsonNode account = readJson(responseBody, "account");
+        final JsonNode account = readJson(responseBody, FIELD_ACCOUNT);
         final ObjectNode update = objectMapper.createObjectNode();
         putIfDifferent(update, account, "email", email);
-        putIfDifferent(update, account, "first_name", firstName);
-        putIfDifferent(update, account, "last_name", lastName);
+        putIfDifferent(update, account, FIELD_FIRST_NAME, firstName);
+        putIfDifferent(update, account, FIELD_LAST_NAME, lastName);
         if (update.isEmpty()) {
             return;
         }
         final String body = writeJson(update);
-        final RecurlyHttpResponse response = httpClient.put(url("/accounts/" + pathSegment(accountId)), authHeader(),
+        final RecurlyHttpResponse response = httpClient.put(url(ACCOUNTS_PATH + pathSegment(accountId)), authHeader(),
                 acceptHeader(), body, fingerprintedKey(accountId + "/profile", body));
         requireSuccess(response, "synchronize account");
     }
@@ -657,10 +741,13 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
         return billingInfoMatches(billingInfo, shopperReference, storedPaymentMethodId);
     }
 
+    /**
+     * Whether this billing info already represents the Adyen token. Deduplication only, not an ownership
+     * check: the account is the ownership boundary.
+     */
     protected boolean billingInfoMatches(final JsonNode billingInfo, final String shopperReference,
                                          final String storedPaymentMethodId) {
-        if (!StringUtils.equals(shopperReference,
-                billingInfo.path("gateway_attributes").path("account_reference").asText(null))) {
+        if (!StringUtils.equals(shopperReference, accountReferenceOf(billingInfo))) {
             return false;
         }
         for (final JsonNode reference : billingInfo.path("payment_gateway_references")) {
@@ -669,6 +756,14 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
             }
         }
         return false;
+    }
+
+    /** The Adyen shopper reference: top level on create, under {@code payment_method} when read back. */
+    protected String accountReferenceOf(final JsonNode billingInfo) {
+        final String nested = billingInfo.path("payment_method").path("gateway_attributes")
+                .path("account_reference").asText(null);
+        return nested != null ? nested
+                : billingInfo.path("gateway_attributes").path("account_reference").asText(null);
     }
 
     protected List<JsonNode> readBillingInfos(final String body) throws BillingException {
@@ -685,7 +780,7 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
 
     protected String retrievePrimaryBillingInfoId(final String accountId) throws BillingException {
         final RecurlyHttpResponse response = httpClient.get(
-                url("/accounts/" + pathSegment(accountId) + "/billing_info"), authHeader(), acceptHeader());
+                url(ACCOUNTS_PATH + pathSegment(accountId) + "/billing_info"), authHeader(), acceptHeader());
         if (response.statusCode() == HTTP_NOT_FOUND) {
             throw new TerminalBillingException("Recurly account '" + accountId
                     + "' has no primary billing info after importing the Adyen token");
@@ -744,11 +839,17 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
         return URLEncoder.encode(StringUtils.defaultString(value), StandardCharsets.UTF_8).replace("+", "%20");
     }
 
-    /**
-     * Recurly idempotency keys can be retained in operational logs, so never embed an Adyen token or customer data.
-     */
+    /** Recurly may log idempotency keys, so the sensitive part is hashed. */
     protected static String fingerprintedKey(final String prefix, final String sensitiveValue) {
         return prefix + "/" + UUID.nameUUIDFromBytes(
                 StringUtils.defaultString(sensitiveValue).getBytes(StandardCharsets.UTF_8));
+    }
+
+    public void setHttpClient(final RecurlyHttpClient httpClient) {
+        this.httpClient = httpClient;
+    }
+
+    public void setConfigService(final RecurlyConfigService configService) {
+        this.configService = configService;
     }
 }

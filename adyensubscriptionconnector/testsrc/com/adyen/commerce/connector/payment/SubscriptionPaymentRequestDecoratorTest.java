@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -18,6 +19,7 @@ import java.util.Optional;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 
 import com.adyen.commerce.connector.dto.PlanRef;
 import com.adyen.commerce.connector.dto.PlanResolutionRequest;
@@ -56,7 +58,7 @@ public class SubscriptionPaymentRequestDecoratorTest
 	private PaymentRequest paymentRequest;
 
 	@Before
-	public void setUp() throws Exception
+	public void setUp()
 	{
 		cartService = mock(CartService.class);
 		connectorRegistry = mock(SubscriptionBillingConnectorRegistry.class);
@@ -69,8 +71,8 @@ public class SubscriptionPaymentRequestDecoratorTest
 		decorator = new SubscriptionPaymentRequestDecorator();
 		decorator.setCartService(cartService);
 		decorator.setConnectorRegistry(connectorRegistry);
-		// The real rule, not a mock: it is now the only copy of "what counts as a subscription product", and
-		// what these tests are really asserting is what this class does with each of its three answers.
+		// The real rule, not a mock: it is the only copy of what counts as a subscription product, and these
+		// tests assert what this class does with each of its three answers.
 		decorator.setSubscriptionProductRule(new DefaultSubscriptionProductRule());
 
 		when(cartService.getSessionCart()).thenReturn(cart);
@@ -130,8 +132,8 @@ public class SubscriptionPaymentRequestDecoratorTest
 	}
 
 	/**
-	 * A saved card already has its reference; asking Adyen to mint a second one would leave the shopper with a
-	 * duplicate stored card. The contract itself still has to be declared, which is what the connector needs.
+	 * A saved card already has its reference, and minting a second would leave the shopper a duplicate stored
+	 * card. The contract itself is still declared, which is what the connector needs.
 	 */
 	@Test
 	public void savedCardDeclaresTheContractWithoutBeingStoredAgain() throws Exception
@@ -203,8 +205,8 @@ public class SubscriptionPaymentRequestDecoratorTest
 	}
 
 	/**
-	 * The regression that matters most: an ordinary cart paid by card must keep exactly the contract the
-	 * payment method handlers chose, not be upgraded to a subscription one on the way past.
+	 * An ordinary cart paid by card keeps exactly the contract the payment method handlers chose and is not
+	 * upgraded to a subscription one on the way past.
 	 */
 	@Test
 	public void ordinaryCartOnACardKeepsTheContractTheHandlersChose() throws Exception
@@ -223,7 +225,7 @@ public class SubscriptionPaymentRequestDecoratorTest
 	}
 
 	@Test
-	public void cartWithNoEntriesIsUntouched() throws Exception
+	public void cartWithNoEntriesIsUntouched()
 	{
 		when(cart.getEntries()).thenReturn(null);
 		cartData.setAdyenPaymentMethod("klarna");
@@ -234,7 +236,7 @@ public class SubscriptionPaymentRequestDecoratorTest
 	}
 
 	@Test
-	public void storeWithoutConnectorConfigurationIsUntouched() throws Exception
+	public void storeWithoutConnectorConfigurationIsUntouched()
 	{
 		when(store.getActiveBillingPlatform()).thenReturn(null);
 		cartData.setAdyenPaymentMethod("klarna");
@@ -246,14 +248,11 @@ public class SubscriptionPaymentRequestDecoratorTest
 	}
 
 	/**
-	 * A store whose {@code activeBillingPlatform} names a platform no connector bean answers for — a
-	 * deployment that simply does not include that adapter. The checkout is refused, and the cost is real:
-	 * this takes down every checkout in the store, ordinary carts included. It is still the lesser harm.
-	 * "No connector" does not mean "nothing here is a subscription" — the plan mappings and the subscription
-	 * products outlive the adapter being removed — it means the question cannot be answered. Letting the cart
-	 * through would send the payment out untokenized, and the activator would meet the same missing connector
-	 * and dead-letter the attempt at once, {@code ConnectorNotConfiguredException} being terminal: a paid
-	 * order, no subscription, no retry.
+	 * A store whose {@code activeBillingPlatform} names a platform no connector bean answers for refuses the
+	 * checkout, ordinary carts included. A missing connector means the question cannot be answered, not that
+	 * nothing in the cart is a subscription: the plan mappings and the subscription products stay behind. The
+	 * alternative is a payment sent untokenized and an activator that meets the same missing connector and
+	 * dead-letters at once, {@code ConnectorNotConfiguredException} being terminal.
 	 */
 	@Test
 	public void missingConnectorBeanRefusesRatherThanGuessing() throws Exception
@@ -278,9 +277,9 @@ public class SubscriptionPaymentRequestDecoratorTest
 
 	/**
 	 * The decorator classifies every entry rather than stopping at the first match, so that it and the
-	 * activator reach the same verdict on a mixed cart whichever order the entries happen to be in. With the
-	 * mapped product first, an early return would have tokenized and let the order be paid — and the
-	 * activator, which does scan everything, would then have refused it and dead-lettered after its retries.
+	 * activator reach the same verdict on a mixed cart whatever order the entries come in. With the mapped
+	 * product first, an early return would tokenize and let the order be paid, and the activator, which does
+	 * scan everything, would then refuse it and dead-letter after its retries.
 	 */
 	@Test
 	public void undecidableEntryAfterAMappedOneStillRefuses() throws Exception
@@ -307,9 +306,9 @@ public class SubscriptionPaymentRequestDecoratorTest
 
 	/**
 	 * The one place this deliberately does not mirror {@code DefaultSubscriptionOrderActivator}: both ask the
-	 * same {@code SubscriptionProductRule}, and both get the same "could not tell", but only this one refuses.
-	 * Carrying on here would send the request without forced tokenization and the shopper would be charged for
-	 * a subscription that can never be activated. Before the money moves, the safe answer is to stop.
+	 * same {@code SubscriptionProductRule} and both get the same unclassifiable answer, but only this one
+	 * refuses, because carrying on would send the request without forced tokenization and charge the shopper
+	 * for a subscription that can never be activated.
 	 */
 	@Test
 	public void resolverThatBlowsUpStopsTheCheckoutRatherThanChargingBlindly() throws Exception
@@ -335,8 +334,8 @@ public class SubscriptionPaymentRequestDecoratorTest
 	}
 
 	/**
-	 * A resolver refusing with a checked {@code BillingException} that is not "no mapping" is the same
-	 * "could not tell" as an unchecked blow-up, and gets the same refusal.
+	 * A resolver refusing with a checked {@code BillingException} that is not "no mapping" is as unclassifiable
+	 * as an unchecked failure, and gets the same refusal.
 	 */
 	@Test
 	public void resolverThatFailsWithABillingExceptionAlsoStopsTheCheckout() throws Exception
@@ -359,7 +358,108 @@ public class SubscriptionPaymentRequestDecoratorTest
 		assertUntouched(paymentRequest);
 	}
 
+	// ------------------------------------------------------ subscription units
+
+	@Test
+	public void refusesTwoDifferentSubscriptionProductsBeforeCharging() throws Exception
+	{
+		givenEntries(entry("300938", 1L), entry("300939", 1L));
+		when(connector.resolvePlan(any(PlanResolutionRequest.class))).thenReturn(new PlanRef("plan-1", null));
+		cartData.setAdyenPaymentMethod("scheme");
+
+		expectSingleUnitRefusal();
+	}
+
+	@Test
+	public void refusesQuantityTwoOfOneSubscriptionProduct() throws Exception
+	{
+		givenEntries(entry("300938", 2L));
+		when(connector.resolvePlan(any(PlanResolutionRequest.class))).thenReturn(new PlanRef("plan-1", null));
+		cartData.setAdyenPaymentMethod("scheme");
+
+		expectSingleUnitRefusal();
+	}
+
+	@Test
+	public void refusesTheSameSubscriptionProductOnTwoEntries() throws Exception
+	{
+		givenEntries(entry("300938", 1L), entry("300938", 1L));
+		when(connector.resolvePlan(any(PlanResolutionRequest.class))).thenReturn(new PlanRef("plan-1", null));
+		cartData.setAdyenPaymentMethod("scheme");
+
+		expectSingleUnitRefusal();
+		verify(connector, times(1)).resolvePlan(any(PlanResolutionRequest.class));
+	}
+
+	/** The cart is refused as a whole even when the method could not be tokenized either. */
+	@Test
+	public void unitRefusalComesBeforeThePaymentMethodCheck() throws Exception
+	{
+		givenEntries(entry("300938", 2L));
+		when(connector.resolvePlan(any(PlanResolutionRequest.class))).thenReturn(new PlanRef("plan-1", null));
+		cartData.setAdyenPaymentMethod("klarna");
+
+		expectSingleUnitRefusal();
+	}
+
+	@Test
+	public void acceptsOneSubscriptionUnitAlongsideOrdinaryProductsInAnyQuantity() throws Exception
+	{
+		givenEntries(entry("300938", 1L), entry("plain", 5L));
+		when(connector.resolvePlan(argThat(r -> r != null && "300938".equals(r.productCode()))))
+				.thenReturn(new PlanRef("plan-1", null));
+		when(connector.resolvePlan(argThat(r -> r != null && "plain".equals(r.productCode()))))
+				.thenThrow(new PlanNotMappedException("not mapped"));
+		cartData.setAdyenPaymentMethod("scheme");
+
+		decorator.decoratePaymentRequest(paymentRequest, cartData, null, null, null);
+
+		assertTrue(paymentRequest.getStorePaymentMethod());
+	}
+
+	@Test
+	public void classifiesProductsInTheCartsStore() throws Exception
+	{
+		givenMappedProduct("300938");
+		cartData.setAdyenPaymentMethod("scheme");
+
+		decorator.decoratePaymentRequest(paymentRequest, cartData, null, null, null);
+
+		final ArgumentCaptor<PlanResolutionRequest> request = ArgumentCaptor.forClass(PlanResolutionRequest.class);
+		verify(connector).resolvePlan(request.capture());
+		assertEquals("electronics", request.getValue().baseStoreUid());
+	}
+
 	// -------------------------------------------------------------- helpers
+
+	private void expectSingleUnitRefusal()
+	{
+		try
+		{
+			decorator.decoratePaymentRequest(paymentRequest, cartData, null, null, null);
+			fail("Expected a cart with more than one subscription unit to be refused before authorization");
+		}
+		catch (final RecurringContractHelper.SubscriptionCartNotSupportedException e)
+		{
+			assertEquals(RecurringContractHelper.SUBSCRIPTION_SINGLE_UNIT_ONLY, e.getErrorCode());
+		}
+		assertUntouched(paymentRequest);
+	}
+
+	private void givenEntries(final AbstractOrderEntryModel... entries)
+	{
+		when(cart.getEntries()).thenReturn(List.of(entries));
+	}
+
+	private static AbstractOrderEntryModel entry(final String code, final long quantity)
+	{
+		final ProductModel product = mock(ProductModel.class);
+		final AbstractOrderEntryModel entry = mock(AbstractOrderEntryModel.class);
+		when(product.getCode()).thenReturn(code);
+		when(entry.getProduct()).thenReturn(product);
+		when(entry.getQuantity()).thenReturn(quantity);
+		return entry;
+	}
 
 	private void expectRejection()
 	{

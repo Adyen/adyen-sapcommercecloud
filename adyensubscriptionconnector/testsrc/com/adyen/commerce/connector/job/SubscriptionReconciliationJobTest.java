@@ -134,8 +134,8 @@ public class SubscriptionReconciliationJobTest
 
 	/**
 	 * A subscription that has ended is never re-fetched, but a past-due one always is. Asserted on the query
-	 * itself because the alternative — noticing that a sweep is spending its whole batch on subscriptions
-	 * that ended long ago — only surfaces as platform rate-limiting in production.
+	 * itself, because a sweep spending its batch on long-ended subscriptions otherwise surfaces only as
+	 * platform rate-limiting.
 	 */
 	@Test
 	public void terminalSubscriptionsAreExcludedWhilePastDueStaysEligible()
@@ -153,10 +153,9 @@ public class SubscriptionReconciliationJobTest
 	}
 
 	/**
-	 * "Ended" is not always final — Chargebee reactivates a {@code cancelled} subscription, Recurly one whose
-	 * term has not run out — so an EXPIRED reference stays readable for a window measured from the end of its
-	 * term. Without it a reactivation whose webhook was lost would never be repaired: the reference would not
-	 * be a candidate, so no later run would correct it.
+	 * Chargebee reactivates a {@code cancelled} subscription and Recurly one whose term has not run out, so an
+	 * EXPIRED reference stays a candidate for a window measured from the end of its term; without it a
+	 * reactivation whose webhook was lost would never be repaired.
 	 */
 	@Test
 	public void recentlyExpiredSubscriptionIsStillASweepCandidate()
@@ -171,8 +170,8 @@ public class SubscriptionReconciliationJobTest
 	}
 
 	/**
-	 * The window is configurable, and zero is the setting that means "only while the term has not actually
-	 * run out yet" — the strictest one that still catches a Recurly reactivation.
+	 * Zero means "only while the term has not run out yet", the strictest setting that still catches a Recurly
+	 * reactivation.
 	 */
 	@Test
 	public void expiredWindowIsConfigurableDownToTheTermEndItself()
@@ -185,8 +184,8 @@ public class SubscriptionReconciliationJobTest
 	}
 
 	/**
-	 * A reference with no term end cannot have the window applied to it, and admitting it anyway would put it
-	 * in every sweep for good — the unbounded growth the whole filter exists to prevent.
+	 * A reference with no term end cannot have the window applied to it, and admitting it would leave it in
+	 * every sweep for good.
 	 */
 	@Test
 	public void expiredWithoutATermEndIsNotAdmittedByTheWindow()
@@ -197,11 +196,9 @@ public class SubscriptionReconciliationJobTest
 	}
 
 	/**
-	 * A subscription whose cancellation only takes effect at the end of the term keeps serving its customer,
-	 * and both connectors normalize that to ACTIVE with cancelAtPeriodEnd — so the pending end must not
-	 * become a second exclusion. Filtering on it would put the reference beyond the sweep's reach for the
-	 * whole remainder of the term, which is exactly the stretch during which a dropped webhook still needs
-	 * repairing.
+	 * A cancellation that only takes effect at the end of the term keeps serving its customer, and both
+	 * connectors normalize it to ACTIVE with cancelAtPeriodEnd; filtering on the pending end would put the
+	 * reference beyond the sweep's reach for the remainder of the term.
 	 */
 	@Test
 	public void aSubscriptionServingOutACancelledTermStaysASweepCandidate()
@@ -230,8 +227,8 @@ public class SubscriptionReconciliationJobTest
 	}
 
 	/**
-	 * The keys are read from configuration, so a divergence from project.properties is invisible until the
-	 * job silently runs on its hardcoded defaults.
+	 * The keys are read from configuration, so a divergence from project.properties leaves the job running on
+	 * its hardcoded defaults with nothing to show for it.
 	 */
 	@Test
 	public void configurationKeysShareTheAdyenSubscriptionNamespace()

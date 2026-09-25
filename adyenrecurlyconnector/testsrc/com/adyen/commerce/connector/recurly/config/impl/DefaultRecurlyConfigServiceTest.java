@@ -45,7 +45,9 @@ public class DefaultRecurlyConfigServiceTest
         when(configurationService.getConfiguration()).thenReturn(configuration);
         when(baseStoreService.getCurrentBaseStore()).thenReturn(baseStore);
         when(baseStore.getRecurlyConfig()).thenReturn(recurlyConfig);
-        service = new DefaultRecurlyConfigService(configurationService, baseStoreService);
+        service = new DefaultRecurlyConfigService();
+        service.setConfigurationService(configurationService);
+        service.setBaseStoreService(baseStoreService);
     }
 
     @Test
@@ -73,9 +75,8 @@ public class DefaultRecurlyConfigServiceTest
     }
 
     /**
-     * A store that has migrated to another platform still has to cancel the subscriptions it created on
-     * Recurly, and cancellation routes on the subscription's own platform rather than on the store's
-     * activeBillingPlatform. Gating this service on the active platform would strand exactly those.
+     * Cancellation routes on the subscription's own platform, not on the store's activeBillingPlatform, so
+     * a store that has moved to another platform must still be able to read its Recurly credentials.
      */
     @Test
     public void credentialsStayReadableForAStoreThatHasMovedToAnotherPlatform() throws Exception
@@ -98,8 +99,8 @@ public class DefaultRecurlyConfigServiceTest
     }
 
     /**
-     * The mode flags must not read as "off" when the store simply is not configured — that would run the
-     * non-wallet / no-NTID flow against a site set up for the opposite, silently.
+     * The mode flags must not read as "off" when the store is simply not configured: that would silently
+     * run the non-wallet / no-NTID flow against a site set up for the opposite.
      */
     @Test
     public void modeFlagsThrowWhenRecurlyConfigMissing()
@@ -183,8 +184,7 @@ public class DefaultRecurlyConfigServiceTest
     }
 
     /**
-     * The mirror of {@link #readsFeatureFlagsFromRecurlyConfiguration()}: each flag needs a true case and
-     * a false case, and they must not be read from each other.
+     * Each flag needs a true case and a false case, and neither may be read from the other.
      */
     @Test
     public void readsFeatureFlagsIndependentlyOfEachOther() throws Exception

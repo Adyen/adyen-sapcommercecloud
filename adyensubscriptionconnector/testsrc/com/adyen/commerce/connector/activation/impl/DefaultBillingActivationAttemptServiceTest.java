@@ -68,8 +68,7 @@ import de.hybris.platform.servicelayer.search.SearchResult;
  * failure into something retryable and, failing that, into something an operator can find.
  *
  * <p>The models are stateful mocks and the search service is backed by a list, because the claims worth
- * testing are about a record carrying state from one call to the next. A plain mock returning null from
- * every getter would pass the assertions without the code doing any work.</p>
+ * testing are about a record carrying state from one call to the next.</p>
  */
 @UnitTest
 public class DefaultBillingActivationAttemptServiceTest
@@ -145,10 +144,9 @@ public class DefaultBillingActivationAttemptServiceTest
 	}
 
 	/**
-	 * More than one trigger reaches the same order: the place-order path announces an ordinary
-	 * authorization, the 3DS return announces its own, and Adyen redelivers notifications on top of both.
-	 * Once the activation has succeeded, a later one must not walk the record back to PENDING nor spend a
-	 * retry the policy is holding for a failure that has not happened.
+	 * More than one trigger reaches the same order: the place-order path, the 3DS return, and Adyen's
+	 * redelivered notifications. Once the activation has succeeded, a later one must not walk the record
+	 * back to PENDING nor spend a retry.
 	 */
 	@Test
 	public void leavesASucceededRecordAloneWhenAnotherTriggerArrives()
@@ -171,7 +169,7 @@ public class DefaultBillingActivationAttemptServiceTest
 	public void carriesOnWithTheWinnersRecordAfterALostRace()
 	{
 		final BillingActivationAttemptModel winner = statefulAttempt();
-		winner.setAttemptCount(Integer.valueOf(1));
+		winner.setAttemptCount(1);
 		winner.setStatus(BillingActivationAttemptService.STATUS_PENDING);
 		// Invisible until our own insert is rejected — which is exactly the order a lost race happens in.
 		final java.util.concurrent.atomic.AtomicBoolean winnerVisible = new java.util.concurrent.atomic.AtomicBoolean();
@@ -185,8 +183,7 @@ public class DefaultBillingActivationAttemptServiceTest
 		final BillingActivationAttemptModel result = begin();
 
 		assertSame(winner, result);
-		// Not re-counted: the winner already counted this activation of this order, and counting it twice
-		// would spend the retry budget at twice the intended rate.
+		// Not re-counted: counting this activation twice would spend the retry budget at twice the rate.
 		assertEquals(Integer.valueOf(1), result.getAttemptCount());
 	}
 
@@ -328,11 +325,7 @@ public class DefaultBillingActivationAttemptServiceTest
 		return searchResult;
 	}
 
-	/**
-	 * Written out longhand rather than reflected over, matching the webhook dispatcher's test: the mock is
-	 * infrastructure every test here leans on, and infrastructure that is clever is infrastructure nobody
-	 * can debug when it breaks.
-	 */
+	/** Written out longhand rather than reflected over: every test here leans on this mock. */
 	private static BillingActivationAttemptModel statefulAttempt()
 	{
 		final Map<String, Object> state = new HashMap<>();

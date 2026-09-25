@@ -40,20 +40,9 @@ import de.hybris.platform.servicelayer.cronjob.AbstractJobPerformable;
 import de.hybris.platform.servicelayer.cronjob.PerformResult;
 
 /**
- * Drives the retry half of the policy: picks up activation attempts that are due and runs them again.
- *
- * <p>It holds no logic of its own about how to activate anything — it hands each order back to
- * {@link SubscriptionOrderActivator}, which is idempotent, journals its own outcome and establishes its
- * own store context. The job's only job is choosing what to hand back, and noticing when handing it back
- * achieved nothing.</p>
- *
- * <h3>Why it has to notice</h3>
- * <p>The activator declines quietly in several legitimate cases: the store's billing platform has since
- * been switched off, the product is no longer mapped to a plan, the order no longer carries a
- * subscription product. A declined retry leaves the record exactly as it found it — still due, still in
- * this queue — and every subsequent run would pick it up again for ever. So a pass that did not raise
- * the attempt count is treated as unactionable and dead-lettered with that as the reason, which both
- * empties the queue and tells the operator something they would otherwise never learn.</p>
+ * Hands due activation attempts back to the idempotent {@link SubscriptionOrderActivator}. A retry the
+ * activator quietly declined (platform switched off, product unmapped) does not raise the attempt count and is
+ * dead-lettered, as it would otherwise stay due forever.
  */
 public class SubscriptionActivationRetryJob extends AbstractJobPerformable<CronJobModel>
 {
@@ -89,8 +78,6 @@ public class SubscriptionActivationRetryJob extends AbstractJobPerformable<CronJ
 
 		if (due.size() >= batchSize)
 		{
-			// Said out loud rather than left to be inferred from the batch size: a queue that is permanently
-			// longer than one batch is a different problem from a handful of orders waiting their turn.
 			LOG.info("The batch limit of {} was reached; more activations may still be waiting.", batchSize);
 		}
 		return new PerformResult(CronJobResult.SUCCESS, CronJobStatus.FINISHED);
@@ -100,7 +87,6 @@ public class SubscriptionActivationRetryJob extends AbstractJobPerformable<CronJ
 	{
 		try
 		{
-			// AbstractOrder on the type, so a cart is representable even though nothing creates one here.
 			if (!(attempt.getOrder() instanceof OrderModel order))
 			{
 				attemptService.abandon(attempt, "the attempt points at " + (attempt.getOrder() == null ? "no order"
@@ -126,11 +112,7 @@ public class SubscriptionActivationRetryJob extends AbstractJobPerformable<CronJ
 		}
 	}
 
-	/**
-	 * Whether the attempt has reached a state the job is done with. {@code PENDING} counts as unsettled on
-	 * purpose: it means the activator opened a record and never closed it, which is the same dead end as a
-	 * retry that never ran.
-	 */
+	/** {@code PENDING} is unsettled: the activator opened the record and never closed it. */
 	protected boolean isSettled(final BillingActivationAttemptModel attempt)
 	{
 		return !BillingActivationAttemptService.STATUS_FAILED.equals(attempt.getStatus())
@@ -143,15 +125,11 @@ public class SubscriptionActivationRetryJob extends AbstractJobPerformable<CronJ
 		return true;
 	}
 
-	/**
-	 * Read once, not twice. The count is compared against itself across a refresh, so a helper that reads
-	 * it twice per call can straddle the refresh and report a change as no change — which here means
-	 * dead-lettering an activation that was in fact retried.
-	 */
+	/** Reads the count once, as it is compared across a model refresh. */
 	protected static int attemptCount(final BillingActivationAttemptModel attempt)
 	{
 		final Integer count = attempt.getAttemptCount();
-		return count == null ? 0 : count.intValue();
+		return count == null ? 0 : count;
 	}
 
 	public void setAttemptService(final BillingActivationAttemptService attemptService)

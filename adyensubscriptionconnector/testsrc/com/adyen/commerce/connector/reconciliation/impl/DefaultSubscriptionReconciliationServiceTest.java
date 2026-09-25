@@ -1,8 +1,10 @@
 package com.adyen.commerce.connector.reconciliation.impl;
 
 import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -17,10 +19,12 @@ import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import com.adyen.commerce.connector.context.SubscriptionStoreContext;
 import com.adyen.commerce.connector.dto.BillingSubscriptionRef;
 import com.adyen.commerce.connector.dto.NormalizedSubscription;
 import com.adyen.commerce.connector.dto.NormalizedSubscriptionStatus;
 import com.adyen.commerce.connector.enums.BillingPlatform;
+import com.adyen.commerce.connector.exception.PreconditionFailedException;
 import com.adyen.commerce.connector.model.BillingSubscriptionRefModel;
 import com.adyen.commerce.connector.registry.SubscriptionBillingConnectorRegistry;
 import com.adyen.commerce.connector.spi.SubscriptionBillingConnector;
@@ -28,6 +32,7 @@ import com.adyen.commerce.connector.spi.SubscriptionBillingConnector;
 import de.hybris.bootstrap.annotations.UnitTest;
 import de.hybris.platform.core.PK;
 import de.hybris.platform.servicelayer.model.ModelService;
+import de.hybris.platform.store.BaseStoreModel;
 
 @UnitTest
 public class DefaultSubscriptionReconciliationServiceTest
@@ -43,6 +48,10 @@ public class DefaultSubscriptionReconciliationServiceTest
 	private ModelService modelService;
 	@Mock
 	private BillingSubscriptionRefModel model;
+	@Mock
+	private SubscriptionStoreContext storeContext;
+	@Mock
+	private BaseStoreModel store;
 
 	private DefaultSubscriptionReconciliationService service;
 
@@ -53,7 +62,10 @@ public class DefaultSubscriptionReconciliationServiceTest
 		service = new DefaultSubscriptionReconciliationService();
 		service.setConnectorRegistry(connectorRegistry);
 		service.setModelService(modelService);
+		service.setStoreContext(storeContext);
 		service.setClock(Clock.fixed(NOW, ZoneOffset.UTC));
+		when(storeContext.callInStoreOf(eq(model), any())).thenAnswer(
+				invocation -> invocation.<SubscriptionStoreContext.StoreBoundWork<?>> getArgument(1).call(store));
 		when(model.getPlatform()).thenReturn(BillingPlatform.RECURLY);
 		when(model.getExternalSubscriptionId()).thenReturn("uuid-sub");
 		when(connectorRegistry.getConnector(BillingPlatform.RECURLY)).thenReturn(connector);
@@ -82,9 +94,8 @@ public class DefaultSubscriptionReconciliationServiceTest
 	}
 
 	/**
-	 * Reflective writes type-check at runtime rather than at compile time, so a renamed or removed attribute
-	 * only shows up as a failing reconciliation in production. Every attribute this service writes has a
-	 * generated setter; this pins that none of them regress to setAttributeValue.
+	 * Reflective writes type-check at runtime rather than at compile time, so a renamed attribute would only
+	 * surface as a failing reconciliation. Every attribute this service writes has a generated setter.
 	 */
 	@Test
 	public void writesEveryAttributeThroughGeneratedSettersRatherThanReflectively() throws Exception
@@ -94,8 +105,8 @@ public class DefaultSubscriptionReconciliationServiceTest
 		service.reconcile(model);
 
 		// The type witness picks the (Object, String, Object) overload. Left to infer, the value matcher
-		// resolves to the more specific localized Map overload, which is a different method after erasure —
-		// the verification would then pass however many plain reflective writes the service made.
+		// resolves to the localized Map overload, a different method after erasure, and the verification
+		// would pass however many plain reflective writes the service made.
 		verify(modelService, never())
 				.setAttributeValue(any(), anyString(), org.mockito.ArgumentMatchers.<Object> any());
 	}
@@ -158,5 +169,17 @@ public class DefaultSubscriptionReconciliationServiceTest
 	private BillingSubscriptionRef anyRef()
 	{
 		return org.mockito.ArgumentMatchers.any(BillingSubscriptionRef.class);
+	}
+
+	/** Without its own store the platform is not read at all, rather than read with the caller's credentials. */
+	@Test
+	public void readsNothingWhenTheSubscriptionsStoreCannotBeEstablished() throws Exception
+	{
+		when(storeContext.callInStoreOf(eq(model), any())).thenThrow(new PreconditionFailedException("no store"));
+
+		assertThrows(PreconditionFailedException.class, () -> service.reconcile(model));
+
+		verify(connector, never()).fetchSubscription(any());
+		verify(modelService, never()).save(any());
 	}
 }

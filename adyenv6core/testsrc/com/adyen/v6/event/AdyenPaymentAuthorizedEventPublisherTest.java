@@ -5,6 +5,7 @@ import static org.junit.Assert.assertSame;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import org.junit.Before;
@@ -77,7 +78,7 @@ public class AdyenPaymentAuthorizedEventPublisherTest
      * id derived from the event's identity is what keeps the second registration from replacing the first.
      */
     @Test
-    public void keepsTwoAuthorizationsInTheSameTransactionApart() throws Exception
+    public void keepsTwoAuthorizationsInTheSameTransactionApart()
     {
         publisher.transaction = mock(Transaction.class);
 
@@ -86,7 +87,7 @@ public class AdyenPaymentAuthorizedEventPublisherTest
 
         final ArgumentCaptor<Transaction.TransactionAwareExecution> onCommit =
                 ArgumentCaptor.forClass(Transaction.TransactionAwareExecution.class);
-        verify(publisher.transaction, org.mockito.Mockito.times(2)).executeOnCommit(onCommit.capture());
+        verify(publisher.transaction, times(2)).executeOnCommit(onCommit.capture());
 
         assertNotEquals("the two registrations must not collapse into one",
                 String.valueOf(onCommit.getAllValues().get(0).getId()),

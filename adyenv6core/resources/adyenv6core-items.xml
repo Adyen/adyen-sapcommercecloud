@@ -996,6 +996,57 @@
             </attributes>
         </itemtype>
 
+        <itemtype code="AdyenStoredCardAuthorisation" generate="true" autocreate="true">
+            <description>The network transaction id of the authorisation that vaulted one of a shopper's
+                stored cards. Adyen reports it once, in the authorisation response's additionalData, and
+                does not repeat it when the vaulted tokens are listed, so a platform that charges an
+                imported token as a merchant-initiated transaction can only be given one that was captured
+                at the time. Orders keep theirs on PaymentInfo; this is the same fact for a card vaulted
+                outside any order.</description>
+            <deployment table="adyenstoredcardauth" typecode="22952"/>
+            <attributes>
+                <attribute qualifier="customer" type="Customer">
+                    <description>The shopper who owns the token.</description>
+                    <modifiers optional="false"/>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="storedPaymentMethodId" type="java.lang.String">
+                    <description>Adyen recurringDetailReference / storedPaymentMethodId.</description>
+                    <modifiers optional="false"/>
+                    <persistence type="property">
+                        <columntype>
+                            <value>varchar(255)</value>
+                        </columntype>
+                    </persistence>
+                </attribute>
+                <attribute qualifier="networkTxReference" type="java.lang.String">
+                    <description>Adyen networkTxReference for that authorisation. A scheme-level payment
+                        identifier: forwarded to the billing platform, never logged and never shown.</description>
+                    <modifiers optional="false"/>
+                    <persistence type="property">
+                        <columntype>
+                            <value>varchar(64)</value>
+                        </columntype>
+                    </persistence>
+                </attribute>
+                <attribute qualifier="merchantAccount" type="java.lang.String">
+                    <description>The Adyen merchant account the token and the reference belong to; a
+                        reference is only valid against the account that produced it.</description>
+                    <persistence type="property">
+                        <columntype>
+                            <value>varchar(255)</value>
+                        </columntype>
+                    </persistence>
+                </attribute>
+            </attributes>
+            <indexes>
+                <index name="idx_adyenStoredCardAuth" unique="true">
+                    <key attribute="customer"/>
+                    <key attribute="storedPaymentMethodId"/>
+                </index>
+            </indexes>
+        </itemtype>
+
         <itemtype code="AdyenSubscriptionConfig" autocreate="true" generate="true">
             <description>Adyen Subscription Configuration</description>
             <deployment table="AdyenSubscriptionConfig" typecode="10103"/>
@@ -1057,6 +1108,61 @@
                 </attribute>
                 <attribute qualifier="externalNtidFeatureEnabled" type="java.lang.boolean">
                     <description>External Ntid Feature Enabled</description>
+                    <modifiers optional="false"/>
+                    <persistence type="property"/>
+                    <defaultvalue>Boolean.FALSE</defaultvalue>
+                </attribute>
+                <attribute qualifier="paymentMethodChangeEnabled" type="java.lang.boolean">
+                    <description>Let shoppers repoint a subscription at another payment method the Recurly
+                        account already holds. Requires Wallet, and is deliberately SEPARATE from it: Wallet
+                        also switches the token-import path used when a subscription is created, so a site
+                        that turns Wallet on for that reason must not silently acquire a shopper-facing card
+                        change nobody has verified. Leave off until a repointed subscription has been seen to
+                        renew on the new card with that card's own network transaction id.</description>
+                    <modifiers optional="false"/>
+                    <persistence type="property"/>
+                    <defaultvalue>Boolean.FALSE</defaultvalue>
+                </attribute>
+                <attribute qualifier="networkTransactionIdOnBillingInfoEnabled" type="java.lang.boolean">
+                    <description>Send the Adyen network transaction id alongside the imported token when a
+                        billing info is created. Recurly documents NTIDs as accepted only on /subscriptions
+                        and /purchases, so this is unproven: off, an import behaves exactly as before; on,
+                        Recurly may reject the whole import. Turn it on only to establish what Recurly does
+                        with the field, and only once both NTID support flags are confirmed enabled.</description>
+                    <modifiers optional="false"/>
+                    <persistence type="property"/>
+                    <defaultvalue>Boolean.FALSE</defaultvalue>
+                </attribute>
+                <attribute qualifier="promoteChosenCardToPrimary" type="java.lang.boolean">
+                    <description>After a shopper points a subscription at a card, also make that card the
+                        account's primary billing info. Account-wide: every subscription of theirs that is
+                        not pinned to a specific billing info follows the primary and moves with it, and
+                        Recurly attempts collection on unpaid invoices tied to the updated billing info.
+                        Off by default, because the subscription the shopper acted on is pinned already and
+                        does not need it.</description>
+                    <modifiers optional="false"/>
+                    <persistence type="property"/>
+                    <defaultvalue>Boolean.FALSE</defaultvalue>
+                </attribute>
+                <attribute qualifier="hostedPagesHost" type="java.lang.String">
+                    <description>Host serving this site's Recurly hosted pages, host only and no scheme or
+                        path, e.g. mystore.recurly.com. Recurly's API hands out no link to them, so the
+                        address is assembled from this plus the account's hosted login token; copy the host
+                        out of the Account Management URL shown in the Recurly admin, which is also what
+                        makes this correct on sites not served from recurly.com.</description>
+                    <persistence type="property">
+                        <columntype>
+                            <value>varchar(255)</value>
+                        </columntype>
+                    </persistence>
+                </attribute>
+                <attribute qualifier="hostedAccountManagementEnabled" type="java.lang.boolean">
+                    <description>Offer shoppers a link to Recurly's own hosted account management page, where
+                        they can give Recurly a card it collects itself. Requires Hosted Account Management to
+                        be switched on in the Recurly admin and a hostedPagesHost here; with either missing the
+                        link is not offered. Note what the page does: it shows and edits the PRIMARY billing
+                        info only, so a shopper cannot add a second card to the wallet from it, and the link
+                        carries a token that opens the whole account.</description>
                     <modifiers optional="false"/>
                     <persistence type="property"/>
                     <defaultvalue>Boolean.FALSE</defaultvalue>

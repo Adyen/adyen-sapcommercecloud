@@ -27,8 +27,7 @@ import java.time.Instant;
  *
  * @param retry         whether the operation is due another attempt
  * @param nextAttemptAt when that attempt may run at the earliest; {@code null} when {@code retry} is false
- * @param reason        why, in words an operator reading the record can use. Always populated — a decision
- *                      to give up is exactly the one that has to explain itself.
+ * @param reason        why, in words an operator reading the record can use; always populated
  */
 public record RetryVerdict(boolean retry, Instant nextAttemptAt, String reason)
 {

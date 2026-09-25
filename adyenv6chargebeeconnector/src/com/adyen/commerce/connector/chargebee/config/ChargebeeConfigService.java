@@ -68,13 +68,13 @@ public interface ChargebeeConfigService
 
 	// --- Transport tuning ---
 	//
-	// Deliberately not on the base store: these describe this installation's tolerance for a slow
-	// Chargebee, not the shop's relationship with it, so they stay in project/local.properties.
+	// In project/local.properties rather than on the base store: these describe this installation's
+	// tolerance for a slow Chargebee, not the shop's relationship with it.
 
 	/** Time to establish the TCP/TLS connection before failing. */
 	int getConnectTimeoutMillis();
 
-	/** Time to wait for Chargebee's response before failing. Without it a hung call blocks forever. */
+	/** Time to wait for Chargebee's response before failing; httpclient5 has no default for this. */
 	int getResponseTimeoutMillis();
 
 	/** How long a caller may wait for a free pooled connection before failing. */

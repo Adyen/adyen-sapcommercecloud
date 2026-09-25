@@ -35,25 +35,18 @@ import com.adyen.v6.strategy.AdyenMerchantAccountStrategy;
 import de.hybris.platform.core.model.order.AbstractOrderModel;
 import de.hybris.platform.core.model.order.payment.PaymentInfoModel;
 import de.hybris.platform.core.model.user.CustomerModel;
+import de.hybris.platform.store.BaseStoreModel;
 import de.hybris.platform.core.model.user.UserModel;
 
 /**
- * Default factory. Maps the Adyen plugin's persisted token artifacts onto {@link AdyenTokenHandle}:
+ * Builds an {@link AdyenTokenHandle} from what the Adyen plugin stored on the order:
  * <ul>
  *   <li>{@code shopperReference} &larr; {@code Customer.customerID}</li>
- *   <li>{@code storedPaymentMethodId} &larr; {@code PaymentInfo.adyenSelectedReference}
- *       (the plugin normalizes modern {@code storedPaymentMethodId} and legacy
- *       {@code recurringDetailReference} into this single attribute)</li>
+ *   <li>{@code storedPaymentMethodId} &larr; {@code PaymentInfo.adyenSelectedReference}</li>
  *   <li>{@code merchantAccount} &larr; {@link AdyenMerchantAccountStrategy}</li>
- *   <li>{@code networkTransactionId} &larr; {@code PaymentInfo.adyenNetworkTxReference}, captured from
- *       the authorisation response's {@code additionalData.networkTxReference}</li>
- *   <li>card metadata &larr; the {@code PaymentInfo} adyen card attributes</li>
+ *   <li>{@code networkTransactionId} &larr; {@code PaymentInfo.adyenNetworkTxReference}, optional</li>
+ *   <li>card metadata &larr; the {@code PaymentInfo} card attributes</li>
  * </ul>
- * The network transaction id stays optional: schemes return it for card authorisations, but not for
- * every payment method, and only connectors that advertise
- * {@code ConnectorCapabilities.requiresNetworkTransactionId()} need one. Orders authorised before that
- * attribute existed have none, so a token minted back then cannot be imported into such a platform
- * without a fresh authorisation.
  */
 public class DefaultAdyenTokenHandleFactory implements AdyenTokenHandleFactory
 {
@@ -83,12 +76,12 @@ public class DefaultAdyenTokenHandleFactory implements AdyenTokenHandleFactory
 		}
 
 		final UserModel user = order.getUser();
-		if (!(user instanceof CustomerModel))
+		if (!(user instanceof CustomerModel customer))
 		{
 			throw new TokenContractException(
 					"Order '" + order.getCode() + "' is not owned by a customer; cannot derive a shopperReference");
 		}
-		final String shopperReference = ((CustomerModel) user).getCustomerID();
+		final String shopperReference = customer.getCustomerID();
 		if (StringUtils.isBlank(shopperReference))
 		{
 			throw new TokenContractException("Customer on order '" + order.getCode() + "' has no customerID/shopperReference");
@@ -103,6 +96,39 @@ public class DefaultAdyenTokenHandleFactory implements AdyenTokenHandleFactory
 
 		return new AdyenTokenHandle(merchantAccount, shopperReference, storedPaymentMethodId,
 				StringUtils.trimToNull(paymentInfo.getAdyenNetworkTxReference()), buildCardMetadata(paymentInfo));
+	}
+
+	@Override
+	public AdyenTokenHandle createForStoredToken(final CustomerModel customer, final BaseStoreModel store,
+			final String storedPaymentMethodId, final CardMetadata cardMetadata) throws TokenContractException
+	{
+		return createForVaultedToken(customer, store, storedPaymentMethodId, null, cardMetadata);
+	}
+
+	@Override
+	public AdyenTokenHandle createForVaultedToken(final CustomerModel customer, final BaseStoreModel store,
+			final String storedPaymentMethodId, final String networkTransactionId,
+			final CardMetadata cardMetadata) throws TokenContractException
+	{
+		if (customer == null || StringUtils.isBlank(customer.getCustomerID()))
+		{
+			throw new TokenContractException("Cannot build a token handle without a customer carrying a "
+					+ "customerID/shopperReference");
+		}
+		if (StringUtils.isBlank(storedPaymentMethodId))
+		{
+			throw new TokenContractException("Cannot build a token handle without a stored payment method id");
+		}
+
+		final String merchantAccount = store == null ? null : adyenMerchantAccountStrategy.getWebMerchantAccount(store);
+		if (StringUtils.isBlank(merchantAccount))
+		{
+			throw new TokenContractException("Base store has no Adyen merchant account configured; refusing to "
+					+ "build a token handle that could not be charged");
+		}
+
+		return new AdyenTokenHandle(merchantAccount, customer.getCustomerID(), storedPaymentMethodId,
+				StringUtils.trimToNull(networkTransactionId), cardMetadata);
 	}
 
 	protected CardMetadata buildCardMetadata(final PaymentInfoModel paymentInfo)

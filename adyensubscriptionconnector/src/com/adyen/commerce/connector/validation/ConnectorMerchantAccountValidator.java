@@ -26,9 +26,9 @@ import com.adyen.commerce.connector.spi.SubscriptionBillingConnector;
 import de.hybris.platform.store.BaseStoreModel;
 
 /**
- * Enforces the universal precondition: the active connector's Adyen gateway must point at
- * the same Adyen merchant account as the store ({@code BaseStore.adyenMerchantAccount}). A mismatch
- * fails silently at charge time on the platform, so the core fails fast instead.
+ * Requires the active connector's Adyen gateway to name the same merchant account as the store
+ * ({@code BaseStore.adyenMerchantAccount}). A mismatch fails silently at charge time on the platform, so the
+ * core fails fast instead.
  */
 public interface ConnectorMerchantAccountValidator
 {

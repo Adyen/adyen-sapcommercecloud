@@ -39,6 +39,9 @@ public class RecurringContractHelper {
      */
     public static final String PAYMENT_METHOD_NOT_SUPPORTED = "checkout.error.payment.not.supported";
 
+    /** Message key for a cart holding more than one subscription unit. */
+    public static final String SUBSCRIPTION_SINGLE_UNIT_ONLY = "checkout.error.subscription.single.unit";
+
     private RecurringContractHelper() {
         // utility class
     }
@@ -227,6 +230,16 @@ public class RecurringContractHelper {
          */
         public String getErrorCode() {
             return errorCode;
+        }
+    }
+
+    /** The cart holds more than one subscription unit, while one order activates one subscription of quantity one. */
+    public static class SubscriptionCartNotSupportedException extends TokenizationNotSupportedException {
+
+        private static final long serialVersionUID = 1L;
+
+        public SubscriptionCartNotSupportedException(final String message) {
+            super(message, SUBSCRIPTION_SINGLE_UNIT_ONLY);
         }
     }
 }

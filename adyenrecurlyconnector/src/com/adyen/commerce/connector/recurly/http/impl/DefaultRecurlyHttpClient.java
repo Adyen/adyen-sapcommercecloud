@@ -7,7 +7,6 @@ import java.util.Locale;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hc.client5.http.classic.methods.HttpDelete;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
-import org.apache.hc.client5.http.classic.methods.HttpPatch;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.classic.methods.HttpPut;
 import org.apache.hc.client5.http.classic.methods.HttpUriRequestBase;
@@ -31,23 +30,16 @@ import com.adyen.commerce.connector.recurly.config.RecurlyConfigService;
 import com.adyen.commerce.connector.recurly.http.RecurlyHttpClient;
 import com.adyen.commerce.connector.recurly.http.RecurlyHttpResponse;
 
-/**
- * httpclient5-based transport. IOExceptions are treated as transient and surfaced as
- * {@link RetryableBillingException}.
- */
+/** httpclient5 transport. An {@link IOException} is transient and surfaces as {@link RetryableBillingException}. */
 public class DefaultRecurlyHttpClient implements RecurlyHttpClient {
     private static final Logger LOG = LoggerFactory.getLogger(DefaultRecurlyHttpClient.class);
     private static final String EVENT_CONNECTOR_CALL = "connector_call";
     private static final String IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
 
-    private volatile CloseableHttpClient httpClient;
-    private final RecurlyConfigService configService;
-
     private static final ContentType JSON_UTF8 = ContentType.create("application/json", StandardCharsets.UTF_8);
 
-    public DefaultRecurlyHttpClient(final RecurlyConfigService configService) {
-        this.configService = configService;
-    }
+    private volatile CloseableHttpClient httpClient;
+    private RecurlyConfigService configService;
 
     @Override
     public RecurlyHttpResponse get(final String url, final String authorizationHeader, final String acceptHeader)
@@ -60,15 +52,6 @@ public class DefaultRecurlyHttpClient implements RecurlyHttpClient {
                                     final String jsonBody, final String idempotencyKey)
             throws RetryableBillingException {
         final HttpPost request = new HttpPost(url);
-        request.setEntity(new StringEntity(jsonBody == null ? "{}" : jsonBody, JSON_UTF8));
-        return execute(request, url, authorizationHeader, acceptHeader, idempotencyKey);
-    }
-
-    @Override
-    public RecurlyHttpResponse patch(final String url, final String authorizationHeader, final String acceptHeader,
-                                     final String jsonBody, final String idempotencyKey)
-            throws RetryableBillingException {
-        final HttpPatch request = new HttpPatch(url);
         request.setEntity(new StringEntity(jsonBody == null ? "{}" : jsonBody, JSON_UTF8));
         return execute(request, url, authorizationHeader, acceptHeader, idempotencyKey);
     }
@@ -106,15 +89,13 @@ public class DefaultRecurlyHttpClient implements RecurlyHttpClient {
                         : EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
                 return new RecurlyHttpResponse(response.getCode(), body);
             });
-            // No retryable= here: whether this call will be retried is decided one layer up, by the API
-            // client, on the status *and* the vendor error code. A second opinion formed from the status
-            // alone would contradict it on exactly the interesting cases.
+            // No retryable= here: the API client decides retry from the status and the vendor error code.
             transportEvent(request, idempotencyKey)
                     .outcome(result.isSuccess()
                             ? ConnectorLogEvent.OUTCOME_SUCCESS
                             : ConnectorLogEvent.OUTCOME_FAILURE)
                     .durationSince(startedAt)
-                    .field("http_status", Integer.valueOf(result.statusCode()))
+                    .field("http_status", result.statusCode())
                     .field("error_class", ConnectorLogEvent.httpErrorClass(result.statusCode()))
                     .log(LOG, !result.isSuccess());
             return result;
@@ -129,17 +110,12 @@ public class DefaultRecurlyHttpClient implements RecurlyHttpClient {
         }
     }
 
-    /**
-     * The transport deliberately does not name the business operation: it cannot know one, and the
-     * surrounding {@code ConnectorLogContext} scope already supplies it. Earlier this was inferred from
-     * the URL shape, which mislabelled a billing-info read as a token import and swept every unmatched
-     * subscription path into {@code cancel_subscription}.
-     */
+    /** No operation name: the surrounding {@code ConnectorLogContext} scope supplies it. */
     private ConnectorLogEvent transportEvent(final HttpUriRequestBase request, final String idempotencyKey) {
         return ConnectorLogEvent.of(EVENT_CONNECTOR_CALL)
                 .platform(BillingPlatform.RECURLY)
                 .field("method", request.getMethod())
-                .field("idempotency_key_present", Boolean.valueOf(StringUtils.isNotBlank(idempotencyKey)));
+                .field("idempotency_key_present", StringUtils.isNotBlank(idempotencyKey));
     }
 
     private static String classifyException(final IOException error) {
@@ -156,15 +132,11 @@ public class DefaultRecurlyHttpClient implements RecurlyHttpClient {
                     final RequestConfig requestConfig = RequestConfig.custom()
                             .setConnectTimeout(Timeout.ofMilliseconds(configService.getConnectTimeoutMillis()))
                             .setResponseTimeout(Timeout.ofMilliseconds(configService.getResponseTimeoutMillis()))
-                            // Without this the wait for a free pooled connection defaults to three
-                            // minutes, so the configured timeouts stop being the upper bound a caller
-                            // sees: under load a platform worker thread blocks in the lease long before
-                            // its request is ever sent.
+                            // The default lease wait is three minutes, longer than any other timeout.
                             .setConnectionRequestTimeout(
                                     Timeout.ofMilliseconds(configService.getConnectionRequestTimeoutMillis()))
                             .build();
-                    // Every call targets the one Recurly host, so the default per-route cap of 2 (and pool
-                    // of 5) would serialize the whole platform onto a couple of connections.
+                    // Every call targets one host, so the default per-route cap of 2 would serialize them.
                     final PoolingHttpClientConnectionManager connectionManager =
                             PoolingHttpClientConnectionManagerBuilder.create()
                                     .setMaxConnTotal(configService.getMaxConnections())
@@ -180,4 +152,7 @@ public class DefaultRecurlyHttpClient implements RecurlyHttpClient {
         return client;
     }
 
+    public void setConfigService(final RecurlyConfigService configService) {
+        this.configService = configService;
+    }
 }

@@ -43,31 +43,9 @@ import de.hybris.platform.servicelayer.search.FlexibleSearchQuery;
 import de.hybris.platform.servicelayer.search.FlexibleSearchService;
 
 /**
- * Removes the billing journals once they have stopped being useful.
- *
- * <p>Every delivery and every activation leaves a row, none of them was ever removed, and one of the
- * columns is a long text. On a store that sells subscriptions these tables only grow, and the webhook
- * bodies now kept on failures make each row heavier than it was.</p>
- *
- * <h3>What it will not delete</h3>
- * <p>Two rules, and both are about not destroying evidence.</p>
- *
- * <p>Anything still actionable stays regardless of age: an activation that is {@code PENDING} or
- * {@code FAILED} is waiting for the retry job, and a delivery that has not settled may still be
- * redelivered. Deleting those would not tidy a queue, it would empty one.</p>
- *
- * <p>Anything that recorded a problem is kept far longer than an ordinary success. A dead letter means a
- * shopper paid and got nothing, and a delivery that failed is the only local trace that it arrived at
- * all - the platform's own delivery log ages out on its own schedule, usually a shorter one. So the
- * quiet successes go on the short window and everything carrying an error or a dead-letter stamp goes on
- * the long one.</p>
- *
- * <h3>Why the ordinary rows are recognised by their emptiness</h3>
- * <p>A webhook delivery is judged by {@code deadLetteredAt} and {@code lastError} being absent rather
- * than by its status string. The status vocabulary lives in the dispatcher, and a retention job that
- * repeated those literals here would keep deleting the right rows only until somebody renamed one - at
- * which point it would silently start deleting nothing, or worse, the wrong thing. Absent error and
- * absent dead letter is the same question asked in a way that cannot drift.</p>
+ * Removes old billing journal rows: settled ones after a short window, ones with an error or a dead letter after
+ * a long one, as they may be the only trace that a shopper paid and got nothing. Rows still actionable
+ * ({@code PENDING}, {@code FAILED}) are kept.
  */
 public class SubscriptionBillingRetentionJob extends AbstractJobPerformable<CronJobModel>
 {
@@ -96,20 +74,12 @@ public class SubscriptionBillingRetentionJob extends AbstractJobPerformable<Cron
 
 		if (removed > 0)
 		{
-			LOG.info("Removed {} expired subscription billing journal row(s).", Integer.valueOf(removed));
+			LOG.info("Removed {} expired subscription billing journal row(s).", removed);
 		}
 		return new PerformResult(CronJobResult.SUCCESS, CronJobStatus.FINISHED);
 	}
 
-	/**
-	 * Applications go first and by their own query rather than as a side effect of the parent.
-	 *
-	 * <p>{@code BillingWebhookEventApplication.event} is a plain attribute, not a relation, so removing the
-	 * delivery does not take its applications with it - it leaves rows pointing at nothing, on a mandatory
-	 * reference. The parent is therefore only removed once its children are gone, and a batch that runs out
-	 * of room mid-way leaves a delivery with fewer applications rather than an orphan, which the next run
-	 * finishes.</p>
-	 */
+	/** Applications go first: {@code BillingWebhookEventApplication.event} is a plain mandatory attribute. */
 	protected int removeWebhookEvents(final CronJobModel cronJob, final Date settledBefore, final Date troubledBefore)
 	{
 		final FlexibleSearchQuery query = new FlexibleSearchQuery(
@@ -150,13 +120,7 @@ public class SubscriptionBillingRetentionJob extends AbstractJobPerformable<Cron
 		return applications.size();
 	}
 
-	/**
-	 * The activation journal, on the same two windows.
-	 *
-	 * <p>Here the statuses can be named, because they are constants on the service's own interface rather
-	 * than literals borrowed from an implementation. {@code PENDING} and {@code FAILED} are absent on
-	 * purpose: the first is in flight and the second is the retry job's queue.</p>
-	 */
+	/** The activation journal, on the same two windows. */
 	protected int removeActivationAttempts(final CronJobModel cronJob, final Date settledBefore,
 			final Date troubledBefore)
 	{

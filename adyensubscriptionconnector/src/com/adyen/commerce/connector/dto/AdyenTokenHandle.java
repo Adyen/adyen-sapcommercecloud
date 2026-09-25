@@ -21,13 +21,11 @@
 package com.adyen.commerce.connector.dto;
 
 /**
- * The uniform token contract &mdash; the heart of the abstraction.
- *
- * <p>All supported platforms can charge an Adyen-vaulted token expressed as
+ * The uniform token contract. Every supported platform can charge an Adyen-vaulted token expressed as
  * {@code shopperReference} + {@code storedPaymentMethodId} (== {@code recurringDetailReference}),
- * provided the platform is connected to the same Adyen merchant account. This record carries
- * exactly that, plus an optional network transaction id (required by some connectors, e.g. Recurly)
- * and non-PCI card metadata. No PAN ever crosses this boundary.</p>
+ * provided the platform is connected to the same Adyen merchant account. The network transaction id is
+ * optional here and required by some connectors (Recurly); the card metadata is non-PCI, and no PAN ever
+ * crosses this boundary.
  */
 public record AdyenTokenHandle(String merchantAccount,
                                String shopperReference,
@@ -42,9 +40,6 @@ public record AdyenTokenHandle(String merchantAccount,
 		Dtos.requireText(storedPaymentMethodId, "storedPaymentMethodId");
 	}
 
-	/**
-	 * @return {@code true} if a non-blank network transaction id is present.
-	 */
 	public boolean hasNetworkTransactionId()
 	{
 		return networkTransactionId != null && !networkTransactionId.isBlank();

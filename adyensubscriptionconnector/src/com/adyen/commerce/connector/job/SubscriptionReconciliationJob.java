@@ -33,53 +33,21 @@ import de.hybris.platform.servicelayer.session.SessionExecutionBody;
 import de.hybris.platform.servicelayer.session.SessionService;
 import de.hybris.platform.store.BaseStoreModel;
 
+/** Re-reads stale subscription references from their platform, oldest first. */
 public class SubscriptionReconciliationJob extends AbstractJobPerformable<CronJobModel>
 {
 	static final String STALE_AFTER_MINUTES = "adyen.subscription.reconciliation.staleAfterMinutes";
 	static final String BATCH_SIZE = "adyen.subscription.reconciliation.batchSize";
 
 	/**
-	 * How long after its term ended an {@code EXPIRED} subscription is still re-read.
-	 *
-	 * <p>The window exists because a platform can bring one back: Chargebee reactivates a {@code cancelled}
-	 * subscription, Recurly one whose {@code current_period_ends_at} has not passed. Reconciling only on the
-	 * webhook would mean a lost delivery leaves the customer without access they have paid for, and nothing
-	 * would ever notice — the reference is not a candidate, so no later run corrects it.</p>
-	 *
-	 * <p>It is a window rather than "always" because the alternative does not converge. Every subscription
-	 * that ever ended would stay in the sweep for the lifetime of the store, its {@code lastSyncedAt} ageing
-	 * past the threshold forever, until a whole batch and the platform read budget behind it went on
-	 * re-confirming subscriptions that ended years ago while genuinely stale ones waited for a later run.
-	 * Measured from {@code currentPeriodEnd} rather than from the moment the status was written, because it is
-	 * the term's end that bounds reactivation on Recurly, and because a reference re-read many times must not
-	 * keep restarting its own window.</p>
+	 * How long after {@code currentPeriodEnd} an {@code EXPIRED} subscription is still re-read: both platforms can
+	 * reactivate one, and the bound keeps ended subscriptions from staying candidates forever.
 	 */
 	static final String EXPIRED_WINDOW_HOURS = "adyen.subscription.reconciliation.expiredWindowHours";
 
 	/**
-	 * Statuses excluded from the sweep because re-reading them is not expected to be worth the platform call.
-	 * Without this exclusion every subscription that ever ended stays in the sweep for the lifetime of the
-	 * store: {@code lastSyncedAt} keeps ageing past the staleness threshold, so the set only grows, and
-	 * eventually a whole batch — and the platform read-rate budget behind it — is spent re-confirming
-	 * subscriptions that ended months ago while genuinely stale ones wait for a later run.
-	 *
-	 * <p>{@code FAILED} is in here despite reading like a
-	 * transient error: it is the platform's terminal state for a subscription whose collection never
-	 * succeeded (Recurly's {@code failed}), not a retryable activation error. Retryable activation failures
-	 * live on {@code BillingActivationAttempt.status}, which is a different type with its own retry job.</p>
-	 *
-	 * <p>Neither drops a subscription that is still serving its customer. A cancellation that is
-	 * merely scheduled for the end of the term — Recurly's {@code canceled}, Chargebee's {@code non_renewing}
-	 * — normalizes to {@code ACTIVE} carrying {@code cancelAtPeriodEnd}, so that reference stays a sweep
-	 * candidate for the whole remainder of its term and a dropped webhook on it is still repaired by a later
-	 * run. {@code CANCELLED} is listed for completeness: no shipped adapter produces it, and rows that predate
-	 * the vocabulary settling are genuinely finished.</p>
-	 *
-	 * <p>{@code EXPIRED} is deliberately <em>not</em> in here, because "ended" is not always final: Chargebee
-	 * can reactivate a subscription its API reports as {@code cancelled}, and Recurly one that has not yet
-	 * passed {@code current_period_ends_at}. Both normalize to {@code EXPIRED}, so excluding it outright would
-	 * leave a reactivation whose webhook was lost with nothing to repair it. It is bounded by a window instead
-	 * — see {@link #EXPIRED_WINDOW_HOURS}.</p>
+	 * Statuses never re-read. {@code EXPIRED} is bounded by {@link #EXPIRED_WINDOW_HOURS} instead, and a
+	 * subscription cancelled at period end is still {@code ACTIVE} until the term ends.
 	 */
 	static final List<String> TERMINAL_STATUSES = List.of(
 			NormalizedSubscriptionStatus.CANCELLED.name(),
@@ -108,9 +76,7 @@ public class SubscriptionReconciliationJob extends AbstractJobPerformable<CronJo
 				configuration.getInt(EXPIRED_WINDOW_HOURS, DEFAULT_EXPIRED_WINDOW_HOURS));
 		final Instant now = clock.instant();
 		final Instant staleBefore = now.minus(staleAfterMinutes, ChronoUnit.MINUTES);
-		// A term that ended before this is old enough to stop asking about. Zero hours means "only while the
-		// term has not actually run out yet", which is the strictest setting that still catches a Recurly
-		// reactivation, and is what an operator who wants the old behaviour back should reach for.
+		// Zero hours means "only while the term has not run out yet".
 		final Instant endedAfter = now.minus(expiredWindowHours, ChronoUnit.HOURS);
 		boolean failed = false;
 		for (final BillingSubscriptionRefModel subscription : findCandidates(staleBefore, endedAfter, batchSize))
@@ -133,11 +99,7 @@ public class SubscriptionReconciliationJob extends AbstractJobPerformable<CronJo
 		return new PerformResult(failed ? CronJobResult.ERROR : CronJobResult.SUCCESS, CronJobStatus.FINISHED);
 	}
 
-	/**
-	 * Connector configuration is scoped to a base store. Cron-job sessions do not have a storefront site/store,
-	 * so each reference must be reconciled in the context of the order that created it. The local view prevents
-	 * one subscription's store from leaking into the next item in a multi-store batch.
-	 */
+	/** Reconciles in the store of the originating order; the local view keeps it from leaking to the next item. */
 	protected void reconcileInOrderContext(final BillingSubscriptionRefModel subscription) throws BillingException
 	{
 		final AbstractOrderModel order = subscription.getOrder();
@@ -178,23 +140,10 @@ public class SubscriptionReconciliationJob extends AbstractJobPerformable<CronJo
 	}
 
 	/**
-	 * The status column holds {@link NormalizedSubscriptionStatus} names — every writer sets it from the
-	 * enum — so the parameters are taken from the enum too rather than repeated as literals here.
+	 * The references due for a re-read, never-synced first. Null status is admitted explicitly, as
+	 * {@code NOT IN} is not true for null, and null ordering is spelled out because databases differ on it.
 	 *
-	 * <p>A null status has to be admitted explicitly: {@code NOT IN} evaluates to null, not true, for a null
-	 * left-hand side, so a reference whose status was never written would otherwise be filtered out, and
-	 * a never-synced reference is exactly what the sweep exists to catch.</p>
-	 *
-	 * <p>The ordering spells out where nulls belong instead of leaving it to the database. Oracle sorts
-	 * nulls last on an ascending sort and MySQL and SQL Server sort them first, which would silently make
-	 * never-synced references the last thing a capped batch reaches on one deployment and the first on
-	 * another.</p>
-	 */
-	/**
-	 * @param endedAfter an {@code EXPIRED} reference stays a candidate while its {@code currentPeriodEnd} is
-	 *        later than this. A null {@code currentPeriodEnd} does not qualify: with no term end there is no
-	 *        way to bound the window, and admitting it would put the reference in every sweep for good —
-	 *        the unbounded growth this whole filter exists to prevent.
+	 * @param endedAfter an {@code EXPIRED} reference stays a candidate while its {@code currentPeriodEnd} is later
 	 */
 	protected List<BillingSubscriptionRefModel> findCandidates(final Instant staleBefore, final Instant endedAfter,
 			final int batchSize)

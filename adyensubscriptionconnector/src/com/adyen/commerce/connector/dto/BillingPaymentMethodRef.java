@@ -23,8 +23,8 @@ package com.adyen.commerce.connector.dto;
 import com.adyen.commerce.connector.enums.BillingPlatform;
 
 /**
- * Opaque, serializable reference to a payment source/billing-info on an external billing platform.
- * Returned by a connector and persisted by the core as a {@code BillingPaymentMethodRefModel}.
+ * Opaque reference to a payment source or billing-info on an external billing platform, returned by a
+ * connector and persisted by the core as a {@code BillingPaymentMethodRefModel}.
  */
 public record BillingPaymentMethodRef(BillingPlatform platform, String externalId)
 {

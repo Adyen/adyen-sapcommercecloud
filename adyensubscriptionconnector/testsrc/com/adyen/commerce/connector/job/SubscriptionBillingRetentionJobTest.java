@@ -59,9 +59,9 @@ import de.hybris.platform.servicelayer.search.SearchResult;
 /**
  * Unit test for {@link SubscriptionBillingRetentionJob}.
  *
- * <p>The windows themselves are expressed in the queries, which a unit test cannot execute. What it can
- * pin down is the part that goes wrong quietly: the order of removal, and the two cut-off dates the job
- * hands the database being genuinely different rather than one value used twice.</p>
+ * <p>The retention windows live in the queries, which a unit test cannot execute. What it pins down is the
+ * order of removal and the two cut-off dates the job hands the database being genuinely different rather
+ * than one value used twice.</p>
  */
 @UnitTest
 public class SubscriptionBillingRetentionJobTest
@@ -83,9 +83,8 @@ public class SubscriptionBillingRetentionJobTest
 	{
 		MockitoAnnotations.openMocks(this);
 
-		// No subclass override here on purpose: the real isAbortRequested runs, so these tests also cover
-		// AbstractJobPerformable.clearAbortRequestedIfNeeded reading the inherited modelService. Stubbing it
-		// out is what let a null inherited field go unnoticed.
+		// No subclass override on purpose: the real isAbortRequested runs, so these tests also cover
+		// AbstractJobPerformable.clearAbortRequestedIfNeeded reading the inherited modelService.
 		job = new SubscriptionBillingRetentionJob();
 		job.setFlexibleSearchService(flexibleSearchService);
 		job.setModelService(modelService);
@@ -137,8 +136,8 @@ public class SubscriptionBillingRetentionJobTest
 	{
 		final BillingWebhookEventModel event = mock(BillingWebhookEventModel.class);
 		final BillingWebhookEventApplicationModel application = mock(BillingWebhookEventApplicationModel.class);
-		// Built before the chain, never inside it: stubbing a mock while another stubbing is still open is
-		// what UnfinishedStubbingException is.
+		// Built before the chain, never inside it: stubbing a mock while another stubbing is open raises
+		// UnfinishedStubbingException.
 		final SearchResult<Object> events = result(List.of(event));
 		final SearchResult<Object> applications = result(List.of(application));
 		final SearchResult<Object> empty = emptyResult();
