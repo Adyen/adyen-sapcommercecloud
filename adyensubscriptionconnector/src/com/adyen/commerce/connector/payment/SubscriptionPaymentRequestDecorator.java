@@ -3,6 +3,10 @@ package com.adyen.commerce.connector.payment;
 import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_CC;
 import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_SCHEME;
 
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,39 +31,16 @@ import de.hybris.platform.order.CartService;
 import de.hybris.platform.store.BaseStoreModel;
 
 /**
- * Tells the Adyen /payments request, while it is still being assembled, that this cart funds a
- * subscription and therefore has to leave a reusable token behind — and refuses the checkout before the
- * shopper can be charged when the method they picked cannot produce one.
+ * Makes a payment that funds a subscription leave a reusable card token behind, and refuses the checkout
+ * before the shopper is charged when it cannot be turned into exactly one subscription.
  *
- * <p>The contract fields themselves belong to {@link RecurringContractHelper#applySubscriptionContract},
- * which owns {@code storePaymentMethod}, the processing model and the deprecated flags for every payment
- * path; writing them out here would overrule, from the last step of the pipeline, what the payment method
- * handlers just decided through that same helper.</p>
+ * <p>The contract fields are set by {@link RecurringContractHelper#applySubscriptionContract}. Classification
+ * is {@link SubscriptionProductRule}'s, shared with the activator. Unlike the activator this fails closed:
+ * a product that cannot be classified, or a store whose platform has no connector, refuses the payment,
+ * because an untokenized payment for a subscription cannot be repaired afterwards.</p>
  *
- * <p>What counts as a subscription product is {@link SubscriptionProductRule}'s decision, the same bean
- * {@code DefaultSubscriptionOrderActivator} asks after the money has moved. A rule that cannot answer is
- * fatal here and is not there: this runs before the shopper is charged, where degrading to "not a
- * subscription" sends the request out untokenized and leaves the activator with a paid order it can never
- * turn into a subscription. A failed checkout is recoverable; that is not.</p>
- *
- * <p>A store whose {@code activeBillingPlatform} names a platform with no connector bean registered is
- * refused the same way, which fails <em>every</em> checkout in that store, ordinary carts included. "No
- * connector" does not mean "nothing here is a subscription" — the plan mappings and subscription products
- * outlive the connector being removed from the deployment — it means the question cannot be answered.
- * Letting the cart through would send the payment out untokenized and the activator would dead-letter the
- * attempt at once, since {@code ConnectorNotConfiguredException} is terminal for the retry policy. Narrowing
- * this to genuine subscription carts needs a way to classify a product without the connector.</p>
- *
- * <p>External token import is limited to cards until method-specific contracts for wallets and alternative
- * payment methods exist, and that limit can only be enforced approximately here: a saved method arrives as
- * {@code adyen_oneclick_<storedPaymentMethodId>} and the id carries no type. Saved methods are offered to
- * the shopper filtered by supported shopper interaction only (see
- * {@code DefaultAdyenCheckoutFacade#getStoredOneClickPaymentMethods}), so a stored PayPal or SEPA mandate
- * can appear among them, and the cart keeps only the ids ({@code Cart.adyenStoredCards} is a
- * {@code StringSet}), not the {@code type} that {@code /paymentMethods} returned. What is enforced is that
- * the handler which ran produced a card token reference, which cannot rule out a non-card behind a
- * saved-method selection because {@code OneClickPaymentHandler} builds {@code CardDetails} for all of
- * them.</p>
+ * <p>A saved method ({@code adyen_oneclick_<id>}) carries no type, so "card" is checked only as far as the
+ * handler having produced a card token reference.</p>
  */
 public class SubscriptionPaymentRequestDecorator implements AdyenPaymentRequestDecorator
 {
@@ -81,8 +62,6 @@ public class SubscriptionPaymentRequestDecorator implements AdyenPaymentRequestD
 			return;
 		}
 
-		// findConnector rather than getActiveConnector: answering the missing-connector case here keeps it out
-		// of a catch wide enough to also cover the cart inspection, which would swallow the refusal below.
 		final SubscriptionBillingConnector connector = connectorRegistry.findConnector(platform).orElse(null);
 		if (connector == null)
 		{
@@ -94,17 +73,21 @@ public class SubscriptionPaymentRequestDecorator implements AdyenPaymentRequestD
 					+ "a payment whose subscription content cannot be determined");
 		}
 
-		if (!containsSubscriptionProduct(cart, connector))
+		final Map<String, Long> units = subscriptionUnits(cart, store, connector);
+		if (units.isEmpty())
 		{
 			return;
+		}
+		final long totalUnits = units.values().stream().mapToLong(Long::longValue).sum();
+		if (units.size() > 1 || totalUnits > 1)
+		{
+			throw new RecurringContractHelper.SubscriptionCartNotSupportedException("Cart holds subscription units "
+					+ units + " but one order can activate one subscription with quantity one");
 		}
 
 		final String paymentMethod = cartData == null ? null : StringUtils.trimToNull(cartData.getAdyenPaymentMethod());
 		if (!isTokenizableCard(paymentMethod, paymentRequest))
 		{
-			// Typed rather than an IllegalArgumentException: this is the shopper having picked a method that
-			// cannot fund renewals, not a bug, and everything above flattens an unrecognised failure here into
-			// a generic authorization error the storefront cannot turn into "pick a card".
 			throw new RecurringContractHelper.TokenizationNotSupportedException(
 					"Payment method '" + StringUtils.defaultString(paymentMethod, "<missing>")
 							+ "' cannot leave a reusable token behind, which " + connector.platform()
@@ -115,21 +98,20 @@ public class SubscriptionPaymentRequestDecorator implements AdyenPaymentRequestD
 	}
 
 	/**
-	 * Classifies <em>every</em> entry, even once a subscription product has been found, so that an entry the
-	 * rule cannot classify is refused whichever position it sits in. Stopping at the first match would make a
-	 * cart holding one mapped product and one undecidable product succeed or fail depending on entry order,
-	 * and disagree with the activator, which looks at all of them.
+	 * Subscription units in the cart, per product code. Every entry is classified, so an undecidable one refuses
+	 * the payment wherever it sits.
 	 *
-	 * @throws IllegalStateException if the rule could not classify an entry, which is the fail-closed half
-	 *         described in the class javadoc
+	 * @throws IllegalStateException if the rule could not classify an entry
 	 */
-	protected boolean containsSubscriptionProduct(final CartModel cart, final SubscriptionBillingConnector connector)
+	protected Map<String, Long> subscriptionUnits(final CartModel cart, final BaseStoreModel store,
+			final SubscriptionBillingConnector connector)
 	{
+		final Map<String, Long> units = new LinkedHashMap<>();
 		if (cart.getEntries() == null)
 		{
-			return false;
+			return units;
 		}
-		boolean found = false;
+		final Map<String, Boolean> verdicts = new HashMap<>();
 		for (final AbstractOrderEntryModel entry : cart.getEntries())
 		{
 			final ProductModel product = entry == null ? null : entry.getProduct();
@@ -137,35 +119,52 @@ public class SubscriptionPaymentRequestDecorator implements AdyenPaymentRequestD
 			{
 				continue;
 			}
-			try
+			if (isSubscriptionProduct(verdicts, connector, store, product))
 			{
-				found |= subscriptionProductRule.isSubscriptionProduct(connector, product);
-			}
-			catch (final SubscriptionProductUndecidableException e)
-			{
-				// Unchecked so it can leave decoratePaymentRequest, whose signature belongs to
-				// AdyenPaymentRequestDecorator and carries no checked exception.
-				throw new IllegalStateException("Cannot decide whether product '" + product.getCode()
-						+ "' is a subscription product; refusing to authorize a payment that may need a reusable token",
-						e);
+				units.merge(product.getCode(), unitsOf(entry), Long::sum);
 			}
 		}
-		return found;
+		return units;
 	}
 
-	/**
-	 * Whether this payment can be vaulted as a card token the billing platform will be able to charge again.
-	 * See the class javadoc for what the saved-method half of this can and cannot establish.
-	 */
+	/** The rule's verdict, asked once per product code. */
+	protected boolean isSubscriptionProduct(final Map<String, Boolean> verdicts,
+			final SubscriptionBillingConnector connector, final BaseStoreModel store, final ProductModel product)
+	{
+		final Boolean known = verdicts.get(product.getCode());
+		if (known != null)
+		{
+			return known;
+		}
+		try
+		{
+			final boolean verdict = subscriptionProductRule.isSubscriptionProduct(connector, store, product);
+			verdicts.put(product.getCode(), verdict);
+			return verdict;
+		}
+		catch (final SubscriptionProductUndecidableException e)
+		{
+			// Unchecked: AdyenPaymentRequestDecorator declares no checked exception.
+			throw new IllegalStateException("Cannot decide whether product '" + product.getCode()
+					+ "' is a subscription product; refusing to authorize a payment that may need a reusable token", e);
+		}
+	}
+
+	/** An entry counts as at least one unit, so a missing quantity cannot hide a subscription. */
+	protected long unitsOf(final AbstractOrderEntryModel entry)
+	{
+		final Long quantity = entry.getQuantity();
+		return quantity == null ? 1L : Math.max(1L, quantity);
+	}
+
+	/** Whether this payment can be vaulted as a card token the platform can charge again. */
 	protected boolean isTokenizableCard(final String paymentMethod, final PaymentRequest paymentRequest)
 	{
 		if (PAYMENT_METHOD_SCHEME.equals(paymentMethod) || PAYMENT_METHOD_CC.equals(paymentMethod))
 		{
 			return true;
 		}
-		// The prefix marks any saved method, not a saved card, so the handler must also have turned it into a
-		// card token reference. Asked of RecurringContractHelper because the same predicate decides
-		// storePaymentMethod one step later.
+		// A saved method must also have been turned into a card token reference by its handler.
 		return StringUtils.isNotBlank(paymentMethod) && AdyenUtil.isOneClick(paymentMethod)
 				&& RecurringContractHelper.isStoredPaymentMethodReused(paymentRequest);
 	}

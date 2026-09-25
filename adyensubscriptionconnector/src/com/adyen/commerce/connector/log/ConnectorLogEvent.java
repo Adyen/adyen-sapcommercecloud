@@ -33,17 +33,9 @@ import com.adyen.commerce.connector.exception.PlanNotMappedException;
 import com.adyen.commerce.connector.exception.PreconditionFailedException;
 
 /**
- * Builder for the connector observability lines. Every connector emits {@code key=value} pairs that
- * dashboards and alerts parse, so the line format is a contract: values are quoted and escaped here
- * exactly once, control characters never survive {@link #escape} - webhook payloads and vendor error
- * bodies are attacker-influenced text that must not be able to forge a second line - and separators are
- * never written by a call site. A {@code null} value drops its key rather than printing a placeholder,
- * and escaping is deferred into SLF4J's own formatting step, so a line filtered out by the log level
- * costs nothing beyond the builder.
- *
- * <p>{@code platform}, {@code operation} and {@code correlation_id} are taken from
- * {@link ConnectorLogContext} when a scope is open, which is what joins a transport-level line to the
- * business operation that caused it.</p>
+ * Builder for connector log lines in logfmt ({@code key=value}). Values are escaped here, so untrusted text
+ * cannot forge a line; a {@code null} value drops its key; escaping runs only when the line is logged.
+ * {@code platform}, {@code operation} and {@code correlation_id} come from an open {@link ConnectorLogContext}.
  */
 public final class ConnectorLogEvent
 {
@@ -81,19 +73,12 @@ public final class ConnectorLogEvent
 		field(ConnectorLogContext.CORRELATION_ID, ConnectorLogContext.current(ConnectorLogContext.CORRELATION_ID));
 	}
 
-	/**
-	 * Starts a line for the named event, pre-filled with whatever {@link ConnectorLogContext} scope is
-	 * open on this thread.
-	 */
 	public static ConnectorLogEvent of(final String event)
 	{
 		return new ConnectorLogEvent(event);
 	}
 
-	/**
-	 * Adds a field. The first write of a key wins, so a value inherited from the surrounding scope is
-	 * never overwritten by a call site guessing at the same thing. A {@code null} value adds nothing.
-	 */
+	/** Adds a field; the first write of a key wins, so the surrounding scope's values are kept. */
 	public ConnectorLogEvent field(final String key, final Object value)
 	{
 		if (key != null && value != null)
@@ -128,22 +113,16 @@ public final class ConnectorLogEvent
 	 */
 	public ConnectorLogEvent durationSince(final long startedAtNanos)
 	{
-		return field("duration_ms", Long.valueOf(elapsedMillis(startedAtNanos)));
+		return field("duration_ms", elapsedMillis(startedAtNanos));
 	}
 
-	/**
-	 * Marks the line as a completed, successful operation: {@code outcome}, {@code duration_ms} and an
-	 * explicit {@code error_class=none} so a dashboard can filter on one field across both outcomes.
-	 */
+	/** Success, with an explicit {@code error_class=none} so both outcomes filter on one field. */
 	public ConnectorLogEvent success(final long startedAtNanos)
 	{
 		return outcome(OUTCOME_SUCCESS).durationSince(startedAtNanos).field("error_class", ERROR_CLASS_NONE);
 	}
 
-	/**
-	 * Marks the line as a failed operation and classifies the exception. Safe to call with {@code null}
-	 * - failure logging must never be the thing that throws.
-	 */
+	/** Failure, classified by the exception; accepts {@code null}. */
 	public ConnectorLogEvent failure(final long startedAtNanos, final BillingException error)
 	{
 		return outcome(OUTCOME_FAILURE)
@@ -160,12 +139,6 @@ public final class ConnectorLogEvent
 		}
 	}
 
-	/**
-	 * For the line that describes the expected, high-frequency outcome - an orchestration decision whose
-	 * ordinary answer is "nothing to do here", reached once per order. DEBUG keeps it available to
-	 * whoever is looking without costing one INFO per order; the surrounding failures stay at their own
-	 * levels.
-	 */
 	public void debug(final Logger log)
 	{
 		if (log.isDebugEnabled())
@@ -203,12 +176,7 @@ public final class ConnectorLogEvent
 		}
 	}
 
-	/**
-	 * The {@code error_class} label for a connector exception, driven by
-	 * {@link BillingException#isRetryable()} and the exception type rather than by the class
-	 * <em>name</em>: name matching mislabels every subtype that does not repeat the word, such as the
-	 * retryable {@code SubscriptionProductUndecidableException}.
-	 */
+	/** The {@code error_class} label for a connector exception, by retryability and type. */
 	public static String errorClass(final BillingException error)
 	{
 		if (error == null)
@@ -230,10 +198,7 @@ public final class ConnectorLogEvent
 		return ERROR_CLASS_TERMINAL;
 	}
 
-	/**
-	 * The {@code error_class} label for an HTTP status. Shared by both adapters so the vocabulary
-	 * cannot drift apart per platform.
-	 */
+	/** The {@code error_class} label for an HTTP status, shared by all adapters. */
 	public static String httpErrorClass(final int status)
 	{
 		if (status >= 200 && status < 300)
@@ -284,11 +249,7 @@ public final class ConnectorLogEvent
 		return values.toArray();
 	}
 
-	/**
-	 * Renders one logfmt value: bare when it is safe to read unquoted, double-quoted and escaped
-	 * otherwise. Anything below a space - CR and LF above all - is replaced rather than escaped,
-	 * because a log line must not be able to carry one.
-	 */
+	/** One logfmt value: bare when safe, else quoted and escaped; line breaks become spaces. */
 	static String escape(final String raw)
 	{
 		if (raw.isEmpty())
@@ -296,8 +257,7 @@ public final class ConnectorLogEvent
 			return "\"\"";
 		}
 
-		// One character short of the limit when the cut would land between a surrogate pair, so the
-		// truncation never leaves a lone surrogate behind.
+		// Never cut between a surrogate pair.
 		final String capped;
 		if (raw.length() > MAX_VALUE_LENGTH)
 		{
@@ -351,21 +311,14 @@ public final class ConnectorLogEvent
 				|| breaksTheLine(character);
 	}
 
-	/**
-	 * Anything that a log reader could take for the end of the line. {@link Character#isISOControl}
-	 * covers C0, DEL and C1; the two Unicode separators are not control characters but are treated as
-	 * line breaks by JSON viewers and editors, which is enough to make them unsafe here.
-	 */
+	/** ISO controls plus the Unicode line and paragraph separators, which viewers also treat as breaks. */
 	private static boolean breaksTheLine(final char character)
 	{
 		return Character.isISOControl(character) || character == LINE_SEPARATOR
 				|| character == PARAGRAPH_SEPARATOR;
 	}
 
-	/**
-	 * Defers {@link #escape} until SLF4J actually formats the line, so a suppressed line pays for
-	 * nothing.
-	 */
+	/** Defers {@link #escape} until SLF4J formats the line. */
 	private static final class LazyValue
 	{
 		private final Object value;

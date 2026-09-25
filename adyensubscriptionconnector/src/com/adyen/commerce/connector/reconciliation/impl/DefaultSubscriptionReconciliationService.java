@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.adyen.commerce.connector.context.SubscriptionStoreContext;
 import com.adyen.commerce.connector.dto.BillingSubscriptionRef;
 import com.adyen.commerce.connector.dto.NormalizedSubscription;
 import com.adyen.commerce.connector.exception.BillingException;
@@ -20,12 +21,14 @@ import com.adyen.commerce.connector.spi.SubscriptionBillingConnector;
 import de.hybris.platform.servicelayer.model.ModelService;
 import de.hybris.platform.util.Config;
 
+/** Overwrites the local projection of a subscription with the platform's own state. */
 public class DefaultSubscriptionReconciliationService implements SubscriptionReconciliationService
 {
 	private static final Logger LOG = LoggerFactory.getLogger(DefaultSubscriptionReconciliationService.class);
 
 	private SubscriptionBillingConnectorRegistry connectorRegistry;
 	private ModelService modelService;
+	private SubscriptionStoreContext storeContext;
 	private Clock clock = Clock.systemUTC();
 	private boolean explicitRowLockingSupported = !Config.isHSQLDBUsed();
 
@@ -40,20 +43,15 @@ public class DefaultSubscriptionReconciliationService implements SubscriptionRec
 		final BillingSubscriptionRef ref = new BillingSubscriptionRef(subscription.getPlatform(),
 				subscription.getExternalSubscriptionId());
 		final SubscriptionBillingConnector connector = connectorRegistry.getConnector(ref.platform());
-		final NormalizedSubscription snapshot = connector.fetchSubscription(ref);
+		final NormalizedSubscription snapshot = storeContext.callInStoreOf(subscription,
+				store -> connector.fetchSubscription(ref));
 		validateSnapshot(ref, snapshot);
 
-		// The remote read happens before the row lock, so no other writer is blocked for the duration of the
-		// call. It is still inside the transaction: @Transactional covers the whole method, so the round
-		// trip holds a database connection while it waits, and narrowing it to the write half would take a
-		// separate transactional collaborator — an inner call on `this` bypasses the Spring proxy.
-		//
-		// The refresh under the lock and the platform's own update timestamp keep a slow, older response
-		// from overwriting a newer reconciliation that completed first.
+		// Read before the row lock so no writer waits on the remote call; the refresh under the lock and the
+		// platform timestamp keep an older response from overwriting a newer one.
 		if (subscription.getPk() != null)
 		{
-			// SAP Commerce's bundled HSQLDB rejects ModelService.lock(). It is a single-node development
-			// database, so the refresh and timestamp guard stand in for the row lock there.
+			// HSQLDB rejects ModelService.lock(); the refresh and timestamp guard stand in for it there.
 			if (explicitRowLockingSupported)
 			{
 				modelService.lock(subscription.getPk());
@@ -119,17 +117,12 @@ public class DefaultSubscriptionReconciliationService implements SubscriptionRec
 		model.setQuantity(snapshot.quantity());
 		model.setCurrentPeriodStart(toDate(snapshot.currentPeriodStart()));
 		model.setCurrentPeriodEnd(toDate(snapshot.currentPeriodEnd()));
-		model.setCancelAtPeriodEnd(Boolean.valueOf(snapshot.cancelAtPeriodEnd()));
+		model.setCancelAtPeriodEnd(snapshot.cancelAtPeriodEnd());
 		model.setPlatformUpdatedAt(toDate(snapshot.platformUpdatedAt()));
 		touchReconciliation(model, reconciledAt);
 	}
 
-	/**
-	 * Records that the platform was read, whether or not the answer changed anything. Both timestamps move
-	 * together: lastReconciledAt is the audit trail of platform reads, lastSyncedAt is what takes the
-	 * reference back out of the staleness sweep, and a read not credited to the sweep leaves the reference
-	 * permanently due.
-	 */
+	/** Records the platform read; lastSyncedAt is what takes the reference out of the staleness sweep. */
 	protected void touchReconciliation(final BillingSubscriptionRefModel model, final Instant reconciledAt)
 	{
 		model.setLastReconciledAt(Date.from(reconciledAt));
@@ -149,6 +142,11 @@ public class DefaultSubscriptionReconciliationService implements SubscriptionRec
 	public void setModelService(final ModelService modelService)
 	{
 		this.modelService = modelService;
+	}
+
+	public void setStoreContext(final SubscriptionStoreContext storeContext)
+	{
+		this.storeContext = storeContext;
 	}
 
 	void setClock(final Clock clock)

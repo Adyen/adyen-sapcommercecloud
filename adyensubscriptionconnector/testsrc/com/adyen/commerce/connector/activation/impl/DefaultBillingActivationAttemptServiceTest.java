@@ -169,7 +169,7 @@ public class DefaultBillingActivationAttemptServiceTest
 	public void carriesOnWithTheWinnersRecordAfterALostRace()
 	{
 		final BillingActivationAttemptModel winner = statefulAttempt();
-		winner.setAttemptCount(Integer.valueOf(1));
+		winner.setAttemptCount(1);
 		winner.setStatus(BillingActivationAttemptService.STATUS_PENDING);
 		// Invisible until our own insert is rejected — which is exactly the order a lost race happens in.
 		final java.util.concurrent.atomic.AtomicBoolean winnerVisible = new java.util.concurrent.atomic.AtomicBoolean();

@@ -45,6 +45,7 @@ import com.adyen.commerce.connector.spi.SubscriptionBillingConnector;
 
 import de.hybris.bootstrap.annotations.UnitTest;
 import de.hybris.platform.core.model.product.ProductModel;
+import de.hybris.platform.store.BaseStoreModel;
 
 /**
  * Unit test for the shared subscription-product rule, exercised on its own rather than only through its two
@@ -54,16 +55,20 @@ import de.hybris.platform.core.model.product.ProductModel;
 public class DefaultSubscriptionProductRuleTest
 {
 	private static final String PRODUCT_CODE = "300938";
+	private static final String STORE_UID = "electronics";
 
 	private DefaultSubscriptionProductRule rule;
 	private SubscriptionBillingConnector connector;
+	private BaseStoreModel store;
 
 	@Before
-	public void setUp() throws Exception
+	public void setUp()
 	{
 		rule = new DefaultSubscriptionProductRule();
 		connector = mock(SubscriptionBillingConnector.class);
 		when(connector.platform()).thenReturn(BillingPlatform.RECURLY);
+		store = mock(BaseStoreModel.class);
+		when(store.getUid()).thenReturn(STORE_UID);
 	}
 
 	@Test
@@ -71,19 +76,36 @@ public class DefaultSubscriptionProductRuleTest
 	{
 		when(connector.resolvePlan(any(PlanResolutionRequest.class))).thenReturn(new PlanRef("plan-1", null));
 
-		assertTrue(rule.isSubscriptionProduct(connector, product(PRODUCT_CODE)));
+		assertTrue(rule.isSubscriptionProduct(connector, store, product(PRODUCT_CODE)));
 	}
 
 	@Test
-	public void probesByProductCode() throws Exception
+	public void probesByProductCodeInTheGivenStore() throws Exception
 	{
 		when(connector.resolvePlan(any(PlanResolutionRequest.class))).thenReturn(new PlanRef("plan-1", null));
 
-		rule.isSubscriptionProduct(connector, product(PRODUCT_CODE));
+		rule.isSubscriptionProduct(connector, store, product(PRODUCT_CODE));
 
 		final ArgumentCaptor<PlanResolutionRequest> request = ArgumentCaptor.forClass(PlanResolutionRequest.class);
 		verify(connector).resolvePlan(request.capture());
 		assertEquals(PRODUCT_CODE, request.getValue().productCode());
+		assertEquals(STORE_UID, request.getValue().baseStoreUid());
+	}
+
+	/** Without a store the mapping cannot be chosen, which is a refusal to answer, not a "no". */
+	@Test
+	public void refusesToAnswerWithoutAStore() throws Exception
+	{
+		try
+		{
+			rule.isSubscriptionProduct(connector, null, product(PRODUCT_CODE));
+			fail("Expected the rule to refuse to answer without a store");
+		}
+		catch (final SubscriptionProductUndecidableException e)
+		{
+			assertTrue(e.getMessage().contains(PRODUCT_CODE));
+		}
+		verify(connector, never()).resolvePlan(any(PlanResolutionRequest.class));
 	}
 
 	/**
@@ -96,7 +118,7 @@ public class DefaultSubscriptionProductRuleTest
 		when(connector.resolvePlan(any(PlanResolutionRequest.class)))
 				.thenThrow(new PlanNotMappedException("no mapping"));
 
-		assertFalse(rule.isSubscriptionProduct(connector, product(PRODUCT_CODE)));
+		assertFalse(rule.isSubscriptionProduct(connector, store, product(PRODUCT_CODE)));
 	}
 
 	@Test
@@ -107,7 +129,7 @@ public class DefaultSubscriptionProductRuleTest
 
 		try
 		{
-			rule.isSubscriptionProduct(connector, product(PRODUCT_CODE));
+			rule.isSubscriptionProduct(connector, store, product(PRODUCT_CODE));
 			fail("Expected the rule to refuse to answer rather than guess");
 		}
 		catch (final SubscriptionProductUndecidableException e)
@@ -129,7 +151,7 @@ public class DefaultSubscriptionProductRuleTest
 
 		try
 		{
-			rule.isSubscriptionProduct(connector, product(PRODUCT_CODE));
+			rule.isSubscriptionProduct(connector, store, product(PRODUCT_CODE));
 			fail("Expected the rule to refuse to answer rather than let the unchecked failure escape as itself");
 		}
 		catch (final SubscriptionProductUndecidableException e)
@@ -150,7 +172,7 @@ public class DefaultSubscriptionProductRuleTest
 
 		try
 		{
-			rule.isSubscriptionProduct(connector, product(PRODUCT_CODE));
+			rule.isSubscriptionProduct(connector, store, product(PRODUCT_CODE));
 			fail("Expected the rule to refuse to answer");
 		}
 		catch (final SubscriptionProductUndecidableException e)
@@ -166,10 +188,10 @@ public class DefaultSubscriptionProductRuleTest
 	@Test
 	public void nothingToClassifyIsAPlainNo() throws Exception
 	{
-		assertFalse(rule.isSubscriptionProduct(connector, null));
-		assertFalse(rule.isSubscriptionProduct(connector, product(null)));
-		assertFalse(rule.isSubscriptionProduct(connector, product("   ")));
-		assertFalse(rule.isSubscriptionProduct(null, product(PRODUCT_CODE)));
+		assertFalse(rule.isSubscriptionProduct(connector, store, null));
+		assertFalse(rule.isSubscriptionProduct(connector, store, product(null)));
+		assertFalse(rule.isSubscriptionProduct(connector, store, product("   ")));
+		assertFalse(rule.isSubscriptionProduct(null, store, product(PRODUCT_CODE)));
 
 		verify(connector, never()).resolvePlan(any(PlanResolutionRequest.class));
 	}

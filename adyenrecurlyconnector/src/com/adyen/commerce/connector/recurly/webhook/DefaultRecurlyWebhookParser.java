@@ -30,9 +30,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-/**
- * Verifies and normalizes Recurly's signed JSON webhook format.
- */
+/** Verifies and normalizes Recurly's signed JSON webhooks. */
 public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser {
     private static final Logger LOG = LoggerFactory.getLogger(DefaultRecurlyWebhookParser.class);
     private static final String EVENT_WEBHOOK_PROCESSING = "webhook_processing";
@@ -41,17 +39,8 @@ public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser {
     private static final String HMAC_SHA_256 = "HmacSHA256";
 
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final Clock clock;
-    private final RecurlyConfigService configService;
-
-    public DefaultRecurlyWebhookParser(final RecurlyConfigService configService) {
-        this(configService, Clock.systemUTC());
-    }
-
-    DefaultRecurlyWebhookParser(final RecurlyConfigService configService, final Clock clock) {
-        this.configService = configService;
-        this.clock = clock;
-    }
+    private Clock clock = Clock.systemUTC();
+    private RecurlyConfigService configService;
 
     @Override
     public NormalizedBillingEvent parse(final RawWebhook raw) throws BillingException {
@@ -81,9 +70,7 @@ public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser {
             final String uuid = text(payload, "uuid");
             final String eventTime = text(payload, "event_time");
             if (StringUtils.isBlank(eventTime)) {
-                // Without it there is no ordering signal, and Instant.parse(null) would throw an NPE
-                // straight through the SPI boundary, which the caller has no way to classify. The
-                // signature did verify, so this is reported as a malformed payload, not a forged one.
+                // No ordering signal. The signature did verify, so this is a malformed payload, not a forged one.
                 logFailure(startedAt, "event_time_missing", notificationId(payload, raw), payloadChars, true);
                 throw new TerminalBillingException("Recurly webhook has no event_time");
             }
@@ -101,8 +88,7 @@ public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser {
                     : null;
             final BillingEventType normalizedType = mapEvent(objectType, eventType);
             final String eventId = notificationId(payload, raw);
-            // Negative when Recurly's clock is ahead of ours; the sign is the skew signal, so it travels
-            // as the value rather than as a second derived flag.
+            // Negative when Recurly's clock is ahead of ours.
             final long lagMs = clock.instant().toEpochMilli() - occurredAt.toEpochMilli();
             webhookEvent()
                     .outcome(normalizedType == BillingEventType.UNKNOWN
@@ -116,8 +102,8 @@ public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser {
                     .field("object_type", objectType)
                     .field("normalized_event_type", normalizedType)
                     .field("resource_id", resourceId)
-                    .field("webhook_lag_ms", Long.valueOf(lagMs))
-                    .field("payload_chars", Integer.valueOf(payloadChars))
+                    .field("webhook_lag_ms", lagMs)
+                    .field("payload_chars", payloadChars)
                     .field("signature_verified", Boolean.TRUE)
                     .info(LOG);
             return new NormalizedBillingEvent(BillingPlatform.RECURLY, normalizedType, eventId, subscriptionId,
@@ -136,25 +122,18 @@ public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser {
                 .field("error_class", ConnectorLogEvent.ERROR_CLASS_VALIDATION)
                 .reason(reason)
                 .field("event_id", eventId)
-                .field("payload_chars", Integer.valueOf(payloadChars))
-                .field("signature_verified", Boolean.valueOf(signatureVerified))
+                .field("payload_chars", payloadChars)
+                .field("signature_verified", signatureVerified)
                 .warn(LOG);
     }
 
-    /**
-     * Platform and operation are stated here as a fallback for a parser used on its own; when the
-     * connector's scope is open its values win and the line reads identically.
-     */
+    /** Platform and operation for a parser used outside the connector's log scope. */
     private ConnectorLogEvent webhookEvent() {
         return ConnectorLogEvent.of(EVENT_WEBHOOK_PROCESSING)
                 .platform(BillingPlatform.RECURLY)
                 .operation("parse_webhook");
     }
 
-    /**
-     * The reason is carried by the exception rather than recovered from its wording: matching on
-     * {@code getMessage()} would make every reason label hostage to a copy edit.
-     */
     private static String signatureFailureReason(final BillingException error) {
         return error instanceof WebhookSignatureException signatureFailure
                 ? signatureFailure.reason()
@@ -162,10 +141,8 @@ public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser {
     }
 
     /**
-     * The event id the core deduplicates on. The body is preferred because the HMAC covers only
-     * {@code timestamp + "." + payload}, so an unsigned header taken first would let the dedup identity of
-     * a correctly-signed delivery be changed from outside. The header is the fallback because Recurly
-     * omits {@code id} from some payload shapes.
+     * The event id the core deduplicates on. The signed body wins over the unsigned header, which is only a
+     * fallback for payloads without {@code id}.
      */
     protected String notificationId(final JsonNode payload, final RawWebhook raw) {
         return StringUtils.defaultIfBlank(text(payload, "id"), header(raw.headers(), NOTIFICATION_ID_HEADER));
@@ -218,11 +195,7 @@ public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser {
         }
     }
 
-    /**
-     * A signature rejection that names its own reason. Still a {@link TerminalBillingException}, so
-     * callers classify it without knowing this type exists, while the observability line gets a label
-     * that survives a reworded message.
-     */
+    /** A signature rejection carrying a stable reason label for the log line. */
     protected static class WebhookSignatureException extends TerminalBillingException {
         private static final long serialVersionUID = 1L;
 
@@ -308,5 +281,13 @@ public class DefaultRecurlyWebhookParser implements RecurlyWebhookParser {
         if (StringUtils.isNotBlank(value)) {
             values.put(key, value);
         }
+    }
+
+    public void setConfigService(final RecurlyConfigService configService) {
+        this.configService = configService;
+    }
+
+    void setClock(final Clock clock) {
+        this.clock = clock;
     }
 }

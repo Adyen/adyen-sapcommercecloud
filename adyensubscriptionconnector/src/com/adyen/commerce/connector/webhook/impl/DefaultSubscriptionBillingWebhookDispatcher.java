@@ -130,7 +130,7 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 
 		// Correlated on the platform's own event id, which is also the delivery's deduplication key, so a
 		// redelivery and the original it repeats share one identifier.
-		try (ConnectorLogContext correlation = ConnectorLogContext.correlate(event == null ? null : event.eventId()))
+		try (ConnectorLogContext ignored = ConnectorLogContext.correlate(event == null ? null : event.eventId()))
 		{
 			try
 			{
@@ -541,17 +541,17 @@ public class DefaultSubscriptionBillingWebhookDispatcher implements Subscription
 
 	private static int attemptCount(final BillingWebhookEventModel record)
 	{
-		return record.getAttemptCount() == null ? 0 : record.getAttemptCount().intValue();
+		return record.getAttemptCount() == null ? 0 : record.getAttemptCount();
 	}
 
 	private static int applicationAttemptCount(final BillingWebhookEventApplicationModel application)
 	{
-		return application.getAttemptCount() == null ? 0 : application.getAttemptCount().intValue();
+		return application.getAttemptCount() == null ? 0 : application.getAttemptCount();
 	}
 
 	private static long eventVersion(final BillingSubscriptionRefModel ref)
 	{
-		return ref.getEventVersion() == null ? 0L : ref.getEventVersion().longValue();
+		return ref.getEventVersion() == null ? 0L : ref.getEventVersion();
 	}
 
 	private static String describe(final Throwable e)

@@ -30,6 +30,7 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isA;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -52,6 +53,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import com.adyen.commerce.connector.context.SubscriptionStoreContext;
 import com.adyen.commerce.connector.dto.AdyenTokenHandle;
 import com.adyen.commerce.connector.dto.BillingAddress;
 import com.adyen.commerce.connector.dto.BillingCustomerRef;
@@ -63,8 +65,11 @@ import com.adyen.commerce.connector.dto.ConnectorCapabilities;
 import com.adyen.commerce.connector.dto.PaymentMethodEnrollmentSupport;
 import com.adyen.commerce.connector.dto.NormalizedSubscriptionStatus;
 import com.adyen.commerce.connector.dto.PlanRef;
+import com.adyen.commerce.connector.dto.PlanResolutionRequest;
 import com.adyen.commerce.connector.dto.SubscriptionCancelRequest;
+import com.adyen.commerce.connector.dto.PaymentMethodChangeOutcome;
 import com.adyen.commerce.connector.dto.PaymentMethodChangeSupport;
+import com.adyen.commerce.connector.dto.PaymentMethodChoice;
 import com.adyen.commerce.connector.dto.PaymentMethodSource;
 import com.adyen.commerce.connector.dto.PaymentMethodChangeScope;
 import com.adyen.commerce.connector.dto.SubscriptionCancellation;
@@ -141,6 +146,8 @@ public class DefaultSubscriptionBillingServiceTest
 
 	private DefaultSubscriptionBillingService service;
 
+	private InlineStoreContext storeContext;
+
 	@Before
 	public void setUp() throws Exception
 	{
@@ -154,9 +161,12 @@ public class DefaultSubscriptionBillingServiceTest
 		service.setFlexibleSearchService(flexibleSearchService);
 		service.setEventService(eventService);
 		service.setReconciliationService(reconciliationService);
+		storeContext = new InlineStoreContext();
+		service.setStoreContext(storeContext);
 		service.setClock(Clock.fixed(Instant.parse("2026-06-25T10:00:00Z"), ZoneOffset.UTC));
 
 		when(order.getStore()).thenReturn(store);
+		when(store.getUid()).thenReturn("electronics");
 		when(order.getUser()).thenReturn(customer);
 		when(order.getPaymentInfo()).thenReturn(paymentInfo);
 		when(order.getCode()).thenReturn("ORDER-1");
@@ -209,6 +219,17 @@ public class DefaultSubscriptionBillingServiceTest
 		verify(modelService).save(result);
 		verify(reconciliationService, never()).reconcile(any());
 		verify(eventService).publishEvent(any(SubscriptionActivatedEvent.class));
+	}
+
+	@Test
+	public void shouldResolveThePlanForTheOrdersStore() throws Exception
+	{
+		service.activateSubscription(order, subProduct);
+
+		final ArgumentCaptor<PlanResolutionRequest> request = ArgumentCaptor.forClass(PlanResolutionRequest.class);
+		verify(connector).resolvePlan(request.capture());
+		assertEquals("SUB-PROD", request.getValue().productCode());
+		assertEquals("electronics", request.getValue().baseStoreUid());
 	}
 
 	@Test
@@ -288,7 +309,7 @@ public class DefaultSubscriptionBillingServiceTest
 	 * activation that left no local record of itself.
 	 */
 	@Test
-	public void shouldPropagateASaveFailureThatIsNotTheRace() throws Exception
+	public void shouldPropagateASaveFailureThatIsNotTheRace()
 	{
 		when(searchResult.getResult()).thenReturn(List.of());
 		doThrow(new ModelSavingException("the database is gone")).when(modelService)
@@ -298,7 +319,7 @@ public class DefaultSubscriptionBillingServiceTest
 	}
 
 	@Test
-	public void shouldKeyTheRemoteCallOnTheOrderCode() throws Exception
+	public void shouldKeyTheRemoteCallOnTheOrderCode()
 	{
 		assertEquals(order.getCode(), service.idempotencyKeyFor(order));
 		assertNull(service.idempotencyKeyFor(null));
@@ -558,13 +579,137 @@ public class DefaultSubscriptionBillingServiceTest
 		assertNull(service.buildBillingAddress(order));
 	}
 
+	/** The connector must only be reached with the subscription's own store in context. */
+	@Test
+	public void cancelReachesTheConnectorInsideTheSubscriptionsOwnStore() throws Exception
+	{
+		final BillingSubscriptionRefModel subscription = cancellableSubscription();
+		doAnswer(invocation -> {
+			assertSame(store, storeContext.current);
+			return null;
+		}).when(connector).cancelSubscription(any());
+
+		service.cancel(subscription, SubscriptionCancellation.endOfPeriod(CancelReason.OTHER));
+
+		verify(connector).cancelSubscription(any());
+		assertNull("the store context must not outlive the call", storeContext.current);
+	}
+
+	@Test
+	public void cancelMakesNoPlatformCallWithoutAnOriginatingStore() throws Exception
+	{
+		final BillingSubscriptionRefModel subscription = cancellableSubscription();
+		when(subscription.getOrder()).thenReturn(null);
+
+		assertThrows(PreconditionFailedException.class,
+				() -> service.cancel(subscription, SubscriptionCancellation.endOfPeriod(CancelReason.OTHER)));
+
+		verify(connector, never()).cancelSubscription(any());
+		verify(reconciliationService, never()).reconcile(any());
+	}
+
+	/** A store that moved to another platform must still cancel what it created on the old one. */
+	@Test
+	public void cancelRoutesOnTheSubscriptionsPlatformNotTheStoresActiveOne() throws Exception
+	{
+		final BillingSubscriptionRefModel subscription = cancellableSubscription();
+
+		service.cancel(subscription, SubscriptionCancellation.endOfPeriod(CancelReason.OTHER));
+
+		verify(connectorRegistry).getConnector(BillingPlatform.CHARGEBEE);
+		verify(connectorRegistry, never()).getActiveConnector(any());
+	}
+
+	/** Refusing a cancellation over a merchant-account mismatch would keep billing the shopper. */
+	@Test
+	public void cancelStillGoesThroughWhenTheMerchantAccountNoLongerMatches() throws Exception
+	{
+		final BillingSubscriptionRefModel subscription = cancellableSubscription();
+		doThrow(new PreconditionFailedException("merchant account mismatch")).when(merchantAccountValidator)
+				.validate(connector, store);
+
+		service.cancel(subscription, SubscriptionCancellation.endOfPeriod(CancelReason.OTHER));
+
+		verify(merchantAccountValidator).validate(connector, store);
+		verify(connector).cancelSubscription(any());
+	}
+
+	@Test
+	public void changePaymentMethodRunsAndValidatesInTheSubscriptionsOwnStore() throws Exception
+	{
+		final BillingSubscriptionRefModel subscription = cancellableSubscription();
+		when(subscription.getExternalCustomerId()).thenReturn("cust-ext");
+		when(connector.changePaymentMethod(any())).thenAnswer(invocation -> {
+			assertSame(store, storeContext.current);
+			return new PaymentMethodChangeOutcome(new BillingPaymentMethodRef(BillingPlatform.CHARGEBEE, "pm-2"),
+					PaymentMethodChangeScope.CUSTOMER);
+		});
+
+		service.changePaymentMethod(subscription, new PaymentMethodChoice.AdyenVaultedToken(
+				new AdyenTokenHandle("MERCH", "shopper-1", "TOKEN-2", null, null)));
+
+		verify(merchantAccountValidator).validate(connector, store);
+		verify(connector).changePaymentMethod(any());
+	}
+
+	@Test
+	public void listingPaymentMethodsNeedsTheSubscriptionsOwnStore() throws Exception
+	{
+		final BillingSubscriptionRefModel subscription = cancellableSubscription();
+		when(subscription.getExternalCustomerId()).thenReturn("cust-ext");
+		when(subscription.getOrder()).thenReturn(null);
+
+		assertThrows(PreconditionFailedException.class, () -> service.listPaymentMethods(subscription));
+
+		verify(connectorRegistry, never()).getConnector(any());
+	}
+
 	private BillingSubscriptionRefModel cancellableSubscription() throws Exception
 	{
 		final BillingSubscriptionRefModel subscription = mock(BillingSubscriptionRefModel.class);
 		when(subscription.getPlatform()).thenReturn(BillingPlatform.CHARGEBEE);
 		when(subscription.getExternalSubscriptionId()).thenReturn("sub-ext");
+		when(subscription.getOrder()).thenReturn(order);
 		when(connectorRegistry.getConnector(BillingPlatform.CHARGEBEE)).thenReturn(connector);
 		return subscription;
+	}
+
+	/** Runs the work inline and records which store was in context while it ran. */
+	private static final class InlineStoreContext implements SubscriptionStoreContext
+	{
+		private BaseStoreModel current;
+
+		@Override
+		public BaseStoreModel storeOf(final BillingSubscriptionRefModel subscription)
+		{
+			return subscription.getOrder() == null ? null : subscription.getOrder().getStore();
+		}
+
+		@Override
+		public <T> T callInStoreOf(final BillingSubscriptionRefModel subscription, final StoreBoundWork<T> work)
+				throws BillingException
+		{
+			final BaseStoreModel store = storeOf(subscription);
+			if (store == null)
+			{
+				throw new PreconditionFailedException("no originating store");
+			}
+			current = store;
+			try
+			{
+				return work.call(store);
+			}
+			finally
+			{
+				current = null;
+			}
+		}
+
+		@Override
+		public void establish(final AbstractOrderModel order, final BaseStoreModel store)
+		{
+			// Nothing to establish outside a session.
+		}
 	}
 
 	private static AddressModel address(final String first, final String last, final String town, final String postal)

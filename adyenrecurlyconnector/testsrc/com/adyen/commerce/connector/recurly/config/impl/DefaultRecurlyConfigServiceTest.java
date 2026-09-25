@@ -45,7 +45,9 @@ public class DefaultRecurlyConfigServiceTest
         when(configurationService.getConfiguration()).thenReturn(configuration);
         when(baseStoreService.getCurrentBaseStore()).thenReturn(baseStore);
         when(baseStore.getRecurlyConfig()).thenReturn(recurlyConfig);
-        service = new DefaultRecurlyConfigService(configurationService, baseStoreService);
+        service = new DefaultRecurlyConfigService();
+        service.setConfigurationService(configurationService);
+        service.setBaseStoreService(baseStoreService);
     }
 
     @Test

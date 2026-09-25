@@ -441,34 +441,25 @@
 	</context>
 
 	<!-- ===================================================================================
-	     Plan mappings: which SAP product is sold as which plan on the billing platform.
-
-	     This is the row that decides whether an order is a subscription order at all. The
-	     resolver looks the product code up here and nowhere else - not at the product type,
-	     not at a subscription term - so a missing mapping is not an error anywhere, it is
-	     simply an order that quietly is not a subscription. That makes this the single most
-	     important thing an operator can get wrong silently, and until now it had no UI.
-
-	     productCode is unique on the type, so the list is effectively one row per sellable
-	     subscription product and is meant to be read top to bottom during setup.
+	     Plan mappings: which SAP product is sold as which plan on the billing platform. A product
+	     without a mapping is silently not a subscription. Unique on (productCode, baseStore); an
+	     empty base store is the default for stores without their own row, and a store's row wins.
 	     ==================================================================================== -->
 	<context merge-by="type" parent="GenericItem" type="ChargebeePlanMapping" component="listview">
 		<lv:list-view>
 			<lv:column qualifier="productCode"/>
+			<lv:column qualifier="baseStore"/>
 			<lv:column qualifier="itemPriceId"/>
 			<lv:column qualifier="priceId"/>
-			<lv:column qualifier="baseStore"/>
 		</lv:list-view>
 	</context>
 
 	<context merge-by="type" parent="GenericItem" type="ChargebeePlanMapping" component="advanced-search">
 		<as:advanced-search>
 			<as:field-list>
-				<!-- The product code is how anyone arrives here: "this order did not become a
-				     subscription, is the product mapped?" -->
 				<as:field name="productCode" selected="true"/>
+				<as:field name="baseStore" selected="true"/>
 				<as:field name="itemPriceId" selected="true"/>
-				<as:field name="baseStore"/>
 			</as:field-list>
 		</as:advanced-search>
 	</context>
@@ -478,26 +469,24 @@
 			<editorArea:tab name="hmc.adyen">
 				<editorArea:section name="hmc.adyen.planMapping">
 					<editorArea:attribute qualifier="productCode"/>
+					<editorArea:attribute qualifier="baseStore"/>
 					<editorArea:attribute qualifier="itemPriceId"/>
 					<editorArea:attribute qualifier="priceId"/>
-					<editorArea:attribute qualifier="baseStore"/>
 				</editorArea:section>
 			</editorArea:tab>
 		</editorArea:editorArea>
 	</context>
 
-	<!-- Spelled out rather than left to the default wizard for the same reason as the platform
-	     configurations above: the default offers only the attributes the type system marks mandatory,
-	     which would silently drop priceId and baseStore from the form. -->
+	<!-- Explicit: the default wizard shows only mandatory attributes and would drop priceId and baseStore. -->
 	<context merge-by="type" type="ChargebeePlanMapping" component="create-wizard">
 		<wz:flow xmlns:wz="http://www.hybris.com/cockpitng/config/wizard-config"
 				 id="AdyenChargebeePlanMappingWizard" title="create.title(ctx.TYPE_CODE)">
 			<wz:step id="step1" label="hmc.adyen.planMapping">
 				<wz:content id="step1.content" merge-mode="replace">
 					<wz:property qualifier="newObject.productCode"/>
+					<wz:property qualifier="newObject.baseStore"/>
 					<wz:property qualifier="newObject.itemPriceId"/>
 					<wz:property qualifier="newObject.priceId"/>
-					<wz:property qualifier="newObject.baseStore"/>
 				</wz:content>
 			</wz:step>
 		</wz:flow>
@@ -506,9 +495,9 @@
 	<context merge-by="type" parent="GenericItem" type="RecurlyPlanMapping" component="listview">
 		<lv:list-view>
 			<lv:column qualifier="productCode"/>
+			<lv:column qualifier="baseStore"/>
 			<lv:column qualifier="planCode"/>
 			<lv:column qualifier="priceId"/>
-			<lv:column qualifier="baseStore"/>
 		</lv:list-view>
 	</context>
 
@@ -516,8 +505,8 @@
 		<as:advanced-search>
 			<as:field-list>
 				<as:field name="productCode" selected="true"/>
+				<as:field name="baseStore" selected="true"/>
 				<as:field name="planCode" selected="true"/>
-				<as:field name="baseStore"/>
 			</as:field-list>
 		</as:advanced-search>
 	</context>
@@ -527,9 +516,9 @@
 			<editorArea:tab name="hmc.adyen">
 				<editorArea:section name="hmc.adyen.planMapping">
 					<editorArea:attribute qualifier="productCode"/>
+					<editorArea:attribute qualifier="baseStore"/>
 					<editorArea:attribute qualifier="planCode"/>
 					<editorArea:attribute qualifier="priceId"/>
-					<editorArea:attribute qualifier="baseStore"/>
 				</editorArea:section>
 			</editorArea:tab>
 		</editorArea:editorArea>
@@ -541,9 +530,9 @@
 			<wz:step id="step1" label="hmc.adyen.planMapping">
 				<wz:content id="step1.content" merge-mode="replace">
 					<wz:property qualifier="newObject.productCode"/>
+					<wz:property qualifier="newObject.baseStore"/>
 					<wz:property qualifier="newObject.planCode"/>
 					<wz:property qualifier="newObject.priceId"/>
-					<wz:property qualifier="newObject.baseStore"/>
 				</wz:content>
 			</wz:step>
 		</wz:flow>

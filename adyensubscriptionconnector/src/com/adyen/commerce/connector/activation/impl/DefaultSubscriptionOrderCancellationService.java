@@ -123,7 +123,7 @@ public class DefaultSubscriptionOrderCancellationService implements Subscription
 	protected void cancelOne(final OrderModel order, final BillingSubscriptionRefModel ref)
 	{
 		final long startedAt = System.nanoTime();
-		try (ConnectorLogContext correlation = ConnectorLogContext.correlate(order.getCode()))
+		try (ConnectorLogContext ignored = ConnectorLogContext.correlate(order.getCode()))
 		{
 			final String skipReason = reasonToLeaveAlone(ref);
 			if (skipReason != null)

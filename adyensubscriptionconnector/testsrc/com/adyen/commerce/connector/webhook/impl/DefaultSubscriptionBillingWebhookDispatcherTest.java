@@ -135,7 +135,7 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 		}).when(modelService).save(any());
 		when(flexibleSearchService.search(any(FlexibleSearchQuery.class)))
 				.thenAnswer(i -> answerSearch(i.getArgument(0)));
-		doAnswer(i -> reconcile((BillingSubscriptionRefModel) i.getArgument(0)))
+		doAnswer(i -> reconcile(i.getArgument(0)))
 				.when(reconciliationService).reconcile(any());
 	}
 
@@ -412,7 +412,7 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 		final BillingSubscriptionRefModel ref = givenSubscription("sub-1", "PENDING");
 		final NormalizedBillingEvent event = eventOf(BillingEventType.SUBSCRIPTION_CREATED, "ev-1", "sub-1", T1);
 		doThrow(new RetryableBillingException("upstream down"))
-				.doAnswer(i -> reconcile((BillingSubscriptionRefModel) i.getArgument(0)))
+				.doAnswer(i -> reconcile(i.getArgument(0)))
 				.when(reconciliationService).reconcile(ref);
 		authoritative("sub-1", "ACTIVE", "monthly", 1);
 
@@ -634,7 +634,7 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 			final boolean scoped = dispatcher
 					.isDirectSubscriptionEvent(eventOf(type, "ev-" + type, "sub-1", Instant.EPOCH));
 			assertEquals("BillingEventType." + type + " is classified one way in this test and the other way in "
-					+ "the dispatcher", Boolean.valueOf(expectedScoped.contains(type)), Boolean.valueOf(scoped));
+					+ "the dispatcher", expectedScoped.contains(type), scoped);
 		}
 	}
 

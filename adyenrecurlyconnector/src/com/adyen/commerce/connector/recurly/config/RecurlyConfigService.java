@@ -19,62 +19,36 @@ public interface RecurlyConfigService {
 
     int getResponseTimeoutMillis();
 
-    /** How long a caller may wait for a free pooled connection before failing. */
     int getConnectionRequestTimeoutMillis();
 
-    /** Size of the connection pool, total and per route — every call goes to the one Recurly host. */
+    /** Pool size, total and per route: every call goes to the one Recurly host. */
     int getMaxConnections();
 
     String getWebhookSigningKey() throws ConnectorNotConfiguredException;
 
     int getWebhookToleranceSeconds();
 
-    /**
-     * Selects a mode rather than granting a permission, so "not configured" must not silently read as
-     * {@code false}: that would quietly run the no-NTID flow against a site set up for the opposite. Every
-     * caller sits in a method declaring {@code BillingException}, so failing fast costs nothing.
-     */
+    /** Throws when unset: this selects a flow, so "not configured" must not read as {@code false}. */
     boolean isExternalNtidFeatureEnabled() throws ConnectorNotConfiguredException;
 
-    /**
-     * Same reasoning as {@link #isExternalNtidFeatureEnabled()}: {@code false} means "the account's single
-     * primary billing info", not "unknown", and three branches in the API client turn on it.
-     */
+    /** Throws when unset: {@code false} means "the account's single primary billing info", not "unknown". */
     boolean isWalletEnabled() throws ConnectorNotConfiguredException;
 
-
-    /**
-     * Whether shoppers may repoint a subscription at another payment method the account already holds.
-     * Separate from Wallet, which also decides how a token is imported when a subscription is created, so a
-     * site enabling Wallet for that reason does not thereby acquire a shopper-facing card change.
-     */
+    /** Whether shoppers may repoint a subscription at another payment method the account already holds. */
     boolean isPaymentMethodChangeEnabledOrFalse();
 
-    /**
-     * Whether shoppers may be sent to Recurly's hosted account management page to give Recurly a card.
-     * False unless the flag is on AND a hosted-pages host is configured, because the address is assembled
-     * from that host and cannot be asked for.
-     */
+    /** False unless the flag is on and a hosted-pages host is configured, since the page URL is built from it. */
     boolean isHostedAccountManagementEnabledOrFalse();
 
     /** Host serving this site's Recurly hosted pages, e.g. {@code mystore.recurly.com}. */
     String getHostedPagesHost();
 
-    /**
-     * The same question as {@link #isExternalNtidFeatureEnabled()}, answered without throwing, for callers
-     * that run while a page renders and must offer nothing rather than fail.
-     */
+    /** {@link #isExternalNtidFeatureEnabled()} without throwing, for page rendering. */
     boolean isExternalNtidFeatureEnabledOrFalse();
 
-    /**
-     * Whether a card a shopper points a subscription at should also become the account's primary billing
-     * info. Account-wide in effect, so it is its own switch rather than part of the change itself.
-     */
+    /** Whether a card chosen for a subscription also becomes the account's primary billing info. */
     boolean isPromoteChosenCardToPrimaryEnabled();
 
-    /**
-     * Whether to put the network transaction id on the billing-info import itself. Unproven against
-     * Recurly, so it is separate from {@link #isExternalNtidFeatureEnabled()} and defaults off.
-     */
+    /** Whether the billing-info import carries the network transaction id. Unproven against Recurly; off by default. */
     boolean isNetworkTransactionIdOnBillingInfoEnabled();
 }

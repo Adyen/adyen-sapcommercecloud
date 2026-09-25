@@ -27,13 +27,16 @@ import com.adyen.commerce.connector.chargebee.plan.ChargebeePlanResolver;
 import com.adyen.commerce.connector.dto.PlanRef;
 import com.adyen.commerce.connector.dto.PlanResolutionRequest;
 import com.adyen.commerce.connector.exception.BillingException;
+import com.adyen.commerce.connector.exception.ConnectorNotConfiguredException;
 import com.adyen.commerce.connector.exception.PlanNotMappedException;
 
 import de.hybris.platform.servicelayer.search.FlexibleSearchQuery;
 import de.hybris.platform.servicelayer.search.FlexibleSearchService;
+import de.hybris.platform.store.BaseStoreModel;
 
 /**
- * Looks up the {@code ChargebeePlanMapping} row for a SAP product code and returns its item price id.
+ * Resolves the Chargebee item price for a product in a store: the store's own {@code ChargebeePlanMapping}
+ * row wins over the row without a store.
  */
 public class DefaultChargebeePlanResolver implements ChargebeePlanResolver
 {
@@ -45,17 +48,38 @@ public class DefaultChargebeePlanResolver implements ChargebeePlanResolver
 		final FlexibleSearchQuery query = new FlexibleSearchQuery(
 				"SELECT {pk} FROM {ChargebeePlanMapping} WHERE {productCode} = ?productCode");
 		query.addQueryParameter("productCode", request.productCode());
-
-		final List<ChargebeePlanMappingModel> result = flexibleSearchService
+		final List<ChargebeePlanMappingModel> candidates = flexibleSearchService
 				.<ChargebeePlanMappingModel> search(query).getResult();
-		if (result.isEmpty())
-		{
-			throw new PlanNotMappedException(
-					"No Chargebee item price mapped for SAP product code '" + request.productCode() + "'");
-		}
 
-		final ChargebeePlanMappingModel mapping = result.get(0);
+		final ChargebeePlanMappingModel mapping = pick(candidates, request);
 		return new PlanRef(mapping.getItemPriceId(), mapping.getPriceId());
+	}
+
+	protected ChargebeePlanMappingModel pick(final List<ChargebeePlanMappingModel> candidates,
+			final PlanResolutionRequest request) throws BillingException
+	{
+		final List<ChargebeePlanMappingModel> forStore = candidates.stream()
+				.filter(mapping -> isForStore(mapping.getBaseStore(), request.baseStoreUid())).toList();
+		final List<ChargebeePlanMappingModel> defaults = candidates.stream()
+				.filter(mapping -> mapping.getBaseStore() == null).toList();
+		final List<ChargebeePlanMappingModel> chosen = forStore.isEmpty() ? defaults : forStore;
+		if (chosen.isEmpty())
+		{
+			throw new PlanNotMappedException("No Chargebee item price mapped for SAP product code '"
+					+ request.productCode() + "' in base store '" + request.baseStoreUid() + "'");
+		}
+		if (chosen.size() > 1)
+		{
+			throw new ConnectorNotConfiguredException("Ambiguous Chargebee plan mapping for SAP product code '"
+					+ request.productCode() + "' in base store '" + request.baseStoreUid() + "': " + chosen.size()
+					+ " rows");
+		}
+		return chosen.get(0);
+	}
+
+	protected boolean isForStore(final BaseStoreModel store, final String baseStoreUid)
+	{
+		return store != null && baseStoreUid.equals(store.getUid());
 	}
 
 	public void setFlexibleSearchService(final FlexibleSearchService flexibleSearchService)

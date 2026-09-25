@@ -103,7 +103,7 @@ public class DefaultChargebeeHttpClient implements ChargebeeHttpClient
 							? ConnectorLogEvent.OUTCOME_SUCCESS
 							: ConnectorLogEvent.OUTCOME_FAILURE)
 					.durationSince(startedAt)
-					.field("http_status", Integer.valueOf(result.statusCode()))
+					.field("http_status", result.statusCode())
 					.field("error_class", ConnectorLogEvent.httpErrorClass(result.statusCode()))
 					.log(LOG, !result.isSuccess());
 			return result;
@@ -130,7 +130,7 @@ public class DefaultChargebeeHttpClient implements ChargebeeHttpClient
 				.platform(BillingPlatform.CHARGEBEE)
 				.field("method", request.getMethod())
 				.field("idempotency_key_present",
-						Boolean.valueOf(request.containsHeader(IDEMPOTENCY_KEY_HEADER)));
+						request.containsHeader(IDEMPOTENCY_KEY_HEADER));
 	}
 
 	private static String classifyException(final IOException error)

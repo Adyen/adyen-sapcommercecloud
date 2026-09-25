@@ -33,35 +33,21 @@ import de.hybris.platform.servicelayer.session.SessionExecutionBody;
 import de.hybris.platform.servicelayer.session.SessionService;
 import de.hybris.platform.store.BaseStoreModel;
 
+/** Re-reads stale subscription references from their platform, oldest first. */
 public class SubscriptionReconciliationJob extends AbstractJobPerformable<CronJobModel>
 {
 	static final String STALE_AFTER_MINUTES = "adyen.subscription.reconciliation.staleAfterMinutes";
 	static final String BATCH_SIZE = "adyen.subscription.reconciliation.batchSize";
 
 	/**
-	 * How long after its term ended an {@code EXPIRED} subscription is still re-read.
-	 *
-	 * <p>A platform can bring one back — Chargebee reactivates a {@code cancelled} subscription, Recurly one
-	 * whose {@code current_period_ends_at} has not passed — so a lost webhook on a reactivation needs a later
-	 * sweep to repair it. The window is bounded so the sweep converges: otherwise every subscription that ever
-	 * ended stays a candidate for the lifetime of the store and spends the platform read budget on terms that
-	 * finished years ago. It is measured from {@code currentPeriodEnd}, which is what bounds reactivation on
-	 * Recurly and does not restart each time the reference is re-read.</p>
+	 * How long after {@code currentPeriodEnd} an {@code EXPIRED} subscription is still re-read: both platforms can
+	 * reactivate one, and the bound keeps ended subscriptions from staying candidates forever.
 	 */
 	static final String EXPIRED_WINDOW_HOURS = "adyen.subscription.reconciliation.expiredWindowHours";
 
 	/**
-	 * Statuses excluded from the sweep, so that it does not grow without bound as subscriptions end.
-	 *
-	 * <p>{@code FAILED} is the platform's terminal state for a subscription whose collection never succeeded
-	 * (Recurly's {@code failed}), not a retryable activation error; retryable activation failures live on
-	 * {@code BillingActivationAttempt.status} with its own retry job. Neither status drops a subscription that
-	 * is still serving: a cancellation scheduled for the end of the term — Recurly's {@code canceled},
-	 * Chargebee's {@code non_renewing} — normalizes to {@code ACTIVE} carrying {@code cancelAtPeriodEnd} and
-	 * stays a candidate for the remainder of its term.</p>
-	 *
-	 * <p>{@code EXPIRED} is deliberately absent, because both platforms can reactivate a subscription that
-	 * normalizes to it; it is bounded by a window instead — see {@link #EXPIRED_WINDOW_HOURS}.</p>
+	 * Statuses never re-read. {@code EXPIRED} is bounded by {@link #EXPIRED_WINDOW_HOURS} instead, and a
+	 * subscription cancelled at period end is still {@code ACTIVE} until the term ends.
 	 */
 	static final List<String> TERMINAL_STATUSES = List.of(
 			NormalizedSubscriptionStatus.CANCELLED.name(),
@@ -90,8 +76,7 @@ public class SubscriptionReconciliationJob extends AbstractJobPerformable<CronJo
 				configuration.getInt(EXPIRED_WINDOW_HOURS, DEFAULT_EXPIRED_WINDOW_HOURS));
 		final Instant now = clock.instant();
 		final Instant staleBefore = now.minus(staleAfterMinutes, ChronoUnit.MINUTES);
-		// A term that ended before this is old enough to stop asking about. Zero hours means "only while the
-		// term has not run out yet", the strictest setting that still catches a Recurly reactivation.
+		// Zero hours means "only while the term has not run out yet".
 		final Instant endedAfter = now.minus(expiredWindowHours, ChronoUnit.HOURS);
 		boolean failed = false;
 		for (final BillingSubscriptionRefModel subscription : findCandidates(staleBefore, endedAfter, batchSize))
@@ -114,11 +99,7 @@ public class SubscriptionReconciliationJob extends AbstractJobPerformable<CronJo
 		return new PerformResult(failed ? CronJobResult.ERROR : CronJobResult.SUCCESS, CronJobStatus.FINISHED);
 	}
 
-	/**
-	 * Connector configuration is scoped to a base store. Cron-job sessions do not have a storefront site/store,
-	 * so each reference must be reconciled in the context of the order that created it. The local view prevents
-	 * one subscription's store from leaking into the next item in a multi-store batch.
-	 */
+	/** Reconciles in the store of the originating order; the local view keeps it from leaking to the next item. */
 	protected void reconcileInOrderContext(final BillingSubscriptionRefModel subscription) throws BillingException
 	{
 		final AbstractOrderModel order = subscription.getOrder();
@@ -159,17 +140,10 @@ public class SubscriptionReconciliationJob extends AbstractJobPerformable<CronJo
 	}
 
 	/**
-	 * The references due for a re-read, oldest first.
+	 * The references due for a re-read, never-synced first. Null status is admitted explicitly, as
+	 * {@code NOT IN} is not true for null, and null ordering is spelled out because databases differ on it.
 	 *
-	 * <p>A null status is admitted explicitly because {@code NOT IN} evaluates to null rather than true for a
-	 * null left-hand side, and a never-synced reference is what the sweep exists to catch. The ordering
-	 * spells out where nulls belong rather than leaving it to the database: Oracle sorts them last on an
-	 * ascending sort while MySQL and SQL Server sort them first, which would make never-synced references the
-	 * last thing a capped batch reaches on one deployment and the first on another.</p>
-	 *
-	 * @param endedAfter an {@code EXPIRED} reference stays a candidate while its {@code currentPeriodEnd} is
-	 *        later than this. A null {@code currentPeriodEnd} does not qualify: with no term end the window
-	 *        cannot be bounded, and the reference would stay in every sweep for good.
+	 * @param endedAfter an {@code EXPIRED} reference stays a candidate while its {@code currentPeriodEnd} is later
 	 */
 	protected List<BillingSubscriptionRefModel> findCandidates(final Instant staleBefore, final Instant endedAfter,
 			final int batchSize)

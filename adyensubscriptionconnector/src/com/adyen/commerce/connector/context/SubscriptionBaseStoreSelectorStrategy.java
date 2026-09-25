@@ -5,8 +5,8 @@ import de.hybris.platform.servicelayer.session.SessionService;
 import de.hybris.platform.store.BaseStoreModel;
 
 /**
- * Selects the exact base store attached to the subscription's originating order while reconciliation runs.
- * Outside that local session context it returns {@code null}, allowing SAP's ordinary site-based selector to run.
+ * Selects the store of the subscription being worked on, set by {@code SubscriptionStoreContext} in a local
+ * session view. Returns {@code null} elsewhere, so SAP's site-based selector runs.
  */
 public class SubscriptionBaseStoreSelectorStrategy implements BaseStoreSelectorStrategy
 {

@@ -32,36 +32,30 @@ import com.adyen.commerce.connector.product.SubscriptionProductRule;
 import com.adyen.commerce.connector.spi.SubscriptionBillingConnector;
 
 import de.hybris.platform.core.model.product.ProductModel;
+import de.hybris.platform.store.BaseStoreModel;
 
 /**
- * A product is a subscription product exactly when the active connector can resolve a plan for it.
- *
- * <p>Probing is cheap and side-effect-free: both shipped resolvers answer from a FlexibleSearch over their
- * own mapping table, with no remote call. It does mean an unmapped product is indistinguishable from a
- * non-subscription one, whose failure mode is that nothing happens.</p>
- *
- * <p>Deciding by calling {@code activateSubscription} and treating {@link PlanNotMappedException} as "not a
- * subscription" would be wrong: inside the service, plan resolution runs <em>after</em>
- * {@code ensureCustomer} and {@code importAdyenToken}, so every ordinary line item in the cart would leave
- * a real customer and an imported payment token behind on the billing platform before being rejected.
- * {@code RuntimeException} is translated here because the resolvers are FlexibleSearch-backed and
- * FlexibleSearch throws unchecked.</p>
+ * A product is a subscription product when the connector resolves a plan for it. Resolution is a local
+ * lookup, unlike {@code activateSubscription}, which creates the customer and imports the token first.
  */
 public class DefaultSubscriptionProductRule implements SubscriptionProductRule
 {
 	@Override
-	public boolean isSubscriptionProduct(final SubscriptionBillingConnector connector, final ProductModel product)
-			throws SubscriptionProductUndecidableException
+	public boolean isSubscriptionProduct(final SubscriptionBillingConnector connector, final BaseStoreModel store,
+			final ProductModel product) throws SubscriptionProductUndecidableException
 	{
-		// An entry with no product, or a product with no code, cannot carry a plan mapping. The guard gives
-		// the rule one answer for every input rather than an NPE for some.
 		if (connector == null || product == null || StringUtils.isBlank(product.getCode()))
 		{
 			return false;
 		}
+		if (store == null || StringUtils.isBlank(store.getUid()))
+		{
+			throw new SubscriptionProductUndecidableException("Cannot decide whether product '" + product.getCode()
+					+ "' is a subscription product without the store it is sold in", null);
+		}
 		try
 		{
-			connector.resolvePlan(new PlanResolutionRequest(product.getCode(), Map.of()));
+			connector.resolvePlan(new PlanResolutionRequest(product.getCode(), store.getUid(), Map.of()));
 			return true;
 		}
 		catch (final PlanNotMappedException e)
@@ -71,7 +65,7 @@ public class DefaultSubscriptionProductRule implements SubscriptionProductRule
 		catch (final BillingException | RuntimeException e)
 		{
 			throw new SubscriptionProductUndecidableException("Cannot decide whether product '" + product.getCode()
-					+ "' is a " + connector.platform() + " subscription product", e);
+					+ "' is a " + connector.platform() + " subscription product in store '" + store.getUid() + "'", e);
 		}
 	}
 }

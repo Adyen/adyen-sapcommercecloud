@@ -65,6 +65,8 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 
 	private static final Logger LOG = LoggerFactory.getLogger(DefaultChargebeeApiClient.class);
 	private static final String EVENT_VENDOR_API_ERROR = "vendor_api_error";
+	private static final String SUBSCRIPTIONS_PATH = "/subscriptions/";
+	private static final String RESOURCE_SUBSCRIPTION = "subscription";
 
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -153,23 +155,23 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 				configService.getApiBaseUrl() + "/customers/" + pathSegment(params.customerId()) + "/subscription_for_items",
 				authHeader(), FormEncoder.encode(form), params.subscriptionId());
 		requireSuccess(response, "create subscription");
-		return readId(response.body(), "subscription");
+		return readId(response.body(), RESOURCE_SUBSCRIPTION);
 	}
 
 	@Override
 	public NormalizedSubscription fetchSubscription(final String subscriptionId) throws BillingException
 	{
 		final ChargebeeHttpResponse response = httpClient
-				.get(configService.getApiBaseUrl() + "/subscriptions/" + pathSegment(subscriptionId), authHeader());
+				.get(configService.getApiBaseUrl() + SUBSCRIPTIONS_PATH + pathSegment(subscriptionId), authHeader());
 		requireSuccess(response, "retrieve subscription");
 		return mapSubscription(response.body());
 	}
 
 	protected NormalizedSubscription mapSubscription(final String body) throws BillingException
 	{
-		final JsonNode root = readJson(body, "subscription");
-		final String subscriptionId = readId(root, "subscription");
-		final JsonNode subscription = root.path("subscription");
+		final JsonNode root = readJson(body, RESOURCE_SUBSCRIPTION);
+		final String subscriptionId = readId(root, RESOURCE_SUBSCRIPTION);
+		final JsonNode subscription = root.path(RESOURCE_SUBSCRIPTION);
 		final JsonNode planItem = findPlanItem(subscription);
 
 		return new NormalizedSubscription(
@@ -320,7 +322,7 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 		}
 
 		final ChargebeeHttpResponse response = httpClient.post(
-				configService.getApiBaseUrl() + "/subscriptions/" + pathSegment(subscriptionId) + "/update_for_items",
+				configService.getApiBaseUrl() + SUBSCRIPTIONS_PATH + pathSegment(subscriptionId) + "/update_for_items",
 				authHeader(), FormEncoder.encode(form), null);
 		requireSuccess(response, "update subscription");
 	}
@@ -332,7 +334,7 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 		form.put("cancel_option", atPeriodEnd ? "end_of_term" : "immediately");
 
 		final ChargebeeHttpResponse response = httpClient.post(
-				configService.getApiBaseUrl() + "/subscriptions/" + pathSegment(subscriptionId) + "/cancel_for_items",
+				configService.getApiBaseUrl() + SUBSCRIPTIONS_PATH + pathSegment(subscriptionId) + "/cancel_for_items",
 				authHeader(), FormEncoder.encode(form), null);
 		requireSuccess(response, "cancel subscription");
 	}
@@ -369,10 +371,10 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 				.platform(BillingPlatform.CHARGEBEE)
 				.outcome(ConnectorLogEvent.OUTCOME_FAILURE)
 				.field("vendor_action", action.replace(' ', '_'))
-				.field("http_status", Integer.valueOf(response.statusCode()))
+				.field("http_status", response.statusCode())
 				.field("error_class", ConnectorLogEvent.httpErrorClass(response.statusCode()))
 				.field("vendor_error_code", errorCode(response.body()))
-				.field("retryable", Boolean.valueOf(retryable))
+				.field("retryable", retryable)
 				.warn(LOG);
 		if (retryable)
 		{

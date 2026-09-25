@@ -175,7 +175,7 @@ public class SubscriptionBillingWebhookControllerTest
 	 * names, and echoing the exception message would leak connector-side detail such as "bad signature".
 	 */
 	@Test
-	public void rejectionBodiesEchoNothingBackToTheCaller() throws Exception
+	public void rejectionBodiesEchoNothingBackToTheCaller()
 	{
 		final String script = "<script>alert(1)</script>";
 
@@ -211,7 +211,7 @@ public class SubscriptionBillingWebhookControllerTest
 	}
 
 	@Test
-	public void missingBodyIsDispatchedAsAnEmptyPayload() throws Exception
+	public void missingBodyIsDispatchedAsAnEmptyPayload()
 	{
 		final ResponseEntity<String> response = controller.receive(SITE_UID, "chargebee", null, request);
 

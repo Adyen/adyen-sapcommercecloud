@@ -103,7 +103,8 @@ public interface SubscriptionBillingConnector
 	// --- Plan resolution ---
 
 	/**
-	 * Resolve a SAP subscription product code to a platform plan/price reference.
+	 * Resolve a SAP subscription product code to a platform plan/price reference for the request's base store.
+	 * A mapping for that store wins over a mapping without a store.
 	 *
 	 * @throws com.adyen.commerce.connector.exception.PlanNotMappedException if no mapping exists
 	 */

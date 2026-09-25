@@ -33,22 +33,12 @@ import de.hybris.platform.core.model.order.OrderModel;
 import de.hybris.platform.servicelayer.event.impl.AbstractEventListener;
 
 /**
- * Activates a subscription once Adyen has confirmed the authorisation.
+ * Activates a subscription once Adyen confirms the authorisation, which is when the token and its network
+ * transaction id reach the order's PaymentInfo.
  *
- * <p>The Adyen token reaches the order's PaymentInfo only in
- * {@code DefaultAdyenOrderService.updatePaymentInfo}, which runs <em>after</em> the order is placed and, on
- * the 3DS path, only once the shopper returns — so the token and its network transaction id are available
- * here and not during checkout. Waiting for the notification also means a shopper who abandons the 3DS
- * challenge gets no live subscription off an unauthorised order.</p>
- *
- * <p>A separate listener rather than a hook inside {@code AuthorisationNotificationEventListener}: that
- * class's {@code processAuthorisationEvent} is guarded by "has a PaymentTransaction for this pspReference
- * already been created?", which is true for every ordinary card checkout. A second listener on the same
- * event runs regardless, and the platform isolates listener failures from each other.</p>
- *
- * <p>Runs at lowest precedence so the core listener has settled the payment transaction first. A partial
- * payment produces one notification per leg and Adyen may redeliver, so this can fire several times for one
- * order; {@link SubscriptionOrderActivator} is idempotent per order and absorbs that.</p>
+ * <p>A separate listener, because the core authorisation listener skips events whose payment transaction
+ * already exists, as every card checkout's does. Lowest precedence, so the core listener runs first. It may
+ * fire once per partial-payment leg or redelivery; the activator is idempotent.</p>
  */
 public class SubscriptionActivationAuthorisationEventListener extends AbstractEventListener<AuthorisationEvent>
 		implements Ordered
@@ -68,14 +58,12 @@ public class SubscriptionActivationAuthorisationEventListener extends AbstractEv
 			return;
 		}
 
-		// merchantReference is the order code: the plugin overrides the create-order strategy so the order
-		// keeps the cart code it paid under.
+		// merchantReference is the order code: the order keeps the cart code it paid under.
 		final String orderCode = notification.getMerchantReference();
 		final OrderModel order = orderCode == null ? null : findOrder(orderCode);
 		if (order == null)
 		{
-			// Expected for a partial payment's gift-card leg, which is authorised against the cart before an
-			// order exists. The card leg's notification arrives later and carries the same reference.
+			// Expected for a partial payment's gift-card leg, authorised before the order exists.
 			LOG.debug("No order '{}' for authorisation {}; not activating a subscription.", orderCode,
 					notification.getPspReference());
 			return;
@@ -84,11 +72,7 @@ public class SubscriptionActivationAuthorisationEventListener extends AbstractEv
 		subscriptionOrderActivator.activateFor(order);
 	}
 
-	/**
-	 * Seam over the plugin's own order lookup, which knows to ignore versioned copies. Kept separate so a
-	 * unit test can supply an order without loading OrderRepository — that class holds a log4j 1.x logger in
-	 * a static initializer and cannot be mocked outside a booted platform.
-	 */
+	/** Test seam: OrderRepository cannot be mocked outside a booted platform. */
 	protected OrderModel findOrder(final String orderCode)
 	{
 		return orderRepository.getOrderModel(orderCode);

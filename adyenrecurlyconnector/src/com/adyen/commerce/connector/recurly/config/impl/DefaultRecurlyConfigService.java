@@ -12,10 +12,8 @@ import java.net.URI;
 import java.net.URISyntaxException;
 
 /**
- * Credentials and feature flags come from the current base store's {@code recurlyConfig} (Backoffice:
- * Adyen Configuration &gt; Recurly Config). Only the transport tuning that is not per-store — API version,
- * timeouts, pool size, webhook tolerance — comes from the platform {@link ConfigurationService}
- * (project/local.properties).
+ * Credentials and feature flags come from the current base store's {@code recurlyConfig}; transport tuning
+ * (API version, timeouts, pool size, webhook tolerance) comes from {@link ConfigurationService}.
  */
 public class DefaultRecurlyConfigService implements RecurlyConfigService {
     static final String P_API_VERSION = "recurly.apiVersion";
@@ -33,13 +31,8 @@ public class DefaultRecurlyConfigService implements RecurlyConfigService {
     static final int DEFAULT_MAX_CONNECTIONS = 20;
     static final int DEFAULT_WEBHOOK_TOLERANCE_SECONDS = 300;
 
-    private final ConfigurationService configurationService;
-    private final BaseStoreService baseStoreService;
-
-    public DefaultRecurlyConfigService(final ConfigurationService configurationService, BaseStoreService baseStoreService) {
-        this.configurationService = configurationService;
-        this.baseStoreService = baseStoreService;
-    }
+    private ConfigurationService configurationService;
+    private BaseStoreService baseStoreService;
 
     @Override
     public String getApiKey() throws ConnectorNotConfiguredException {
@@ -65,15 +58,8 @@ public class DefaultRecurlyConfigService implements RecurlyConfigService {
     }
 
     /**
-     * Read off the Recurly configuration, not off the base store: the gateway-binding guard compares this
-     * against the store's own Adyen merchant account, so taking it from the store would compare a value
-     * with itself and could never fail.
-     *
-     * <p>Cannot signal "not configured" by throwing — {@link RecurlyConfigService} and the
-     * {@code SubscriptionBillingConnector} SPI both declare this without a checked exception — but
-     * {@code null} is not an exemption either: {@code DefaultConnectorMerchantAccountValidator} exempts
-     * only ADYEN_NATIVE and rejects a blank answer from an external connector, so the unconfigured case
-     * fails closed before activation.</p>
+     * Read from the Recurly configuration, not the store: the merchant-account guard compares it with the
+     * store's own account. {@code null} when unconfigured, which the guard rejects.
      */
     @Override
     public String getConfiguredAdyenMerchantAccount() {
@@ -126,12 +112,10 @@ public class DefaultRecurlyConfigService implements RecurlyConfigService {
         return Boolean.TRUE.equals(requireRecurlyConfig().getWalletEnabled());
     }
 
-
     @Override
     public boolean isPaymentMethodChangeEnabledOrFalse() {
         final RecurlyConfigModel config = findRecurlyConfig();
-        // Both flags. Without Wallet the account has a single primary billing info, so there is nothing
-        // to repoint to and the change flag alone would offer a control with an empty list.
+        // Without Wallet the account has a single billing info, so there is nothing to repoint to.
         return config != null
                 && Boolean.TRUE.equals(config.getWalletEnabled())
                 && Boolean.TRUE.equals(config.getPaymentMethodChangeEnabled());
@@ -140,8 +124,7 @@ public class DefaultRecurlyConfigService implements RecurlyConfigService {
     @Override
     public boolean isHostedAccountManagementEnabledOrFalse() {
         final RecurlyConfigModel config = findRecurlyConfig();
-        // The host is part of the answer, not a separate error: Recurly has no endpoint that returns a
-        // hosted-page address, so without it there is nothing to send the shopper to.
+        // Recurly has no endpoint returning the hosted-page address, so it is built from this host.
         return config != null
                 && Boolean.TRUE.equals(config.getHostedAccountManagementEnabled())
                 && StringUtils.isNotBlank(config.getHostedPagesHost());
@@ -177,11 +160,7 @@ public class DefaultRecurlyConfigService implements RecurlyConfigService {
         return baseStoreService.getCurrentBaseStore();
     }
 
-    /**
-     * The same lookup as {@link #requireRecurlyConfig()}, reported as {@code null} instead of thrown, for
-     * the callers the SPI forbids from throwing. It delegates so the two cannot disagree on when a store
-     * counts as configured.
-     */
+    /** {@link #requireRecurlyConfig()} returning {@code null} instead of throwing. */
     protected RecurlyConfigModel findRecurlyConfig() {
         try {
             return requireRecurlyConfig();
@@ -205,14 +184,15 @@ public class DefaultRecurlyConfigService implements RecurlyConfigService {
         try {
             final URI uri = new URI(baseUrl);
             if (!"https".equalsIgnoreCase(uri.getScheme()) || StringUtils.isBlank(uri.getHost())) {
-                throw invalidBaseUrl(baseUrl);
+                throw invalidBaseUrl();
             }
         } catch (final URISyntaxException e) {
-            throw invalidBaseUrl(baseUrl);
+            throw invalidBaseUrl();
         }
     }
 
-    protected ConnectorNotConfiguredException invalidBaseUrl(final String baseUrl) {
+    /** The value is not echoed: it is free text from Backoffice and may hold a mistakenly pasted secret. */
+    protected ConnectorNotConfiguredException invalidBaseUrl() {
         return new ConnectorNotConfiguredException("Invalid Recurly API base URL");
     }
 
@@ -226,15 +206,8 @@ public class DefaultRecurlyConfigService implements RecurlyConfigService {
     }
 
     /**
-     * Having Recurly configuration is the condition; being the store's active platform is not, and
-     * {@code activeBillingPlatform} is deliberately not checked here.
-     *
-     * <p>On activation the connector is already chosen by {@code getActiveConnector(store)}, so the check
-     * would discover nothing, and a refusal would surface as {@code null} from
-     * {@link #getConfiguredAdyenMerchantAccount()}, which {@code DefaultConnectorMerchantAccountValidator}
-     * reads as "the check does not apply" and skips — turning a merchant-account mismatch into an
-     * unchecked one. Cancellation also routes on {@code subscription.getPlatform()}, so a store that has
-     * migrated must still reach this configuration to cancel what it created on Recurly.</p>
+     * Does not check {@code activeBillingPlatform}: a store that migrated away must still reach this
+     * configuration to cancel what it created on Recurly.
      */
     protected RecurlyConfigModel requireRecurlyConfig()
             throws ConnectorNotConfiguredException {
@@ -253,5 +226,13 @@ public class DefaultRecurlyConfigService implements RecurlyConfigService {
         }
 
         return config;
+    }
+
+    public void setConfigurationService(final ConfigurationService configurationService) {
+        this.configurationService = configurationService;
+    }
+
+    public void setBaseStoreService(final BaseStoreService baseStoreService) {
+        this.baseStoreService = baseStoreService;
     }
 }

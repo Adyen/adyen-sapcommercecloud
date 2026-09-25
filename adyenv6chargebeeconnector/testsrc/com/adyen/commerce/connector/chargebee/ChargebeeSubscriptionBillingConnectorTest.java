@@ -171,7 +171,7 @@ public class ChargebeeSubscriptionBillingConnectorTest
 		final PlanRef plan = new PlanRef("price-1", null);
 		when(planResolver.resolve(any())).thenReturn(plan);
 
-		assertSame(plan, connector.resolvePlan(new PlanResolutionRequest("PROD-1", Map.of())));
+		assertSame(plan, connector.resolvePlan(new PlanResolutionRequest("PROD-1", "electronics", Map.of())));
 	}
 
 	@Test

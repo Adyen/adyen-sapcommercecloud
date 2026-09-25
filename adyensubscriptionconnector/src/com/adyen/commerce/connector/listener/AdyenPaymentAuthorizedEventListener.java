@@ -10,13 +10,8 @@ import de.hybris.platform.core.model.order.OrderModel;
 import de.hybris.platform.servicelayer.event.impl.AbstractEventListener;
 
 /**
- * Re-enters the idempotent subscription activation flow after 3DS/redirect authorization.
- *
- * <p>Nothing is reported from here: {@link SubscriptionOrderActivator#activateFor} never throws, and an
- * event listener's caller is the multicaster, which would only log an exception. The activator journals
- * every attempt as a {@code BillingActivationAttempt} before calling the platform, so a failure on this path
- * is retried and dead-lettered by {@code SubscriptionActivationRetryJob} under the same policy as every
- * other path. A handler local to this listener would produce a record that job does not read.</p>
+ * Re-enters the idempotent subscription activation after a 3DS or redirect authorization. The activator
+ * never throws and journals its own failures for the retry job.
  */
 public class AdyenPaymentAuthorizedEventListener extends AbstractEventListener<AdyenPaymentAuthorizedEvent>
 {
@@ -30,8 +25,6 @@ public class AdyenPaymentAuthorizedEventListener extends AbstractEventListener<A
 		final OrderModel order = event == null ? null : event.getOrder();
 		if (order == null)
 		{
-			// The journal is keyed on the order, so an activation without one could not be recorded,
-			// retried or found afterwards.
 			LOG.warn("An Adyen payment authorization arrived without an order; not activating a subscription.");
 			return;
 		}

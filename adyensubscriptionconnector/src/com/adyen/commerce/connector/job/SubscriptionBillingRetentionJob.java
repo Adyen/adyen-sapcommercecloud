@@ -43,15 +43,9 @@ import de.hybris.platform.servicelayer.search.FlexibleSearchQuery;
 import de.hybris.platform.servicelayer.search.FlexibleSearchService;
 
 /**
- * Removes the billing journals once they have stopped being useful, on two windows.
- *
- * <p>Anything still actionable is kept regardless of age: a {@code PENDING} or {@code FAILED} activation is
- * the retry job's queue, and a delivery that has not settled may still be redelivered. Anything carrying an
- * error or a dead-letter stamp keeps the long window, because it is the only local trace that a shopper paid
- * and got nothing — the platform's own delivery log ages out on a shorter schedule.</p>
- *
- * <p>An ordinary delivery is recognised by {@code deadLetteredAt} and {@code lastError} being absent rather
- * than by its status string, whose vocabulary lives in the dispatcher and can be renamed there.</p>
+ * Removes old billing journal rows: settled ones after a short window, ones with an error or a dead letter after
+ * a long one, as they may be the only trace that a shopper paid and got nothing. Rows still actionable
+ * ({@code PENDING}, {@code FAILED}) are kept.
  */
 public class SubscriptionBillingRetentionJob extends AbstractJobPerformable<CronJobModel>
 {
@@ -80,18 +74,12 @@ public class SubscriptionBillingRetentionJob extends AbstractJobPerformable<Cron
 
 		if (removed > 0)
 		{
-			LOG.info("Removed {} expired subscription billing journal row(s).", Integer.valueOf(removed));
+			LOG.info("Removed {} expired subscription billing journal row(s).", removed);
 		}
 		return new PerformResult(CronJobResult.SUCCESS, CronJobStatus.FINISHED);
 	}
 
-	/**
-	 * Removes each delivery's applications by their own query before the delivery itself.
-	 *
-	 * <p>{@code BillingWebhookEventApplication.event} is a plain attribute rather than a relation, so
-	 * removing the delivery first would leave rows pointing at nothing on a mandatory reference. A batch that
-	 * stops part-way therefore leaves a delivery with fewer applications, which the next run finishes.</p>
-	 */
+	/** Applications go first: {@code BillingWebhookEventApplication.event} is a plain mandatory attribute. */
 	protected int removeWebhookEvents(final CronJobModel cronJob, final Date settledBefore, final Date troubledBefore)
 	{
 		final FlexibleSearchQuery query = new FlexibleSearchQuery(
@@ -132,11 +120,7 @@ public class SubscriptionBillingRetentionJob extends AbstractJobPerformable<Cron
 		return applications.size();
 	}
 
-	/**
-	 * The activation journal, on the same two windows. The statuses are named here because they are
-	 * constants on the service's own interface; {@code PENDING} and {@code FAILED} are absent on purpose, the
-	 * first being in flight and the second the retry job's queue.
-	 */
+	/** The activation journal, on the same two windows. */
 	protected int removeActivationAttempts(final CronJobModel cronJob, final Date settledBefore,
 			final Date troubledBefore)
 	{

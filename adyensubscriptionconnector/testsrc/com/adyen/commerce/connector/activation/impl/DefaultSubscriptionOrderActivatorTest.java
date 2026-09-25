@@ -20,6 +20,7 @@
  */
 package com.adyen.commerce.connector.activation.impl;
 
+import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isA;
@@ -36,10 +37,12 @@ import java.util.List;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import com.adyen.commerce.connector.activation.BillingActivationAttemptService;
+import com.adyen.commerce.connector.context.impl.DefaultSubscriptionStoreContext;
 import com.adyen.commerce.connector.dto.PlanRef;
 import com.adyen.commerce.connector.dto.PlanResolutionRequest;
 import com.adyen.commerce.connector.enums.BillingPlatform;
@@ -120,8 +123,11 @@ public class DefaultSubscriptionOrderActivatorTest
 		activator.setSubscriptionProductRule(new DefaultSubscriptionProductRule());
 		activator.setAttemptService(attemptService);
 		activator.setSessionService(sessionService);
-		activator.setBaseSiteService(baseSiteService);
-		activator.setBaseStoreService(baseStoreService);
+		final DefaultSubscriptionStoreContext storeContext = new DefaultSubscriptionStoreContext();
+		storeContext.setSessionService(sessionService);
+		storeContext.setBaseSiteService(baseSiteService);
+		storeContext.setBaseStoreService(baseStoreService);
+		activator.setStoreContext(storeContext);
 
 		// The local view is the unit under test's own plumbing, not a collaborator to assert on: the body
 		// runs inline so every test below exercises it.
@@ -159,6 +165,18 @@ public class DefaultSubscriptionOrderActivatorTest
 		activator.activateFor(order);
 
 		verify(subscriptionBillingService).activateSubscription(order, entryProduct(SUB_PRODUCT));
+	}
+
+	@Test
+	public void classifiesProductsInTheOrdersStore() throws Exception
+	{
+		givenEntries(product(SUB_PRODUCT));
+
+		activator.activateFor(order);
+
+		final ArgumentCaptor<PlanResolutionRequest> request = ArgumentCaptor.forClass(PlanResolutionRequest.class);
+		verify(connector).resolvePlan(request.capture());
+		assertEquals("electronics", request.getValue().baseStoreUid());
 	}
 
 	@Test
@@ -268,7 +286,7 @@ public class DefaultSubscriptionOrderActivatorTest
 	}
 
 	@Test
-	public void ignoresAnOrderOfOrdinaryProducts() throws Exception
+	public void ignoresAnOrderOfOrdinaryProducts()
 	{
 		givenEntries(product(PLAIN_PRODUCT), product("another-plain"));
 
@@ -293,14 +311,40 @@ public class DefaultSubscriptionOrderActivatorTest
 		verify(subscriptionBillingService, never()).activateSubscription(any(), any());
 	}
 
+	/** A subscription is activated with quantity one, so a second unit would be paid for and never delivered. */
 	@Test
-	public void countsARepeatedProductOnce() throws Exception
+	public void refusesTheSameSubscriptionProductOrderedOnTwoEntries() throws Exception
 	{
 		givenEntries(product(SUB_PRODUCT), product(SUB_PRODUCT));
 
 		activator.activateFor(order);
 
-		verify(subscriptionBillingService, times(1)).activateSubscription(order, entryProduct(SUB_PRODUCT));
+		verify(subscriptionBillingService, never()).activateSubscription(any(), any());
+		verify(attemptService).failed(any(), isA(PreconditionFailedException.class));
+	}
+
+	@Test
+	public void refusesQuantityTwoOfASubscriptionProduct() throws Exception
+	{
+		givenEntry(product(SUB_PRODUCT), 2L);
+
+		activator.activateFor(order);
+
+		verify(subscriptionBillingService, never()).activateSubscription(any(), any());
+		verify(attemptService).failed(any(), isA(PreconditionFailedException.class));
+	}
+
+	@Test
+	public void activatesQuantityOneAlongsideOrdinaryEntriesOfAnyQuantity() throws Exception
+	{
+		final ProductModel subscription = product(SUB_PRODUCT);
+		final AbstractOrderEntryModel subscriptionEntry = entry(subscription, 1L);
+		final AbstractOrderEntryModel plainEntry = entry(product(PLAIN_PRODUCT), 5L);
+		when(order.getEntries()).thenReturn(List.of(subscriptionEntry, plainEntry));
+
+		activator.activateFor(order);
+
+		verify(subscriptionBillingService).activateSubscription(order, subscription);
 	}
 
 	/**
@@ -359,7 +403,7 @@ public class DefaultSubscriptionOrderActivatorTest
 	 * attempt is opened rather than before it.
 	 */
 	@Test
-	public void journalsTheGuestRefusalAgainstTheProductThatWasSold() throws Exception
+	public void journalsTheGuestRefusalAgainstTheProductThatWasSold()
 	{
 		when(subscriptionBillingService.idempotencyKeyFor(order)).thenReturn("order-1");
 		givenEntries(product(SUB_PRODUCT));
@@ -385,7 +429,7 @@ public class DefaultSubscriptionOrderActivatorTest
 	}
 
 	@Test
-	public void doesNothingForAnOrderWithoutAStore() throws Exception
+	public void doesNothingForAnOrderWithoutAStore()
 	{
 		when(order.getStore()).thenReturn(null);
 		givenEntries(product(SUB_PRODUCT));
@@ -396,7 +440,7 @@ public class DefaultSubscriptionOrderActivatorTest
 	}
 
 	@Test
-	public void doesNothingForANullOrder() throws Exception
+	public void doesNothingForANullOrder()
 	{
 		activator.activateFor(null);
 
@@ -436,7 +480,7 @@ public class DefaultSubscriptionOrderActivatorTest
 	}
 
 	@Test
-	public void swallowsAnUnexpectedRuntimeFailure() throws Exception
+	public void swallowsAnUnexpectedRuntimeFailure()
 	{
 		givenEntries(product(SUB_PRODUCT));
 		when(order.getEntries()).thenThrow(new IllegalStateException("boom"));
@@ -509,7 +553,7 @@ public class DefaultSubscriptionOrderActivatorTest
 	}
 
 	@Test
-	public void skipsAnEntryWithoutAUsableProduct() throws Exception
+	public void skipsAnEntryWithoutAUsableProduct()
 	{
 		final ProductModel blank = product("   ");
 		final AbstractOrderEntryModel noProduct = mock(AbstractOrderEntryModel.class);
@@ -550,11 +594,23 @@ public class DefaultSubscriptionOrderActivatorTest
 		final List<AbstractOrderEntryModel> entries = new ArrayList<>();
 		for (final ProductModel product : products)
 		{
-			final AbstractOrderEntryModel entry = mock(AbstractOrderEntryModel.class);
-			when(entry.getProduct()).thenReturn(product);
-			entries.add(entry);
+			entries.add(entry(product, 1L));
 		}
 		when(order.getEntries()).thenReturn(entries);
+	}
+
+	private void givenEntry(final ProductModel product, final long quantity)
+	{
+		final AbstractOrderEntryModel entry = entry(product, quantity);
+		when(order.getEntries()).thenReturn(List.of(entry));
+	}
+
+	private static AbstractOrderEntryModel entry(final ProductModel product, final long quantity)
+	{
+		final AbstractOrderEntryModel entry = mock(AbstractOrderEntryModel.class);
+		when(entry.getProduct()).thenReturn(product);
+		when(entry.getQuantity()).thenReturn(quantity);
+		return entry;
 	}
 
 	private ProductModel entryProduct(final String code)

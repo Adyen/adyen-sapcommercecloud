@@ -87,8 +87,14 @@ public class DomainModelTest
 	@Test
 	public void nullMapBecomesEmpty()
 	{
-		final PlanResolutionRequest request = new PlanResolutionRequest("PROD-1", null);
+		final PlanResolutionRequest request = new PlanResolutionRequest("PROD-1", "electronics", null);
 		assertTrue(request.context().isEmpty());
+	}
+
+	@Test
+	public void planResolutionNeedsABaseStore()
+	{
+		assertThrows(IllegalArgumentException.class, () -> new PlanResolutionRequest("PROD-1", " ", null));
 	}
 
 	/**

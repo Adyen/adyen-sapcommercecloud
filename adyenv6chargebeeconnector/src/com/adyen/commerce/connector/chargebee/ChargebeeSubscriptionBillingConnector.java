@@ -87,6 +87,20 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 	private static final String EVENT_WEBHOOK_PROCESSING = "webhook_processing";
 	private static final String EVENT_RECONCILIATION_GAP = "reconciliation_gap";
 
+	private static final String CUSTOMER_ID = "customer_id";
+	private static final String SUBSCRIPTION_ID = "subscription_id";
+	private static final String PLAN_ID = "plan_id";
+	private static final String QUANTITY = "quantity";
+	private static final String TOKEN_REFERENCE = "token_reference";
+	private static final String MERCHANT_ACCOUNT = "merchant_account";
+	private static final String PAYMENT_SOURCE_ID = "payment_source_id";
+	private static final String ERROR_CLASS = "error_class";
+	private static final String EVENT_ID = "event_id";
+	private static final String VENDOR_EVENT_TYPE = "vendor_event_type";
+	private static final String PAYLOAD_CHARS = "payload_chars";
+	private static final String AUTH_VERIFIED = "auth_verified";
+	private static final String OP_PARSE_WEBHOOK = "parse_webhook";
+
 	private static final ConnectorCapabilities CAPABILITIES = new ConnectorCapabilities(
 			false, // requiresNetworkTransactionId — Chargebee's token import does not need one
 			true,  // supportsImmediateStart — subscription_for_items can start immediately
@@ -136,7 +150,7 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 	public BillingCustomerRef ensureCustomer(final CustomerSyncRequest request) throws BillingException
 	{
 		final long startedAt = System.nanoTime();
-		try (ConnectorLogContext scope = ConnectorLogContext.open(platform(), "ensure_customer"))
+		try (ConnectorLogContext ignored = ConnectorLogContext.open(platform(), "ensure_customer"))
 		{
 			final String customerId;
 			try
@@ -149,13 +163,13 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 				// The requested id: the call that would have returned one is the call that failed.
 				ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
 						.failure(startedAt, e)
-						.field("customer_id", request.customerId())
+						.field(CUSTOMER_ID, request.customerId())
 						.warn(LOG);
 				throw e;
 			}
 			ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
 					.success(startedAt)
-					.field("customer_id", customerId)
+					.field(CUSTOMER_ID, customerId)
 					.info(LOG);
 			return new BillingCustomerRef(BillingPlatform.CHARGEBEE, customerId);
 		}
@@ -165,7 +179,7 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 	public BillingPaymentMethodRef importAdyenToken(final TokenImportRequest request) throws BillingException
 	{
 		final long startedAt = System.nanoTime();
-		try (ConnectorLogContext scope = ConnectorLogContext.open(platform(), "import_token"))
+		try (ConnectorLogContext ignored = ConnectorLogContext.open(platform(), "import_token"))
 		{
 			final AdyenTokenHandle token = request.token();
 			verifyMerchantAccount(token);
@@ -179,16 +193,16 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 			{
 				ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
 						.failure(startedAt, e)
-						.field("token_reference", token.storedPaymentMethodId())
-						.field("merchant_account", token.merchantAccount())
+						.field(TOKEN_REFERENCE, token.storedPaymentMethodId())
+						.field(MERCHANT_ACCOUNT, token.merchantAccount())
 						.warn(LOG);
 				throw e;
 			}
 			ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
 					.success(startedAt)
-					.field("token_reference", token.storedPaymentMethodId())
-					.field("payment_source_id", paymentSourceId)
-					.field("merchant_account", token.merchantAccount())
+					.field(TOKEN_REFERENCE, token.storedPaymentMethodId())
+					.field(PAYMENT_SOURCE_ID, paymentSourceId)
+					.field(MERCHANT_ACCOUNT, token.merchantAccount())
 					.info(LOG);
 			return new BillingPaymentMethodRef(BillingPlatform.CHARGEBEE, paymentSourceId);
 		}
@@ -199,14 +213,14 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 			throws BillingException
 	{
 		final long startedAt = System.nanoTime();
-		try (ConnectorLogContext scope = ConnectorLogContext.open(platform(), "change_payment_method"))
+		try (ConnectorLogContext ignored = ConnectorLogContext.open(platform(), "change_payment_method"))
 		{
 			// A switch expression, so another kind of choice is a compile error rather than a silent
 			// fall-through.
 			final AdyenTokenHandle token = switch (request.choice())
 			{
 				case PaymentMethodChoice.AdyenVaultedToken vaulted -> vaulted.token();
-				case PaymentMethodChoice.AlreadyOnPlatform ignored -> throw new CapabilityUnsupportedException(
+				case PaymentMethodChoice.AlreadyOnPlatform ignoredChoice -> throw new CapabilityUnsupportedException(
 						"This Chargebee adapter changes a payment method by importing an Adyen-vaulted card; "
 								+ "it does not repoint a subscription at a payment source Chargebee already holds");
 			};
@@ -224,16 +238,16 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 			{
 				ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
 						.failure(startedAt, e)
-						.field("subscription_id", externalIdOrNull(request.subscription()))
-						.field("token_reference", token.storedPaymentMethodId())
+						.field(SUBSCRIPTION_ID, externalIdOrNull(request.subscription()))
+						.field(TOKEN_REFERENCE, token.storedPaymentMethodId())
 						.warn(LOG);
 				throw e;
 			}
 			ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
 					.success(startedAt)
-					.field("subscription_id", externalIdOrNull(request.subscription()))
-					.field("token_reference", token.storedPaymentMethodId())
-					.field("payment_source_id", paymentSourceId)
+					.field(SUBSCRIPTION_ID, externalIdOrNull(request.subscription()))
+					.field(TOKEN_REFERENCE, token.storedPaymentMethodId())
+					.field(PAYMENT_SOURCE_ID, paymentSourceId)
 					.field("applied_scope", PaymentMethodChangeScope.CUSTOMER.name())
 					.info(LOG);
 			return new PaymentMethodChangeOutcome(
@@ -246,7 +260,7 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 	public PlanRef resolvePlan(final PlanResolutionRequest request) throws BillingException
 	{
 		final long startedAt = System.nanoTime();
-		try (ConnectorLogContext scope = ConnectorLogContext.open(platform(), "resolve_plan"))
+		try (ConnectorLogContext ignored = ConnectorLogContext.open(platform(), "resolve_plan"))
 		{
 			final PlanRef plan;
 			try
@@ -258,13 +272,15 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 				ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
 						.failure(startedAt, e)
 						.field("product_code", request.productCode())
+						.field("base_store", request.baseStoreUid())
 						.warn(LOG);
 				throw e;
 			}
 			ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
 					.success(startedAt)
 					.field("product_code", request.productCode())
-					.field("plan_id", itemPriceIdOrNull(plan))
+					.field("base_store", request.baseStoreUid())
+					.field(PLAN_ID, itemPriceIdOrNull(plan))
 					.info(LOG);
 			return plan;
 		}
@@ -274,7 +290,7 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 	public BillingSubscriptionRef createSubscription(final SubscriptionCreateRequest request) throws BillingException
 	{
 		final long startedAt = System.nanoTime();
-		try (ConnectorLogContext scope = ConnectorLogContext.open(platform(), "create_subscription"))
+		try (ConnectorLogContext ignored = ConnectorLogContext.open(platform(), "create_subscription"))
 		{
 			try
 			{
@@ -286,8 +302,8 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 				// unset, and an NPE from the logging would replace the cause.
 				ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
 						.failure(startedAt, e)
-						.field("plan_id", itemPriceIdOrNull(request.plan()))
-						.field("payment_source_id", externalIdOrNull(request.paymentMethod()))
+						.field(PLAN_ID, itemPriceIdOrNull(request.plan()))
+						.field(PAYMENT_SOURCE_ID, externalIdOrNull(request.paymentMethod()))
 						.warn(LOG);
 				throw e;
 			}
@@ -304,11 +320,11 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 		final String subscriptionId = apiClient.createSubscription(params);
 		ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
 				.success(startedAt)
-				.field("subscription_id", subscriptionId)
-				.field("plan_id", itemPriceId(request.plan()))
-				.field("quantity", Integer.valueOf(request.quantity()))
+				.field(SUBSCRIPTION_ID, subscriptionId)
+				.field(PLAN_ID, itemPriceId(request.plan()))
+				.field(QUANTITY, request.quantity())
 				.field("start_epoch_seconds", startEpochSeconds)
-				.field("payment_source_id", request.paymentMethod().externalId())
+				.field(PAYMENT_SOURCE_ID, request.paymentMethod().externalId())
 				.info(LOG);
 		return new BillingSubscriptionRef(BillingPlatform.CHARGEBEE, subscriptionId);
 	}
@@ -317,7 +333,7 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 	public NormalizedSubscription fetchSubscription(final BillingSubscriptionRef subscription) throws BillingException
 	{
 		final long startedAt = System.nanoTime();
-		try (ConnectorLogContext scope = ConnectorLogContext.open(platform(), "fetch_subscription"))
+		try (ConnectorLogContext ignored = ConnectorLogContext.open(platform(), "fetch_subscription"))
 		{
 			verifyChargebeeSubscription(subscription);
 			final NormalizedSubscription fetched;
@@ -329,13 +345,13 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 			{
 				ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
 						.failure(startedAt, e)
-						.field("subscription_id", subscription.externalId())
+						.field(SUBSCRIPTION_ID, subscription.externalId())
 						.warn(LOG);
 				throw e;
 			}
 			ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
 					.success(startedAt)
-					.field("subscription_id", subscription.externalId())
+					.field(SUBSCRIPTION_ID, subscription.externalId())
 					.field("subscription_status", fetched == null ? null : fetched.status())
 					.info(LOG);
 			return fetched;
@@ -346,7 +362,7 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 	public void updateSubscription(final SubscriptionUpdateRequest request) throws BillingException
 	{
 		final long startedAt = System.nanoTime();
-		try (ConnectorLogContext scope = ConnectorLogContext.open(platform(), "update_subscription"))
+		try (ConnectorLogContext ignored = ConnectorLogContext.open(platform(), "update_subscription"))
 		{
 			final String itemPriceId = request.plan() == null ? null : itemPriceId(request.plan());
 			try
@@ -357,17 +373,17 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 			{
 				ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
 						.failure(startedAt, e)
-						.field("subscription_id", externalIdOrNull(request.subscription()))
-						.field("plan_id", itemPriceId)
-						.field("quantity", request.quantity())
+						.field(SUBSCRIPTION_ID, externalIdOrNull(request.subscription()))
+						.field(PLAN_ID, itemPriceId)
+						.field(QUANTITY, request.quantity())
 						.warn(LOG);
 				throw e;
 			}
 			ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
 					.success(startedAt)
-					.field("subscription_id", request.subscription().externalId())
-					.field("plan_id", itemPriceId)
-					.field("quantity", request.quantity())
+					.field(SUBSCRIPTION_ID, request.subscription().externalId())
+					.field(PLAN_ID, itemPriceId)
+					.field(QUANTITY, request.quantity())
 					.info(LOG);
 		}
 	}
@@ -376,7 +392,7 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 	public void cancelSubscription(final SubscriptionCancelRequest request) throws BillingException
 	{
 		final long startedAt = System.nanoTime();
-		try (ConnectorLogContext scope = ConnectorLogContext.open(platform(), "cancel_subscription"))
+		try (ConnectorLogContext ignored = ConnectorLogContext.open(platform(), "cancel_subscription"))
 		{
 			// A switch expression, so another timing is a compile error rather than a cancellation at
 			// whichever moment the surviving branch happens to mean. Chargebee reaches the same endpoint
@@ -394,14 +410,14 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 			{
 				ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
 						.failure(startedAt, e)
-						.field("subscription_id", externalIdOrNull(request.subscription()))
+						.field(SUBSCRIPTION_ID, externalIdOrNull(request.subscription()))
 						.field("cancellation_timing", ConnectorLogContext.code(request.timing()))
 						.warn(LOG);
 				throw e;
 			}
 			ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
 					.success(startedAt)
-					.field("subscription_id", request.subscription().externalId())
+					.field(SUBSCRIPTION_ID, request.subscription().externalId())
 					.field("cancellation_timing", ConnectorLogContext.code(request.timing()))
 					.info(LOG);
 		}
@@ -414,7 +430,7 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 	public NormalizedBillingEvent parseWebhook(final RawWebhook raw) throws BillingException
 	{
 		final long startedAt = System.nanoTime();
-		try (ConnectorLogContext scope = ConnectorLogContext.open(platform(), "parse_webhook"))
+		try (ConnectorLogContext ignored = ConnectorLogContext.open(platform(), OP_PARSE_WEBHOOK))
 		{
 			return parseWebhookInternal(raw, startedAt);
 		}
@@ -465,12 +481,12 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 			webhookEvent()
 					.outcome(ConnectorLogEvent.OUTCOME_IGNORED)
 					.durationSince(startedAt)
-					.field("error_class", ConnectorLogEvent.ERROR_CLASS_NONE)
+					.field(ERROR_CLASS, ConnectorLogEvent.ERROR_CLASS_NONE)
 					.reason("unsupported_event_type")
-					.field("event_id", root.path("id").asText(null))
-					.field("vendor_event_type", chargebeeEventType)
-					.field("payload_chars", Integer.valueOf(payloadChars))
-					.field("auth_verified", Boolean.TRUE)
+					.field(EVENT_ID, root.path("id").asText(null))
+					.field(VENDOR_EVENT_TYPE, chargebeeEventType)
+					.field(PAYLOAD_CHARS, payloadChars)
+					.field(AUTH_VERIFIED, Boolean.TRUE)
 					.info(LOG);
 			return null;
 		}
@@ -478,13 +494,13 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 		final JsonNode content = root.path("content");
 		final String externalSubscriptionId = firstNonBlank(
 				content.path("subscription").path("id").asText(null),
-				content.path("transaction").path("subscription_id").asText(null),
-				content.path("invoice").path("subscription_id").asText(null));
+				content.path("transaction").path(SUBSCRIPTION_ID).asText(null),
+				content.path("invoice").path(SUBSCRIPTION_ID).asText(null));
 		final String externalCustomerId = firstNonBlank(
 				content.path("customer").path("id").asText(null),
-				content.path("subscription").path("customer_id").asText(null),
-				content.path("transaction").path("customer_id").asText(null),
-				content.path("invoice").path("customer_id").asText(null));
+				content.path("subscription").path(CUSTOMER_ID).asText(null),
+				content.path("transaction").path(CUSTOMER_ID).asText(null),
+				content.path("invoice").path(CUSTOMER_ID).asText(null));
 
 		final long occurredAtEpochSeconds = root.path("occurred_at").asLong(0L);
 		final Instant occurredAt = occurredAtEpochSeconds > 0
@@ -497,25 +513,25 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 		final long lagMs = clock.instant().toEpochMilli() - occurredAt.toEpochMilli();
 		webhookEvent()
 				.success(startedAt)
-				.field("event_id", eventId)
-				.field("subscription_id", externalSubscriptionId)
-				.field("vendor_event_type", chargebeeEventType)
+				.field(EVENT_ID, eventId)
+				.field(SUBSCRIPTION_ID, externalSubscriptionId)
+				.field(VENDOR_EVENT_TYPE, chargebeeEventType)
 				.field("normalized_event_type", type)
-				.field("webhook_lag_ms", Long.valueOf(lagMs))
-				.field("payload_chars", Integer.valueOf(payloadChars))
-				.field("auth_verified", Boolean.TRUE)
+				.field("webhook_lag_ms", lagMs)
+				.field(PAYLOAD_CHARS, payloadChars)
+				.field(AUTH_VERIFIED, Boolean.TRUE)
 				.info(LOG);
 		if (StringUtils.isBlank(externalSubscriptionId))
 		{
 			ConnectorLogEvent.of(EVENT_RECONCILIATION_GAP)
 					.platform(BillingPlatform.CHARGEBEE)
-					.operation("parse_webhook")
+					.operation(OP_PARSE_WEBHOOK)
 					.outcome(ConnectorLogEvent.OUTCOME_UNRESOLVED)
 					.durationSince(startedAt)
-					.field("error_class", ConnectorLogEvent.ERROR_CLASS_NONE)
+					.field(ERROR_CLASS, ConnectorLogEvent.ERROR_CLASS_NONE)
 					.reason("subscription_id_missing")
-					.field("event_id", eventId)
-					.field("vendor_event_type", chargebeeEventType)
+					.field(EVENT_ID, eventId)
+					.field(VENDOR_EVENT_TYPE, chargebeeEventType)
 					.warn(LOG);
 		}
 
@@ -742,10 +758,10 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 				.platform(BillingPlatform.CHARGEBEE)
 				.operation("import_token")
 				.outcome(ConnectorLogEvent.OUTCOME_FAILURE)
-				.field("error_class", errorClass)
+				.field(ERROR_CLASS, errorClass)
 				.reason(reason)
-				.field("token_reference", token == null ? null : token.storedPaymentMethodId())
-				.field("merchant_account", token == null ? null : token.merchantAccount());
+				.field(TOKEN_REFERENCE, token == null ? null : token.storedPaymentMethodId())
+				.field(MERCHANT_ACCOUNT, token == null ? null : token.merchantAccount());
 	}
 
 	private void logWebhookFailure(final long startedAt, final String reason, final String eventId,
@@ -754,11 +770,11 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 		webhookEvent()
 				.outcome(ConnectorLogEvent.OUTCOME_FAILURE)
 				.durationSince(startedAt)
-				.field("error_class", ConnectorLogEvent.ERROR_CLASS_VALIDATION)
+				.field(ERROR_CLASS, ConnectorLogEvent.ERROR_CLASS_VALIDATION)
 				.reason(reason)
-				.field("event_id", eventId)
-				.field("payload_chars", Integer.valueOf(payloadChars))
-				.field("auth_verified", Boolean.valueOf(authVerified))
+				.field(EVENT_ID, eventId)
+				.field(PAYLOAD_CHARS, payloadChars)
+				.field(AUTH_VERIFIED, authVerified)
 				.warn(LOG);
 	}
 
@@ -766,7 +782,7 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 	{
 		return ConnectorLogEvent.of(EVENT_WEBHOOK_PROCESSING)
 				.platform(BillingPlatform.CHARGEBEE)
-				.operation("parse_webhook");
+				.operation(OP_PARSE_WEBHOOK);
 	}
 
 	/**

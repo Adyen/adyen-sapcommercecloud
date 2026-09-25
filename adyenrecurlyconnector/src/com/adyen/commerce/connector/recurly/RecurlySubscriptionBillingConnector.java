@@ -53,14 +53,8 @@ import com.adyen.commerce.connector.recurly.webhook.RecurlyWebhookParser;
 import com.adyen.commerce.connector.spi.SubscriptionBillingConnector;
 
 /**
- * Recurly adapter of the {@link SubscriptionBillingConnector} SPI. This adapter follows the same
- * extension-local architecture as the Chargebee connector: config service, HTTP transport, API client,
- * plan resolver, and one SPI bean.
- *
- * <p>Every SPI entry point opens a {@link ConnectorLogContext} naming the operation, so the lines
- * emitted underneath it - by the API client and by the HTTP transport - carry the same
- * {@code platform}/{@code operation}/{@code correlation_id} without those layers having to work out
- * what they are being used for.</p>
+ * Recurly adapter of the {@link SubscriptionBillingConnector} SPI. Every entry point opens a
+ * {@link ConnectorLogContext}, so the API client and transport log lines carry the operation name.
  */
 public class RecurlySubscriptionBillingConnector implements SubscriptionBillingConnector {
     private static final Logger LOG = LoggerFactory.getLogger(RecurlySubscriptionBillingConnector.class);
@@ -70,10 +64,19 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
     private static final String EVENT_WEBHOOK_RESOLUTION = "webhook_resolution";
     private static final String EVENT_RECONCILIATION_GAP = "reconciliation_gap";
 
-    /**
-     * Everything except the payment-method change, which depends on configuration and is therefore built
-     * per call rather than held here.
-     */
+    private static final String F_SUBSCRIPTION_ID = "subscription_id";
+    private static final String F_PLAN_ID = "plan_id";
+    private static final String F_QUANTITY = "quantity";
+    private static final String F_BILLING_INFO_ID = "billing_info_id";
+    private static final String F_EXTERNAL_ID = "external_id";
+    private static final String F_TOKEN_REFERENCE = "token_reference";
+    private static final String F_MERCHANT_ACCOUNT = "merchant_account";
+    private static final String F_NTID_PRESENT = "network_transaction_id_present";
+    private static final String F_EVENT_ID = "event_id";
+    private static final String F_RESOURCE_TYPE = "resource_type";
+    private static final String F_RESOURCE_ID = "resource_id";
+
+    /** Payment-method change and enrollment depend on configuration and are added per call. */
     private static final ConnectorCapabilities BASE_CAPABILITIES = new ConnectorCapabilities(
             true,
             false,
@@ -84,30 +87,11 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
             PaymentMethodChangeSupport.NONE,
             PaymentMethodEnrollmentSupport.NONE);
 
-    private final RecurlyApiClient apiClient;
-    private final RecurlyConfigService configService;
-    private final RecurlyPlanResolver planResolver;
-    private final RecurlyWebhookParser webhookParser;
-    private final Clock clock;
-
-    public RecurlySubscriptionBillingConnector(final RecurlyApiClient apiClient,
-                                               final RecurlyConfigService configService,
-                                               final RecurlyPlanResolver planResolver,
-                                               final RecurlyWebhookParser webhookParser) {
-        this(apiClient, configService, planResolver, webhookParser, Clock.systemUTC());
-    }
-
-    RecurlySubscriptionBillingConnector(final RecurlyApiClient apiClient,
-                                        final RecurlyConfigService configService,
-                                        final RecurlyPlanResolver planResolver,
-                                        final RecurlyWebhookParser webhookParser,
-                                        final Clock clock) {
-        this.apiClient = apiClient;
-        this.configService = configService;
-        this.planResolver = planResolver;
-        this.webhookParser = webhookParser;
-        this.clock = clock;
-    }
+    private RecurlyApiClient apiClient;
+    private RecurlyConfigService configService;
+    private RecurlyPlanResolver planResolver;
+    private RecurlyWebhookParser webhookParser;
+    private Clock clock = Clock.systemUTC();
 
     @Override
     public BillingPlatform platform() {
@@ -116,13 +100,9 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
 
     @Override
     public ConnectorCapabilities capabilities() {
-        // Switches in the base store decide all of this, and no accessor throws: capabilities are read on
-        // the order-activation path, where an unconfigured store must offer nothing rather than fail a
-        // checkout. Repointing and the hosted page are independent - a site may have either alone.
-        //
-        // SUBSCRIPTION scope because Recurly pins a billing info to one subscription. A card from the Adyen
-        // vault is accepted only where external-token import is available, since importing one means
-        // sending Recurly the network transaction id of the authorisation that vaulted it.
+        // Non-throwing accessors: an unconfigured store offers nothing rather than failing checkout.
+        // SUBSCRIPTION scope because Recurly pins a billing info to one subscription; a vaulted Adyen card
+        // needs external-token import, which carries the network transaction id.
         final PaymentMethodChangeSupport change = configService.isPaymentMethodChangeEnabledOrFalse()
                 ? new PaymentMethodChangeSupport(PaymentMethodChangeScope.SUBSCRIPTION,
                         configService.isExternalNtidFeatureEnabledOrFalse()
@@ -131,8 +111,7 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
                                 : Set.of(PaymentMethodSource.ALREADY_ON_PLATFORM))
                 : PaymentMethodChangeSupport.NONE;
 
-        // REPLACES_METHOD_ON_FILE, not ADDS_METHOD: Recurly's hosted pages show and edit the primary
-        // billing info only, so a shopper cannot use them to put a second card in the wallet.
+        // Recurly's hosted pages edit only the primary billing info.
         final PaymentMethodEnrollmentSupport enrollment = configService.isHostedAccountManagementEnabledOrFalse()
                 ? new PaymentMethodEnrollmentSupport(PaymentMethodEnrollmentEffect.REPLACES_METHOD_ON_FILE)
                 : PaymentMethodEnrollmentSupport.NONE;
@@ -152,25 +131,16 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
     }
 
     /**
-     * Also make the chosen card the account's default, where the store asks for it.
-     *
-     * <p>Never fatal. The subscription is already billing to the card by the time this runs, so a failure
-     * here leaves the shopper's request fulfilled and only the account default stale; reporting it as a
-     * failed change would be false, and a retry would repeat a call that already succeeded.</p>
+     * Makes the chosen card the account's default when the store asks for it. Never fatal: the subscription
+     * already bills the card, so a failure here only leaves the account default stale.
      */
     protected void promoteToPrimaryIfConfigured(final PaymentMethodChangeRequest request,
                                                 final String billingInfoId) {
-        // Everything is inside the try, the configuration read included: by the time this runs the
-        // subscription is already billing to the card, so nothing here may turn a completed change into a
-        // failure. That covers a store whose column has not been added yet, which would otherwise raise a
-        // JaloSystemException straight through the change.
         try {
             if (!configService.isPromoteChosenCardToPrimaryEnabled()) {
                 return;
             }
-            // Read before writing. Promotion is account-wide and Recurly retries collection on unpaid
-            // invoices tied to the billing info, so repeating it - which putting one card behind several
-            // subscriptions would - must not repeat that. Already primary means there is nothing to do.
+            // Promotion retries collection on unpaid invoices, so it is not repeated for a primary card.
             if (isAlreadyPrimary(request.customer().externalId(), billingInfoId)) {
                 return;
             }
@@ -178,8 +148,8 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
                     operationKey(request.idempotencyKey(), "primary"));
         } catch (final BillingException | RuntimeException e) {
             ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
-                    .field("billing_info_id", billingInfoId)
-                    .field("external_id", request.customer().externalId())
+                    .field(F_BILLING_INFO_ID, billingInfoId)
+                    .field(F_EXTERNAL_ID, request.customer().externalId())
                     .field("error_class", e.getClass().getSimpleName())
                     .warn(LOG);
         }
@@ -195,8 +165,6 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
 
     @Override
     public String listedPaymentMethodId(final String externalPaymentMethodId) {
-        // Both shapes name the same billing info, and only the id appears in listBillingInfos. Never
-        // throws: this answers a question about a label, and a page must not fail over one.
         return RecurlyPaymentMethodReference.billingInfoIdOf(externalPaymentMethodId);
     }
 
@@ -225,25 +193,17 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
     public PaymentMethodChangeOutcome changePaymentMethod(final PaymentMethodChangeRequest request)
             throws BillingException {
         final long startedAt = System.nanoTime();
-        try (ConnectorLogContext scope = ConnectorLogContext.open(platform(), "change_payment_method")) {
-            // Re-checked here and not only by the core: the capability is configuration, and configuration
-            // can change between the page being rendered and the form being posted.
+        try (ConnectorLogContext ignored = ConnectorLogContext.open(platform(), "change_payment_method")) {
+            // Re-checked: configuration may change between rendering the page and posting the form.
             if (!configService.isPaymentMethodChangeEnabledOrFalse()) {
                 throw new CapabilityUnsupportedException("Recurly payment-method changes are not enabled for "
                         + "this store; they need Subscriber Wallet and the store's own switch for it");
             }
 
-            // A switch expression, so a third kind of choice is a build failure rather than a fall-through.
             final String billingInfoId = switch (request.choice()) {
                 case PaymentMethodChoice.AlreadyOnPlatform onPlatform -> onPlatform.platformPaymentMethodId();
-                // Imported first, then assigned. importAdyenToken applies every guard this path needs -
-                // external-NTID support, merchant-account binding, token ownership, and the refusal of a
-                // handle carrying no network transaction id - and is idempotent on an already-imported
-                // token, so a repeated submission reuses the billing info rather than duplicating it.
+                // importAdyenToken applies all token guards and reuses an already imported billing info.
                 case PaymentMethodChoice.AdyenVaultedToken vaulted -> {
-                    // Re-checked for the same reason as the change switch above, and reported as a
-                    // capability rather than a failure: with external-token import unavailable this is
-                    // something Recurly cannot do here, not something that went wrong.
                     if (!configService.isExternalNtidFeatureEnabledOrFalse()) {
                         throw new CapabilityUnsupportedException("Recurly cannot be pointed at a card from "
                                 + "the Adyen vault unless external-token import is available: the import "
@@ -264,15 +224,15 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
             } catch (final BillingException e) {
                 ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
                         .failure(startedAt, e)
-                        .field("subscription_id", subscriptionId)
-                        .field("billing_info_id", billingInfoId)
+                        .field(F_SUBSCRIPTION_ID, subscriptionId)
+                        .field(F_BILLING_INFO_ID, billingInfoId)
                         .warn(LOG);
                 throw e;
             }
             ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
                     .success(startedAt)
-                    .field("subscription_id", subscriptionId)
-                    .field("billing_info_id", billingInfoId)
+                    .field(F_SUBSCRIPTION_ID, subscriptionId)
+                    .field(F_BILLING_INFO_ID, billingInfoId)
                     .field("applied_scope", PaymentMethodChangeScope.SUBSCRIPTION.name())
                     .info(LOG);
             return new PaymentMethodChangeOutcome(
@@ -289,14 +249,12 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
     @Override
     public BillingCustomerRef ensureCustomer(final CustomerSyncRequest request) throws BillingException {
         final long startedAt = System.nanoTime();
-        try (ConnectorLogContext scope = ConnectorLogContext.open(platform(), "ensure_customer")) {
+        try (ConnectorLogContext ignored = ConnectorLogContext.open(platform(), "ensure_customer")) {
             final String accountId;
             try {
                 accountId = apiClient.ensureCustomer(request.customerId(), request.email(), request.firstName(),
                         request.lastName());
             } catch (final BillingException e) {
-                // The customer id from the request, not the account id: the call that would have
-                // produced an account id is the one that just failed.
                 ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
                         .failure(startedAt, e)
                         .field("customer_id", request.customerId())
@@ -315,7 +273,7 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
     @Override
     public BillingPaymentMethodRef importAdyenToken(final TokenImportRequest request) throws BillingException {
         final long startedAt = System.nanoTime();
-        try (ConnectorLogContext scope = ConnectorLogContext.open(platform(), "import_token")) {
+        try (ConnectorLogContext ignored = ConnectorLogContext.open(platform(), "import_token")) {
             final AdyenTokenHandle token = request.token();
             verifyRecurlyCustomer(request.customer());
             verifySubscriptionModel(request.model());
@@ -332,21 +290,21 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
             } catch (final BillingException e) {
                 ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
                         .failure(startedAt, e)
-                        .field("external_id", request.customer().externalId())
-                        .field("token_reference", token.storedPaymentMethodId())
-                        .field("merchant_account", token.merchantAccount())
-                        .field("network_transaction_id_present", Boolean.valueOf(token.hasNetworkTransactionId()))
+                        .field(F_EXTERNAL_ID, request.customer().externalId())
+                        .field(F_TOKEN_REFERENCE, token.storedPaymentMethodId())
+                        .field(F_MERCHANT_ACCOUNT, token.merchantAccount())
+                        .field(F_NTID_PRESENT, token.hasNetworkTransactionId())
                         .warn(LOG);
                 throw e;
             }
-            // Only whether an NTID is present, never its value: it is a scheme-level payment identifier.
+            // NTID presence only, never its value.
             ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
                     .success(startedAt)
-                    .field("external_id", request.customer().externalId())
-                    .field("token_reference", token.storedPaymentMethodId())
-                    .field("billing_info_id", billingInfoId)
-                    .field("merchant_account", token.merchantAccount())
-                    .field("network_transaction_id_present", Boolean.valueOf(token.hasNetworkTransactionId()))
+                    .field(F_EXTERNAL_ID, request.customer().externalId())
+                    .field(F_TOKEN_REFERENCE, token.storedPaymentMethodId())
+                    .field(F_BILLING_INFO_ID, billingInfoId)
+                    .field(F_MERCHANT_ACCOUNT, token.merchantAccount())
+                    .field(F_NTID_PRESENT, token.hasNetworkTransactionId())
                     .info(LOG);
             return new BillingPaymentMethodRef(BillingPlatform.RECURLY,
                     RecurlyPaymentMethodReference.encode(billingInfoId, token.networkTransactionId()));
@@ -356,7 +314,7 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
     @Override
     public PlanRef resolvePlan(final PlanResolutionRequest request) throws BillingException {
         final long startedAt = System.nanoTime();
-        try (ConnectorLogContext scope = ConnectorLogContext.open(platform(), "resolve_plan")) {
+        try (ConnectorLogContext ignored = ConnectorLogContext.open(platform(), "resolve_plan")) {
             final PlanRef plan;
             try {
                 plan = planResolver.resolve(request);
@@ -364,13 +322,15 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
                 ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
                         .failure(startedAt, e)
                         .field("product_code", request.productCode())
+                        .field("base_store", request.baseStoreUid())
                         .warn(LOG);
                 throw e;
             }
             ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
                     .success(startedAt)
                     .field("product_code", request.productCode())
-                    .field("plan_id", planCodeOrNull(plan))
+                    .field("base_store", request.baseStoreUid())
+                    .field(F_PLAN_ID, planCodeOrNull(plan))
                     .info(LOG);
             return plan;
         }
@@ -379,15 +339,14 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
     @Override
     public BillingSubscriptionRef createSubscription(final SubscriptionCreateRequest request) throws BillingException {
         final long startedAt = System.nanoTime();
-        try (ConnectorLogContext scope = ConnectorLogContext.open(platform(), "create_subscription")) {
+        try (ConnectorLogContext ignored = ConnectorLogContext.open(platform(), "create_subscription")) {
             try {
                 return createSubscriptionInternal(request, startedAt);
             } catch (final BillingException e) {
-                // Read through null-tolerant accessors: a failure before the request was fully built is
-                // exactly when these are unset, and an NPE raised here would replace the real cause.
+                // Null-tolerant: an NPE here would hide the real cause.
                 ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
                         .failure(startedAt, e)
-                        .field("plan_id", planCodeOrNull(request.plan()))
+                        .field(F_PLAN_ID, planCodeOrNull(request.plan()))
                         .field("payment_method_reference", externalIdOrNull(request.paymentMethod()))
                         .warn(LOG);
                 throw e;
@@ -415,9 +374,9 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
         final String subscriptionId = apiClient.createSubscription(params);
         ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
                 .success(startedAt)
-                .field("subscription_id", subscriptionId)
-                .field("plan_id", planCode(request.plan()))
-                .field("quantity", Integer.valueOf(request.quantity()))
+                .field(F_SUBSCRIPTION_ID, subscriptionId)
+                .field(F_PLAN_ID, planCode(request.plan()))
+                .field(F_QUANTITY, request.quantity())
                 .field("currency", request.currencyIsoCode())
                 .field("start_at", startDate)
                 .field("payment_method_reference", request.paymentMethod().externalId())
@@ -429,7 +388,7 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
     public NormalizedSubscription fetchSubscription(final BillingSubscriptionRef subscription)
             throws BillingException {
         final long startedAt = System.nanoTime();
-        try (ConnectorLogContext scope = ConnectorLogContext.open(platform(), "fetch_subscription")) {
+        try (ConnectorLogContext ignored = ConnectorLogContext.open(platform(), "fetch_subscription")) {
             verifyRecurlySubscription(subscription);
             final NormalizedSubscription fetched;
             try {
@@ -437,13 +396,13 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
             } catch (final BillingException e) {
                 ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
                         .failure(startedAt, e)
-                        .field("subscription_id", subscription.externalId())
+                        .field(F_SUBSCRIPTION_ID, subscription.externalId())
                         .warn(LOG);
                 throw e;
             }
             ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
                     .success(startedAt)
-                    .field("subscription_id", subscription.externalId())
+                    .field(F_SUBSCRIPTION_ID, subscription.externalId())
                     .field("subscription_status", fetched == null ? null : fetched.status())
                     .info(LOG);
             return fetched;
@@ -453,7 +412,7 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
     @Override
     public void updateSubscription(final SubscriptionUpdateRequest request) throws BillingException {
         final long startedAt = System.nanoTime();
-        try (ConnectorLogContext scope = ConnectorLogContext.open(platform(), "update_subscription")) {
+        try (ConnectorLogContext ignored = ConnectorLogContext.open(platform(), "update_subscription")) {
             final String planCode = request.plan() == null ? null : planCode(request.plan());
             try {
                 apiClient.updateSubscription(request.subscription().externalId(), planCode, request.quantity(),
@@ -461,17 +420,17 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
             } catch (final BillingException e) {
                 ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
                         .failure(startedAt, e)
-                        .field("subscription_id", externalIdOrNull(request.subscription()))
-                        .field("plan_id", planCode)
-                        .field("quantity", request.quantity())
+                        .field(F_SUBSCRIPTION_ID, externalIdOrNull(request.subscription()))
+                        .field(F_PLAN_ID, planCode)
+                        .field(F_QUANTITY, request.quantity())
                         .warn(LOG);
                 throw e;
             }
             ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
                     .success(startedAt)
-                    .field("subscription_id", request.subscription().externalId())
-                    .field("plan_id", planCode)
-                    .field("quantity", request.quantity())
+                    .field(F_SUBSCRIPTION_ID, request.subscription().externalId())
+                    .field(F_PLAN_ID, planCode)
+                    .field(F_QUANTITY, request.quantity())
                     .info(LOG);
         }
     }
@@ -479,9 +438,7 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
     @Override
     public void cancelSubscription(final SubscriptionCancelRequest request) throws BillingException {
         final long startedAt = System.nanoTime();
-        try (ConnectorLogContext scope = ConnectorLogContext.open(platform(), "cancel_subscription")) {
-            // The choice between Recurly's two endpoints is made here and carried no further as a flag, so
-            // past this point the destructive one is named `terminate` in the stack trace and the log.
+        try (ConnectorLogContext ignored = ConnectorLogContext.open(platform(), "cancel_subscription")) {
             final CancellationCall call = switch (request.timing()) {
                 case AT_PERIOD_END -> (id, key) -> apiClient.cancelAtNextBillDate(id, operationKey(key, "cancel"));
                 case IMMEDIATELY -> (id, key) -> apiClient.terminate(id, operationKey(key, "terminate"));
@@ -491,39 +448,28 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
             } catch (final BillingException e) {
                 ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
                         .failure(startedAt, e)
-                        .field("subscription_id", externalIdOrNull(request.subscription()))
+                        .field(F_SUBSCRIPTION_ID, externalIdOrNull(request.subscription()))
                         .field("cancellation_timing", ConnectorLogContext.code(request.timing()))
                         .warn(LOG);
                 throw e;
             }
             ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
                     .success(startedAt)
-                    .field("subscription_id", request.subscription().externalId())
+                    .field(F_SUBSCRIPTION_ID, request.subscription().externalId())
                     .field("cancellation_timing", ConnectorLogContext.code(request.timing()))
                     .info(LOG);
         }
     }
 
-    /**
-     * One of Recurly's two cancellation endpoints, already bound to its own idempotency-key namespace.
-     *
-     * <p>It lets the choice between them be a switch <em>expression</em>, which is the only form checked for
-     * exhaustiveness; one of the two ends a subscription immediately, so a new timing must be a build
-     * failure rather than an unnoticed fall-through.</p>
-     */
+    /** One of Recurly's two cancellation endpoints; a switch expression keeps the choice exhaustive. */
     @FunctionalInterface
     protected interface CancellationCall {
         void execute(String subscriptionId, String idempotencyKey) throws BillingException;
     }
 
     /**
-     * Namespaces the caller's idempotency key by operation, so each stays independently idempotent under
-     * retry while remaining distinct from the others.
-     *
-     * <p>Recurly answers a repeated key with the <em>first</em> response it recorded, and the core issues one
-     * key per subscription (the order code) for the whole lifecycle; without this, a cancel would be
-     * acknowledged with the stored 201 from the create while Recurly kept billing. The two cancellation
-     * timings are namespaced apart as well, {@code cancel} against {@code terminate}.</p>
+     * Namespaces the idempotency key by operation. The core uses one key per subscription, and Recurly replays
+     * the first response recorded for a key, so an un-namespaced cancel would get the create's 201 back.
      */
     protected static String operationKey(final String idempotencyKey, final String operation) {
         return StringUtils.isBlank(idempotencyKey) ? null : idempotencyKey + "/" + operation;
@@ -531,25 +477,19 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
 
     @Override
     public NormalizedBillingEvent parseWebhook(final RawWebhook raw) throws BillingException {
-        try (ConnectorLogContext scope = ConnectorLogContext.open(platform(), "parse_webhook")) {
+        try (ConnectorLogContext ignored = ConnectorLogContext.open(platform(), "parse_webhook")) {
             return webhookParser.parse(raw);
         }
     }
 
-    /**
-     * Recurly fires payment- and invoice-shaped events that never name their subscription, so the
-     * invoice or transaction has to be read back to find out which subscriptions it covers — and an
-     * invoice can legitimately cover several. The core only calls this for events that arrive without a
-     * subscription id, and only after the event id has been claimed, so a redelivery costs no extra
-     * round-trip.
-     */
+    /** Payment and invoice events do not name their subscriptions, so the resource is read back. */
     @Override
     public List<String> resolveSubscriptionIds(final NormalizedBillingEvent event) throws BillingException {
         if (event == null) {
             return List.of();
         }
         final long startedAt = System.nanoTime();
-        try (ConnectorLogContext scope = ConnectorLogContext.open(platform(), "resolve_webhook")) {
+        try (ConnectorLogContext ignored = ConnectorLogContext.open(platform(), "resolve_webhook")) {
             final Map<String, String> attributes = event.attributes();
             final String resourceType = attributes.get("resourceType");
             final String resourceId = attributes.get("resourceId");
@@ -559,31 +499,30 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
             } catch (final BillingException e) {
                 ConnectorLogEvent.of(EVENT_WEBHOOK_RESOLUTION)
                         .failure(startedAt, e)
-                        .field("event_id", event.eventId())
-                        .field("resource_type", resourceType)
-                        .field("resource_id", resourceId)
+                        .field(F_EVENT_ID, event.eventId())
+                        .field(F_RESOURCE_TYPE, resourceType)
+                        .field(F_RESOURCE_ID, resourceId)
                         .warn(LOG);
                 throw e;
             }
             if (resolved == null || resolved.isEmpty()) {
-                // Not an error: the event simply names nothing this platform can act on. It is still
-                // worth a line, because a run of these is how a silent reconciliation hole shows up.
+                // Not an error, but a run of these reveals a reconciliation gap.
                 ConnectorLogEvent.of(EVENT_RECONCILIATION_GAP)
                         .outcome(ConnectorLogEvent.OUTCOME_UNRESOLVED)
                         .durationSince(startedAt)
                         .field("error_class", ConnectorLogEvent.ERROR_CLASS_NONE)
                         .reason("subscription_id_missing")
-                        .field("event_id", event.eventId())
-                        .field("resource_type", resourceType)
-                        .field("resource_id", resourceId)
+                        .field(F_EVENT_ID, event.eventId())
+                        .field(F_RESOURCE_TYPE, resourceType)
+                        .field(F_RESOURCE_ID, resourceId)
                         .warn(LOG);
             } else {
                 ConnectorLogEvent.of(EVENT_WEBHOOK_RESOLUTION)
                         .success(startedAt)
-                        .field("event_id", event.eventId())
-                        .field("resource_type", resourceType)
-                        .field("resource_id", resourceId)
-                        .field("resolved_subscription_count", Integer.valueOf(resolved.size()))
+                        .field(F_EVENT_ID, event.eventId())
+                        .field(F_RESOURCE_TYPE, resourceType)
+                        .field(F_RESOURCE_ID, resourceId)
+                        .field("resolved_subscription_count", resolved.size())
                         .field("resolved_subscription_ids", resolved)
                         .info(LOG);
             }
@@ -591,8 +530,7 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
         }
     }
 
-    protected void verifyMerchantAccount(final AdyenTokenHandle token)
-            throws PreconditionFailedException, ConnectorNotConfiguredException {
+    protected void verifyMerchantAccount(final AdyenTokenHandle token) throws PreconditionFailedException {
         final String configured = configService.getConfiguredAdyenMerchantAccount();
         if (StringUtils.isBlank(configured)) {
             tokenValidationFailure("merchant_account_not_configured", ConnectorLogEvent.ERROR_CLASS_CONFIGURATION,
@@ -679,24 +617,15 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
         return StringUtils.removeStart(accountId, "code-");
     }
 
-    /**
-     * One event for every refused token import, told apart by {@code reason}, and one line per refusal so
-     * that counting the event counts refusals.
-     */
     private ConnectorLogEvent tokenValidationFailure(final String reason, final String errorClass,
                                                      final AdyenTokenHandle token) {
         return validationFailure(reason, errorClass)
-                .field("token_reference", token == null ? null : token.storedPaymentMethodId())
-                .field("merchant_account", token == null ? null : token.merchantAccount())
-                .field("network_transaction_id_present",
-                        token == null ? null : Boolean.valueOf(token.hasNetworkTransactionId()));
+                .field(F_TOKEN_REFERENCE, token == null ? null : token.storedPaymentMethodId())
+                .field(F_MERCHANT_ACCOUNT, token == null ? null : token.merchantAccount())
+                .field(F_NTID_PRESENT, token == null ? null : token.hasNetworkTransactionId());
     }
 
-    /**
-     * The platform and operation are stated explicitly as a fallback: these guards are {@code protected}
-     * and can be called on their own, outside the scope {@link #importAdyenToken} opens. When the scope
-     * is open its values win, so the line says the same thing either way.
-     */
+    /** Platform and operation for guards called outside the scope {@link #importAdyenToken} opens. */
     private ConnectorLogEvent validationFailure(final String reason, final String errorClass) {
         return ConnectorLogEvent.of(EVENT_TOKEN_IMPORT_VALIDATION_FAILURE)
                 .platform(BillingPlatform.RECURLY)
@@ -716,5 +645,25 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
 
     private static String externalIdOrNull(final BillingSubscriptionRef subscription) {
         return subscription == null ? null : subscription.externalId();
+    }
+
+    public void setApiClient(final RecurlyApiClient apiClient) {
+        this.apiClient = apiClient;
+    }
+
+    public void setConfigService(final RecurlyConfigService configService) {
+        this.configService = configService;
+    }
+
+    public void setPlanResolver(final RecurlyPlanResolver planResolver) {
+        this.planResolver = planResolver;
+    }
+
+    public void setWebhookParser(final RecurlyWebhookParser webhookParser) {
+        this.webhookParser = webhookParser;
+    }
+
+    void setClock(final Clock clock) {
+        this.clock = clock;
     }
 }

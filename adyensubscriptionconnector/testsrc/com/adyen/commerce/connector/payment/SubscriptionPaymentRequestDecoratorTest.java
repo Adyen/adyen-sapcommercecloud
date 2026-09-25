@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -18,6 +19,7 @@ import java.util.Optional;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 
 import com.adyen.commerce.connector.dto.PlanRef;
 import com.adyen.commerce.connector.dto.PlanResolutionRequest;
@@ -56,7 +58,7 @@ public class SubscriptionPaymentRequestDecoratorTest
 	private PaymentRequest paymentRequest;
 
 	@Before
-	public void setUp() throws Exception
+	public void setUp()
 	{
 		cartService = mock(CartService.class);
 		connectorRegistry = mock(SubscriptionBillingConnectorRegistry.class);
@@ -223,7 +225,7 @@ public class SubscriptionPaymentRequestDecoratorTest
 	}
 
 	@Test
-	public void cartWithNoEntriesIsUntouched() throws Exception
+	public void cartWithNoEntriesIsUntouched()
 	{
 		when(cart.getEntries()).thenReturn(null);
 		cartData.setAdyenPaymentMethod("klarna");
@@ -234,7 +236,7 @@ public class SubscriptionPaymentRequestDecoratorTest
 	}
 
 	@Test
-	public void storeWithoutConnectorConfigurationIsUntouched() throws Exception
+	public void storeWithoutConnectorConfigurationIsUntouched()
 	{
 		when(store.getActiveBillingPlatform()).thenReturn(null);
 		cartData.setAdyenPaymentMethod("klarna");
@@ -356,7 +358,108 @@ public class SubscriptionPaymentRequestDecoratorTest
 		assertUntouched(paymentRequest);
 	}
 
+	// ------------------------------------------------------ subscription units
+
+	@Test
+	public void refusesTwoDifferentSubscriptionProductsBeforeCharging() throws Exception
+	{
+		givenEntries(entry("300938", 1L), entry("300939", 1L));
+		when(connector.resolvePlan(any(PlanResolutionRequest.class))).thenReturn(new PlanRef("plan-1", null));
+		cartData.setAdyenPaymentMethod("scheme");
+
+		expectSingleUnitRefusal();
+	}
+
+	@Test
+	public void refusesQuantityTwoOfOneSubscriptionProduct() throws Exception
+	{
+		givenEntries(entry("300938", 2L));
+		when(connector.resolvePlan(any(PlanResolutionRequest.class))).thenReturn(new PlanRef("plan-1", null));
+		cartData.setAdyenPaymentMethod("scheme");
+
+		expectSingleUnitRefusal();
+	}
+
+	@Test
+	public void refusesTheSameSubscriptionProductOnTwoEntries() throws Exception
+	{
+		givenEntries(entry("300938", 1L), entry("300938", 1L));
+		when(connector.resolvePlan(any(PlanResolutionRequest.class))).thenReturn(new PlanRef("plan-1", null));
+		cartData.setAdyenPaymentMethod("scheme");
+
+		expectSingleUnitRefusal();
+		verify(connector, times(1)).resolvePlan(any(PlanResolutionRequest.class));
+	}
+
+	/** The cart is refused as a whole even when the method could not be tokenized either. */
+	@Test
+	public void unitRefusalComesBeforeThePaymentMethodCheck() throws Exception
+	{
+		givenEntries(entry("300938", 2L));
+		when(connector.resolvePlan(any(PlanResolutionRequest.class))).thenReturn(new PlanRef("plan-1", null));
+		cartData.setAdyenPaymentMethod("klarna");
+
+		expectSingleUnitRefusal();
+	}
+
+	@Test
+	public void acceptsOneSubscriptionUnitAlongsideOrdinaryProductsInAnyQuantity() throws Exception
+	{
+		givenEntries(entry("300938", 1L), entry("plain", 5L));
+		when(connector.resolvePlan(argThat(r -> r != null && "300938".equals(r.productCode()))))
+				.thenReturn(new PlanRef("plan-1", null));
+		when(connector.resolvePlan(argThat(r -> r != null && "plain".equals(r.productCode()))))
+				.thenThrow(new PlanNotMappedException("not mapped"));
+		cartData.setAdyenPaymentMethod("scheme");
+
+		decorator.decoratePaymentRequest(paymentRequest, cartData, null, null, null);
+
+		assertTrue(paymentRequest.getStorePaymentMethod());
+	}
+
+	@Test
+	public void classifiesProductsInTheCartsStore() throws Exception
+	{
+		givenMappedProduct("300938");
+		cartData.setAdyenPaymentMethod("scheme");
+
+		decorator.decoratePaymentRequest(paymentRequest, cartData, null, null, null);
+
+		final ArgumentCaptor<PlanResolutionRequest> request = ArgumentCaptor.forClass(PlanResolutionRequest.class);
+		verify(connector).resolvePlan(request.capture());
+		assertEquals("electronics", request.getValue().baseStoreUid());
+	}
+
 	// -------------------------------------------------------------- helpers
+
+	private void expectSingleUnitRefusal()
+	{
+		try
+		{
+			decorator.decoratePaymentRequest(paymentRequest, cartData, null, null, null);
+			fail("Expected a cart with more than one subscription unit to be refused before authorization");
+		}
+		catch (final RecurringContractHelper.SubscriptionCartNotSupportedException e)
+		{
+			assertEquals(RecurringContractHelper.SUBSCRIPTION_SINGLE_UNIT_ONLY, e.getErrorCode());
+		}
+		assertUntouched(paymentRequest);
+	}
+
+	private void givenEntries(final AbstractOrderEntryModel... entries)
+	{
+		when(cart.getEntries()).thenReturn(List.of(entries));
+	}
+
+	private static AbstractOrderEntryModel entry(final String code, final long quantity)
+	{
+		final ProductModel product = mock(ProductModel.class);
+		final AbstractOrderEntryModel entry = mock(AbstractOrderEntryModel.class);
+		when(product.getCode()).thenReturn(code);
+		when(entry.getProduct()).thenReturn(product);
+		when(entry.getQuantity()).thenReturn(quantity);
+		return entry;
+	}
 
 	private void expectRejection()
 	{

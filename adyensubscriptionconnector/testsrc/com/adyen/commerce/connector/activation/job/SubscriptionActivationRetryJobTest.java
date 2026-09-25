@@ -111,7 +111,7 @@ public class SubscriptionActivationRetryJobTest
 		final BillingActivationAttemptModel attempt = attempt(1, BillingActivationAttemptService.STATUS_FAILED);
 		givenDue(attempt);
 		// A retry that reached the platform: the activator opened a new attempt, so the count moved.
-		when(attempt.getAttemptCount()).thenReturn(Integer.valueOf(1), Integer.valueOf(2));
+		when(attempt.getAttemptCount()).thenReturn(1, 2);
 
 		job.perform(cronJob);
 
@@ -247,7 +247,7 @@ public class SubscriptionActivationRetryJobTest
 	private BillingActivationAttemptModel attempt(final int attemptCount, final String status)
 	{
 		final BillingActivationAttemptModel attempt = mock(BillingActivationAttemptModel.class);
-		when(attempt.getAttemptCount()).thenReturn(Integer.valueOf(attemptCount));
+		when(attempt.getAttemptCount()).thenReturn(attemptCount);
 		when(attempt.getStatus()).thenReturn(status);
 		when(attempt.getOrder()).thenReturn(order);
 		return attempt;

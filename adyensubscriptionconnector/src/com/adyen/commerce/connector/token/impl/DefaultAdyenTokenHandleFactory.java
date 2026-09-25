@@ -39,21 +39,14 @@ import de.hybris.platform.store.BaseStoreModel;
 import de.hybris.platform.core.model.user.UserModel;
 
 /**
- * Default factory. Maps the Adyen plugin's persisted token artifacts onto {@link AdyenTokenHandle}:
+ * Builds an {@link AdyenTokenHandle} from what the Adyen plugin stored on the order:
  * <ul>
  *   <li>{@code shopperReference} &larr; {@code Customer.customerID}</li>
- *   <li>{@code storedPaymentMethodId} &larr; {@code PaymentInfo.adyenSelectedReference}
- *       (the plugin normalizes modern {@code storedPaymentMethodId} and legacy
- *       {@code recurringDetailReference} into this single attribute)</li>
+ *   <li>{@code storedPaymentMethodId} &larr; {@code PaymentInfo.adyenSelectedReference}</li>
  *   <li>{@code merchantAccount} &larr; {@link AdyenMerchantAccountStrategy}</li>
- *   <li>{@code networkTransactionId} &larr; {@code PaymentInfo.adyenNetworkTxReference}, captured from
- *       the authorisation response's {@code additionalData.networkTxReference}</li>
- *   <li>card metadata &larr; the {@code PaymentInfo} adyen card attributes</li>
+ *   <li>{@code networkTransactionId} &larr; {@code PaymentInfo.adyenNetworkTxReference}, optional</li>
+ *   <li>card metadata &larr; the {@code PaymentInfo} card attributes</li>
  * </ul>
- * The network transaction id is optional: schemes return it for card authorisations but not for every
- * payment method, and only connectors advertising
- * {@code ConnectorCapabilities.requiresNetworkTransactionId()} need one. A token that carries none cannot
- * be imported into such a platform without a fresh authorisation.
  */
 public class DefaultAdyenTokenHandleFactory implements AdyenTokenHandleFactory
 {
@@ -83,12 +76,12 @@ public class DefaultAdyenTokenHandleFactory implements AdyenTokenHandleFactory
 		}
 
 		final UserModel user = order.getUser();
-		if (!(user instanceof CustomerModel))
+		if (!(user instanceof CustomerModel customer))
 		{
 			throw new TokenContractException(
 					"Order '" + order.getCode() + "' is not owned by a customer; cannot derive a shopperReference");
 		}
-		final String shopperReference = ((CustomerModel) user).getCustomerID();
+		final String shopperReference = customer.getCustomerID();
 		if (StringUtils.isBlank(shopperReference))
 		{
 			throw new TokenContractException("Customer on order '" + order.getCode() + "' has no customerID/shopperReference");

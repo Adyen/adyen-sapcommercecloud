@@ -9,9 +9,6 @@ public interface RecurlyHttpClient {
     RecurlyHttpResponse post(String url, String authorizationHeader, String acceptHeader, String jsonBody,
                              String idempotencyKey) throws RetryableBillingException;
 
-    RecurlyHttpResponse patch(String url, String authorizationHeader, String acceptHeader, String jsonBody,
-                              String idempotencyKey) throws RetryableBillingException;
-
     RecurlyHttpResponse put(String url, String authorizationHeader, String acceptHeader, String jsonBody,
                             String idempotencyKey) throws RetryableBillingException;
 

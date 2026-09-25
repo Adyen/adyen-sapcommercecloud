@@ -84,8 +84,12 @@ public class RecurlySubscriptionBillingConnectorTest
     @Before
     public void setUp() throws ConnectorNotConfiguredException {
         MockitoAnnotations.openMocks(this);
-        connector = new RecurlySubscriptionBillingConnector(apiClient, configService, planResolver, webhookParser,
-                Clock.fixed(NOW, ZoneOffset.UTC));
+        connector = new RecurlySubscriptionBillingConnector();
+        connector.setApiClient(apiClient);
+        connector.setConfigService(configService);
+        connector.setPlanResolver(planResolver);
+        connector.setWebhookParser(webhookParser);
+        connector.setClock(Clock.fixed(NOW, ZoneOffset.UTC));
         when(configService.getMinimumStartDelaySeconds()).thenReturn(300);
         when(configService.isExternalNtidFeatureEnabled()).thenReturn(true);
         when(configService.isWalletEnabled()).thenReturn(true);
@@ -218,7 +222,7 @@ public class RecurlySubscriptionBillingConnectorTest
         final PlanRef plan = new PlanRef("monthly", null);
         when(planResolver.resolve(any())).thenReturn(plan);
 
-        assertSame(plan, connector.resolvePlan(new PlanResolutionRequest("product", Map.of())));
+        assertSame(plan, connector.resolvePlan(new PlanResolutionRequest("product", "electronics", Map.of())));
     }
 
     @Test

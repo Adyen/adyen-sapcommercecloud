@@ -78,7 +78,7 @@ public class DefaultBillingActivationAttemptService implements BillingActivation
 		}
 		attempt.setProductCode(productCode);
 		attempt.setIdempotencyKey(idempotencyKey);
-		attempt.setAttemptCount(Integer.valueOf(attemptCount(attempt) + 1));
+		attempt.setAttemptCount(attemptCount(attempt) + 1);
 		attempt.setStatus(STATUS_PENDING);
 		final Date now = now();
 		if (attempt.getFirstAttemptAt() == null)
@@ -298,7 +298,7 @@ public class DefaultBillingActivationAttemptService implements BillingActivation
 	protected static int attemptCount(final BillingActivationAttemptModel attempt)
 	{
 		final Integer count = attempt.getAttemptCount();
-		return count == null ? 0 : count.intValue();
+		return count == null ? 0 : count;
 	}
 
 	private static String orderCode(final BillingActivationAttemptModel attempt)

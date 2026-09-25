@@ -6,7 +6,6 @@ import com.adyen.commerce.facades.AdyenCheckoutApiFacade;
 import com.adyen.commerce.facades.AdyenPartialPaymentOrderFacade;
 import com.adyen.model.checkout.*;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
-import com.adyen.commerce.facades.impl.DefaultAdyenCheckoutFacade;
 import com.adyen.v6.forms.AddressForm;
 import com.adyen.v6.model.RequestInfo;
 import com.adyen.commerce.services.AdyenStoredCardAuthorisationService;
@@ -67,10 +66,10 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
         } else if (paymentRequest.getPaymentMethod().getActualInstance() instanceof PaymentDetails paymentDetails) {
             paymentInfo.setAdyenIssuerId(paymentDetails.getType().getValue());
 
-        } else if (paymentRequest.getPaymentMethod().getActualInstance() instanceof AfterpayDetails afterpayDetails) {
+        } else if (paymentRequest.getPaymentMethod().getActualInstance() instanceof AfterpayDetails) {
             paymentInfo.setAdyenTelephone(cartModel.getDeliveryAddress().getPhone1());
 
-        } else if(paymentRequest.getPaymentMethod().getActualInstance() instanceof ApplePayDetails applePayDetails){
+        } else if(paymentRequest.getPaymentMethod().getActualInstance() instanceof ApplePayDetails) {
             paymentInfo.setAdyenApplePayMerchantName(cartModel.getAdyenApplePayMerchantName());
             paymentInfo.setAdyenApplePayMerchantIdentifier(cartModel.getAdyenApplePayMerchantIdentifier());
         }
@@ -227,7 +226,7 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
             addressData.setShippingAddress(true);
             getUserFacade().addAddress(addressData);
         }
-        if (useAdyenDeliveryAddress == true) {
+        if (Boolean.TRUE.equals(useAdyenDeliveryAddress)) {
             // Clone DeliveryAdress to BillingAddress
             final AddressModel clonedAddress = getModelService().clone(cartModel.getDeliveryAddress());
             clonedAddress.setBillingAddress(true);

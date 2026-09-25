@@ -48,7 +48,9 @@ public class DefaultRecurlyWebhookParserTest
     public void setUp() throws Exception
     {
         MockitoAnnotations.openMocks(this);
-        parser = new DefaultRecurlyWebhookParser(configService, Clock.fixed(NOW, ZoneOffset.UTC));
+        parser = new DefaultRecurlyWebhookParser();
+        parser.setConfigService(configService);
+        parser.setClock(Clock.fixed(NOW, ZoneOffset.UTC));
         when(configService.getWebhookSigningKey()).thenReturn(SECRET);
         when(configService.getWebhookToleranceSeconds()).thenReturn(300);
     }

@@ -61,7 +61,9 @@ public class DefaultRecurlyApiClientTest
     public void setUp() throws Exception
     {
         MockitoAnnotations.openMocks(this);
-        client = new DefaultRecurlyApiClient(httpClient, configService);
+        client = new DefaultRecurlyApiClient();
+        client.setHttpClient(httpClient);
+        client.setConfigService(configService);
         when(configService.getApiBaseUrl()).thenReturn(BASE);
         when(configService.getApiKey()).thenReturn("recurly-key");
         when(configService.getApiVersion()).thenReturn("v2021-02-25");

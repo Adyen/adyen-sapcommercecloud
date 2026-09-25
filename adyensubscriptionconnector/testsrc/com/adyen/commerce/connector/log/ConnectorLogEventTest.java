@@ -240,9 +240,9 @@ public class ConnectorLogEventTest
 	public void handsThePatternAndArgumentsToSlf4j()
 	{
 		final Logger log = mock(Logger.class);
-		when(log.isWarnEnabled()).thenReturn(Boolean.TRUE.booleanValue());
+		when(log.isWarnEnabled()).thenReturn(true);
 
-		ConnectorLogEvent.of("vendor_api_error").field("http_status", Integer.valueOf(429)).warn(log);
+		ConnectorLogEvent.of("vendor_api_error").field("http_status", 429).warn(log);
 
 		final ArgumentCaptor<Object[]> arguments = ArgumentCaptor.forClass(Object[].class);
 		verify(log).warn(eq("event={} http_status={}"), arguments.capture());
@@ -254,7 +254,7 @@ public class ConnectorLogEventTest
 	public void buildsNothingWhenTheLevelIsOff()
 	{
 		final Logger log = mock(Logger.class);
-		when(log.isInfoEnabled()).thenReturn(Boolean.FALSE.booleanValue());
+		when(log.isInfoEnabled()).thenReturn(false);
 
 		ConnectorLogEvent.of("connector_call").info(log);
 
@@ -268,7 +268,7 @@ public class ConnectorLogEventTest
 	public void buildsNothingWhenDebugIsOff()
 	{
 		final Logger log = mock(Logger.class);
-		when(log.isDebugEnabled()).thenReturn(Boolean.FALSE.booleanValue());
+		when(log.isDebugEnabled()).thenReturn(false);
 
 		ConnectorLogEvent.of("subscription_activation").debug(log);
 
@@ -279,7 +279,7 @@ public class ConnectorLogEventTest
 	public void emitsAtDebugWhenEnabled()
 	{
 		final Logger log = mock(Logger.class);
-		when(log.isDebugEnabled()).thenReturn(Boolean.TRUE.booleanValue());
+		when(log.isDebugEnabled()).thenReturn(true);
 
 		ConnectorLogEvent.of("subscription_activation").debug(log);
 
@@ -290,8 +290,8 @@ public class ConnectorLogEventTest
 	public void logRoutesByOutcome()
 	{
 		final Logger log = mock(Logger.class);
-		when(log.isWarnEnabled()).thenReturn(Boolean.TRUE.booleanValue());
-		when(log.isInfoEnabled()).thenReturn(Boolean.TRUE.booleanValue());
+		when(log.isWarnEnabled()).thenReturn(true);
+		when(log.isInfoEnabled()).thenReturn(true);
 
 		ConnectorLogEvent.of("connector_call").log(log, true);
 		ConnectorLogEvent.of("connector_call").log(log, false);

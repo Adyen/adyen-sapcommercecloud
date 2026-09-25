@@ -104,6 +104,7 @@
         <property name="eventService" ref="eventService"/>
         <property name="reconciliationService"
                   ref="subscriptionReconciliationService"/>
+        <property name="storeContext" ref="subscriptionStoreContext"/>
     </bean>
 
     <alias name="defaultSubscriptionReconciliationService" alias="subscriptionReconciliationService"/>
@@ -111,6 +112,7 @@
           class="com.adyen.commerce.connector.reconciliation.impl.DefaultSubscriptionReconciliationService">
         <property name="connectorRegistry" ref="subscriptionBillingConnectorRegistry"/>
         <property name="modelService" ref="modelService"/>
+        <property name="storeContext" ref="subscriptionStoreContext"/>
     </bean>
 
     <!-- ============================================================= -->
@@ -127,8 +129,7 @@
         <property name="baseSiteService" ref="baseSiteService"/>
     </bean>
 
-    <!-- Cron jobs have no storefront context. This selector reads the exact order store from a local
-         reconciliation session and otherwise yields to SAP's ordinary site-based selector. -->
+    <!-- Reads the store pinned by subscriptionStoreContext; otherwise yields to SAP's site-based selector. -->
     <bean id="subscriptionBaseStoreSelectorStrategy"
           class="com.adyen.commerce.connector.context.SubscriptionBaseStoreSelectorStrategy">
         <property name="sessionService" ref="sessionService"/>
@@ -142,6 +143,15 @@
                 <value>de.hybris.platform.basecommerce.strategies.impl.DefaultBaseStoreSelectorStrategy</value>
             </list>
         </property>
+    </bean>
+
+    <!-- Runs connector calls with the subscription's own store and site in context. -->
+    <alias name="defaultSubscriptionStoreContext" alias="subscriptionStoreContext"/>
+    <bean id="defaultSubscriptionStoreContext"
+          class="com.adyen.commerce.connector.context.impl.DefaultSubscriptionStoreContext">
+        <property name="sessionService" ref="sessionService"/>
+        <property name="baseSiteService" ref="baseSiteService"/>
+        <property name="baseStoreService" ref="baseStoreService"/>
     </bean>
 
     <!-- ============================================================= -->
@@ -171,12 +181,9 @@
         <!-- The same instance the payment decorator uses; see the rule bean above. -->
         <property name="subscriptionProductRule" ref="subscriptionProductRule"/>
         <property name="attemptService" ref="billingActivationAttemptService"/>
-        <!-- The connectors' config services read credentials from the *current* base store, and neither an
-             Adyen notification thread nor a cron thread has one. These three are how the activator puts the
-             order's own store there before any connector is touched. -->
+        <!-- Notification and cron threads have no current base store; these put the order's store there. -->
         <property name="sessionService" ref="sessionService"/>
-        <property name="baseSiteService" ref="baseSiteService"/>
-        <property name="baseStoreService" ref="baseStoreService"/>
+        <property name="storeContext" ref="subscriptionStoreContext"/>
     </bean>
 
     <!-- ============================================================= -->

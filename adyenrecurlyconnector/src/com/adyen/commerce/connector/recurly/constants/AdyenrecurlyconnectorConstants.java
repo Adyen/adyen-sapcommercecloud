@@ -11,6 +11,4 @@ public final class AdyenrecurlyconnectorConstants extends GeneratedAdyenrecurlyc
 	private AdyenrecurlyconnectorConstants()
 	{
 	}
-
-	public static final String PLATFORM_LOGO_CODE = "adyenrecurlyconnectorPlatformLogo";
 }
