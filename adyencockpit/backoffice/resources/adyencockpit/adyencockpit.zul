@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- Deliberately empty: the frame is created by the controller so its source can come from
+     configuration. Everything visible is the cockpit application itself. -->
+<widget xmlns="http://www.zkoss.org/2005/zul"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.hybris.com/schema/cockpitng/zul/zul.xsd"
+        height="100%">
+
+    <div id="cockpitFrameHolder" height="100%" width="100%"/>
+
+</widget>

@@ -11,12 +11,13 @@
            http://www.springframework.org/schema/beans/spring-beans.xsd"
 >
 
-    <http pattern="/WEB-INF/views/500.jsp" security="none" />
-    <http pattern="/WEB-INF/views/404.jsp" security="none" />
-    <http pattern="/static/**" security="none" />
-    <http pattern="/api/auth/**" security="none" />
+    <http pattern="/WEB-INF/views/500.jsp" security="none" request-matcher="ant" />
+    <http pattern="/WEB-INF/views/404.jsp" security="none" request-matcher="ant" />
+    <http pattern="/static/**" security="none" request-matcher="ant" />
+    <http pattern="/api/auth/**" security="none" request-matcher="ant" />
 
-    <http access-decision-manager-ref="accessDecisionManager" use-expressions="false">
+    <http access-decision-manager-ref="accessDecisionManager" use-expressions="false"
+          use-authorization-manager="false" request-matcher="ant">
         <session-management session-authentication-strategy-ref="fixation"/>
         <intercept-url pattern="/login" access="PERMIT_ALL"/>
         <intercept-url pattern="/api/auth/**" access="PERMIT_ALL"/>

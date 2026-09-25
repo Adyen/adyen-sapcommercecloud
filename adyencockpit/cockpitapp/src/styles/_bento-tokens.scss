@@ -1,0 +1,639 @@
+// =============================================================================
+//  Adyen "Bento" design tokens — light theme
+// =============================================================================
+//
+//  Source of truth (verbatim extraction, values NOT re-derived or rounded):
+//    Adyen Customer Area light-theme token stylesheet (bento-light-*.css),
+//    its font declarations (fonts.css) and utility classes (utility-*.css, cross-check).
+//
+//  323 custom properties, all declared on a single `:root` block in the source.
+//  Adyen's own token names are preserved 1:1 (`--b-*`, b = Bento) so that every
+//  value stays traceable back to the Customer Area stylesheet.
+//
+//  Naming grammar observed in the source:
+//    --b-<category>-<role>[-<variant>][-<state>]
+//      category : color | spacer | text | border-radius | border-width |
+//                 shadow | media-query | z-index | animation | focus-ring
+//      role     : background | label | outline | separator | link | decorative | support
+//      state    : (none = rest) | hover | active | disabled | selected | visited
+//    "inverse"      = element sits on a dark surface in the *light* theme
+//    "always-dark"  / "always-light" = pinned, never flips with the theme
+//    "weak" / "strong" = tonal pair for a status colour (weak = tinted surface,
+//                         strong = saturated fill)
+//
+//  NOTE ON THEMES: only the LIGHT theme file exists in the saved capture.
+//  The file name (`bento-light-…`) implies a sibling dark build that redefines
+//  these same names. See the "Known gaps" comment at the bottom of this file.
+//
+//  NOTE ON FONTS: the Adyen UI / Adyen Mono / Adyen Variable woff2 binaries are
+//  proprietary Adyen brand assets. They are referenced by fonts.css but are NOT
+//  present in the capture and are not redistributable. The stacks below degrade
+//  to Roboto / system fonts. See the @font-face inventory comment at the bottom.
+// =============================================================================
+
+
+// -----------------------------------------------------------------------------
+//  SCSS-side mirrors
+//  CSS custom properties cannot be used inside a @media query, so the Bento
+//  breakpoints have to exist a second time as plain SCSS values.
+//  Values are identical to the --b-media-query-* custom properties below.
+// -----------------------------------------------------------------------------
+$b-breakpoints: (
+  xs-min: 0px,      xs-max: 375px,
+  s-min:  376px,    s-max:  499px,
+  m-min:  500px,    m-max:  767px,
+  l-min:  768px,    l-max:  1279px,
+  xl-min: 1280px,   xl-max: 1535px,
+  xxl:    1536px
+);
+
+/// Usage: @include b-media(l-min) { ... }  -> min-width media query
+///        @include b-media(m-max, max)     -> max-width media query
+@mixin b-media($key, $dir: min) {
+  $value: map-get($b-breakpoints, $key);
+  @if $dir == min {
+    @media (min-width: $value) { @content; }
+  } @else {
+    @media (max-width: $value) { @content; }
+  }
+}
+
+
+:root {
+
+  // ------------------------------------------------------------------------
+  // COLOUR — 165 tokens
+  // Adyen splits colour by the ROLE a surface plays, not by hue. There is no
+  // raw palette (no --b-blue-500); every token is already semantic. The only
+  // hue-named tokens are the 6 `decorative` ones used for charts/avatars.
+  // ------------------------------------------------------------------------
+
+  // Background — neutral surfaces (page, card, modal)
+  --b-color-background-primary: #ffffff;
+  --b-color-background-primary-hover: #f6f5f4;
+  --b-color-background-primary-active: #efeeed;
+  --b-color-background-secondary: rgba(17, 17, 16, .04);
+  --b-color-background-secondary-hover: rgba(17, 17, 16, .07);
+  --b-color-background-secondary-active: rgba(17, 17, 16, .11);
+  --b-color-background-tertiary: rgba(17, 17, 16, .07);
+  --b-color-background-tertiary-hover: rgba(17, 17, 16, .11);
+  --b-color-background-tertiary-active: rgba(17, 17, 16, .15);
+  --b-color-background-quaternary: #c0c5ca;
+  --b-color-background-quaternary-hover: #b7bdc2;
+  --b-color-background-quaternary-active: #aeb5ba;
+  --b-color-background-modal: #ffffff;
+  --b-color-background-modal-hover: #f6f5f4;
+  --b-color-background-modal-active: #efeeed;
+  --b-color-background-disabled: rgba(17, 17, 16, .04);
+
+  // Background — selection & spotlight
+  --b-color-background-selected: #e3effb;
+  --b-color-background-selected-hover: #d4e6f9;
+  --b-color-background-selected-active: #c8dff7;
+  --b-color-background-spotlight: #ffe379;
+
+  // Background — status: critical (error / destructive)
+  --b-color-background-critical-weak: #ffeae3;
+  --b-color-background-critical-weak-hover: #ffded3;
+  --b-color-background-critical-weak-active: #ffd3c5;
+  --b-color-background-critical-weak-transparent: rgba(247, 63, 1, .1);
+  --b-color-background-critical-weak-transparent-hover: rgba(247, 63, 1, .16);
+  --b-color-background-critical-weak-transparent-active: rgba(247, 63, 1, .23);
+  --b-color-background-critical-strong: #dc3801;
+  --b-color-background-critical-strong-hover: #c13101;
+  --b-color-background-critical-strong-active: #751e00;
+
+  // Background — status: warning
+  --b-color-background-warning-weak: #ffecd0;
+  --b-color-background-warning-weak-hover: #ffe0b3;
+  --b-color-background-warning-weak-active: #ffd79c;
+  --b-color-background-warning-strong: #cb7800;
+
+  // Background — status: success / highlight (info)
+  --b-color-background-success-weak: #cef6e2;
+  --b-color-background-success-strong: #008845;
+  --b-color-background-highlight-weak: #e3effb;
+  --b-color-background-highlight-strong: #0f75dc;
+
+  // Background — navigation (the mint/green Customer Area sidebar accent)
+  --b-color-background-navigation: #cef6e2;
+  --b-color-background-navigation-hover: #b8f2d6;
+  --b-color-background-navigation-active: #9dedc6;
+
+  // Background — inverse (dark surfaces inside the light theme: tooltips, toasts)
+  --b-color-background-inverse-primary: #111110;
+  --b-color-background-inverse-primary-hover: #30302f;
+  --b-color-background-inverse-primary-active: #3d3d3c;
+  --b-color-background-inverse-secondary: #2a2a29;
+  --b-color-background-inverse-secondary-hover: #363635;
+  --b-color-background-inverse-secondary-active: #444343;
+  --b-color-background-inverse-tertiary: #30302f;
+  --b-color-background-inverse-tertiary-hover: #3d3d3c;
+  --b-color-background-inverse-tertiary-active: #4c4a49;
+  --b-color-background-inverse-disabled: #232322;
+  --b-color-background-inverse-critical-weak: #5c1800;
+  --b-color-background-inverse-critical-weak-hover: #681a00;
+  --b-color-background-inverse-critical-weak-active: #751e00;
+  --b-color-background-inverse-critical-strong: #ff9a78;
+  --b-color-background-inverse-critical-strong-hover: #ffbda6;
+  --b-color-background-inverse-critical-strong-active: #ffded3;
+
+  // Background — always-light (pinned white, never flips with the theme)
+  --b-color-background-always-light: #ffffff;
+  --b-color-background-always-light-hover: #f4f5f6;
+  --b-color-background-always-light-active: #ecedef;
+  --b-color-background-always-light-disabled: #ecedef;
+  --b-color-background-always-light-selected: #e3effb;
+
+  // Background — always-dark (pinned Adyen navy #001222, never flips)
+  --b-color-background-always-dark: #001222;
+  --b-color-background-always-dark-hover: #5c6874;
+  --b-color-background-always-dark-active: #8c959d;
+  --b-color-background-always-dark-disabled: #ecedef;
+  --b-color-background-always-dark-selected: #00305f;
+  --b-color-background-always-dark-primary: #001222;
+  --b-color-background-always-dark-primary-hover: #132434;
+  --b-color-background-always-dark-primary-active: #213140;
+  --b-color-background-always-dark-primary-disabled: #ecedef;
+  --b-color-background-always-dark-primary-selected: #00305f;
+  --b-color-background-always-dark-secondary: #213140;
+  --b-color-background-always-dark-secondary-hover: #364553;
+  --b-color-background-always-dark-secondary-active: #455460;
+  --b-color-background-always-dark-secondary-disabled: #ecedef;
+  --b-color-background-always-dark-secondary-selected: #00305f;
+  --b-color-background-always-dark-tertiary: #2f3e4d;
+  --b-color-background-always-dark-tertiary-hover: #3d4c5a;
+  --b-color-background-always-dark-tertiary-active: #455460;
+  --b-color-background-always-dark-tertiary-disabled: #ecedef;
+  --b-color-background-always-dark-tertiary-selected: #00305f;
+
+  // Label (text & icon colour) — neutral ramp; note the alpha-on-black technique
+  --b-color-label-primary: #111111;
+  --b-color-label-primary-hover: rgba(17, 17, 17, .64);
+  --b-color-label-primary-active: rgba(17, 17, 17, .58);
+  --b-color-label-secondary: rgba(17, 17, 17, .64);
+  --b-color-label-tertiary: rgba(17, 17, 17, .45);
+  --b-color-label-disabled: rgba(17, 17, 17, .38);
+
+  // Label — status
+  --b-color-label-critical: #ce3401;
+  --b-color-label-critical-hover: #b42e01;
+  --b-color-label-critical-active: #751e00;
+  --b-color-label-warning: #a05e00;
+  --b-color-label-highlight: #006bd7;
+  --b-color-label-success: #007f41;
+  --b-color-label-on-color: #ffffff;
+
+  // Label — on a *weak* status background (darker, for AA contrast on tints)
+  --b-color-label-on-background-critical-weak: #b42e01;
+  --b-color-label-on-background-warning-weak: #8b5300;
+  --b-color-label-on-background-success-weak: #006f38;
+  --b-color-label-on-background-highlight-weak: #005ebd;
+
+  // Label — inverse (text on inverse/dark surfaces)
+  --b-color-label-inverse-primary: #ffffff;
+  --b-color-label-inverse-primary-hover: #f5f5f5;
+  --b-color-label-inverse-primary-active: #ededed;
+  --b-color-label-inverse-secondary: #949494;
+  --b-color-label-inverse-disabled: #767676;
+  --b-color-label-inverse-critical: #ffb196;
+  --b-color-label-inverse-critical-hover: #ffc9b6;
+  --b-color-label-inverse-critical-active: #ffded3;
+
+  // Label — always-light / always-dark (pinned)
+  --b-color-label-always-light: #ffffff;
+  --b-color-label-always-light-primary: #ecedef;
+  --b-color-label-always-light-primary-hover: #c8ccd0;
+  --b-color-label-always-light-primary-active: #959da5;
+  --b-color-label-always-light-secondary: #a6adb3;
+  --b-color-label-always-light-secondary-hover: #959da5;
+  --b-color-label-always-light-secondary-active: #737e88;
+  --b-color-label-always-light-tertiary: #848d96;
+  --b-color-label-always-light-tertiary-hover: #737e88;
+  --b-color-label-always-light-tertiary-active: #54616d;
+  --b-color-label-always-dark: #001222;
+
+  // Link
+  --b-color-link-primary: #005ebd;
+  --b-color-link-primary-hover: #006bd7;
+  --b-color-link-primary-active: #006bd7;
+  --b-color-link-primary-disabled: rgba(17, 17, 17, .45);
+  --b-color-link-primary-visited: #540884;
+  --b-color-link-primary-visited-hover: #710ab3;
+  --b-color-link-primary-visited-active: #710ab3;
+  --b-color-link-quiet: #111111;
+  --b-color-link-quiet-hover: rgba(17, 17, 17, .64);
+  --b-color-link-quiet-active: rgba(17, 17, 17, .64);
+  --b-color-link-quiet-disabled: rgba(17, 17, 17, .45);
+
+  // Outline — interactive borders (inputs, buttons, focusable cards)
+  --b-color-outline-primary: #e5e5e5;
+  --b-color-outline-primary-hover: #d5d5d5;
+  --b-color-outline-primary-active: #111111;
+  --b-color-outline-secondary: #d5d5d5;
+  --b-color-outline-secondary-hover: #c4c4c4;
+  --b-color-outline-secondary-active: #111111;
+  --b-color-outline-tertiary: #949494;
+  --b-color-outline-tertiary-hover: #767676;
+  --b-color-outline-tertiary-active: #111111;
+  --b-color-outline-disabled: #dddddd;
+  --b-color-outline-selected: #111111;
+  --b-color-outline-critical: #ce3401;
+  --b-color-outline-critical-hover: #b42e01;
+  --b-color-outline-critical-active: #751e00;
+  --b-color-outline-success: #007f41;
+  --b-color-outline-success-hover: #006f38;
+  --b-color-outline-success-active: #004724;
+  --b-color-outline-inverse-primary: #3d3d3d;
+  --b-color-outline-inverse-primary-hover: #767676;
+  --b-color-outline-inverse-primary-active: #a4a4a4;
+  --b-color-outline-inverse-disabled: #525252;
+  --b-color-outline-inverse-critical: #ff9a78;
+  --b-color-outline-inverse-critical-hover: #ffbda6;
+  --b-color-outline-inverse-critical-active: #ffded3;
+
+  // Separator — static dividers (hr, table rules). Non-interactive: no states.
+  --b-color-separator-primary: #e5e5e5;
+  --b-color-separator-secondary: #d5d5d5;
+  --b-color-separator-inverse-primary: #3d3d3d;
+  --b-color-separator-inverse-secondary: #606060;
+
+  // Decorative — the ONLY hue-named tokens. Charts, avatars, category dots.
+  --b-color-decorative-green: #00d16a;
+  --b-color-decorative-blue: #006bd7;
+  --b-color-decorative-yellow: #f9c500;
+  --b-color-decorative-orange: #f99300;
+  --b-color-decorative-red: #f73f01;
+  --b-color-decorative-grey: #8c8c8c;
+
+  // Support — page chrome, scrim and shadow source colour
+  --b-color-support-page-background: #fafafa;
+  --b-color-support-overlay: #111111;
+  --b-color-support-shadow: #111111;
+
+  // ------------------------------------------------------------------------
+  // TYPOGRAPHY — 87 tokens
+  // Seven named text styles: eyebrow, title-l, title-m, title, subtitle, body,
+  // caption — plus a rich-text (prose) set. There is no modular ratio: the
+  // scale is a hand-picked 12/14/16/20/24 px with px (never unitless) line
+  // heights. `-wide` = the roomier line-height variant, `-stronger` = weight
+  // 500, `-strongest` = weight 700. `-mobile-*` overrides exist ONLY for the
+  // three title styles and must be applied by the consumer under a media
+  // query — Bento does not do it for you.
+  // ------------------------------------------------------------------------
+
+  // Font families (the two stacks used by every style)
+  --b-text-body-font-family: "Adyen UI", Roboto, Oxygen, "Open Sans", "Helvetica Neue", Arial, sans-serif;
+  --b-text-body-font-family-secondary: "Adyen Mono", "Roboto Mono", "Oxygen Mono", "IBM Plex Mono", "Courier New", monospace;
+
+  // Font family, repeated per style (Adyen duplicates rather than aliases)
+  --b-text-title-l-font-family: "Adyen UI", Roboto, Oxygen, "Open Sans", "Helvetica Neue", Arial, sans-serif;
+  --b-text-title-l-font-family-secondary: "Adyen Mono", "Roboto Mono", "Oxygen Mono", "IBM Plex Mono", "Courier New", monospace;
+  --b-text-title-m-font-family: "Adyen UI", Roboto, Oxygen, "Open Sans", "Helvetica Neue", Arial, sans-serif;
+  --b-text-title-m-font-family-secondary: "Adyen Mono", "Roboto Mono", "Oxygen Mono", "IBM Plex Mono", "Courier New", monospace;
+  --b-text-title-font-family: "Adyen UI", Roboto, Oxygen, "Open Sans", "Helvetica Neue", Arial, sans-serif;
+  --b-text-title-font-family-secondary: "Adyen Mono", "Roboto Mono", "Oxygen Mono", "IBM Plex Mono", "Courier New", monospace;
+  --b-text-subtitle-font-family: "Adyen UI", Roboto, Oxygen, "Open Sans", "Helvetica Neue", Arial, sans-serif;
+  --b-text-caption-font-family: "Adyen UI", Roboto, Oxygen, "Open Sans", "Helvetica Neue", Arial, sans-serif;
+  --b-text-caption-font-family-secondary: "Adyen Mono", "Roboto Mono", "Oxygen Mono", "IBM Plex Mono", "Courier New", monospace;
+  --b-text-eyebrow-font-family-secondary: "Adyen Mono", "Roboto Mono", "Oxygen Mono", "IBM Plex Mono", "Courier New", monospace;
+  --b-text-rich-text-code-font-family: "Adyen Mono", "Roboto Mono", "Oxygen Mono", "IBM Plex Mono", "Courier New", monospace;
+
+  // title-l  — 24/34, bold; 20/30 on mobile
+  --b-text-title-l-font-size: 24px;
+  --b-text-title-l-line-height: 34px;
+  --b-text-title-l-font-weight: 700;
+  --b-text-title-l-letter-spacing: 0;
+  --b-text-title-l-mobile-font-size: 20px;
+  --b-text-title-l-mobile-line-height: 30px;
+
+  // title-m  — 20/30, bold; 18/28 on mobile
+  --b-text-title-m-font-size: 20px;
+  --b-text-title-m-line-height: 30px;
+  --b-text-title-m-font-weight: 700;
+  --b-text-title-m-letter-spacing: 0;
+  --b-text-title-m-mobile-font-size: 18px;
+  --b-text-title-m-mobile-line-height: 28px;
+
+  // title    — 16/26, bold; 16/26 on mobile (identical, but tokenised anyway)
+  --b-text-title-font-size: 16px;
+  --b-text-title-line-height: 26px;
+  --b-text-title-font-weight: 700;
+  --b-text-title-letter-spacing: 0;
+  --b-text-title-mobile-font-size: 16px;
+  --b-text-title-mobile-line-height: 26px;
+
+  // subtitle — 16/26, regular; `stronger` bumps weight to 500
+  --b-text-subtitle-font-size: 16px;
+  --b-text-subtitle-line-height: 26px;
+  --b-text-subtitle-font-weight: 400;
+  --b-text-subtitle-letter-spacing: 0;
+  --b-text-subtitle-stronger-font-weight: 500;
+
+  // body     — 14/20 default, 14/24 `wide`; the workhorse style
+  --b-text-body-font-size: 14px;
+  --b-text-body-line-height: 20px;
+  --b-text-body-font-weight: 400;
+  --b-text-body-letter-spacing: 0;
+  --b-text-body-wide-line-height: 24px;
+  --b-text-body-stronger-font-weight: 500;
+  --b-text-body-stronger-wide-font-weight: 500;
+  --b-text-body-stronger-wide-line-height: 24px;
+  --b-text-body-strongest-font-weight: 700;
+  --b-text-body-strongest-wide-font-weight: 700;
+  --b-text-body-strongest-wide-line-height: 24px;
+
+  // caption  — 12/18 default, 12/20 `wide`
+  --b-text-caption-font-size: 12px;
+  --b-text-caption-line-height: 18px;
+  --b-text-caption-font-weight: 400;
+  --b-text-caption-letter-spacing: 0;
+  --b-text-caption-wide-line-height: 20px;
+  --b-text-caption-stronger-font-weight: 500;
+  --b-text-caption-stronger-wide-font-weight: 500;
+  --b-text-caption-stronger-wide-line-height: 20px;
+
+  // eyebrow  — 12/18, regular, monospace-only (no primary family token)
+  --b-text-eyebrow-font-size: 12px;
+  --b-text-eyebrow-line-height: 18px;
+  --b-text-eyebrow-font-weight: 400;
+  --b-text-eyebrow-letter-spacing: 0;
+
+  // Global numeral rendering (set to `normal`, i.e. tabular figures NOT enabled)
+  --b-text-font-variant-numeric: normal;
+
+  // Rich text / prose — block rhythm for CMS-authored HTML
+  --b-text-rich-text-heading-font-weight: 500;
+  --b-text-rich-text-heading-margin: var(--b-spacer-100) 0 var(--b-spacer-050) 0;
+  --b-text-rich-text-paragraph-margin: 0 0 var(--b-spacer-040) 0;
+  --b-text-rich-text-list-margin: 0 0 var(--b-spacer-020) 0;
+  --b-text-rich-text-list-padding-left: var(--b-spacer-080);
+  --b-text-rich-text-blockquote-font-weight: 400;
+  --b-text-rich-text-blockquote-margin: var(--b-spacer-070) 0 var(--b-spacer-070) var(--b-spacer-070);
+  --b-text-rich-text-code-font-weight: 500;
+  --b-text-rich-text-code-background-color: var(--b-color-background-secondary);
+  --b-text-rich-text-pre-line-height: 24px;
+  --b-text-rich-text-pre-padding: var(--b-spacer-050) var(--b-spacer-070);
+  --b-text-rich-text-pre-margin: var(--b-spacer-070) 0 var(--b-spacer-070) 0;
+  --b-text-rich-text-mark-background-color: var(--b-color-background-highlight-weak);
+  --b-text-rich-text-table-line-height: 20px;
+  --b-text-rich-text-table-header-font-weight: 700;
+  --b-text-rich-text-table-padding: var(--b-spacer-050) var(--b-spacer-070);
+  --b-text-rich-text-table-margin: var(--b-spacer-070) 0 var(--b-spacer-070) 0;
+  --b-text-rich-text-table-border: var(--b-border-width-s) solid var(--b-color-separator-secondary);
+  --b-text-rich-text-table-hover-background-color: var(--b-color-background-primary-hover);
+  --b-text-rich-text-table-caption-line-height: 20px;
+  --b-text-rich-text-table-caption-margin: 0 0 var(--b-spacer-030) 0;
+
+  // Rich text at caption size (the `caption` density variant of the prose block)
+  --b-text-rich-text-caption-paragraph-margin: 0 0 var(--b-spacer-030) 0;
+  --b-text-rich-text-caption-list-margin: 0 0 var(--b-spacer-010) 0;
+  --b-text-rich-text-caption-list-padding-left: var(--b-spacer-070);
+  --b-text-rich-text-caption-blockquote-margin: var(--b-spacer-060) 0 var(--b-spacer-060) var(--b-spacer-070);
+  --b-text-rich-text-caption-table-padding: var(--b-spacer-040) var(--b-spacer-060);
+  --b-text-rich-text-caption-pre-line-height: 20px;
+
+  // ------------------------------------------------------------------------
+  // SPACING — 15 tokens
+  // A numeric ladder, NOT a t-shirt scale. Step 010 = 2px, then roughly 2px
+  // increments to 070 (16px), 4px to 100 (32px), 8px above that.
+  // Note the gaps: there is no 015/025/…; 090 -> 100 jumps 24 -> 32px, and
+  // there is no step between 140 (64px) and nothing at all — 64px is the cap.
+  // Mirrored by the .b-padding-* / .b-margin-* utility classes in
+  // utility-DhvYkMnp.css (7 variants each: all/top/right/bottom/left/x/y).
+  // ------------------------------------------------------------------------
+  --b-spacer-000: 0px;
+  --b-spacer-010: 2px;
+  --b-spacer-020: 4px;
+  --b-spacer-030: 6px;
+  --b-spacer-040: 8px;
+  --b-spacer-050: 10px;
+  --b-spacer-060: 12px;
+  --b-spacer-070: 16px;
+  --b-spacer-080: 20px;
+  --b-spacer-090: 24px;
+  --b-spacer-100: 32px;
+  --b-spacer-110: 40px;
+  --b-spacer-120: 48px;
+  --b-spacer-130: 56px;
+  --b-spacer-140: 64px;
+
+  // ------------------------------------------------------------------------
+  // BORDER RADIUS — 5 tokens
+  // t-shirt scale, 2/4/6/8/12px. No `full`/pill token — pill shapes in the
+  // Customer Area are done with a hardcoded large radius or 50%.
+  // ------------------------------------------------------------------------
+  --b-border-radius-xs: 2px;
+  --b-border-radius-s: 4px;
+  --b-border-radius-m: 6px;
+  --b-border-radius-l: 8px;
+  --b-border-radius-xl: 12px;
+
+  // ------------------------------------------------------------------------
+  // BORDER WIDTH — 4 tokens
+  // `attention` (1.5px) is the odd one out: a half-pixel width used for the
+  // emphasised/invalid input outline.
+  // ------------------------------------------------------------------------
+  --b-border-width-s: 1px;
+  --b-border-width-m: 2px;
+  --b-border-width-l: 3px;
+  --b-border-width-attention: 1.5px;
+
+  // ------------------------------------------------------------------------
+  // SHADOW — 6 tokens
+  // Three elevations x two flavours. The `-border` flavour appends a 1px
+  // hairline spread (0 0 0 1px #dadddf) so an elevated surface still reads as
+  // bounded on a white page. All shadows are tinted with the Adyen navy
+  // rgba(0, 18, 34, …) rather than pure black.
+  // ------------------------------------------------------------------------
+  --b-shadow-low: 0px 2px 4px rgba(0, 18, 34, .04), 0px 1px 2px rgba(0, 18, 34, .02);
+  --b-shadow-medium: 0px 6px 12px rgba(0, 18, 34, .08), 0px 2px 4px rgba(0, 18, 34, .04);
+  --b-shadow-high: 0px 18px 36px rgba(0, 18, 34, .12), 0px 4px 8px rgba(0, 18, 34, .06);
+  --b-shadow-low-border: 0px 2px 4px rgba(0, 18, 34, .04), 0px 1px 2px rgba(0, 18, 34, .02), 0px 0px 0px 1px rgba(218, 221, 223, 1);
+  --b-shadow-medium-border: 0px 6px 12px rgba(0, 18, 34, .08), 0px 2px 4px rgba(0, 18, 34, .04), 0px 0px 0px 1px rgba(218, 221, 223, 1);
+  --b-shadow-high-border: 0px 18px 36px rgba(0, 18, 34, .12), 0px 4px 8px rgba(0, 18, 34, .06), 0px 0px 0px 1px rgba(218, 221, 223, 1);
+
+  // ------------------------------------------------------------------------
+  // BREAKPOINTS — 11 tokens
+  // Stored as custom properties for documentation only — they cannot be used
+  // inside @media. Use the $b-breakpoints map / b-media() mixin above.
+  // Six bands: xs 0-375, s 376-499, m 500-767, l 768-1279, xl 1280-1535,
+  // xxl 1536+.
+  // ------------------------------------------------------------------------
+  --b-media-query-xs-min: 0px;
+  --b-media-query-xs-max: 375px;
+  --b-media-query-s-min: 376px;
+  --b-media-query-s-max: 499px;
+  --b-media-query-m-min: 500px;
+  --b-media-query-m-max: 767px;
+  --b-media-query-l-min: 768px;
+  --b-media-query-l-max: 1279px;
+  --b-media-query-xl-min: 1280px;
+  --b-media-query-xl-max: 1535px;
+  --b-media-query-xxl: 1536px;
+
+  // ------------------------------------------------------------------------
+  // Z-INDEX — 8 tokens
+  // Two tiers. `local-tier-1..4` are for stacking inside one component;
+  // `global-*` are the app-wide layers. `global-screen: auto` is deliberate —
+  // page content creates no stacking context at all.
+  // CAVEAT: dist-9xjrrEg1.css references --b-z-index-010, which is NOT
+  // defined anywhere in the light token file. That is a dangling reference in
+  // Adyen's own build, not an omission here.
+  // ------------------------------------------------------------------------
+  --b-z-index-local-tier-1: 1;
+  --b-z-index-local-tier-2: 2;
+  --b-z-index-local-tier-3: 3;
+  --b-z-index-local-tier-4: 4;
+  --b-z-index-global-screen: auto;
+  --b-z-index-global-elevated: 5;
+  --b-z-index-global-navigation: 10;
+  --b-z-index-global-instant-interaction: 15;
+
+  // ------------------------------------------------------------------------
+  // MOTION — 7 tokens
+  // Three durations (100/150/250ms) and four easings. `standard` is the
+  // default; `enter` is soft-landing, `exit` is fast-out. No spring curves,
+  // no prefers-reduced-motion token — that has to be handled in component CSS.
+  // ------------------------------------------------------------------------
+  --b-animation-duration-fast: .1s;
+  --b-animation-duration-moderate: .15s;
+  --b-animation-duration-slow: .25s;
+  --b-animation-easing-standard: cubic-bezier(.2, 0, .4, .9);
+  --b-animation-easing-enter: cubic-bezier(.12, .6, .4, .95);
+  --b-animation-easing-exit: cubic-bezier(.4, 0, 1, 1);
+  --b-animation-easing-linear: linear;
+
+  // ------------------------------------------------------------------------
+  // FOCUS RING — 3 tokens
+  // A 3px ring offset by a 1px spacer, in 80% blue. Bento composes these into
+  // box-shadow rather than using outline.
+  // ------------------------------------------------------------------------
+  --b-focus-ring-color: rgba(15, 117, 220, .8);
+  --b-focus-ring-outline: var(--b-border-width-l);
+  --b-focus-ring-spacer: var(--b-border-width-s);
+
+  // ------------------------------------------------------------------------
+  // COMPONENT-LEVEL TOKENS — 12 tokens
+  // The only three components Adyen tokenised at this layer. Everything else
+  // (button, input, table, card, badge…) hardcodes primitives inside
+  // dist-9xjrrEg1.css, which is why those components cannot be re-themed
+  // without forking their CSS.
+  // ------------------------------------------------------------------------
+
+  // Tooltip
+  --b-tooltip-background-color: var(--b-color-background-inverse-primary);
+  --b-tooltip-color: var(--b-color-label-inverse-primary);
+  --b-tooltip-border-radius: var(--b-border-radius-s);
+  --b-tooltip-padding: var(--b-spacer-020) var(--b-spacer-040);
+  --b-tooltip-max-width: 300px;
+  --b-tooltip-z-index: var(--b-z-index-global-elevated);
+
+  // Toast
+  --b-toast-width: 420px;
+  --b-toast-spacing-inner: var(--b-spacer-060);
+  --b-toast-spacing-outer: var(--b-spacer-070);
+  --b-toast-item-spacing: var(--b-spacer-070);
+  --b-toast-item-z-index: var(--b-z-index-global-instant-interaction);
+
+  // Popover
+  --b-popover-z-index: var(--b-z-index-global-elevated);
+}
+
+
+// =============================================================================
+//  @font-face inventory (from fonts.css — reproduced as reference, NOT active)
+// =============================================================================
+//
+//  Three families, 58 @font-face rules in total. The woff2 binaries are NOT in
+//  the saved capture and are licensed Adyen brand assets — do not vendor them
+//  into a customer project without Adyen's written permission.
+//
+//    "Adyen UI"        static, font-display: swap, weights 100-800 mapped onto
+//                      3 real cuts + obliques:
+//                        Adyen-UI-Regular.woff2          (100,200,300,400)
+//                        Adyen-UI-Regular-Oblique.woff2  (italic 100-400)
+//                        Adyen-UI-Medium.woff2           (500)
+//                        Adyen-UI-Medium-Oblique.woff2   (italic 500)
+//                        Adyen-UI-Bold.woff2             (600,700,800)
+//                        Adyen-UI-Bold-Oblique.woff2     (italic 600-800)
+//                      -> this is the family every --b-text-*-font-family uses.
+//
+//    "Adyen Mono"      Adyen-Mono-Variable.woff2, variable weight 100 900.
+//                      -> the *-font-family-secondary stacks and code/eyebrow.
+//
+//    "Adyen Variable"  Adyen-Variable.woff2, weights 100-800, unicode-range
+//                      U+0-5FF. NOT referenced by any Bento token — it is the
+//                      marketing/brand face, present in the page but unused by
+//                      the token set.
+//
+//    CJK fallbacks, attached to BOTH "Adyen UI" and "Adyen Variable":
+//        Adyen-SC-Regular.woff2 / Adyen-SC-Bold.woff2   U+4E00-9FFF   (Simplified)
+//        Adyen-TC-Regular.woff2 / Adyen-TC-Bold.woff2   U+3400-4DBF,
+//                                                       U+F900-FAFF   (Traditional)
+//
+//  Resolved stacks (verbatim from the tokens):
+//    primary   : "Adyen UI", Roboto, Oxygen, "Open Sans", "Helvetica Neue",
+//                Arial, sans-serif
+//    secondary : "Adyen Mono", "Roboto Mono", "Oxygen Mono", "IBM Plex Mono",
+//                "Courier New", monospace
+//
+//
+// =============================================================================
+//  KNOWN GAPS — what this token set does NOT give you
+// =============================================================================
+//
+//  1. NO DARK THEME. Only bento-light-*.css was captured. ~60 tokens are named
+//     `inverse`, which presupposes a dark sibling that swaps them. Building a
+//     dark mode means authoring those 165 colour values yourself.
+//
+//  2. NO PRIMITIVE PALETTE. Every colour is semantic. There is no
+//     --b-blue-500 / --b-grey-200 ramp to derive a new semantic token from, so
+//     any colour the Customer Area does not already need has to be invented.
+//
+//  3. NO BRAND ACCENT TOKEN. There is no --b-color-brand-*. Adyen's green is
+//     only reachable through --b-color-background-navigation (#cef6e2) and the
+//     navy through --b-color-background-always-dark (#001222).
+//
+//  4. COMPONENT TOKENS COVER 3 COMPONENTS ONLY (tooltip, toast, popover).
+//     Buttons, inputs, tables, cards, tabs, modals, badges and the data grid
+//     are styled with hardcoded values inside dist-9xjrrEg1.css (456 KB). A
+//     component library built on these tokens alone will not look like the
+//     Customer Area without re-deriving those component styles by inspection.
+//
+//  5. NO COMPONENTS AT ALL FOR ANGULAR. Bento ships as Vue (the capture
+//     references bento-vue2 and *.vue chunks). There is no Angular package,
+//     no web components, no headless primitives. An Angular 21 PoC gets the
+//     tokens and nothing else.
+//
+//  6. NO ICON SET. No icon font, no sprite, no SVG token. Icons in the capture
+//     are inline SVG per component.
+//
+//  7. NO ELEVATION/OPACITY/BLUR SCALE beyond the 6 shadows. No backdrop-filter
+//     token for the modal scrim; --b-color-support-overlay is a flat #111111
+//     with the opacity applied in component CSS.
+//
+//  8. NO GRID / LAYOUT TOKENS. No container max-width, no column count, no
+//     gutter token. The spacer ladder is all there is.
+//
+//  9. NO SIZING SCALE. No control-height token (input/button heights), no
+//     icon-size token, no avatar-size token.
+//
+// 10. NO SEMANTIC ALIASING LAYER. Font families are duplicated across seven
+//     text styles instead of pointing at one --b-font-family-primary. Change
+//     the typeface and you edit 11 tokens.
+//
+// 11. NO MOTION-REDUCTION, NO RTL, NO DENSITY MODE tokens.
+//
+// 12. NO SOURCE-OF-TRUTH METADATA. These values are scraped from a minified
+//     production build: no version number, no Style Dictionary / Figma
+//     variable export, no token descriptions, no deprecation markers. A build
+//     of the Customer Area shipped tomorrow could change any of them silently.
+//
+// 13. adl.css IS THE *OLD* SYSTEM. It is 116 KB of BEM (.adl-button--primary,
+//     .adl-card, .adl-tag--blue) with ZERO custom properties and zero var()
+//     usage — every colour is a hardcoded hex on a different palette
+//     (#06f, #00112c, #20304c, #394962). The page loads both stylesheets, so
+//     the live Customer Area is mid-migration from ADL to Bento. Do not mine
+//     adl.css for tokens; it contradicts Bento.
+// =============================================================================

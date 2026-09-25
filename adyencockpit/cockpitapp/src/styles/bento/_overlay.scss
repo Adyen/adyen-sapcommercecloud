@@ -1,0 +1,154 @@
+@use 'mixins' as m;
+
+// --- modal ---------------------------------------------------------------------------------------
+.b-modal {
+  width: calc(100% - var(--b-spacer-120));
+  margin: auto;
+  padding: 0;
+  border: 0;
+  border-radius: var(--b-border-radius-l);
+  background: var(--b-color-background-modal);
+  color: var(--b-color-label-primary);
+  box-shadow: var(--b-shadow-high);
+  overflow: visible;
+
+  &--small  { max-width: 440px; }
+  &--medium { max-width: 640px; }
+  &--large  { max-width: 880px; }
+
+  // Bento names the overlay colour but not its opacity; 50% is ours until measured against a live modal.
+  &::backdrop { background: color-mix(in srgb, var(--b-color-support-overlay) 50%, transparent); }
+
+  &__page { position: relative; display: flex; flex-direction: column; max-height: calc(100vh - 96px); }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    padding-block: 19px;
+    padding-inline: var(--b-spacer-090) 56px;
+  }
+
+  &__content {
+    padding: var(--b-spacer-070) var(--b-spacer-090);
+    overflow: auto;
+  }
+  &__header + &__content { padding-top: 0; }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--b-spacer-040);
+    padding: var(--b-spacer-070) var(--b-spacer-090);
+    border-top: var(--b-border-width-s) solid var(--b-color-separator-primary);
+  }
+
+  &__close-button {
+    position: absolute;
+    top: var(--b-spacer-070);
+    right: var(--b-spacer-070);
+  }
+}
+
+// --- tabs ----------------------------------------------------------------------------------------
+.b-tabs {
+  &__tab-list {
+    display: flex;
+    gap: var(--b-spacer-090);
+    height: 30px;
+    border-bottom: var(--b-border-width-s) solid var(--b-color-separator-primary);
+  }
+
+  &__tab {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    color: var(--b-color-label-secondary);
+    cursor: pointer;
+
+    &:hover { color: var(--b-color-label-primary); }
+    &:focus-visible { @include m.focus-ring; border-radius: var(--b-border-radius-s); }
+
+    &--active { color: var(--b-color-label-primary); }
+    &--active .b-tabs__tab-underline { height: 2px; }
+    &:disabled { color: var(--b-color-label-disabled); cursor: not-allowed; }
+  }
+
+  &__tab-label { display: inline-flex; align-items: center; gap: var(--b-spacer-030); }
+
+  &__tab-underline {
+    display: block;
+    width: 20px;
+    height: 0;
+    background: var(--b-color-outline-primary-active);
+  }
+
+  &__tab-counter {
+    padding: 0 var(--b-spacer-020);
+    border-radius: var(--b-border-radius-s);
+    background: var(--b-color-background-secondary);
+    color: var(--b-color-label-secondary);
+  }
+  &__tab--active .b-tabs__tab-counter { color: var(--b-color-label-primary); }
+
+  &__panel { padding-top: var(--b-spacer-090); }
+}
+
+// --- stepper -------------------------------------------------------------------------------------
+.b-stepper {
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--b-spacer-010);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+}
+
+.b-step {
+  &__button {
+    display: flex;
+    align-items: center;
+    gap: var(--b-spacer-040);
+    width: 100%;
+    padding: var(--b-spacer-030) var(--b-spacer-040);
+    border: 0;
+    border-radius: var(--b-border-radius-m);
+    background: transparent;
+    font: inherit;
+    color: var(--b-color-label-secondary);
+    text-align: left;
+    cursor: pointer;
+
+    &:hover:not(:disabled) { background: var(--b-color-background-primary-hover); }
+    &:focus-visible { @include m.focus-ring; }
+    &:disabled { cursor: default; }
+  }
+
+  &__index {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    border-radius: 12px;
+    background: var(--b-color-background-tertiary);
+    color: var(--b-color-label-secondary);
+  }
+
+  &--active .b-step__button { color: var(--b-color-label-primary); background: var(--b-color-background-secondary); }
+
+  &--active .b-step__index,
+  &--completed .b-step__index {
+    background: var(--b-color-background-inverse-primary);
+    color: var(--b-color-label-on-color);
+  }
+
+  &--completed .b-step__button { color: var(--b-color-label-primary); }
+}

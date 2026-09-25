@@ -5,5 +5,18 @@
            http://www.springframework.org/schema/beans/spring-beans.xsd">
     <bean id="adyenManagementService" class="com.adyen.backoffice.service.impl.AdyenManagementServiceImpl">
         <property name="configurationService" ref="configurationService"/>
+        <property name="adyenSetupService" ref="adyenSetupService"/>
+    </bean>
+
+    <bean id="adyenSetupService" class="com.adyen.backoffice.service.impl.DefaultAdyenSetupService">
+        <property name="configurationService" ref="configurationService"/>
+        <property name="modelService" ref="modelService"/>
+        <property name="baseStoreService" ref="baseStoreService"/>
+    </bean>
+
+    <bean id="adyenProvisioningService" class="com.adyen.backoffice.service.impl.DefaultAdyenProvisioningService">
+        <property name="configurationService" ref="configurationService"/>
+        <property name="modelService" ref="modelService"/>
+        <property name="adyenSetupService" ref="adyenSetupService"/>
     </bean>
 </beans>

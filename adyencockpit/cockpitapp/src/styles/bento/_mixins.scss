@@ -1,0 +1,26 @@
+// Bento's focus treatment: a 1px ring in the surface colour, then the blue focus ring outside it,
+// so the ring stays visible on any background.
+@mixin focus-ring {
+  outline: none;
+  box-shadow:
+    0 0 0 var(--b-focus-ring-spacer) var(--b-color-background-primary),
+    0 0 0 var(--b-focus-ring-outline) var(--b-focus-ring-color);
+}
+
+@mixin transition($properties...) {
+  transition-property: $properties;
+  transition-duration: var(--b-animation-duration-fast);
+  transition-timing-function: var(--b-animation-easing-linear);
+}
+
+@mixin visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}

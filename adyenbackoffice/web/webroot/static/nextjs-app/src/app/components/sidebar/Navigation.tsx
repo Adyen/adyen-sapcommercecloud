@@ -1,77 +1,32 @@
 import React from 'react';
 import NavigationItem from './NavigationItem';
-import { 
-  LayoutDashboard, 
-  CreditCard, 
-  Settings, 
-  BarChart, 
-  Webhook, 
-  AlertCircle, 
-  FileText,
-  Building2 
-} from 'lucide-react';
+import { LayoutDashboard, Settings, Building2 } from 'lucide-react';
 
 interface NavigationProps {
   isCollapsed: boolean;
 }
 
 const Navigation: React.FC<NavigationProps> = ({ isCollapsed }) => {
-  // Navigation sections with their items
+  // Only routes the app actually exports belong here; anything else renders a link to a 404.
   const navigationSections = [
     {
       title: 'Main',
       items: [
-        { 
-          label: 'Dashboard', 
-          icon: LayoutDashboard, 
-          href: '/', 
-          isActive: true 
+        {
+          label: 'Dashboard',
+          icon: LayoutDashboard,
+          href: '/',
+          isActive: true
         },
-        { 
-          label: 'Payments', 
-          icon: CreditCard, 
-          href: '/payments' 
+        {
+          label: 'Merchants',
+          icon: Building2,
+          href: '/merchants'
         },
-        { 
-          label: 'Merchants', 
-          icon: Building2, 
-          href: '/merchants' 
-        },
-        { 
-          label: 'Configuration', 
-          icon: Settings, 
-          href: '/configuration',
-          isExpandable: true
-        },
-      ]
-    },
-    {
-      title: 'Analytics',
-      items: [
-        { 
-          label: 'Reports', 
-          icon: BarChart, 
-          href: '/analytics' 
-        },
-        { 
-          label: 'Webhooks', 
-          icon: Webhook, 
-          href: '/webhooks' 
-        },
-        { 
-          label: 'Error Logs', 
-          icon: AlertCircle, 
-          href: '/error-logs' 
-        },
-      ]
-    },
-    {
-      title: 'Support',
-      items: [
-        { 
-          label: 'Documentation', 
-          icon: FileText, 
-          href: '/documentation' 
+        {
+          label: 'Configuration',
+          icon: Settings,
+          href: '/configuration'
         },
       ]
     }
@@ -94,7 +49,6 @@ const Navigation: React.FC<NavigationProps> = ({ isCollapsed }) => {
                   label={item.label}
                   href={item.href}
                   isActive={item.isActive}
-                  isExpandable={item.isExpandable}
                   isCollapsed={isCollapsed}
                 />
               </li>

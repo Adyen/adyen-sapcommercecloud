@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<extensioninfo xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="extensioninfo.xsd">
+
+    <extension abstractclassprefix="Generated" classprefix="Adyencockpit"
+               managername="AdyencockpitManager" managersuperclass="de.hybris.platform.jalo.extension.Extension"
+               name="adyencockpit" usemaven="false">
+
+        <!-- backoffice: hosts the perspective and the webapp the fragment injects into.
+             npmancillary: supplies the invokeNpm macro and the bundled Node used to build the SPA.
+             adyenv6core: supplies the BaseStore attributes the cockpit reads. -->
+        <requires-extension name="backoffice"/>
+        <requires-extension name="npmancillary"/>
+        <requires-extension name="adyenv6core"/>
+
+        <coremodule generated="true" manager="com.adyen.cockpit.jalo.AdyencockpitManager"
+                    packageroot="com.adyen.cockpit"/>
+
+        <meta key="backoffice-module" value="true"/>
+
+    </extension>
+
+</extensioninfo>

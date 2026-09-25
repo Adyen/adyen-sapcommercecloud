@@ -4,6 +4,7 @@ import IntegrationCard from './components/cards/IntegrationCard';
 import PaymentMethodsCard from './components/cards/PaymentMethodsCard';
 import ChecklistCard from './components/cards/ChecklistCard';
 import Card from './components/shared/Card';
+import SetupRequiredBanner from './configuration/components/SetupRequiredBanner';
 import { useAuth } from './context/AuthContext';
 
 export default function Home() {
@@ -17,6 +18,7 @@ export default function Home() {
         <p className="text-gray-500 mt-1">
           Follow the steps below to start processing your payments with Adyen.
         </p>
+        <SetupRequiredBanner />
         <div className="mt-8 space-y-6">
           <IntegrationCard />
           

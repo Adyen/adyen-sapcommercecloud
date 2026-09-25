@@ -1,0 +1,11 @@
+/classes/
+/gensrc/
+/backoffice/classes/
+/webfragment-staging/
+/resources/adyencockpit.build.number
+# The build runs `npm ci`, which needs the lockfile. The repo-wide rule ignores every
+# package-lock.json, so this extension opts back in — without it the build is not reproducible.
+!/cockpitapp/package-lock.json
+/cockpitapp/node_modules/
+/cockpitapp/dist/
+/cockpitapp/.angular/

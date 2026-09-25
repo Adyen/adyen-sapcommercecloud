@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+    <bean id="adyencockpitManagementApiClient" class="com.adyen.cockpit.setup.ManagementApiClient">
+        <property name="configurationService" ref="configurationService"/>
+    </bean>
+
+    <bean id="adyencockpitSetupService" class="com.adyen.cockpit.setup.DefaultCockpitSetupService">
+        <property name="baseStoreService" ref="baseStoreService"/>
+        <property name="modelService" ref="modelService"/>
+        <property name="configurationService" ref="configurationService"/>
+        <property name="managementApiClient" ref="adyencockpitManagementApiClient"/>
+    </bean>
+
+</beans>

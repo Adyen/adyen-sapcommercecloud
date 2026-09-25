@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <title>Adyen Cockpit</title>
+    <style>
+        body { margin: 0; font: 14px "Adyen UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+               color: #111111; background: #ffffff; }
+        main { padding: 24px; }
+        h1 { font-size: 24px; line-height: 34px; font-weight: 700; margin: 0 0 4px; }
+        p.sub { color: rgba(17,17,17,.64); margin: 0 0 24px; }
+        section { border: 1px solid #e5e5e5; border-radius: 8px; padding: 16px; max-width: 640px;
+                  box-shadow: 0 2px 4px rgba(0,18,34,.04), 0 1px 2px rgba(0,18,34,.02); }
+        dt { color: rgba(17,17,17,.64); font-size: 12px; }
+        dd { margin: 0 0 12px; font-weight: 700; }
+        code { font-family: "Adyen Mono", "Roboto Mono", monospace; }
+        .bad { color: #ce3401; }
+    </style>
+</head>
+<body>
+<main>
+    <h1>Adyen Cockpit</h1>
+    <p class="sub">Vertical slice &mdash; proves the frame, the shared Backoffice login and access to platform services.</p>
+    <section>
+        <dl>
+            <dt>Signed in as</dt>
+            <dd id="user">checking&hellip;</dd>
+            <dt>Base stores seen through the platform</dt>
+            <dd id="stores">checking&hellip;</dd>
+        </dl>
+        <p id="err" class="bad"></p>
+    </section>
+</main>
+<script>
+    // Relative on purpose: the app is mounted under the Backoffice context, whatever it is called.
+    fetch('api/bootstrap', { headers: { Accept: 'application/json' } })
+        .then(function (r) {
+            if (!r.ok) { throw new Error('HTTP ' + r.status); }
+            return r.json();
+        })
+        .then(function (data) {
+            document.getElementById('user').textContent = data.user || '(nobody)';
+            document.getElementById('stores').textContent = data.stores.length
+                ? data.stores.map(function (s) { return s.uid + (s.configured ? ' — configured' : ' — not configured'); }).join(', ')
+                : '(none)';
+        })
+        .catch(function (e) {
+            document.getElementById('err').textContent = 'Bootstrap call failed: ' + e.message;
+        });
+</script>
+</body>
+</html>

@@ -8,9 +8,9 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
-import javax.validation.constraints.Max;
-import javax.validation.constraints.Min;
-import javax.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.Valid;
 
 import com.adyen.backoffice.dto.MerchantDataWsDTO;
 import com.adyen.backoffice.dto.MerchantResponseWsDTO;

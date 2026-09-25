@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<widgets xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="http://www.hybris.com/schema/cockpitng/widgets.xsd">
+
+    <!-- One entry in the perspective slot is all a cockpit is. The widget itself only carries the
+         frame; everything the merchant sees is the SPA served from the web fragment. -->
+    <widget-extension widgetId="backofficeMainSlot">
+        <widget id="adyencockpit-perspective"
+                widgetDefinitionId="com.adyen.cockpit.widgets.adyencockpit"
+                slotId="perspectives"
+                template="false"
+                title="adyencockpit.name"/>
+    </widget-extension>
+
+</widgets>
