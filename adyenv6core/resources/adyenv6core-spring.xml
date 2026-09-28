@@ -750,4 +750,11 @@
         <property name="adyenStoredCardsService" ref="adyenStoredCardsService"/>
     </bean>
 
+    <bean id="adyenDonationsFacade"
+          class="com.adyen.commerce.facades.impl.DefaultAdyenDonationsFacade">
+        <property name="adyenPaymentServiceFactory" ref="adyenPaymentServiceFactory"/>
+        <property name="baseStoreService" ref="baseStoreService"/>
+        <property name="i18NService" ref="i18NService"/>
+    </bean>
+
 </beans>
