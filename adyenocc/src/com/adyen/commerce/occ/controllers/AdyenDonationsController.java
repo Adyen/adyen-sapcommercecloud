@@ -2,6 +2,7 @@ package com.adyen.commerce.occ.controllers;
 
 import com.adyen.commerce.facades.AdyenDonationsFacade;
 import com.adyen.commerce.occ.request.DonationRequest;
+import com.adyen.commerce.occ.response.DonationResponse;
 import com.adyen.model.checkout.Amount;
 import com.adyen.model.checkout.DonationCampaignsResponse;
 import com.adyen.model.checkout.DonationPaymentRequest;
@@ -21,7 +22,7 @@ import static com.adyen.commerce.constants.AdyenoccConstants.ADYEN_PREFIX;
 public class AdyenDonationsController {
     @Resource(name = "adyenDonationsFacade") private AdyenDonationsFacade adyenDonationsFacade;
 
-    private static Logger logger = Logger.getLogger(String.valueOf(AdyenDonationsController.class));
+    private static final Logger logger = Logger.getLogger(String.valueOf(AdyenDonationsController.class));
 
     @Secured({"ROLE_CUSTOMERGROUP", "ROLE_TRUSTED_CLIENT", "ROLE_CUSTOMERMANAGERGROUP"})
     @GetMapping(value = "/campaigns", produces = "application/json")
@@ -29,9 +30,9 @@ public class AdyenDonationsController {
         return ResponseEntity.ok(adyenDonationsFacade.getDonationCampaigns());
     }
 
-//    @Secured({"ROLE_CUSTOMERGROUP", "ROLE_TRUSTED_CLIENT", "ROLE_CUSTOMERMANAGERGROUP"})
+    @Secured({"ROLE_CUSTOMERGROUP", "ROLE_TRUSTED_CLIENT", "ROLE_CUSTOMERMANAGERGROUP"})
     @PostMapping(consumes = "application/json", produces = "application/json")
-    public ResponseEntity<String> donate(@Valid @RequestBody final DonationRequest request) throws Exception {
+    public ResponseEntity<DonationResponse> donate(@Valid @RequestBody final DonationRequest request) throws Exception {
         logger.info("Received donation request for campaign: " + request.getDonationCampaignId());
         final DonationPaymentRequest donation = new DonationPaymentRequest();
         donation.setMerchantAccount(request.getMerchantAccount());
@@ -42,10 +43,10 @@ public class AdyenDonationsController {
         donation.setReturnUrl(request.getReturnUrl());
         donation.setAmount(new Amount().currency(request.getAmount().getCurrency()).value(request.getAmount().getValue()));
         try {
-             return ResponseEntity.ok().body(adyenDonationsFacade.makeDonationPayment(donation).toJson());
+             return ResponseEntity.ok(DonationResponse.from(adyenDonationsFacade.makeDonationPayment(donation)));
         }
         catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error occurred while processing donation: " + e.getMessage());
+           return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 }

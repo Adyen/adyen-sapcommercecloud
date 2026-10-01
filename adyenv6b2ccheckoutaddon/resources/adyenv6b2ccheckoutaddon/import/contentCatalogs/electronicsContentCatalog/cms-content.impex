@@ -4,6 +4,11 @@ $jarResourceCms=jar:com.adyen.v6.constants.Adyenv6b2ccheckoutaddonConstants&/ady
 
 $addonExtensionName=adyenv6b2ccheckoutaddon
 
+# Keep the JSP checkout confirmation in this addon, rather than in the
+# storefront extension that is outside the Git repository.
+UPDATE JspIncludeComponent;$contentCV[unique=true];uid[unique=true];page
+;;OrderConfirmationThankMessageComponent;/WEB-INF/views/addons/$addonExtensionName/responsive/pages/checkout/checkoutConfirmationThankMessage.jsp
+
 INSERT_UPDATE JspIncludeComponent;$contentCV[unique=true];uid[unique=true];name;page;actions(uid,$contentCV);&componentRef
                                  ;;AccountAddEditAddressComponent;Account Add Edit Address Component;/WEB-INF/views/addons/$addonExtensionName/responsive/pages/account/accountEditAddressPage.jsp;;AccountAddEditAddressComponent
 

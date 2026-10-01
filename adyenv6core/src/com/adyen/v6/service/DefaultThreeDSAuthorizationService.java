@@ -40,10 +40,10 @@ import org.apache.log4j.Logger;
 
 import java.util.Map;
 
+import static com.adyen.commerce.facades.impl.DefaultAdyenCheckoutFacade.*;
 import static com.adyen.constants.ApiConstants.ThreeDS2Property.THREEDS2_CHALLENGE_TOKEN;
 import static com.adyen.constants.ApiConstants.ThreeDS2Property.THREEDS2_FINGERPRINT_TOKEN;
 import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD;
-import static com.adyen.commerce.facades.impl.DefaultAdyenCheckoutFacade.SESSION_PENDING_ORDER_CODE;
 
 /**
  * Default implementation of ThreeDSAuthorizationService.
@@ -73,6 +73,7 @@ public class DefaultThreeDSAuthorizationService implements ThreeDSAuthorizationS
             LOGGER.error(e instanceof ApiException ? e.toString() : e.getMessage());
             throw new AdyenNonAuthorizedPaymentException(e.getMessage());
         }
+        storeDonationPaymentData(paymentsDetailsResponse);
 
         String orderCode = paymentsDetailsResponse.getMerchantReference();
         OrderModel orderModel = retrievePendingOrderAndClear3DSSession(orderCode);
@@ -146,6 +147,23 @@ public class DefaultThreeDSAuthorizationService implements ThreeDSAuthorizationS
         sessionService.removeAttribute(THREEDS2_FINGERPRINT_TOKEN);
         sessionService.removeAttribute(THREEDS2_CHALLENGE_TOKEN);
         sessionService.removeAttribute(PAYMENT_METHOD);
+    }
+
+    protected void storeDonationPaymentData(final PaymentDetailsResponse response) {
+        if (response == null) {
+            return;
+        }
+        LOGGER.info("3DS payment details Giving data: donationToken=" + StringUtils.isNotBlank(response.getDonationToken())
+                + ", pspReference=" + StringUtils.isNotBlank(response.getPspReference())
+                + ", amount=" + (response.getAmount() != null));
+        if (response.getAmount() != null) {
+            sessionService.setAttribute(SESSION_DONATION_ORIGINAL_AMOUNT_VALUE, response.getAmount().getValue());
+            sessionService.setAttribute(SESSION_DONATION_ORIGINAL_AMOUNT_CURRENCY, response.getAmount().getCurrency());
+        }
+        if (StringUtils.isNotBlank(response.getDonationToken()) && StringUtils.isNotBlank(response.getPspReference())) {
+            sessionService.setAttribute(SESSION_DONATION_TOKEN, response.getDonationToken());
+            sessionService.setAttribute(SESSION_DONATION_ORIGINAL_PSP_REFERENCE, response.getPspReference());
+        }
     }
 
     @Override

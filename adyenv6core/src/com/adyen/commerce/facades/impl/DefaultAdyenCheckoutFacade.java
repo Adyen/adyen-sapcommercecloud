@@ -175,6 +175,11 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     public static final String SESSION_SF_SECURITY_CODE = "encryptedSecurityCode";
     public static final String SESSION_CARD_BRAND = "cardBrand";
     public static final String SESSION_ADYEN_RISK_DATA = "adyenRiskData";
+    public static final String SESSION_DONATION_TOKEN = "adyen_donation_token";
+    public static final String SESSION_DONATION_ORIGINAL_PSP_REFERENCE = "adyen_donation_original_psp_reference";
+    public static final String SESSION_DONATION_ORIGINAL_AMOUNT_VALUE = "adyen_donation_original_amount_value";
+    public static final String SESSION_DONATION_ORIGINAL_AMOUNT_CURRENCY = "adyen_donation_original_amount_currency";
+    public static final String SESSION_DONATION_COUNTRY_CODE = "adyen_donation_country_code";
     // Session attribute keys
     public static final String MODEL_SELECTED_PAYMENT_METHOD = "selectedPaymentMethod";
     public static final String MODEL_PAYMENT_METHODS = "paymentMethods";
@@ -294,6 +299,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
             restoreCartFromOrderCodeInSession();
             throw new AdyenNonAuthorizedPaymentException(e.getMessage());
         }
+        storeDonationPaymentData(response);
 
         String orderCode = response.getMerchantReference();
         OrderModel orderModel = retrievePendingOrder(orderCode);
@@ -332,6 +338,8 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         } catch (Exception e) {
             throw new IOException("Payment request failed", e);
         }
+        storeDonationPaymentData(paymentResponse);
+        storeDonationCountryCode(cartData);
         PaymentResponse.ResultCodeEnum resultCode = paymentResponse.getResultCode();
         PaymentResponseAction action = paymentResponse.getAction();
 
@@ -390,6 +398,8 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         } catch (Exception e) {
             throw new IOException("Payment request failed", e);
         }
+        storeDonationPaymentData(paymentResponse);
+        storeDonationCountryCode(cartData);
         if (PaymentResponse.ResultCodeEnum.PENDING == paymentResponse.getResultCode() ||
                 PaymentResponse.ResultCodeEnum.REDIRECTSHOPPER == paymentResponse.getResultCode() ||
                 PaymentResponse.ResultCodeEnum.PRESENTTOSHOPPER == paymentResponse.getResultCode()) {
@@ -416,6 +426,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         } catch (Exception e) {
             throw new IOException("Payment details request failed", e);
         }
+        storeDonationPaymentData(response);
         String orderCode = response.getMerchantReference();
         OrderModel orderModel = retrievePendingOrder(orderCode);
         threeDSAuthorizationService.updateOrderPaymentStatusAndInfo(orderModel, response);
@@ -575,6 +586,37 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
             if (recurringDetailReference != null) {
                 cartModel.getPaymentInfo().setAdyenSelectedReference(recurringDetailReference);
             }
+        }
+    }
+
+    protected void storeDonationPaymentData(final PaymentResponse response) {
+        if (response != null && response.getAmount() != null) {
+            getSessionService().setAttribute(SESSION_DONATION_ORIGINAL_AMOUNT_VALUE, response.getAmount().getValue());
+            getSessionService().setAttribute(SESSION_DONATION_ORIGINAL_AMOUNT_CURRENCY, response.getAmount().getCurrency());
+        }
+        if (response != null && StringUtils.isNotBlank(response.getDonationToken()) && StringUtils.isNotBlank(response.getPspReference())) {
+            getSessionService().setAttribute(SESSION_DONATION_TOKEN, response.getDonationToken());
+            getSessionService().setAttribute(SESSION_DONATION_ORIGINAL_PSP_REFERENCE, response.getPspReference());
+        }
+    }
+
+    protected void storeDonationPaymentData(final PaymentDetailsResponse response) {
+        if (response != null && response.getAmount() != null) {
+            getSessionService().setAttribute(SESSION_DONATION_ORIGINAL_AMOUNT_VALUE, response.getAmount().getValue());
+            getSessionService().setAttribute(SESSION_DONATION_ORIGINAL_AMOUNT_CURRENCY, response.getAmount().getCurrency());
+        }
+        if (response != null && StringUtils.isNotBlank(response.getDonationToken()) && StringUtils.isNotBlank(response.getPspReference())) {
+            getSessionService().setAttribute(SESSION_DONATION_TOKEN, response.getDonationToken());
+            getSessionService().setAttribute(SESSION_DONATION_ORIGINAL_PSP_REFERENCE, response.getPspReference());
+        }
+    }
+
+    protected void storeDonationCountryCode(final CartData cartData) {
+        if (cartData != null && cartData.getDeliveryAddress() != null
+                && cartData.getDeliveryAddress().getCountry() != null
+                && StringUtils.isNotBlank(cartData.getDeliveryAddress().getCountry().getIsocode())) {
+            getSessionService().setAttribute(SESSION_DONATION_COUNTRY_CODE,
+                    cartData.getDeliveryAddress().getCountry().getIsocode());
         }
     }
 
