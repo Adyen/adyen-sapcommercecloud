@@ -1,6 +1,7 @@
 import React, {useEffect, useRef, useState} from "react";
 import {AdyenCheckout, Donation, DonationConfiguration} from "@adyen/adyen-web/auto";
 import {adyenAxios} from "../../axios/AdyenAxios";
+import {translationsStore} from "../../store/translationsStore";
 import {CSRFToken, urlContextPath} from "../../util/baseUrlUtil";
 
 interface Amount {
@@ -88,7 +89,11 @@ export const DonationSection: React.FC = () => {
                     ...campaign,
                     commercialTxAmount: context.commercialTxAmount,
                     onAmountSelected: (): void => undefined,
-                    onCancel: (): void => setDisplayState("hidden"),
+                    onCancel: (): void => {
+                        donationElement.current?.unmount();
+                        donationElement.current = null;
+                        setDisplayState("hidden");
+                    },
                     onDonate: async (state: DonationStatePayload, component: Donation): Promise<void> => {
                         try {
                             component.setStatus("loading");
@@ -131,7 +136,7 @@ export const DonationSection: React.FC = () => {
     return (
         <section className="adyen-donation" aria-live="polite">
             <div ref={mountNode}/>
-            {displayState === "error" && <p className="alert alert-danger">Giving could not be displayed. Check the browser console for the Adyen error.</p>}
+            {displayState === "error" && <p className="alert alert-danger">{translationsStore.get("adyen.giving.error")}</p>}
         </section>
     );
 };

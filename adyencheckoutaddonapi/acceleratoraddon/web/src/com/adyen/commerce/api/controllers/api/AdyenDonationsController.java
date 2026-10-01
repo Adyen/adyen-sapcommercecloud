@@ -1,10 +1,12 @@
 package com.adyen.commerce.api.controllers.api;
 
+import com.adyen.commerce.api.request.DonationRequest;
+import com.adyen.commerce.api.response.DonationContextResponse;
+import com.adyen.commerce.api.response.DonationResponse;
 import com.adyen.commerce.facades.AdyenCheckoutFacade;
 import com.adyen.commerce.facades.AdyenDonationsFacade;
 import com.adyen.commerce.facades.impl.DefaultAdyenCheckoutFacade;
-import com.adyen.commerce.api.request.DonationRequest;
-import com.adyen.commerce.api.response.DonationResponse;
+import com.adyen.commerce.services.DonationCampaignValidator;
 import com.adyen.model.checkout.Amount;
 import com.adyen.model.checkout.CardDonations;
 import com.adyen.model.checkout.DonationCampaign;
@@ -20,6 +22,8 @@ import de.hybris.platform.store.BaseStoreModel;
 import de.hybris.platform.store.services.BaseStoreService;
 import de.hybris.platform.site.BaseSiteService;
 import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
@@ -32,15 +36,18 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import java.io.IOException;
 import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.UUID;
 
 @Controller
 @RequestMapping("/api/checkout/donations")
 public class AdyenDonationsController {
     private static final Logger LOG = Logger.getLogger(AdyenDonationsController.class);
+    private static final String COMPLETED = "completed";
+
+    private static final DonationCampaignValidator DONATION_CAMPAIGN_VALIDATOR = new DonationCampaignValidator();
 
     @Resource(name = "adyenDonationsFacade")
     private AdyenDonationsFacade adyenDonationsFacade;
@@ -62,7 +69,7 @@ public class AdyenDonationsController {
 
     @GetMapping(value = "/context", produces = "application/json")
     @ResponseBody
-    public ResponseEntity<Map<String, Object>> getContext() throws Exception {
+    public ResponseEntity<DonationContextResponse> getContext() {
         final String donationToken = sessionService.getAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_TOKEN);
         final String originalPspReference = sessionService.getAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_ORIGINAL_PSP_REFERENCE);
         final Long commercialTxAmount = sessionService.getAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_ORIGINAL_AMOUNT_VALUE);
@@ -83,29 +90,29 @@ public class AdyenDonationsController {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
         }
 
-        final DonationCampaignsResponse campaignsResponse = adyenDonationsFacade.getDonationCampaigns();
-        final List<DonationCampaign> campaigns = campaignsResponse.getDonationCampaigns() == null
-                ? Collections.emptyList() : campaignsResponse.getDonationCampaigns();
+        final List<DonationCampaign> campaigns;
+        try {
+            campaigns = getCampaigns(currency);
+        } catch (ApiException | IOException exception) {
+            LOG.warn("Unable to load Adyen Giving campaigns", exception);
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+        }
         if (campaigns.isEmpty()) {
             return ResponseEntity.noContent().build();
         }
 
-        final Map<String, Object> context = new LinkedHashMap<>();
-        context.put("clientKey", baseStore.getAdyenClientKey());
-        context.put("environment", adyenCheckoutFacade.getEnvironmentMode());
-        context.put("locale", adyenCheckoutFacade.getShopperLocale());
-        context.put("commercialTxAmount", commercialTxAmount);
-        context.put("currency", currency);
-        context.put("countryCode", countryCode);
-        context.put("campaigns", campaigns);
-        return ResponseEntity.ok(context);
+        return ResponseEntity.ok(new DonationContextResponse(baseStore.getAdyenClientKey(),
+                adyenCheckoutFacade.getEnvironmentMode(), adyenCheckoutFacade.getShopperLocale(),
+                commercialTxAmount, currency, countryCode, campaigns));
     }
 
     @PostMapping(value = "/donate", consumes = "application/json", produces = "application/json")
     @ResponseBody
-    public ResponseEntity<DonationResponse> donate(@Valid @RequestBody final DonationRequest request) throws Exception {
+    public ResponseEntity<DonationResponse> donate(@Valid @RequestBody final DonationRequest request,
+                                                     final HttpServletRequest httpServletRequest) {
         final String donationToken = sessionService.getAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_TOKEN);
         final String originalPspReference = sessionService.getAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_ORIGINAL_PSP_REFERENCE);
+        final Long commercialTransactionValue = sessionService.getAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_ORIGINAL_AMOUNT_VALUE);
         final BaseStoreModel baseStore = baseStoreService.getCurrentBaseStore();
 
         if (request == null || request.getAmount() == null || request.getAmount().getValue() == null
@@ -115,24 +122,116 @@ public class AdyenDonationsController {
             return ResponseEntity.badRequest().build();
         }
 
+        final DonationCampaign campaign;
+        try {
+            campaign = findCampaign(request.getDonationCampaignId(), getCampaigns(request.getAmount().getCurrency()));
+        } catch (ApiException | IOException exception) {
+            LOG.warn("Unable to validate Adyen Giving campaign", exception);
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+        }
+        if (!DONATION_CAMPAIGN_VALIDATOR.isValid(campaign, request.getAmount().getCurrency(),
+                request.getAmount().getValue(), commercialTransactionValue)) {
+            LOG.warn("Rejected invalid Adyen Giving campaign or amount");
+            return ResponseEntity.badRequest().build();
+        }
+
+        final HttpSession httpSession = httpServletRequest.getSession(false);
+        if (httpSession == null || !beginDonation(httpSession)) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+        }
+
         final DonationPaymentRequest donationRequest = new DonationPaymentRequest();
         donationRequest.setAmount(new Amount().currency(request.getAmount().getCurrency()).value(request.getAmount().getValue()));
         donationRequest.setDonationCampaignId(request.getDonationCampaignId());
         donationRequest.setDonationToken(donationToken);
         donationRequest.setDonationOriginalPspReference(originalPspReference);
         donationRequest.setMerchantAccount(baseStore.getAdyenMerchantAccount());
-        donationRequest.setReference(originalPspReference + "-donation-" + System.currentTimeMillis());
+        donationRequest.setReference(getOrCreateDonationReference(originalPspReference));
         donationRequest.setPaymentMethod(new DonationPaymentMethod(
                 new CardDonations().type(CardDonations.TypeEnum.SCHEME)));
         donationRequest.setReturnUrl(getDonationReturnUrl());
 
+        boolean completed = false;
         try {
-            final DonationPaymentResponse response = adyenDonationsFacade.makeDonationPayment(donationRequest);
-            return ResponseEntity.ok(DonationResponse.from(response));
+            final DonationPaymentResponse response = adyenDonationsFacade.makeDonationPayment(donationRequest,
+                    getOrCreateDonationIdempotencyKey());
+            final DonationResponse donationResponse = DonationResponse.from(response);
+            completed = COMPLETED.equalsIgnoreCase(donationResponse.getStatus());
+            if (completed) {
+                clearDonationContext(httpSession);
+            }
+            return ResponseEntity.ok(donationResponse);
         } catch (ApiException exception) {
             LOG.warn("Adyen donation request failed", exception);
             return ResponseEntity.status(exception.getStatusCode()).build();
+        } catch (IOException exception) {
+            LOG.warn("Adyen donation request could not reach Adyen", exception);
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+        } finally {
+            if (!completed) {
+                endDonation(httpSession);
+            }
         }
+    }
+
+    protected List<DonationCampaign> getCampaigns(final String currency) throws IOException, ApiException {
+        final DonationCampaignsResponse campaignsResponse = adyenDonationsFacade.getDonationCampaigns(currency);
+        return campaignsResponse == null || campaignsResponse.getDonationCampaigns() == null
+                ? Collections.emptyList() : campaignsResponse.getDonationCampaigns();
+    }
+
+    protected DonationCampaign findCampaign(final String campaignId, final List<DonationCampaign> campaigns) {
+        return campaigns.stream()
+                .filter(campaign -> StringUtils.equals(campaignId, campaign.getId()))
+                .findFirst()
+                .orElse(null);
+    }
+
+    protected boolean beginDonation(final HttpSession httpSession) {
+        synchronized (httpSession) {
+            if (Boolean.TRUE.equals(sessionService.getAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_IN_PROGRESS))) {
+                return false;
+            }
+            sessionService.setAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_IN_PROGRESS, Boolean.TRUE);
+            return true;
+        }
+    }
+
+    protected void endDonation(final HttpSession httpSession) {
+        synchronized (httpSession) {
+            sessionService.removeAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_IN_PROGRESS);
+        }
+    }
+
+    protected void clearDonationContext(final HttpSession httpSession) {
+        synchronized (httpSession) {
+            sessionService.removeAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_TOKEN);
+            sessionService.removeAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_ORIGINAL_PSP_REFERENCE);
+            sessionService.removeAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_ORIGINAL_AMOUNT_VALUE);
+            sessionService.removeAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_ORIGINAL_AMOUNT_CURRENCY);
+            sessionService.removeAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_COUNTRY_CODE);
+            sessionService.removeAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_IN_PROGRESS);
+            sessionService.removeAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_IDEMPOTENCY_KEY);
+            sessionService.removeAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_REFERENCE);
+        }
+    }
+
+    protected String getOrCreateDonationIdempotencyKey() {
+        String idempotencyKey = sessionService.getAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_IDEMPOTENCY_KEY);
+        if (StringUtils.isBlank(idempotencyKey)) {
+            idempotencyKey = UUID.randomUUID().toString();
+            sessionService.setAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_IDEMPOTENCY_KEY, idempotencyKey);
+        }
+        return idempotencyKey;
+    }
+
+    protected String getOrCreateDonationReference(final String originalPspReference) {
+        String reference = sessionService.getAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_REFERENCE);
+        if (StringUtils.isBlank(reference)) {
+            reference = originalPspReference + "-donation-" + System.currentTimeMillis();
+            sessionService.setAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_REFERENCE, reference);
+        }
+        return reference;
     }
 
     protected String getDonationReturnUrl() {

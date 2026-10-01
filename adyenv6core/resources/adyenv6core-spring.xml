@@ -755,6 +755,7 @@
         <property name="adyenPaymentServiceFactory" ref="adyenPaymentServiceFactory"/>
         <property name="baseStoreService" ref="baseStoreService"/>
         <property name="i18NService" ref="i18NService"/>
+        <property name="commonI18NService" ref="commonI18NService"/>
     </bean>
 
 </beans>

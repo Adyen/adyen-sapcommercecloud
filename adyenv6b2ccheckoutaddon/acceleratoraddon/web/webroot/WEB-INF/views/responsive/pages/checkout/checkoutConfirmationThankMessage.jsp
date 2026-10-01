@@ -6,10 +6,10 @@
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 <%@ taglib prefix="order" tagdir="/WEB-INF/tags/responsive/order" %>
 <%@ taglib prefix="template" tagdir="/WEB-INF/tags/responsive/template"%>
-<%@ taglib prefix="adyen" tagdir="/WEB-INF/tags/addons/adyenv6b2ccheckoutaddon/responsive" %>
 
 <spring:htmlEscape defaultHtmlEscape="true" />
 <spring:url value="/login/register/termsandconditions" var="getTermsAndConditionsUrl" htmlEscape="false"/>
+<spring:theme code="adyen.giving.error" var="givingErrorMessage"/>
 
 <div class="checkout-success">
     <div class="checkout-success__body">
@@ -77,13 +77,16 @@
 </div>
 
 <c:set var="checkoutShopperHost" value="${adyenCheckoutShopperHost}"/>
-<adyen:adyenLibrary showDefaultCss="true"/>
-<script src="https://${checkoutShopperHost}/checkoutshopper/sdk/6.41.0/adyen.js"
+<c:set var="adyenGivingSdkVersion" value="6.41.0"/>
+<link rel="stylesheet" href="https://${checkoutShopperHost}/checkoutshopper/css/chckt-default-v1.css"/>
+<link rel="stylesheet" href="https://${checkoutShopperHost}/checkoutshopper/sdk/${adyenGivingSdkVersion}/adyen.css"/>
+<script src="https://${checkoutShopperHost}/checkoutshopper/sdk/${adyenGivingSdkVersion}/adyen.js"
         crossorigin="anonymous"></script>
 <script type="text/javascript">
     (function () {
         var contextPath = '${fn:escapeXml(encodedContextPath)}';
         var csrfToken = '${ycommerce:encodeJavaScript(CSRFToken.token)}';
+        var givingErrorMessage = '${ycommerce:encodeJavaScript(givingErrorMessage)}';
 
         function showGivingError(error) {
             var node = document.getElementById('adyen-giving');
@@ -91,8 +94,7 @@
                 node.innerHTML = '';
                 var message = document.createElement('p');
                 message.className = 'alert alert-danger';
-                message.textContent = 'Giving could not be displayed'
-                    + (error && error.message ? ': ' + error.message : '.');
+                message.textContent = givingErrorMessage;
                 node.appendChild(message);
             }
         }
@@ -135,6 +137,7 @@
                             commercialTxAmount: context.commercialTxAmount,
                             onAmountSelected: function () {},
                             onCancel: function () {
+                                donation.unmount();
                                 node.innerHTML = '';
                             },
                             onDonate: function (state, component) {

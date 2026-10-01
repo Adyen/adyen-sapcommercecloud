@@ -180,6 +180,9 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     public static final String SESSION_DONATION_ORIGINAL_AMOUNT_VALUE = "adyen_donation_original_amount_value";
     public static final String SESSION_DONATION_ORIGINAL_AMOUNT_CURRENCY = "adyen_donation_original_amount_currency";
     public static final String SESSION_DONATION_COUNTRY_CODE = "adyen_donation_country_code";
+    public static final String SESSION_DONATION_IN_PROGRESS = "adyen_donation_in_progress";
+    public static final String SESSION_DONATION_IDEMPOTENCY_KEY = "adyen_donation_idempotency_key";
+    public static final String SESSION_DONATION_REFERENCE = "adyen_donation_reference";
     // Session attribute keys
     public static final String MODEL_SELECTED_PAYMENT_METHOD = "selectedPaymentMethod";
     public static final String MODEL_PAYMENT_METHODS = "paymentMethods";
@@ -321,6 +324,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
 
         CustomerModel customer = checkoutCustomerStrategy.getCurrentUserForCheckout();
 
+        clearDonationSessionData();
         updateCartWithSessionData(cartData);
         String adyenPaymentMethod = cartData.getAdyenPaymentMethod();
 
@@ -382,6 +386,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     @Override
     public PaymentResponse componentPayment(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest)
             throws AdyenNonAuthorizedPaymentException, InvalidCartException, ApiException, IOException {
+        clearDonationSessionData();
         updateCartWithSessionData(cartData);
 
         String shopperIp = adyenShopperIpResolverService.resolveShopperIp(request);
@@ -590,6 +595,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     }
 
     protected void storeDonationPaymentData(final PaymentResponse response) {
+        clearDonationPaymentData();
         if (response != null && response.getAmount() != null) {
             getSessionService().setAttribute(SESSION_DONATION_ORIGINAL_AMOUNT_VALUE, response.getAmount().getValue());
             getSessionService().setAttribute(SESSION_DONATION_ORIGINAL_AMOUNT_CURRENCY, response.getAmount().getCurrency());
@@ -601,6 +607,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     }
 
     protected void storeDonationPaymentData(final PaymentDetailsResponse response) {
+        clearDonationPaymentData();
         if (response != null && response.getAmount() != null) {
             getSessionService().setAttribute(SESSION_DONATION_ORIGINAL_AMOUNT_VALUE, response.getAmount().getValue());
             getSessionService().setAttribute(SESSION_DONATION_ORIGINAL_AMOUNT_CURRENCY, response.getAmount().getCurrency());
@@ -612,12 +619,32 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     }
 
     protected void storeDonationCountryCode(final CartData cartData) {
-        if (cartData != null && cartData.getDeliveryAddress() != null
-                && cartData.getDeliveryAddress().getCountry() != null
-                && StringUtils.isNotBlank(cartData.getDeliveryAddress().getCountry().getIsocode())) {
-            getSessionService().setAttribute(SESSION_DONATION_COUNTRY_CODE,
-                    cartData.getDeliveryAddress().getCountry().getIsocode());
+        if (cartData == null) {
+            return;
         }
+        AddressData address = cartData.getDeliveryAddress();
+        if (address == null && cartData.getPaymentInfo() != null) {
+            address = cartData.getPaymentInfo().getBillingAddress();
+        }
+        if (address != null && address.getCountry() != null
+                && StringUtils.isNotBlank(address.getCountry().getIsocode())) {
+            getSessionService().setAttribute(SESSION_DONATION_COUNTRY_CODE, address.getCountry().getIsocode());
+        }
+    }
+
+    protected void clearDonationSessionData() {
+        clearDonationPaymentData();
+        getSessionService().removeAttribute(SESSION_DONATION_COUNTRY_CODE);
+    }
+
+    protected void clearDonationPaymentData() {
+        getSessionService().removeAttribute(SESSION_DONATION_TOKEN);
+        getSessionService().removeAttribute(SESSION_DONATION_ORIGINAL_PSP_REFERENCE);
+        getSessionService().removeAttribute(SESSION_DONATION_ORIGINAL_AMOUNT_VALUE);
+        getSessionService().removeAttribute(SESSION_DONATION_ORIGINAL_AMOUNT_CURRENCY);
+        getSessionService().removeAttribute(SESSION_DONATION_IN_PROGRESS);
+        getSessionService().removeAttribute(SESSION_DONATION_IDEMPOTENCY_KEY);
+        getSessionService().removeAttribute(SESSION_DONATION_REFERENCE);
     }
 
     /**

@@ -9,7 +9,7 @@ import java.io.IOException;
 
 public interface AdyenDonationsFacade {
 
-    DonationCampaignsResponse getDonationCampaigns() throws IOException, ApiException;
+    DonationCampaignsResponse getDonationCampaigns(String currency) throws IOException, ApiException;
 
-    DonationPaymentResponse makeDonationPayment(DonationPaymentRequest request) throws IOException, ApiException;
+    DonationPaymentResponse makeDonationPayment(DonationPaymentRequest request, String idempotencyKey) throws IOException, ApiException;
 }

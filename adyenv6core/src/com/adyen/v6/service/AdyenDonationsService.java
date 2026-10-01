@@ -12,5 +12,5 @@ public interface AdyenDonationsService {
 
     DonationCampaignsResponse getDonationCampaigns(DonationCampaignsRequest request) throws IOException, ApiException;
 
-    DonationPaymentResponse makeDonationPayment(DonationPaymentRequest request) throws IOException, ApiException;
+    DonationPaymentResponse makeDonationPayment(DonationPaymentRequest request, String idempotencyKey) throws IOException, ApiException;
 }

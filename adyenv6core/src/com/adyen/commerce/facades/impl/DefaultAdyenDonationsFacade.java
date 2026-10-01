@@ -12,29 +12,30 @@ import de.hybris.platform.servicelayer.i18n.CommonI18NService;
 import de.hybris.platform.servicelayer.i18n.I18NService;
 import de.hybris.platform.store.BaseStoreModel;
 import de.hybris.platform.store.services.BaseStoreService;
+import org.apache.commons.lang3.StringUtils;
 
 import java.io.IOException;
 import java.util.Locale;
 
 public class DefaultAdyenDonationsFacade implements AdyenDonationsFacade {
 
-private BaseStoreService baseStoreService;
-private I18NService i18NService;
-private CommonI18NService commonI18NService;
-private AdyenPaymentServiceFactory adyenPaymentServiceFactory;
+    private BaseStoreService baseStoreService;
+    private I18NService i18NService;
+    private CommonI18NService commonI18NService;
+    private AdyenPaymentServiceFactory adyenPaymentServiceFactory;
 
     @Override
-    public DonationCampaignsResponse getDonationCampaigns() throws IOException, ApiException {
-        BaseStoreModel baseStoreModel = baseStoreService.getCurrentBaseStore();
+    public DonationCampaignsResponse getDonationCampaigns(final String currency) throws IOException, ApiException {
+        final BaseStoreModel baseStoreModel = baseStoreService.getCurrentBaseStore();
         if (baseStoreModel == null) {
             throw new IllegalStateException("No current base store available for loading Adyen donation campaigns");
         }
 
-        AdyenDonationsService adyenDonationsService = adyenPaymentServiceFactory.createAdyenDonationsService(baseStoreModel);
+        final AdyenDonationsService adyenDonationsService = adyenPaymentServiceFactory.createAdyenDonationsService(baseStoreModel);
 
-        DonationCampaignsRequest request = new DonationCampaignsRequest();
+        final DonationCampaignsRequest request = new DonationCampaignsRequest();
 
-        request.setCurrency(resolveCurrencyIsoCode(baseStoreModel));
+        request.setCurrency(StringUtils.isNotBlank(currency) ? currency : resolveCurrencyIsoCode(baseStoreModel));
         request.setLocale(resolveLocale());
         request.setMerchantAccount(resolveMerchantAccount(baseStoreModel));
 
@@ -42,18 +43,18 @@ private AdyenPaymentServiceFactory adyenPaymentServiceFactory;
     }
 
     @Override
-    public DonationPaymentResponse makeDonationPayment(DonationPaymentRequest request) throws IOException, ApiException {
-        BaseStoreModel baseStoreModel = baseStoreService.getCurrentBaseStore();
+    public DonationPaymentResponse makeDonationPayment(final DonationPaymentRequest request, final String idempotencyKey) throws IOException, ApiException {
+        final BaseStoreModel baseStoreModel = baseStoreService.getCurrentBaseStore();
         if (baseStoreModel == null) {
             throw new IllegalStateException("No current base store available for Adyen donation payment");
         }
 
-        AdyenDonationsService adyenDonationsService = adyenPaymentServiceFactory.createAdyenDonationsService(baseStoreModel);
+        final AdyenDonationsService adyenDonationsService = adyenPaymentServiceFactory.createAdyenDonationsService(baseStoreModel);
 
-        return adyenDonationsService.makeDonationPayment(request);
+        return adyenDonationsService.makeDonationPayment(request, idempotencyKey);
     }
 
-    private String resolveCurrencyIsoCode(BaseStoreModel baseStoreModel) {
+    private String resolveCurrencyIsoCode(final BaseStoreModel baseStoreModel) {
         if (commonI18NService != null && commonI18NService.getCurrentCurrency() != null && commonI18NService.getCurrentCurrency().getIsocode() != null) {
             return commonI18NService.getCurrentCurrency().getIsocode();
         }
@@ -71,7 +72,7 @@ private AdyenPaymentServiceFactory adyenPaymentServiceFactory;
         return systemLocale != null ? systemLocale.toString() : Locale.ENGLISH.toString();
     }
 
-    private String resolveMerchantAccount(BaseStoreModel baseStoreModel) {
+    private String resolveMerchantAccount(final BaseStoreModel baseStoreModel) {
         if (baseStoreModel.getAdyenMerchantAccount() != null && !baseStoreModel.getAdyenMerchantAccount().trim().isEmpty()) {
             return baseStoreModel.getAdyenMerchantAccount();
         }
@@ -79,19 +80,19 @@ private AdyenPaymentServiceFactory adyenPaymentServiceFactory;
     }
 
 
-    public void setBaseStoreService(BaseStoreService baseStoreService) {
+    public void setBaseStoreService(final BaseStoreService baseStoreService) {
         this.baseStoreService = baseStoreService;
     }
 
-    public void setAdyenPaymentServiceFactory(AdyenPaymentServiceFactory adyenPaymentServiceFactory) {
+    public void setAdyenPaymentServiceFactory(final AdyenPaymentServiceFactory adyenPaymentServiceFactory) {
         this.adyenPaymentServiceFactory = adyenPaymentServiceFactory;
     }
 
-    public void setI18NService(I18NService i18NService) {
+    public void setI18NService(final I18NService i18NService) {
         this.i18NService = i18NService;
     }
 
-    public void setCommonI18NService(CommonI18NService commonI18NService) {
+    public void setCommonI18NService(final CommonI18NService commonI18NService) {
         this.commonI18NService = commonI18NService;
     }
 }

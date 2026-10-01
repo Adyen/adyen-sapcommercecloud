@@ -108,6 +108,7 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
     public OrderPaymentResult placeOrderWithPayment(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest, RequestInfo requestInfo, AdyenPartialPaymentOrderData partialPaymentOrderData) throws Exception{
         requestInfo.setShopperLocale(getShopperLocale());
 
+        clearDonationSessionData();
         PaymentResponse paymentResponse = getAdyenPaymentService().processPaymentRequest(cartData, paymentRequest, requestInfo, getCheckoutCustomerStrategy().getCurrentUserForCheckout(), partialPaymentOrderData);
         storeDonationPaymentData(paymentResponse);
         storeDonationCountryCode(cartData);
@@ -170,6 +171,7 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
     public OrderPaymentResult placeOrderWithPaymentOCC(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest, RequestInfo requestInfo) throws Exception {
         requestInfo.setShopperLocale(getShopperLocale());
 
+        clearDonationSessionData();
         PaymentResponse paymentResponse = getAdyenPaymentService().processPaymentRequest(cartData, paymentRequest, requestInfo, getCheckoutCustomerStrategy().getCurrentUserForCheckout());
         storeDonationPaymentData(paymentResponse);
         storeDonationCountryCode(cartData);
