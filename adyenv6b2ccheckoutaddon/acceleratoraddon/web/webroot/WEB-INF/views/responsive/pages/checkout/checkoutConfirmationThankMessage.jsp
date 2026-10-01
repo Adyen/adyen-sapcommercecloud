@@ -22,8 +22,6 @@
 
     <order:giftCoupons giftCoupons="${giftCoupons}"/>
 
-    <%-- The token remains in the server session. This node is mounted only
-         when the Giving context endpoint confirms that a donation is eligible. --%>
     <div id="adyen-giving" class="adyen-giving" aria-live="polite"></div>
 
     <c:if test="${not empty guestRegisterForm}">
@@ -78,13 +76,8 @@
     </c:if>
 </div>
 
-<%-- adyenLibrary reads checkoutShopperHost; the JSP checkout controller exposes
-     the same value as adyenCheckoutShopperHost. --%>
 <c:set var="checkoutShopperHost" value="${adyenCheckoutShopperHost}"/>
 <adyen:adyenLibrary showDefaultCss="true"/>
-<%-- The checkout tag ships 6.40.1, whose global bundle does not expose
-     Donation.  Keep the checkout-wide version untouched and load the same
-     6.41.0 full bundle that is resolved by the React checkout. --%>
 <script src="https://${checkoutShopperHost}/checkoutshopper/sdk/6.41.0/adyen.js"
         crossorigin="anonymous"></script>
 <script type="text/javascript">
@@ -154,7 +147,7 @@
                                         'CSRFToken': csrfToken
                                     },
                                     body: JSON.stringify({
-                                        campaignId: campaign.id,
+                                        donationCampaignId: campaign.id,
                                         amount: state.data.amount
                                     })
                                 })

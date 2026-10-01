@@ -94,7 +94,7 @@ export const DonationSection: React.FC = () => {
                             component.setStatus("loading");
                             const response = await adyenAxios.post<DonationResult>(
                                 urlContextPath + "/api/checkout/donations/donate",
-                                {campaignId: campaign.id, amount: state.data.amount as Amount},
+                                {donationCampaignId: campaign.id, amount: state.data.amount as Amount},
                                 {headers: {"Content-Type": "application/json", "CSRFToken": CSRFToken}}
                             );
                             if (response.data.status?.toLowerCase() === "completed") {

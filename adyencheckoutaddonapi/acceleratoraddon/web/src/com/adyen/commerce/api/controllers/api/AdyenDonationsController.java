@@ -3,6 +3,8 @@ package com.adyen.commerce.api.controllers.api;
 import com.adyen.commerce.facades.AdyenCheckoutFacade;
 import com.adyen.commerce.facades.AdyenDonationsFacade;
 import com.adyen.commerce.facades.impl.DefaultAdyenCheckoutFacade;
+import com.adyen.commerce.api.request.DonationRequest;
+import com.adyen.commerce.api.response.DonationResponse;
 import com.adyen.model.checkout.Amount;
 import com.adyen.model.checkout.CardDonations;
 import com.adyen.model.checkout.DonationCampaign;
@@ -10,7 +12,6 @@ import com.adyen.model.checkout.DonationCampaignsResponse;
 import com.adyen.model.checkout.DonationPaymentMethod;
 import com.adyen.model.checkout.DonationPaymentRequest;
 import com.adyen.model.checkout.DonationPaymentResponse;
-import com.adyen.model.checkout.PaymentResponse;
 import com.adyen.service.exception.ApiException;
 import de.hybris.platform.acceleratorservices.urlresolver.SiteBaseUrlResolutionService;
 import de.hybris.platform.basecommerce.model.site.BaseSiteModel;
@@ -19,6 +20,7 @@ import de.hybris.platform.store.BaseStoreModel;
 import de.hybris.platform.store.services.BaseStoreService;
 import de.hybris.platform.site.BaseSiteService;
 import jakarta.annotation.Resource;
+import jakarta.validation.Valid;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 import org.springframework.http.HttpStatus;
@@ -101,13 +103,13 @@ public class AdyenDonationsController {
 
     @PostMapping(value = "/donate", consumes = "application/json", produces = "application/json")
     @ResponseBody
-    public ResponseEntity<Map<String, Object>> donate(@RequestBody final DonationComponentRequest request) throws Exception {
+    public ResponseEntity<DonationResponse> donate(@Valid @RequestBody final DonationRequest request) throws Exception {
         final String donationToken = sessionService.getAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_TOKEN);
         final String originalPspReference = sessionService.getAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_ORIGINAL_PSP_REFERENCE);
         final BaseStoreModel baseStore = baseStoreService.getCurrentBaseStore();
 
         if (request == null || request.getAmount() == null || request.getAmount().getValue() == null
-                || request.getAmount().getValue() <= 0 || StringUtils.isAnyBlank(request.getCampaignId(),
+                || request.getAmount().getValue() <= 0 || StringUtils.isAnyBlank(request.getDonationCampaignId(),
                 request.getAmount().getCurrency(), donationToken, originalPspReference)
                 || baseStore == null || StringUtils.isBlank(baseStore.getAdyenMerchantAccount())) {
             return ResponseEntity.badRequest().build();
@@ -115,7 +117,7 @@ public class AdyenDonationsController {
 
         final DonationPaymentRequest donationRequest = new DonationPaymentRequest();
         donationRequest.setAmount(new Amount().currency(request.getAmount().getCurrency()).value(request.getAmount().getValue()));
-        donationRequest.setDonationCampaignId(request.getCampaignId());
+        donationRequest.setDonationCampaignId(request.getDonationCampaignId());
         donationRequest.setDonationToken(donationToken);
         donationRequest.setDonationOriginalPspReference(originalPspReference);
         donationRequest.setMerchantAccount(baseStore.getAdyenMerchantAccount());
@@ -126,45 +128,11 @@ public class AdyenDonationsController {
 
         try {
             final DonationPaymentResponse response = adyenDonationsFacade.makeDonationPayment(donationRequest);
-            final Map<String, Object> result = new LinkedHashMap<>();
-            result.put("id", response.getId());
-            result.put("status", response.getStatus() == null ? null : response.getStatus().getValue());
-            result.put("merchantAccount", response.getMerchantAccount());
-            result.put("reference", response.getReference());
-            if (response.getAmount() != null) {
-                result.put("amount", amount(response.getAmount()));
-            }
-            if (response.getPayment() != null) {
-                final PaymentResponse payment = response.getPayment();
-                final Map<String, Object> paymentResult = new LinkedHashMap<>();
-                paymentResult.put("pspReference", payment.getPspReference());
-                paymentResult.put("resultCode", payment.getResultCode() == null ? null : payment.getResultCode().getValue());
-                paymentResult.put("refusalReason", payment.getRefusalReason());
-                paymentResult.put("refusalReasonCode", payment.getRefusalReasonCode());
-                paymentResult.put("merchantReference", payment.getMerchantReference());
-                if (payment.getAmount() != null) {
-                    paymentResult.put("amount", amount(payment.getAmount()));
-                }
-                result.put("payment", paymentResult);
-            }
-            return ResponseEntity.ok(result);
+            return ResponseEntity.ok(DonationResponse.from(response));
         } catch (ApiException exception) {
             LOG.warn("Adyen donation request failed", exception);
-            final Map<String, Object> result = new LinkedHashMap<>();
-            result.put("error", exception.getMessage());
-            result.put("statusCode", exception.getStatusCode());
-            return ResponseEntity.status(exception.getStatusCode()).body(result);
+            return ResponseEntity.status(exception.getStatusCode()).build();
         }
-    }
-
-    public static class DonationComponentRequest {
-        private String campaignId;
-        private DonationAmount amount;
-
-        public String getCampaignId() { return campaignId; }
-        public void setCampaignId(final String campaignId) { this.campaignId = campaignId; }
-        public DonationAmount getAmount() { return amount; }
-        public void setAmount(final DonationAmount amount) { this.amount = amount; }
     }
 
     protected String getDonationReturnUrl() {
@@ -172,20 +140,4 @@ public class AdyenDonationsController {
         return siteBaseUrlResolutionService.getWebsiteUrlForSite(currentBaseSite, true, "/");
     }
 
-    protected Map<String, Object> amount(final Amount amount) {
-        final Map<String, Object> amountResult = new LinkedHashMap<>();
-        amountResult.put("currency", amount.getCurrency());
-        amountResult.put("value", amount.getValue());
-        return amountResult;
-    }
-
-    public static class DonationAmount {
-        private String currency;
-        private Long value;
-
-        public String getCurrency() { return currency; }
-        public void setCurrency(final String currency) { this.currency = currency; }
-        public Long getValue() { return value; }
-        public void setValue(final Long value) { this.value = value; }
-    }
 }
