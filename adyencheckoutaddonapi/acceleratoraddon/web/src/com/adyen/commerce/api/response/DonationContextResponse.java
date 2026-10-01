@@ -4,7 +4,6 @@ import com.adyen.model.checkout.DonationCampaign;
 
 import java.util.List;
 
-/** Configuration required by either storefront to mount Adyen Web Giving. */
 public class DonationContextResponse {
     private final String clientKey;
     private final String environment;

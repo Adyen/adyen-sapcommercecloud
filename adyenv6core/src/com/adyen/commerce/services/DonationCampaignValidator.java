@@ -4,7 +4,6 @@ import com.adyen.model.checkout.Donation;
 import com.adyen.model.checkout.DonationCampaign;
 import org.apache.commons.lang3.StringUtils;
 
-/** Validates that a browser-selected donation amount matches Adyen's campaign. */
 public class DonationCampaignValidator {
     private static final String FIXED_AMOUNTS = "fixedAmounts";
     private static final String ROUNDUP = "roundup";
