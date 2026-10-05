@@ -5,12 +5,11 @@ import com.adyen.commerce.dto.OrderPaymentResult;
 import com.adyen.commerce.facades.AdyenCheckoutApiFacade;
 import com.adyen.commerce.facades.AdyenPartialPaymentOrderFacade;
 import com.adyen.model.checkout.*;
-import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
-import com.adyen.commerce.facades.impl.DefaultAdyenCheckoutFacade;
-import com.adyen.v6.forms.AddressForm;
-import com.adyen.v6.model.RequestInfo;
-import com.adyen.v6.model.AdyenPartialPaymentOrderModel;
 import com.adyen.v6.enums.AdyenPartialPaymentStatus;
+import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
+import com.adyen.v6.forms.AddressForm;
+import com.adyen.v6.model.AdyenPartialPaymentOrderModel;
+import com.adyen.v6.model.RequestInfo;
 import com.adyen.v6.repository.AdyenPartialPaymentOrderRepository;
 import com.adyen.v6.service.AdyenCheckoutApiService;
 import com.adyen.v6.service.AdyenPartialPaymentService;
@@ -109,7 +108,10 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
     public OrderPaymentResult placeOrderWithPayment(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest, RequestInfo requestInfo, AdyenPartialPaymentOrderData partialPaymentOrderData) throws Exception{
         requestInfo.setShopperLocale(getShopperLocale());
 
+        clearDonationSessionData();
         PaymentResponse paymentResponse = getAdyenPaymentService().processPaymentRequest(cartData, paymentRequest, requestInfo, getCheckoutCustomerStrategy().getCurrentUserForCheckout(), partialPaymentOrderData);
+        storeDonationPaymentData(paymentResponse);
+        storeDonationCountryCode(cartData);
         if (PaymentResponse.ResultCodeEnum.PENDING == paymentResponse.getResultCode()
                 || PaymentResponse.ResultCodeEnum.REDIRECTSHOPPER == paymentResponse.getResultCode()
                 || PaymentResponse.ResultCodeEnum.CHALLENGESHOPPER == paymentResponse.getResultCode()
@@ -169,7 +171,10 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
     public OrderPaymentResult placeOrderWithPaymentOCC(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest, RequestInfo requestInfo) throws Exception {
         requestInfo.setShopperLocale(getShopperLocale());
 
+        clearDonationSessionData();
         PaymentResponse paymentResponse = getAdyenPaymentService().processPaymentRequest(cartData, paymentRequest, requestInfo, getCheckoutCustomerStrategy().getCurrentUserForCheckout());
+        storeDonationPaymentData(paymentResponse);
+        storeDonationCountryCode(cartData);
         if (PaymentResponse.ResultCodeEnum.PENDING == paymentResponse.getResultCode()
                 || PaymentResponse.ResultCodeEnum.REDIRECTSHOPPER == paymentResponse.getResultCode()
                 || PaymentResponse.ResultCodeEnum.CHALLENGESHOPPER == paymentResponse.getResultCode()
