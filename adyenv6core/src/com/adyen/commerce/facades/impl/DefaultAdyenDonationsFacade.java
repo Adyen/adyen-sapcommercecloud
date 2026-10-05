@@ -1,10 +1,8 @@
 package com.adyen.commerce.facades.impl;
 
+import com.adyen.commerce.data.DonationPaymentData;
 import com.adyen.commerce.facades.AdyenDonationsFacade;
-import com.adyen.model.checkout.DonationCampaignsRequest;
-import com.adyen.model.checkout.DonationCampaignsResponse;
-import com.adyen.model.checkout.DonationPaymentRequest;
-import com.adyen.model.checkout.DonationPaymentResponse;
+import com.adyen.model.checkout.*;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
 import com.adyen.v6.service.AdyenDonationsService;
@@ -43,7 +41,8 @@ public class DefaultAdyenDonationsFacade implements AdyenDonationsFacade {
     }
 
     @Override
-    public DonationPaymentResponse makeDonationPayment(final DonationPaymentRequest request, final String idempotencyKey) throws IOException, ApiException {
+    public DonationPaymentResponse makeDonationPayment(final DonationPaymentData paymentData,
+                                                       final String idempotencyKey) throws IOException, ApiException {
         final BaseStoreModel baseStoreModel = baseStoreService.getCurrentBaseStore();
         if (baseStoreModel == null) {
             throw new IllegalStateException("No current base store available for Adyen donation payment");
@@ -51,7 +50,8 @@ public class DefaultAdyenDonationsFacade implements AdyenDonationsFacade {
 
         final AdyenDonationsService adyenDonationsService = adyenPaymentServiceFactory.createAdyenDonationsService(baseStoreModel);
 
-        return adyenDonationsService.makeDonationPayment(request, idempotencyKey);
+        return adyenDonationsService.makeDonationPayment(createDonationPaymentRequest(paymentData, baseStoreModel),
+                idempotencyKey);
     }
 
     private String resolveCurrencyIsoCode(final BaseStoreModel baseStoreModel) {
@@ -77,6 +77,20 @@ public class DefaultAdyenDonationsFacade implements AdyenDonationsFacade {
             return baseStoreModel.getAdyenMerchantAccount();
         }
         throw new IllegalStateException("No Adyen merchant account configured for loading donation campaigns");
+    }
+
+    protected DonationPaymentRequest createDonationPaymentRequest(final DonationPaymentData paymentData,
+                                                                   final BaseStoreModel baseStoreModel) {
+        final DonationPaymentRequest request = new DonationPaymentRequest();
+        request.setAmount(new Amount().currency(paymentData.getAmountCurrency()).value(paymentData.getAmountValue()));
+        request.setDonationCampaignId(paymentData.getCampaignId());
+        request.setDonationToken(paymentData.getDonationToken());
+        request.setDonationOriginalPspReference(paymentData.getOriginalPspReference());
+        request.setMerchantAccount(resolveMerchantAccount(baseStoreModel));
+        request.setReference(paymentData.getReference());
+        request.setPaymentMethod(new DonationPaymentMethod(new CardDonations().type(CardDonations.TypeEnum.SCHEME)));
+        request.setReturnUrl(paymentData.getReturnUrl());
+        return request;
     }
 
 

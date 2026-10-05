@@ -3,16 +3,13 @@ package com.adyen.commerce.api.controllers.api;
 import com.adyen.commerce.api.request.DonationRequest;
 import com.adyen.commerce.api.response.DonationContextResponse;
 import com.adyen.commerce.api.response.DonationResponse;
+import com.adyen.commerce.data.DonationPaymentData;
 import com.adyen.commerce.facades.AdyenCheckoutFacade;
 import com.adyen.commerce.facades.AdyenDonationsFacade;
 import com.adyen.commerce.facades.impl.DefaultAdyenCheckoutFacade;
 import com.adyen.commerce.services.DonationCampaignValidator;
-import com.adyen.model.checkout.Amount;
-import com.adyen.model.checkout.CardDonations;
 import com.adyen.model.checkout.DonationCampaign;
 import com.adyen.model.checkout.DonationCampaignsResponse;
-import com.adyen.model.checkout.DonationPaymentMethod;
-import com.adyen.model.checkout.DonationPaymentRequest;
 import com.adyen.model.checkout.DonationPaymentResponse;
 import com.adyen.service.exception.ApiException;
 import de.hybris.platform.acceleratorservices.urlresolver.SiteBaseUrlResolutionService;
@@ -115,9 +112,7 @@ public class AdyenDonationsController {
         final Long commercialTransactionValue = sessionService.getAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_ORIGINAL_AMOUNT_VALUE);
         final BaseStoreModel baseStore = baseStoreService.getCurrentBaseStore();
 
-        if (request == null || request.getAmount() == null || request.getAmount().getValue() == null
-                || request.getAmount().getValue() <= 0 || StringUtils.isAnyBlank(request.getDonationCampaignId(),
-                request.getAmount().getCurrency(), donationToken, originalPspReference)
+        if (StringUtils.isAnyBlank(donationToken, originalPspReference)
                 || baseStore == null || StringUtils.isBlank(baseStore.getAdyenMerchantAccount())) {
             return ResponseEntity.badRequest().build();
         }
@@ -140,20 +135,11 @@ public class AdyenDonationsController {
             return ResponseEntity.status(HttpStatus.CONFLICT).build();
         }
 
-        final DonationPaymentRequest donationRequest = new DonationPaymentRequest();
-        donationRequest.setAmount(new Amount().currency(request.getAmount().getCurrency()).value(request.getAmount().getValue()));
-        donationRequest.setDonationCampaignId(request.getDonationCampaignId());
-        donationRequest.setDonationToken(donationToken);
-        donationRequest.setDonationOriginalPspReference(originalPspReference);
-        donationRequest.setMerchantAccount(baseStore.getAdyenMerchantAccount());
-        donationRequest.setReference(getOrCreateDonationReference(originalPspReference));
-        donationRequest.setPaymentMethod(new DonationPaymentMethod(
-                new CardDonations().type(CardDonations.TypeEnum.SCHEME)));
-        donationRequest.setReturnUrl(getDonationReturnUrl());
+        final DonationPaymentData paymentData = createDonationPaymentData(request, donationToken, originalPspReference);
 
         boolean completed = false;
         try {
-            final DonationPaymentResponse response = adyenDonationsFacade.makeDonationPayment(donationRequest,
+            final DonationPaymentResponse response = adyenDonationsFacade.makeDonationPayment(paymentData,
                     getOrCreateDonationIdempotencyKey());
             final DonationResponse donationResponse = DonationResponse.from(response);
             completed = COMPLETED.equalsIgnoreCase(donationResponse.getStatus());
@@ -237,6 +223,19 @@ public class AdyenDonationsController {
     protected String getDonationReturnUrl() {
         final BaseSiteModel currentBaseSite = baseSiteService.getCurrentBaseSite();
         return siteBaseUrlResolutionService.getWebsiteUrlForSite(currentBaseSite, true, "/");
+    }
+
+    protected DonationPaymentData createDonationPaymentData(final DonationRequest request, final String donationToken,
+                                                             final String originalPspReference) {
+        final DonationPaymentData paymentData = new DonationPaymentData();
+        paymentData.setAmountValue(request.getAmount().getValue());
+        paymentData.setAmountCurrency(request.getAmount().getCurrency());
+        paymentData.setCampaignId(request.getDonationCampaignId());
+        paymentData.setDonationToken(donationToken);
+        paymentData.setOriginalPspReference(originalPspReference);
+        paymentData.setReference(getOrCreateDonationReference(originalPspReference));
+        paymentData.setReturnUrl(getDonationReturnUrl());
+        return paymentData;
     }
 
 }
