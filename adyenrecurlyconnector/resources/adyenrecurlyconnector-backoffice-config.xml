@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!-- Copyright (c) 2026 Adyen B.V. - MIT license. -->
+<config xmlns="http://www.hybris.com/cockpit/config"
+        xmlns:lv="http://www.hybris.com/cockpitng/component/listView"
+        xmlns:as="http://www.hybris.com/cockpitng/config/advancedsearch">
+
+    <!-- Joins the subscription billing tab contributed by adyensubscriptionconnector. -->
+    <context merge-by="type" type="BaseStore" component="editor-area">
+        <editorArea:editorArea xmlns:editorArea="http://www.hybris.com/cockpitng/component/editorArea">
+            <editorArea:tab name="hmc.adyen.subscriptionBilling">
+                <editorArea:section name="hmc.adyen.recurlyConfig">
+                    <editorArea:attribute qualifier="recurlyConfig"/>
+                </editorArea:section>
+            </editorArea:tab>
+        </editorArea:editorArea>
+    </context>
+
+    <!-- Created from the base store editor through recurlyConfig. Without an explicit wizard Backoffice offers
+         only mandatory attributes and drops adyenGatewayMerchantAccount, which is optional at type level so that
+         rows saved before it existed stay saveable; the connector still refuses to import a token without it,
+         and only once the shopper has been charged. Encrypted fields get the password editor so full-access
+         keys are not shown in the clear. -->
+    <context merge-by="type" type="RecurlyConfig" component="create-wizard">
+        <wz:flow xmlns:wz="http://www.hybris.com/cockpitng/config/wizard-config"
+                 id="AdyenRecurlyConfigWizard" title="create.title(ctx.TYPE_CODE)">
+            <wz:step id="step1" label="hmc.adyen.subscriptionConfig.step">
+                <wz:content id="step1.content" merge-mode="replace">
+                    <wz:property qualifier="newObject.subscriptionSiteId"/>
+                    <wz:property qualifier="newObject.subscriptionApiKey"
+                                 editor="com.hybris.cockpitng.editor.defaultpassword"/>
+                    <wz:property qualifier="newObject.subscriptionGatewayAccountId"/>
+                    <wz:property qualifier="newObject.adyenGatewayMerchantAccount"/>
+                    <wz:property qualifier="newObject.recurlyWebhookSigningKey"
+                                 editor="com.hybris.cockpitng.editor.defaultpassword"/>
+                    <wz:property qualifier="newObject.walletEnabled"/>
+                    <wz:property qualifier="newObject.externalNtidFeatureEnabled"/>
+                </wz:content>
+            </wz:step>
+        </wz:flow>
+    </context>
+
+    <!-- Same node ids as adyensubscriptionconnector, so the mapping lands in its subscription billing node.
+         A plan mapping is the one row an operator creates by hand before any subscription can appear: without
+         one the activator treats every order as non-subscription. -->
+    <context merge-by="module" parent="auto" component="explorer-tree">
+        <explorer-tree:explorer-tree xmlns:explorer-tree="http://www.hybris.com/cockpitng/config/explorertree">
+            <explorer-tree:navigation-node id="hmc_treenode_system" merge-mode="append">
+                <explorer-tree:navigation-node id="adyen.subscriptionBilling">
+                    <explorer-tree:type-node code="RecurlyPlanMapping" id="adyen.recurlyPlanMapping"/>
+                </explorer-tree:navigation-node>
+            </explorer-tree:navigation-node>
+        </explorer-tree:explorer-tree>
+    </context>
+
+    <!-- Plan mappings: which SAP product is sold as which Recurly plan. A product without a mapping is silently
+         not a subscription. Unique on (productCode, baseStore); an empty base store is the default for stores
+         without their own row, and a store's row wins. -->
+    <context merge-by="type" parent="GenericItem" type="RecurlyPlanMapping" component="listview">
+        <lv:list-view>
+            <lv:column qualifier="productCode"/>
+            <lv:column qualifier="baseStore"/>
+            <lv:column qualifier="planCode"/>
+            <lv:column qualifier="priceId"/>
+        </lv:list-view>
+    </context>
+
+    <context merge-by="type" parent="GenericItem" type="RecurlyPlanMapping" component="advanced-search">
+        <as:advanced-search>
+            <as:field-list>
+                <as:field name="productCode" selected="true"/>
+                <as:field name="baseStore" selected="true"/>
+                <as:field name="planCode" selected="true"/>
+            </as:field-list>
+        </as:advanced-search>
+    </context>
+
+    <context merge-by="type" type="RecurlyPlanMapping" component="editor-area">
+        <editorArea:editorArea xmlns:editorArea="http://www.hybris.com/cockpitng/component/editorArea">
+            <editorArea:tab name="hmc.adyen">
+                <editorArea:section name="hmc.adyen.planMapping">
+                    <editorArea:attribute qualifier="productCode"/>
+                    <editorArea:attribute qualifier="baseStore"/>
+                    <editorArea:attribute qualifier="planCode"/>
+                    <editorArea:attribute qualifier="priceId"/>
+                </editorArea:section>
+            </editorArea:tab>
+        </editorArea:editorArea>
+    </context>
+
+    <!-- Explicit: the default wizard shows only mandatory attributes and would drop priceId and baseStore. -->
+    <context merge-by="type" type="RecurlyPlanMapping" component="create-wizard">
+        <wz:flow xmlns:wz="http://www.hybris.com/cockpitng/config/wizard-config"
+                 id="AdyenRecurlyPlanMappingWizard" title="create.title(ctx.TYPE_CODE)">
+            <wz:step id="step1" label="hmc.adyen.planMapping">
+                <wz:content id="step1.content" merge-mode="replace">
+                    <wz:property qualifier="newObject.productCode"/>
+                    <wz:property qualifier="newObject.baseStore"/>
+                    <wz:property qualifier="newObject.planCode"/>
+                    <wz:property qualifier="newObject.priceId"/>
+                </wz:content>
+            </wz:step>
+        </wz:flow>
+    </context>
+
+</config>

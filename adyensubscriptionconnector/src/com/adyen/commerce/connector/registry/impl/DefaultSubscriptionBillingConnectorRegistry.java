@@ -21,8 +21,12 @@
 package com.adyen.commerce.connector.registry.impl;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
@@ -85,6 +89,15 @@ public class DefaultSubscriptionBillingConnectorRegistry
 	public List<SubscriptionBillingConnector> getConnectors()
 	{
 		return effectiveConnectors();
+	}
+
+	@Override
+	public Set<BillingPlatform> getAvailablePlatforms()
+	{
+		final Set<BillingPlatform> platforms = new LinkedHashSet<>();
+		effectiveConnectors().stream().map(SubscriptionBillingConnector::platform).filter(Objects::nonNull)
+				.forEach(platforms::add);
+		return Collections.unmodifiableSet(platforms);
 	}
 
 	protected List<SubscriptionBillingConnector> effectiveConnectors()

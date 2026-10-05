@@ -725,6 +725,11 @@
         <property name="configurationService" ref="configurationService"/>
     </bean>
 
+    <!-- The subscription connector extension overrides the alias with its registry-backed service. -->
+    <alias name="defaultBillingPlatformAvailabilityService" alias="billingPlatformAvailabilityService"/>
+    <bean id="defaultBillingPlatformAvailabilityService"
+          class="com.adyen.commerce.services.impl.DefaultBillingPlatformAvailabilityService"/>
+
     <bean id="adyenCustomerInteractionRetryTemplate" class="org.springframework.retry.support.RetryTemplate">
         <property name="retryPolicy">
             <bean class="org.springframework.retry.policy.SimpleRetryPolicy">

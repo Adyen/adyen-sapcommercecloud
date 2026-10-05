@@ -62,6 +62,8 @@ import de.hybris.platform.store.BaseStoreModel;
 @UnitTest
 public class DefaultSubscriptionOrderCancellationServiceTest
 {
+	private static final BillingPlatform CHARGEBEE = BillingPlatform.valueOf("CHARGEBEE");
+
 	@Mock
 	private SubscriptionBillingService subscriptionBillingService;
 	@Mock
@@ -244,7 +246,7 @@ public class DefaultSubscriptionOrderCancellationServiceTest
 	private static BillingSubscriptionRefModel active()
 	{
 		final BillingSubscriptionRefModel ref = mock(BillingSubscriptionRefModel.class);
-		when(ref.getPlatform()).thenReturn(BillingPlatform.CHARGEBEE);
+		when(ref.getPlatform()).thenReturn(CHARGEBEE);
 		when(ref.getExternalSubscriptionId()).thenReturn("sub-1");
 		when(ref.getStatus()).thenReturn(NormalizedSubscriptionStatus.ACTIVE.name());
 		return ref;

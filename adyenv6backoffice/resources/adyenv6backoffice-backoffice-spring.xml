@@ -25,4 +25,10 @@
 	<bean id="adyenCancelOrderAction" class="com.adyen.v6.backoffice.widgets.actions.cancel.AdyenCancelOrderAction"/>
 	<bean id="adyenCaptureOrderAction" class="com.adyen.v6.backoffice.widgets.actions.capture.AdyenCaptureOrderAction"/>
 
+	<!-- Enum editor value resolver for BaseStore.activeBillingPlatform; offers only platforms with a loaded connector -->
+	<bean id="adyenBillingPlatformEnumValueResolver" class="com.adyen.v6.backoffice.editors.BillingPlatformEnumValueResolver">
+		<property name="enumValueResolver" ref="enumValueResolver"/>
+		<property name="billingPlatformAvailabilityService" ref="billingPlatformAvailabilityService"/>
+	</bean>
+
 </beans>

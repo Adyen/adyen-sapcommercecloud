@@ -220,8 +220,9 @@ public class ChargebeeSubscriptionBillingConnectorTest
 	{
 		// A reference belonging to another platform must never be sent to Chargebee: subscription ids are
 		// caller-chosen here, so it could silently address an unrelated Chargebee subscription.
-		assertThrows(PreconditionFailedException.class,
-				() -> connector.fetchSubscription(new BillingSubscriptionRef(BillingPlatform.RECURLY, "sub-1")));
+		final BillingSubscriptionRef recurlyRef = new BillingSubscriptionRef(BillingPlatform.valueOf("RECURLY"), "sub-1");
+
+		assertThrows(PreconditionFailedException.class, () -> connector.fetchSubscription(recurlyRef));
 
 		verify(apiClient, never()).fetchSubscription(any());
 	}

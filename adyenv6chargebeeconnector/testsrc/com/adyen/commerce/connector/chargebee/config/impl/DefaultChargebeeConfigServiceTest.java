@@ -31,9 +31,9 @@ import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import com.adyen.commerce.connector.chargebee.model.ChargebeeConfigModel;
 import com.adyen.commerce.connector.enums.BillingPlatform;
 import com.adyen.commerce.connector.exception.ConnectorNotConfiguredException;
-import com.adyen.v6.model.ChargebeeConfigModel;
 
 import de.hybris.bootstrap.annotations.UnitTest;
 import de.hybris.platform.servicelayer.config.ConfigurationService;
@@ -186,7 +186,7 @@ public class DefaultChargebeeConfigServiceTest
 	public void credentialsStayReadableForAStoreThatHasMovedToAnotherPlatform() throws Exception
 	{
 		when(chargebeeConfig.getSubscriptionApiKey()).thenReturn("cb-key");
-		when(baseStore.getActiveBillingPlatform()).thenReturn(BillingPlatform.RECURLY);
+		when(baseStore.getActiveBillingPlatform()).thenReturn(BillingPlatform.valueOf("RECURLY"));
 
 		assertEquals("cb-key", service.getApiKey());
 	}
