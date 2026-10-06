@@ -10,10 +10,6 @@ import de.hybris.platform.servicelayer.model.ModelService;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 
-/**
- * Stores the latest outcome reported for a donation. The merchant reference is
- * stable across webhook retries and is therefore the reconciliation key.
- */
 public class DefaultAdyenDonationReconciliationService implements AdyenDonationReconciliationService {
     private static final Logger LOG = Logger.getLogger(DefaultAdyenDonationReconciliationService.class);
     private static final String COMPLETED = "completed";

@@ -64,7 +64,7 @@ public class DefaultAdyenNotificationV2Service implements AdyenNotificationV2Ser
 
     protected AdyenNotificationModel populate(NotificationRequestItem source) {
 
-        AdyenNotificationModel target = new AdyenNotificationModel();
+        AdyenNotificationModel target = modelService.create(AdyenNotificationModel.class);
         Gson gson = new Gson();
         if (source.getAmount() != null) {
             target.setAmountCurrency(source.getAmount().getCurrency());

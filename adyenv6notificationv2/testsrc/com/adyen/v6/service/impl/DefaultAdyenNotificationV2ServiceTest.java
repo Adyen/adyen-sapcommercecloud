@@ -71,6 +71,7 @@ public class DefaultAdyenNotificationV2ServiceTest {
         final NotificationRequest request = new NotificationRequest();
         request.setNotificationItems(Collections.singletonList(item));
         when(modelService.create(AdyenNotificationModel.class)).thenReturn(notificationModel);
+        when(notificationModel.getEventCode()).thenReturn(DONATION);
 
         service.onRequest(request);
 

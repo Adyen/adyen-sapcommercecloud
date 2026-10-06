@@ -6,9 +6,6 @@ import de.hybris.platform.servicelayer.search.FlexibleSearchQuery;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Accesses notifications received through the V2 webhook endpoint.
- */
 public class AdyenNotificationRepository extends AbstractRepository {
 
     public boolean isProcessed(final String pspReference, final String eventCode, final boolean success) {

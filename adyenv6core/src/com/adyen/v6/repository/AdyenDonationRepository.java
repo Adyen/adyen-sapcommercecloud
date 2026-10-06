@@ -5,9 +5,6 @@ import de.hybris.platform.servicelayer.search.FlexibleSearchQuery;
 
 import java.util.Collections;
 
-/**
- * Finds persisted donations by the merchant reference sent to Adyen.
- */
 public class AdyenDonationRepository extends AbstractRepository {
 
     public AdyenDonationModel findByReference(final String reference) {
