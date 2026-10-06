@@ -14,12 +14,7 @@ public class AdyenDonation extends GeneratedAdyenDonation
 	@Override
 	protected Item createItem(final SessionContext ctx, final ComposedType type, final ItemAttributeMap allAttributes) throws JaloBusinessException
 	{
-		// business code placed here will be executed before the item is created
-		// then create the item
-		final Item item = super.createItem( ctx, type, allAttributes );
-		// business code placed here will be executed after the item was created
-		// and return the item
-		return item;
+		return super.createItem( ctx, type, allAttributes );
 	}
 	
 }
