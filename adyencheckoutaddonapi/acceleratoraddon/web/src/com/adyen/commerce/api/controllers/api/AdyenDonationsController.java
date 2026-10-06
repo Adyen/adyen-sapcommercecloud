@@ -27,18 +27,14 @@ import org.apache.log4j.Logger;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
-@Controller
+@RestController
 @RequestMapping("/api/checkout/donations")
 public class AdyenDonationsController {
     private static final Logger LOG = Logger.getLogger(AdyenDonationsController.class);
@@ -65,7 +61,6 @@ public class AdyenDonationsController {
     private SiteBaseUrlResolutionService siteBaseUrlResolutionService;
 
     @GetMapping(value = "/context", produces = "application/json")
-    @ResponseBody
     public ResponseEntity<DonationContextResponse> getContext() {
         final String donationToken = sessionService.getAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_TOKEN);
         final String originalPspReference = sessionService.getAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_ORIGINAL_PSP_REFERENCE);
@@ -104,7 +99,6 @@ public class AdyenDonationsController {
     }
 
     @PostMapping(value = "/donate", consumes = "application/json", produces = "application/json")
-    @ResponseBody
     public ResponseEntity<DonationResponse> donate(@Valid @RequestBody final DonationRequest request,
                                                      final HttpServletRequest httpServletRequest) {
         final String donationToken = sessionService.getAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_TOKEN);

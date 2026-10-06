@@ -74,6 +74,7 @@ public class AdyenNotificationControllerV2 {
 		}
 
 		if (!adyenNotificationAuthenticationProvider.authenticate(request, notificationRequest, baseSiteId)) {
+			LOG.warn("Rejected Adyen notification because Basic Auth or HMAC validation failed");
 			return RESPONSE_NOT_ACCEPTED;
 		}
 

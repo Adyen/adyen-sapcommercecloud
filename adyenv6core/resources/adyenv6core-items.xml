@@ -786,6 +786,43 @@
                     </attribute>
                 </attributes>
         </itemtype>
+        <itemtype code="AdyenDonation" generate="true" autocreate="true">
+            <deployment table="adyenDonation" typecode="23000"/>
+            <attributes>
+                <attribute qualifier="reference" type="java.lang.String">
+                    <persistence type="property"/>
+                    <modifiers optional="false" initial="true" unique="true"/>
+                </attribute>
+                <attribute qualifier="pspReference" type="java.lang.String">
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="originalPspReference" type="java.lang.String">
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="status" type="java.lang.String">
+                    <persistence type="property"/>
+                    <modifiers optional="false" />
+                </attribute>
+                <attribute qualifier="amountValue" type="java.math.BigDecimal">
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="amountCurrency" type="java.lang.String">
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="order" type="Order">
+                    <persistence type="property"/>
+                    <modifiers optional="false" initial="true" />
+                </attribute>
+            </attributes>
+            <indexes>
+                <index name="adyenDonationPspReferenceIdx">
+                    <key attribute="pspReference" />
+                </index>
+                <index name="adyenDonationOrderIdx">
+                    <key attribute="order" />
+                </index>
+            </indexes>
+        </itemtype>
         <itemtype code="AdyenMerchantConfig" generate="true" autocreate="true">
             <deployment table="adyenMerchantConfig" typecode="22938"/>
             <attributes>
