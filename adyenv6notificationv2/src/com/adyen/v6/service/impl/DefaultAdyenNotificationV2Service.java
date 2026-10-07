@@ -5,6 +5,7 @@ import com.adyen.model.notification.NotificationRequestItem;
 import com.adyen.v6.events.AbstractNotificationEvent;
 import com.adyen.v6.events.builder.*;
 import com.adyen.v6.model.AdyenNotificationModel;
+import com.adyen.v6.repository.AdyenNotificationRepository;
 import com.adyen.v6.service.AdyenNotificationV2Service;
 import com.google.gson.Gson;
 import de.hybris.platform.servicelayer.event.EventService;
@@ -17,9 +18,11 @@ import java.util.*;
 
 public class DefaultAdyenNotificationV2Service implements AdyenNotificationV2Service {
     private static final org.apache.log4j.Logger LOG = Logger.getLogger(DefaultAdyenNotificationV2Service.class);
+    private static final String EVENT_CODE_DONATION = "DONATION";
 
     private ModelService modelService;
     private EventService eventService;
+    private AdyenNotificationRepository adyenNotificationRepository;
     private Map<String, AbstractNotificationEventBuilder> eventTemplateMap;
 
 
@@ -32,12 +35,18 @@ public class DefaultAdyenNotificationV2Service implements AdyenNotificationV2Ser
         eventTemplateMap.put(NotificationRequestItem.EVENT_CODE_OFFER_CLOSED, new OfferClosedEventBuilder());
         eventTemplateMap.put(NotificationRequestItem.EVENT_CODE_REFUND, new RefundEventBuilder());
         eventTemplateMap.put(NotificationRequestItem.EVENT_CODE_CHARGEBACK, new ChargebackEventBuilder());
+        eventTemplateMap.put(EVENT_CODE_DONATION, new DonationEventBuilder());
     }
 
     @Override
     public void onRequest(final NotificationRequest notificationRequest) {
         for (NotificationRequestItem item : notificationRequest.getNotificationItems()) {
             try {
+                if (adyenNotificationRepository.isProcessed(item.getPspReference(), item.getEventCode(), item.isSuccess())) {
+                    LOG.info("Ignoring already processed " + item.getEventCode()
+                            + " notification with PSP reference " + item.getPspReference());
+                    continue;
+                }
                 AdyenNotificationModel notificationModel = save(item);
                 Optional<AbstractNotificationEvent> optionalEvent = createEvent(notificationModel);
                 optionalEvent.ifPresent(this::publish);
@@ -55,7 +64,7 @@ public class DefaultAdyenNotificationV2Service implements AdyenNotificationV2Ser
 
     protected AdyenNotificationModel populate(NotificationRequestItem source) {
 
-        AdyenNotificationModel target = new AdyenNotificationModel();
+        AdyenNotificationModel target = modelService.create(AdyenNotificationModel.class);
         Gson gson = new Gson();
         if (source.getAmount() != null) {
             target.setAmountCurrency(source.getAmount().getCurrency());
@@ -115,5 +124,9 @@ public class DefaultAdyenNotificationV2Service implements AdyenNotificationV2Ser
 
     public void setEventService(EventService eventService) {
         this.eventService = eventService;
+    }
+
+    public void setAdyenNotificationRepository(final AdyenNotificationRepository adyenNotificationRepository) {
+        this.adyenNotificationRepository = adyenNotificationRepository;
     }
 }
