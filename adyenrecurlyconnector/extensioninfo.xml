@@ -23,6 +23,10 @@
              adyensubscriptionconnector. A second, base-site-less controller lived here and could only
              ever answer 400 (no current base store means no credentials); worse, it gave operators a
              second plausible URL to point Recurly at, where every event would be dropped silently. -->
+
+        <!-- Backoffice configuration only (resources/adyenrecurlyconnector-backoffice-config.xml); no
+             backoffice code, so the extension does not require backoffice. -->
+        <meta key="backoffice-module" value="true"/>
     </extension>
 
 </extensioninfo>

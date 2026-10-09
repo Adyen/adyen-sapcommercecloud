@@ -23,8 +23,8 @@ package com.adyen.commerce.connector.chargebee.config.impl;
 import org.apache.commons.lang3.StringUtils;
 
 import com.adyen.commerce.connector.chargebee.config.ChargebeeConfigService;
+import com.adyen.commerce.connector.chargebee.model.ChargebeeConfigModel;
 import com.adyen.commerce.connector.exception.ConnectorNotConfiguredException;
-import com.adyen.v6.model.ChargebeeConfigModel;
 
 import de.hybris.platform.servicelayer.config.ConfigurationService;
 import de.hybris.platform.store.BaseStoreModel;
@@ -32,8 +32,8 @@ import de.hybris.platform.store.services.BaseStoreService;
 
 /**
  * Reads Chargebee credentials from the current {@link BaseStoreModel}'s {@code chargebeeConfig}
- * (Backoffice: Adyen Configuration &gt; Chargebee Config), so a multi-store setup can hold one Chargebee
- * site per base store. Transport tuning is the exception and comes from
+ * (Backoffice: Base Store &gt; Subscription Billing &gt; Chargebee Config), so a multi-store setup can hold one
+ * Chargebee site per base store. Transport tuning is the exception and comes from
  * {@code project/local.properties} ({@code chargebee.http.*}): it describes this installation's tolerance
  * for a slow Chargebee rather than the shop's relationship with it.
  */

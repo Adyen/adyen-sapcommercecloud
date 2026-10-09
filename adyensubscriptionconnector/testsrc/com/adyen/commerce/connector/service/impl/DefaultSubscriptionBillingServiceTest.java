@@ -113,6 +113,8 @@ import de.hybris.platform.store.BaseStoreModel;
 @UnitTest
 public class DefaultSubscriptionBillingServiceTest
 {
+	private static final BillingPlatform CHARGEBEE = BillingPlatform.valueOf("CHARGEBEE");
+
 	@Mock
 	private SubscriptionBillingConnectorRegistry connectorRegistry;
 	@Mock
@@ -180,17 +182,17 @@ public class DefaultSubscriptionBillingServiceTest
 		when(subProduct.getCode()).thenReturn("SUB-PROD");
 
 		when(connectorRegistry.getActiveConnector(store)).thenReturn(connector);
-		when(connector.platform()).thenReturn(BillingPlatform.CHARGEBEE);
+		when(connector.platform()).thenReturn(CHARGEBEE);
 		when(connector.capabilities()).thenReturn(noNtidCaps());
 		when(tokenHandleFactory.create(order))
 				.thenReturn(new AdyenTokenHandle("MERCH", "shopper-1", "TOKEN-1", null, null));
 		when(connector.ensureCustomer(any()))
-				.thenReturn(new BillingCustomerRef(BillingPlatform.CHARGEBEE, "cust-ext"));
+				.thenReturn(new BillingCustomerRef(CHARGEBEE, "cust-ext"));
 		when(connector.importAdyenToken(any()))
-				.thenReturn(new BillingPaymentMethodRef(BillingPlatform.CHARGEBEE, "pm-ext"));
+				.thenReturn(new BillingPaymentMethodRef(CHARGEBEE, "pm-ext"));
 		when(connector.resolvePlan(any())).thenReturn(new PlanRef("plan-1", null));
 		when(connector.createSubscription(any()))
-				.thenReturn(new BillingSubscriptionRef(BillingPlatform.CHARGEBEE, "sub-ext"));
+				.thenReturn(new BillingSubscriptionRef(CHARGEBEE, "sub-ext"));
 
 		when(flexibleSearchService.<BillingSubscriptionRefModel> search(any(FlexibleSearchQuery.class)))
 				.thenReturn(searchResult);
@@ -616,7 +618,7 @@ public class DefaultSubscriptionBillingServiceTest
 
 		service.cancel(subscription, SubscriptionCancellation.endOfPeriod(CancelReason.OTHER));
 
-		verify(connectorRegistry).getConnector(BillingPlatform.CHARGEBEE);
+		verify(connectorRegistry).getConnector(CHARGEBEE);
 		verify(connectorRegistry, never()).getActiveConnector(any());
 	}
 
@@ -641,7 +643,7 @@ public class DefaultSubscriptionBillingServiceTest
 		when(subscription.getExternalCustomerId()).thenReturn("cust-ext");
 		when(connector.changePaymentMethod(any())).thenAnswer(invocation -> {
 			assertSame(store, storeContext.current);
-			return new PaymentMethodChangeOutcome(new BillingPaymentMethodRef(BillingPlatform.CHARGEBEE, "pm-2"),
+			return new PaymentMethodChangeOutcome(new BillingPaymentMethodRef(CHARGEBEE, "pm-2"),
 					PaymentMethodChangeScope.CUSTOMER);
 		});
 
@@ -667,10 +669,10 @@ public class DefaultSubscriptionBillingServiceTest
 	private BillingSubscriptionRefModel cancellableSubscription() throws Exception
 	{
 		final BillingSubscriptionRefModel subscription = mock(BillingSubscriptionRefModel.class);
-		when(subscription.getPlatform()).thenReturn(BillingPlatform.CHARGEBEE);
+		when(subscription.getPlatform()).thenReturn(CHARGEBEE);
 		when(subscription.getExternalSubscriptionId()).thenReturn("sub-ext");
 		when(subscription.getOrder()).thenReturn(order);
-		when(connectorRegistry.getConnector(BillingPlatform.CHARGEBEE)).thenReturn(connector);
+		when(connectorRegistry.getConnector(CHARGEBEE)).thenReturn(connector);
 		return subscription;
 	}
 

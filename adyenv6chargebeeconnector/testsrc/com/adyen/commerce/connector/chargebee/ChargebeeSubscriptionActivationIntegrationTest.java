@@ -36,6 +36,7 @@ import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 
+import com.adyen.commerce.connector.chargebee.model.ChargebeeConfigModel;
 import com.adyen.commerce.connector.chargebee.model.ChargebeePlanMappingModel;
 import com.adyen.commerce.connector.dto.BillingCustomerRef;
 import com.adyen.commerce.connector.dto.BillingPaymentMethodRef;
@@ -50,8 +51,6 @@ import com.adyen.commerce.connector.enums.BillingPlatform;
 import com.adyen.commerce.connector.model.BillingSubscriptionRefModel;
 import com.adyen.commerce.connector.service.SubscriptionBillingService;
 import com.adyen.commerce.connector.spi.SubscriptionBillingConnector;
-
-import com.adyen.v6.model.ChargebeeConfigModel;
 
 import de.hybris.bootstrap.annotations.IntegrationTest;
 import de.hybris.platform.basecommerce.model.site.BaseSiteModel;

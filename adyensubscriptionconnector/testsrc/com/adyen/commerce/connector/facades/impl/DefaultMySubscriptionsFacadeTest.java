@@ -92,6 +92,8 @@ import de.hybris.platform.store.BaseStoreModel;
 @UnitTest
 public class DefaultMySubscriptionsFacadeTest
 {
+	private static final BillingPlatform CHARGEBEE = BillingPlatform.valueOf("CHARGEBEE");
+
 	@Mock
 	private UserService userService;
 	@Mock
@@ -390,7 +392,7 @@ public class DefaultMySubscriptionsFacadeTest
 		givenSiblings(pinnedRef("sub-1", "cb-customer-1"), pinnedRef("sub-2", "cb-customer-1"));
 		when(subscriptionBillingService.changePaymentMethod(any(), any()))
 				.thenReturn(new PaymentMethodChangeOutcome(
-						new BillingPaymentMethodRef(BillingPlatform.CHARGEBEE, "billing-9"),
+						new BillingPaymentMethodRef(CHARGEBEE, "billing-9"),
 						PaymentMethodChangeScope.SUBSCRIPTION))
 				.thenThrow(new IllegalStateException("the platform said no"));
 
@@ -443,7 +445,7 @@ public class DefaultMySubscriptionsFacadeTest
 				.thenReturn(List.of(new PlatformPaymentMethod("billing-9", "Visa 4242", null, false)));
 		when(subscriptionBillingService.changePaymentMethod(any(), any()))
 				.thenReturn(new PaymentMethodChangeOutcome(
-						new BillingPaymentMethodRef(BillingPlatform.CHARGEBEE, "billing-9"),
+						new BillingPaymentMethodRef(CHARGEBEE, "billing-9"),
 						PaymentMethodChangeScope.SUBSCRIPTION));
 	}
 
@@ -588,7 +590,7 @@ public class DefaultMySubscriptionsFacadeTest
 	private BillingSubscriptionRefModel pinnedRef(final String externalId, final String externalCustomerId)
 	{
 		final BillingSubscriptionRefModel ref = ref(NormalizedSubscriptionStatus.ACTIVE);
-		when(ref.getPlatform()).thenReturn(BillingPlatform.CHARGEBEE);
+		when(ref.getPlatform()).thenReturn(CHARGEBEE);
 		when(ref.getExternalSubscriptionId()).thenReturn(externalId);
 		when(ref.getExternalCustomerId()).thenReturn(externalCustomerId);
 		return ref;
@@ -978,14 +980,14 @@ public class DefaultMySubscriptionsFacadeTest
 
 	private void givenConnectorDeclaring(final PaymentMethodChangeScope scope) throws Exception
 	{
-		when(connectorRegistry.getConnector(BillingPlatform.CHARGEBEE)).thenReturn(connector);
+		when(connectorRegistry.getConnector(CHARGEBEE)).thenReturn(connector);
 		when(connector.capabilities()).thenReturn(capabilities(scope));
 	}
 
 	private BillingSubscriptionRefModel chargebeeRef(final String code)
 	{
 		final BillingSubscriptionRefModel ref = ref(NormalizedSubscriptionStatus.ACTIVE);
-		when(ref.getPlatform()).thenReturn(BillingPlatform.CHARGEBEE);
+		when(ref.getPlatform()).thenReturn(CHARGEBEE);
 		when(ref.getCode()).thenReturn(code);
 		return ref;
 	}
@@ -1015,17 +1017,17 @@ public class DefaultMySubscriptionsFacadeTest
 			throws Exception
 	{
 		final BillingSubscriptionRefModel ref = ref(status);
-		when(ref.getPlatform()).thenReturn(BillingPlatform.CHARGEBEE);
+		when(ref.getPlatform()).thenReturn(CHARGEBEE);
 		when(ref.getExternalCustomerId()).thenReturn("cb-customer-1");
 		givenSingleResult(ref);
-		when(connectorRegistry.getConnector(BillingPlatform.CHARGEBEE)).thenReturn(connector);
+		when(connectorRegistry.getConnector(CHARGEBEE)).thenReturn(connector);
 		when(connector.capabilities()).thenReturn(capabilities(PaymentMethodChangeScope.CUSTOMER));
 		// A real handle rather than a mock: the request record validates its arguments.
 		when(tokenHandleFactory.createForVaultedToken(any(), any(), any(), any(), any()))
 				.thenReturn(new AdyenTokenHandle("MERCHANT", "shopper-1", "card-mine", null, null));
 		when(subscriptionBillingService.changePaymentMethod(any(), any()))
 				.thenReturn(new PaymentMethodChangeOutcome(
-						new BillingPaymentMethodRef(BillingPlatform.CHARGEBEE, "pm_1"),
+						new BillingPaymentMethodRef(CHARGEBEE, "pm_1"),
 						PaymentMethodChangeScope.CUSTOMER));
 	}
 

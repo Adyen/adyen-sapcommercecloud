@@ -49,4 +49,17 @@
 
     <!-- The registry discovers SubscriptionBillingConnector beans by type; do not inject a list into it. -->
 
+    <!-- Consulted by activeBillingPlatformValidateInterceptor when a store switches to Recurly. -->
+    <alias name="defaultRecurlyPlatformReadinessCheck" alias="recurlyPlatformReadinessCheck"/>
+    <bean id="defaultRecurlyPlatformReadinessCheck"
+          class="com.adyen.commerce.connector.recurly.readiness.RecurlyPlatformReadinessCheck">
+        <property name="adyenMerchantAccountStrategy" ref="adyenMerchantStrategy"/>
+    </bean>
+
+    <bean id="recurlyPlatformReadinessCheckListMergeDirective" depends-on="activeBillingPlatformValidateInterceptor"
+          parent="listMergeDirective">
+        <property name="add" ref="recurlyPlatformReadinessCheck"/>
+        <property name="fieldName" value="readinessChecks"/>
+    </bean>
+
 </beans>

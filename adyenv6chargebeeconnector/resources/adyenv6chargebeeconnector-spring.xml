@@ -43,4 +43,17 @@
         <property name="planResolver" ref="chargebeePlanResolver"/>
     </bean>
 
+    <alias name="defaultChargebeePlatformReadinessCheck" alias="chargebeePlatformReadinessCheck"/>
+    <bean id="defaultChargebeePlatformReadinessCheck"
+          class="com.adyen.commerce.connector.chargebee.readiness.ChargebeePlatformReadinessCheck">
+        <property name="adyenMerchantAccountStrategy" ref="adyenMerchantStrategy"/>
+    </bean>
+
+    <!-- Lets a store switch to CHARGEBEE only once its Chargebee configuration is complete. -->
+    <bean id="chargebeePlatformReadinessCheckMergeDirective"
+          depends-on="activeBillingPlatformValidateInterceptor" parent="listMergeDirective">
+        <property name="add" ref="chargebeePlatformReadinessCheck"/>
+        <property name="fieldName" value="readinessChecks"/>
+    </bean>
+
 </beans>
