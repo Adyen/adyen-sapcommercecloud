@@ -24,6 +24,7 @@ import com.adyen.model.checkout.*;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.controllers.dtos.PaymentResultDTO;
 import com.adyen.v6.dto.CheckoutConfigDTO;
+import com.adyen.v6.dto.DisclaimerConfigurationDTO;
 import com.adyen.v6.dto.ExpressCheckoutConfigDTO;
 import com.adyen.v6.exceptions.AdyenCheckoutConfigurationException;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
@@ -208,6 +209,10 @@ public interface AdyenCheckoutFacade {
     CheckoutConfigDTO getCheckoutConfig() throws ApiException;
 
     CheckoutConfigDTO getReactCheckoutConfig() throws ApiException;
+
+    CheckoutConfigDTO getReactCheckoutConfig(String shopperCountryCode) throws ApiException;
+
+    DisclaimerConfigurationDTO getDisclaimerConfiguration(String shopperCountryCode);
 
     AdyenCheckoutApiService getAdyenPaymentService();
 

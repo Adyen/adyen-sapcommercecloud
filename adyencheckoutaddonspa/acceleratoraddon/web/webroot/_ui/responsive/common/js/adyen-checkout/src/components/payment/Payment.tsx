@@ -1,24 +1,24 @@
-import React, { useEffect, useState } from "react";
-import { PaymentHeader } from "../headers/PaymentHeader";
-import { connect } from "react-redux";
-import { ShippingAddressHeading } from "../common/ShippingAddressHeading";
-import { AddressModel } from "../../reducers/types";
-import { AppState } from "../../reducers/rootReducer";
-import { StoreDispatch } from "../../store/store";
-import { AddressData } from "../../types/addressData";
-import { AddressService } from "../../service/addressService";
-import { AdyenConfigService } from "../../service/adyenConfigService";
-import { Dropin } from '@adyen/adyen-web/auto';
-import { AdyenConfigData } from "../../types/adyenConfigData";
-import { isNotEmpty } from "../../util/stringUtil";
-import { routes } from "../../router/routes";
-import { Navigate } from "react-router-dom";
-import { PaymentError } from "./PaymentError";
-import { ScrollHere } from "../common/ScrollTo";
-import { adyenConfigInitialState } from "../../reducers/adyenConfigReducer";
-import { PaymentDropIn } from "./PaymentDropIn";
-import { BillingAddressForm } from "./BillingAddressForm";
-import { useAdyenPayment } from "../../hooks/useAdyenPayment";
+import React, {useEffect, useRef, useState} from "react";
+import {PaymentHeader} from "../headers/PaymentHeader";
+import {connect} from "react-redux";
+import {ShippingAddressHeading} from "../common/ShippingAddressHeading";
+import {AddressModel} from "../../reducers/types";
+import {AppState} from "../../reducers/rootReducer";
+import {StoreDispatch} from "../../store/store";
+import {AddressData} from "../../types/addressData";
+import {AddressService} from "../../service/addressService";
+import {AdyenConfigService} from "../../service/adyenConfigService";
+import {Dropin} from '@adyen/adyen-web/auto';
+import {AdyenConfigData} from "../../types/adyenConfigData";
+import {isNotEmpty} from "../../util/stringUtil";
+import {routes} from "../../router/routes";
+import {Navigate} from "react-router-dom";
+import {PaymentError} from "./PaymentError";
+import {ScrollHere} from "../common/ScrollTo";
+import {adyenConfigInitialState} from "../../reducers/adyenConfigReducer";
+import {PaymentDropIn} from "./PaymentDropIn";
+import {BillingAddressForm} from "./BillingAddressForm";
+import {useAdyenPayment} from "../../hooks/useAdyenPayment";
 
 interface ComponentProps {
     errorCode?: string;
@@ -53,8 +53,13 @@ type Props = StoreProps & DispatchProps & ComponentProps;
 const Payment: React.FC<Props> = (props) => {
     const [useDifferentBillingAddress, setUseDifferentBillingAddress] = useState(false);
     const [saveInAddressBook, setSaveInAddressBook] = useState(false);
+    const lastRequestedShopperCountryCode = useRef<string | undefined>(undefined);
 
     const { errorCode, removeAdyenConfigFromStore, billingAddress, adyenConfig, shippingAddressFromCart } = props;
+    const shopperCountryCode = (useDifferentBillingAddress && billingAddress.countryCode)
+        || shippingAddressFromCart?.country?.isocode
+        || adyenConfig.countryCode
+        || "";
 
     const {
         paymentState,
@@ -69,8 +74,20 @@ const Payment: React.FC<Props> = (props) => {
 
     useEffect(() => {
         AddressService.fetchAddressConfig();
-        AdyenConfigService.fetchPaymentMethodsConfig();
     }, []);
+
+    useEffect(() => {
+        if (!shopperCountryCode) {
+            return;
+        }
+
+        if (!adyenConfig.adyenClientKey) {
+            AdyenConfigService.fetchPaymentMethodsConfig(shopperCountryCode);
+        } else if (lastRequestedShopperCountryCode.current !== shopperCountryCode) {
+            AdyenConfigService.fetchDisclaimerConfiguration(shopperCountryCode);
+        }
+        lastRequestedShopperCountryCode.current = shopperCountryCode;
+    }, [shopperCountryCode, adyenConfig.adyenClientKey]);
 
     useEffect(() => {
         if (errorCode) {

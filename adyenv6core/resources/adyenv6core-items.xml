@@ -410,6 +410,16 @@
                 <attribute qualifier="zuoraConfig" type="ZuoraConfig">
                     <persistence type="property"/>
                 </attribute>
+                <attribute qualifier="disclaimerMessage" type="localized:java.lang.String">
+                    <description>Disclaimer message to be displayed to the user</description>
+                    <persistence type="property"/>
+                    <defaultvalue>"Caution! Borrowing money costs money!"</defaultvalue>
+                </attribute>
+                <attribute qualifier="disclaimerLink" type="java.lang.String">
+                    <description>Link to the disclaimer page</description>
+                    <persistence type="property"/>
+                    <defaultvalue>""</defaultvalue>
+                </attribute>
             </attributes>
         </itemtype>
 

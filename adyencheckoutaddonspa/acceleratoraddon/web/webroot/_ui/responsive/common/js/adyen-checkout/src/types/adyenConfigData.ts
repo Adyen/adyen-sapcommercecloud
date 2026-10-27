@@ -29,6 +29,13 @@ export interface AdyenConfigData {
     clickToPayLocale: string,
     installmentOptions?: AdyenInstallmentOptions;
     skipCvcForOneClick: boolean;
+    disclaimerMessage: string;
+    disclaimerLink: string;
+}
+
+export interface DisclaimerConfigurationData {
+    disclaimerMessage: string | null;
+    disclaimerLink: string | null;
 }
 
 interface StoredPaymentMethodData {

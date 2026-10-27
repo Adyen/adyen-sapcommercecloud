@@ -1,5 +1,5 @@
-import React, { RefObject, useEffect, useRef, useCallback } from "react";
-import { AdyenCheckout, AdyenCheckoutError, Dropin, PromptPay } from '@adyen/adyen-web/auto';
+import React, {RefObject, useCallback, useEffect, useRef} from "react";
+import {AdyenCheckout, AdyenCheckoutError, Dropin, PromptPay} from '@adyen/adyen-web/auto';
 import '@adyen/adyen-web/styles/adyen.css';
 import {
     AdditionalDetailsActions,
@@ -8,8 +8,8 @@ import {
     SubmitActions,
     UIElement
 } from "@adyen/adyen-web";
-import { AdyenConfigData } from "../../types/adyenConfigData";
-import { AddressData } from "../../types/addressData";
+import {AdyenConfigData} from "../../types/adyenConfigData";
+import {AddressData} from "../../types/addressData";
 
 class IrisQrCodeElement extends PromptPay {}
 
@@ -149,9 +149,28 @@ export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
 
         try {
             const adyenCheckout = await AdyenCheckout(getAdyenCheckoutConfig());
+
+            const disclaimerMessage = adyenConfig.disclaimerMessage?.trim();
+            const disclaimerLink = adyenConfig.disclaimerLink?.trim();
+            const nonCardPaymentMethodConfigurations = disclaimerMessage
+                ? Object.fromEntries(
+                    adyenConfig.paymentMethods
+                    .filter(paymentMethod => adyenConfig.openInvoiceMethods.includes(paymentMethod.type))
+                    .map(paymentMethod => [paymentMethod.type, {
+                        disclaimerMessage: disclaimerLink
+                            ? {
+                                message: `${disclaimerMessage} %{learnMore}`,
+                                linkText: 'Learn more...',
+                                link: disclaimerLink
+                            }
+                            : { message: disclaimerMessage }
+                    }])
+                )
+                : {};
             
             const dropIn = new Dropin(adyenCheckout, {
                 paymentMethodsConfiguration: {
+                    ...nonCardPaymentMethodConfigurations,
                     card: getAdyenCardConfig(),
                     storedCard: getAdyenStoredCardConfig(),
                     boletobancario: {
@@ -188,6 +207,10 @@ export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
         }
     }, [
         adyenConfig.adyenClientKey,
+        adyenConfig.disclaimerMessage,
+        adyenConfig.disclaimerLink,
+        adyenConfig.paymentMethods,
+        adyenConfig.openInvoiceMethods,
         shippingAddress.firstName,
         shippingAddress.lastName,
         getAdyenCheckoutConfig,

@@ -1,6 +1,53 @@
 $( document ).ready( function () {
 
     var spinner = $( "<img src='" + ACC.config.commonResourcePath + "/images/spinner.gif' />" );
+    var disclaimerRequestId = 0;
+
+    function getEffectiveBillingCountry () {
+        if ( $( '#useAdyenDeliveryAddress' ).is( ":checked" ) ) {
+            return $( '#useAdyenDeliveryAddressData' ).data( 'countryisocode' );
+        }
+        return $( '#address\\.country' ).val();
+    }
+
+    function updateDisclaimer (message, link) {
+        var safeLink = typeof link === 'string' && /^https?:\/\//i.test( link ) ? link : '';
+        $( '.adyen-disclaimer' ).each( function () {
+            var disclaimer = $( this );
+            disclaimer.find( '.adyen-disclaimer__message' ).text( message || '' );
+            var linkElement = disclaimer.find( '.adyen-disclaimer__link' );
+            if ( safeLink ) {
+                linkElement.attr( 'href', safeLink ).show();
+            } else {
+                linkElement.removeAttr( 'href' ).hide();
+            }
+            if ( message ) {
+                disclaimer.show();
+            } else {
+                disclaimer.hide();
+            }
+        } );
+    }
+
+    function refreshDisclaimer (countryCode) {
+        var requestId = ++disclaimerRequestId;
+        if ( !countryCode ) {
+            updateDisclaimer( '', '' );
+            return;
+        }
+
+        updateDisclaimer( '', '' );
+        $.ajax( {
+            url: ACC.config.encodedContextPath + '/checkout/multi/adyen/select-payment-method/disclaimer-configuration',
+            type: 'GET',
+            data: {shopperCountryCode: countryCode},
+            dataType: 'json'
+        } ).done( function (configuration) {
+            if ( requestId === disclaimerRequestId ) {
+                updateDisclaimer( configuration.disclaimerMessage, configuration.disclaimerLink );
+            }
+        } );
+    }
 
     function binduseAdyenDeliveryAddress () {
         $( '#useAdyenDeliveryAddress' ).on( 'change', function () {
@@ -12,6 +59,7 @@ $( document ).ready( function () {
             } else {
                 clearAddressForm();
                 enableAddressForm();
+                refreshDisclaimer( getEffectiveBillingCountry() );
             }
         } );
 
@@ -51,9 +99,11 @@ $( document ).ready( function () {
         if ( $( '#useAdyenDeliveryAddress' ).is( ":checked" ) ) {
             $( '#address\\.country' ).val( $( '#useAdyenDeliveryAddressData' ).data( 'countryisocode' ) );
             disableAddressForm();
+            refreshDisclaimer( getEffectiveBillingCountry() );
         } else {
             clearAddressForm();
             enableAddressForm();
+            refreshDisclaimer( getEffectiveBillingCountry() );
         }
     }
 
@@ -65,6 +115,7 @@ $( document ).ready( function () {
                 'useAdyenDeliveryAddress': false
             };
             displayAdyenCreditCardAddressForm( options );
+            refreshDisclaimer( countrySelection );
         } )
     }
 
@@ -89,5 +140,8 @@ $( document ).ready( function () {
     binduseAdyenDeliveryAddress();
     bindSubmitSilentOrderPostForm();
     bindCreditCardAddressForm();
+    if ( !$( '#useAdyenDeliveryAddress' ).is( ":checked" ) ) {
+        refreshDisclaimer( getEffectiveBillingCountry() );
+    }
 
 } );

@@ -170,6 +170,16 @@ public class CheckoutConfigDTOBuilder {
         return this;
     }
 
+    public CheckoutConfigDTOBuilder setDisclaimerMessage(String disclaimerMessage) {
+        checkoutConfigDTO.setDisclaimerMessage(disclaimerMessage);
+        return this;
+    }
+
+    public CheckoutConfigDTOBuilder setDisclaimerLink(String disclaimerLink) {
+        checkoutConfigDTO.setDisclaimerLink(disclaimerLink);
+        return this;
+    }
+
     public CheckoutConfigDTO build() {
         return checkoutConfigDTO;
     }

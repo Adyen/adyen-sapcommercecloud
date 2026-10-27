@@ -2,6 +2,7 @@ package com.adyen.commerce.occ.api;
 
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.dto.CheckoutConfigDTO;
+import com.adyen.v6.dto.DisclaimerConfigurationDTO;
 import com.adyen.v6.dto.ExpressCheckoutConfigDTO;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import de.hybris.platform.order.exceptions.CalculationException;
@@ -38,7 +39,29 @@ public interface AdyenPaymentMethodsApi {
             }
     )
     @ApiBaseSiteIdUserIdAndCartIdParam
-    ResponseEntity<String> getCheckoutConfiguration() throws ApiException, JsonProcessingException;
+    ResponseEntity<String> getCheckoutConfiguration(String shopperCountryCode) throws ApiException, JsonProcessingException;
+
+    @Operation(
+            operationId = "getDisclaimerConfiguration",
+            summary = "Get checkout disclaimer configuration",
+            description = "Returns the disclaimer message and link for the shopper country",
+            responses = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "Checkout disclaimer configuration",
+                            content = @Content(
+                                    mediaType = MediaType.APPLICATION_JSON_VALUE,
+                                    schema = @Schema(implementation = DisclaimerConfigurationDTO.class)
+                            )
+                    ),
+                    @ApiResponse(responseCode = "400", description = "Bad Request"),
+                    @ApiResponse(responseCode = "401", description = "Unauthorized. Authentication required."),
+                    @ApiResponse(responseCode = "403", description = "Forbidden. Insufficient permissions."),
+                    @ApiResponse(responseCode = "500", description = "Internal Server Error")
+            }
+    )
+    @ApiBaseSiteIdUserIdAndCartIdParam
+    ResponseEntity<String> getDisclaimerConfiguration(String shopperCountryCode) throws JsonProcessingException;
 
     @Operation(
             operationId = "getExpressPDPCheckoutConfiguration",
