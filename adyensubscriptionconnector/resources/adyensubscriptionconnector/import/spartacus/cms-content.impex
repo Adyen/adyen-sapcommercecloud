@@ -1,0 +1,105 @@
+# -----------------------------------------------------------------------
+# The "My Subscriptions" page in My Account for the Spartacus storefront.
+#
+# NOT imported automatically: nothing in SystemSetup runs this file. Import it by hand in HAC
+# (Console > ImpEx import) after the system update that creates the AdyenSubscriptionPlatformRestriction
+# type, which this connector now owns. The Accelerator addon has its own impex for its own catalogue.
+#
+# Targets the Spartacus content catalogue of the sample data (electronics-spaContentCatalog). For another
+# site change $contentCatalog below. It is idempotent: INSERT_UPDATE with unique keys, and `append` mode on
+# the links of the restriction and the navigation nodes.
+#
+# What it creates, in BOTH catalogue versions (Spartacus serves Online, so a Staged-only import is
+# invisible until somebody synchronises the catalogue):
+#   1. ContentPage adyenSubscriptions, label /my-account/subscriptions, on AccountPageTemplate
+#   2. a CMSFlexComponent whose flexType AdyenMySubscriptionsComponent is the key of
+#      cmsComponents in @adyen/adyen-spartacus, placed in the BodyContent slot of that page
+#   3. a "Subscriptions" link with a restriction that lets it through only while a billing platform
+#      connector is loaded, and two navigation entries for it: the My Account dropdown
+#      (MyAccountNavNode) and the My Account side navigation (OrderInformationNavNode, created by
+#      spartacussampledata/myaccount-navigation.impex)
+#
+# The &...Staged and &...Online document ids are scoped to the whole import run, so the two halves must
+# not share one.
+# -----------------------------------------------------------------------
+$contentCatalog=electronics-spaContentCatalog
+$contentCVS=catalogVersion(CatalogVersion.catalog(Catalog.id[default=$contentCatalog]),CatalogVersion.version[default=Staged])[default=$contentCatalog:Staged]
+$contentCVO=catalogVersion(CatalogVersion.catalog(Catalog.id[default=$contentCatalog]),CatalogVersion.version[default=Online])[default=$contentCatalog:Online]
+
+# --- Staged ---
+INSERT_UPDATE ContentPage;$contentCVS[unique=true];uid[unique=true];name;masterTemplate(uid,$contentCVS);label;defaultPage[default='true'];approvalStatus(code)[default='approved'];homepage[default='false']
+;;adyenSubscriptions;My Subscriptions Page;AccountPageTemplate;/my-account/subscriptions
+
+INSERT_UPDATE CMSFlexComponent;$contentCVS[unique=true];uid[unique=true];name;flexType
+;;AdyenMySubscriptionsComponent;Adyen My Subscriptions Component;AdyenMySubscriptionsComponent
+
+INSERT_UPDATE ContentSlot;$contentCVS[unique=true];uid[unique=true];name;active;cmsComponents(uid,$contentCVS)
+;;BodyContent-adyenSubscriptions;Body Content Slot for My Subscriptions;true;AdyenMySubscriptionsComponent
+
+INSERT_UPDATE ContentSlotForPage;$contentCVS[unique=true];uid[unique=true];position[unique=true];page(uid,$contentCVS)[unique=true][default='adyenSubscriptions'];contentSlot(uid,$contentCVS)[unique=true]
+;;BodyContent-adyenSubscriptions;BodyContent;;BodyContent-adyenSubscriptions
+
+INSERT_UPDATE AdyenSubscriptionPlatformRestriction;$contentCVS[unique=true];uid[unique=true];name
+;;AdyenSubscriptionPlatformRestriction;Subscription billing platform loaded
+
+INSERT_UPDATE CMSLinkComponent;$contentCVS[unique=true];uid[unique=true];name;url;&linkRefStaged;target(code)[default='sameWindow'];restrictions(uid,$contentCVS)[mode=append]
+;;AdyenSubscriptionsLink;AdyenSubscriptionsLink;/my-account/subscriptions;AdyenSubscriptionsLink;;AdyenSubscriptionPlatformRestriction
+
+UPDATE CMSLinkComponent;$contentCVS[unique=true];uid[unique=true];linkName[lang=en]
+;;AdyenSubscriptionsLink;"Subscriptions"
+
+# `links` stays empty on purpose: the CMSNavigationEntry binds the link, and filling both would show it twice.
+INSERT_UPDATE CMSNavigationNode;uid[unique=true];$contentCVS[unique=true];name;parent(uid,$contentCVS);&nodeRefStaged;title[lang=en]
+;AdyenSubscriptionsNavNode;;Subscriptions;MyAccountNavNode;AdyenSubscriptionsNavNode;Subscriptions
+;AdyenSubscriptionsSideNavNode;;Subscriptions;OrderInformationNavNode;AdyenSubscriptionsSideNavNode;Subscriptions
+
+INSERT_UPDATE CMSNavigationEntry;uid[unique=true];$contentCVS[unique=true];name;navigationNode(&nodeRefStaged);item(&linkRefStaged)
+;AdyenSubscriptionsNavNodeEntry;;AdyenSubscriptionsNavNodeEntry;AdyenSubscriptionsNavNode;AdyenSubscriptionsLink
+;AdyenSubscriptionsSideNavNodeEntry;;AdyenSubscriptionsSideNavNodeEntry;AdyenSubscriptionsSideNavNode;AdyenSubscriptionsLink
+
+# The new node is appended to MyAccountNavNode, i.e. after Sign Out. Re-attach Sign Out so it moves back to
+# the end: detaching and re-attaching a child appends it to the ordered children of the parent. Unlike
+# re-setting the whole children list this does not depend on which other nodes a project has.
+UPDATE CMSNavigationNode;uid[unique=true];$contentCVS[unique=true];parent(uid,$contentCVS)[allownull=true]
+;SignOutNavNode;;
+UPDATE CMSNavigationNode;uid[unique=true];$contentCVS[unique=true];parent(uid,$contentCVS)
+;SignOutNavNode;;MyAccountNavNode
+
+# --- Online ---
+INSERT_UPDATE ContentPage;$contentCVO[unique=true];uid[unique=true];name;masterTemplate(uid,$contentCVO);label;defaultPage[default='true'];approvalStatus(code)[default='approved'];homepage[default='false']
+;;adyenSubscriptions;My Subscriptions Page;AccountPageTemplate;/my-account/subscriptions
+
+INSERT_UPDATE CMSFlexComponent;$contentCVO[unique=true];uid[unique=true];name;flexType
+;;AdyenMySubscriptionsComponent;Adyen My Subscriptions Component;AdyenMySubscriptionsComponent
+
+INSERT_UPDATE ContentSlot;$contentCVO[unique=true];uid[unique=true];name;active;cmsComponents(uid,$contentCVO)
+;;BodyContent-adyenSubscriptions;Body Content Slot for My Subscriptions;true;AdyenMySubscriptionsComponent
+
+INSERT_UPDATE ContentSlotForPage;$contentCVO[unique=true];uid[unique=true];position[unique=true];page(uid,$contentCVO)[unique=true][default='adyenSubscriptions'];contentSlot(uid,$contentCVO)[unique=true]
+;;BodyContent-adyenSubscriptions;BodyContent;;BodyContent-adyenSubscriptions
+
+INSERT_UPDATE AdyenSubscriptionPlatformRestriction;$contentCVO[unique=true];uid[unique=true];name
+;;AdyenSubscriptionPlatformRestriction;Subscription billing platform loaded
+
+INSERT_UPDATE CMSLinkComponent;$contentCVO[unique=true];uid[unique=true];name;url;&linkRefOnline;target(code)[default='sameWindow'];restrictions(uid,$contentCVO)[mode=append]
+;;AdyenSubscriptionsLink;AdyenSubscriptionsLink;/my-account/subscriptions;AdyenSubscriptionsLink;;AdyenSubscriptionPlatformRestriction
+
+UPDATE CMSLinkComponent;$contentCVO[unique=true];uid[unique=true];linkName[lang=en]
+;;AdyenSubscriptionsLink;"Subscriptions"
+
+# `links` stays empty on purpose: the CMSNavigationEntry binds the link, and filling both would show it twice.
+INSERT_UPDATE CMSNavigationNode;uid[unique=true];$contentCVO[unique=true];name;parent(uid,$contentCVO);&nodeRefOnline;title[lang=en]
+;AdyenSubscriptionsNavNode;;Subscriptions;MyAccountNavNode;AdyenSubscriptionsNavNode;Subscriptions
+;AdyenSubscriptionsSideNavNode;;Subscriptions;OrderInformationNavNode;AdyenSubscriptionsSideNavNode;Subscriptions
+
+INSERT_UPDATE CMSNavigationEntry;uid[unique=true];$contentCVO[unique=true];name;navigationNode(&nodeRefOnline);item(&linkRefOnline)
+;AdyenSubscriptionsNavNodeEntry;;AdyenSubscriptionsNavNodeEntry;AdyenSubscriptionsNavNode;AdyenSubscriptionsLink
+;AdyenSubscriptionsSideNavNodeEntry;;AdyenSubscriptionsSideNavNodeEntry;AdyenSubscriptionsSideNavNode;AdyenSubscriptionsLink
+
+# The new node is appended to MyAccountNavNode, i.e. after Sign Out. Re-attach Sign Out so it moves back to
+# the end: detaching and re-attaching a child appends it to the ordered children of the parent. Unlike
+# re-setting the whole children list this does not depend on which other nodes a project has.
+UPDATE CMSNavigationNode;uid[unique=true];$contentCVO[unique=true];parent(uid,$contentCVO)[allownull=true]
+;SignOutNavNode;;
+UPDATE CMSNavigationNode;uid[unique=true];$contentCVO[unique=true];parent(uid,$contentCVO)
+;SignOutNavNode;;MyAccountNavNode

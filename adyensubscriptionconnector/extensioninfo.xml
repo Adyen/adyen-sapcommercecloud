@@ -22,6 +22,8 @@
         <!-- The activation retry job: AbstractJobPerformable and the abstractJobPerformable bean. Reached
              transitively through commerceservices already, but named because this extension uses it directly. -->
         <requires-extension name="processing"/>
+        <!-- CMS restriction type AdyenSubscriptionPlatformRestriction (AbstractRestriction, the evaluator mapping). -->
+        <requires-extension name="cms2"/>
         <!-- OCC webapp host for the inbound webhook endpoint -->
         <requires-extension name="commercewebservices"/>
 

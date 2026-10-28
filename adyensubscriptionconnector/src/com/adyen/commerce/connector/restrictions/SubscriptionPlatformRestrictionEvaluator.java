@@ -18,10 +18,10 @@
  *  This file is open source and available under the MIT license.
  *  See the LICENSE file for more info.
  */
-package com.adyen.commerce.subscription.restrictions;
+package com.adyen.commerce.connector.restrictions;
 
 import com.adyen.commerce.connector.facades.MySubscriptionsFacade;
-import com.adyen.commerce.subscription.model.AdyenSubscriptionPlatformRestrictionModel;
+import com.adyen.commerce.connector.model.AdyenSubscriptionPlatformRestrictionModel;
 
 import de.hybris.platform.cms2.servicelayer.data.RestrictionData;
 import de.hybris.platform.cms2.servicelayer.services.evaluator.CMSRestrictionEvaluator;

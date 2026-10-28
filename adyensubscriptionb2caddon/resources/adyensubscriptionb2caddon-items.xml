@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-    The subscription types live in adyensubscriptionconnector, which owns them. This addon adds only the CMS
-    restriction that hides its My Account entry while no billing platform connector is loaded.
+    This addon declares no types of its own: the subscription types and the CMS restriction
+    AdyenSubscriptionPlatformRestriction live in adyensubscriptionconnector, which owns them.
 
     The file must exist in any case, because extensioninfo.xml declares a generated coremodule: without an
     items.xml the Manager class named there is never generated, and the platform refuses to load the
@@ -9,21 +9,4 @@
 -->
 <items xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xsi:noNamespaceSchemaLocation="items.xsd">
-
-    <itemtypes>
-        <!-- Evaluated by SubscriptionPlatformRestrictionEvaluator: passes while at least one subscription billing
-             connector extension is loaded. Has no settings of its own. -->
-        <itemtype code="AdyenSubscriptionPlatformRestriction" extends="AbstractRestriction"
-                  autocreate="true" generate="true"
-                  jaloclass="com.adyen.commerce.subscription.jalo.AdyenSubscriptionPlatformRestriction">
-            <description>Shows a CMS item only while a subscription billing platform connector is loaded.</description>
-            <attributes>
-                <attribute qualifier="description" type="java.lang.String" redeclare="true">
-                    <persistence type="dynamic"
-                                 attributeHandler="adyenSubscriptionPlatformRestrictionDescriptionHandler"/>
-                    <modifiers write="false"/>
-                </attribute>
-            </attributes>
-        </itemtype>
-    </itemtypes>
 </items>

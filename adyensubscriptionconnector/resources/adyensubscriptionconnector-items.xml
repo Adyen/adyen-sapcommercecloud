@@ -71,6 +71,26 @@
             </attributes>
         </itemtype>
 
+        <!-- CMS restriction that shows an item only while a subscription billing platform connector is loaded.
+             Used by the My Account navigation entry of both the accelerator addon and the Spartacus content
+             catalog, so it lives here and not in a storefront addon. Evaluated by
+             SubscriptionPlatformRestrictionEvaluator. Has no settings of its own. -->
+        <!-- generate="false": this extension is jaloLogicFree, so a generated jalo class would land in gensrc
+             under the jaloclass name and could not implement AbstractRestriction.getDescription(SessionContext).
+             The jalo class is hand-written instead; the model is still generated (generateModel defaults to true). -->
+        <itemtype code="AdyenSubscriptionPlatformRestriction" extends="AbstractRestriction"
+                  autocreate="true" generate="false"
+                  jaloclass="com.adyen.commerce.connector.jalo.AdyenSubscriptionPlatformRestriction">
+            <description>Shows a CMS item only while a subscription billing platform connector is loaded.</description>
+            <attributes>
+                <attribute qualifier="description" type="java.lang.String" redeclare="true">
+                    <persistence type="dynamic"
+                                 attributeHandler="adyenSubscriptionPlatformRestrictionDescriptionHandler"/>
+                    <modifiers write="false"/>
+                </attribute>
+            </attributes>
+        </itemtype>
+
         <!-- Credentials every external platform needs. Each connector extension extends this with its
              own config type and hangs it off BaseStore. -->
         <itemtype code="AdyenSubscriptionConfig" extends="GenericItem" autocreate="true" generate="true">

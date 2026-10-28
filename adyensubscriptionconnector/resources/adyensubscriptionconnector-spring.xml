@@ -428,4 +428,23 @@
         <property name="subscriptionOrderCancellationService" ref="subscriptionOrderCancellationService"/>
     </bean>
 
+    <!-- ============================================================= -->
+    <!-- CMS restriction: a My Account entry is shown only while a      -->
+    <!-- billing platform connector is loaded. The controllers answer   -->
+    <!-- 404 on the same condition.                                     -->
+    <!-- ============================================================= -->
+    <bean id="adyenSubscriptionPlatformRestrictionEvaluator"
+          class="com.adyen.commerce.connector.restrictions.SubscriptionPlatformRestrictionEvaluator">
+        <property name="mySubscriptionsFacade" ref="mySubscriptionsFacade"/>
+    </bean>
+
+    <bean id="adyenSubscriptionPlatformRestrictionEvaluatorMapping"
+          class="de.hybris.platform.cms2.servicelayer.services.evaluator.CMSRestrictionEvaluatorMapping">
+        <property name="restrictionTypeCode" value="AdyenSubscriptionPlatformRestriction"/>
+        <property name="restrictionEvaluator" ref="adyenSubscriptionPlatformRestrictionEvaluator"/>
+    </bean>
+
+    <bean id="adyenSubscriptionPlatformRestrictionDescriptionHandler"
+          class="com.adyen.commerce.connector.restrictions.SubscriptionPlatformRestrictionDescriptionHandler"/>
+
 </beans>
