@@ -13,8 +13,11 @@
 
 <beans xmlns="http://www.springframework.org/schema/beans"
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:util="http://www.springframework.org/schema/util"
        xsi:schemaLocation="http://www.springframework.org/schema/beans
-           http://www.springframework.org/schema/beans/spring-beans.xsd">
+           http://www.springframework.org/schema/beans/spring-beans.xsd
+           http://www.springframework.org/schema/util
+           http://www.springframework.org/schema/util/spring-util.xsd">
 
 	<!--
 	The hybris platform provides one single Spring application context for beans located at the jalo layer.
@@ -163,6 +166,20 @@
         <constructor-arg name="paymentMethodNameOverrideService" ref="paymentMethodNameOverrideService"/>
         <constructor-arg name="adyenCustomerInteractionRetryTemplate" ref="adyenCustomerInteractionRetryTemplate"/>
         <constructor-arg name="adyenBackgroundProcessRetryTemplate" ref="adyenBackgroundProcessRetryTemplate"/>
+        <property name="paymentAuthorisationGuardService" ref="adyenPaymentAuthorisationGuardService"/>
+    </bean>
+
+    <!-- Extension point: refuse a payment before anything is sent to Adyen (before /payments, and before the
+         partial payment order of a gift card). Empty by default; an extension adds its guard with a
+         ListMergeDirective (depends-on="adyenPaymentAuthorisationGuards", add=<guard bean>). -->
+    <util:list id="adyenPaymentAuthorisationGuards"
+               value-type="com.adyen.v6.service.PaymentAuthorisationGuard"/>
+    <alias name="defaultAdyenPaymentAuthorisationGuardService" alias="adyenPaymentAuthorisationGuardService"/>
+    <bean id="defaultAdyenPaymentAuthorisationGuardService"
+          class="com.adyen.v6.service.DefaultPaymentAuthorisationGuardService">
+        <property name="guards" ref="adyenPaymentAuthorisationGuards"/>
+        <property name="cartService" ref="cartService"/>
+        <property name="cartRepository" ref="adyenCartRepository"/>
     </bean>
 
 
@@ -572,6 +589,7 @@
     </bean>
 
     <bean id="adyenPayPalExpressCheckoutFacade" class="com.adyen.commerce.facades.impl.DefaultAdyenPayPalExpressCheckoutFacade">
+        <property name="paymentAuthorisationGuardService" ref="adyenPaymentAuthorisationGuardService"/>
         <property name="baseSiteService" ref="baseSiteService"/>
         <property name="cartFactory" ref="cartFactory"/>
         <property name="cartService" ref="cartService"/>
@@ -713,6 +731,7 @@
         <property name="modelService"  ref="defaultModelService"/>
         <property name="flexibleSearchService" ref="defaultFlexibleSearchService" />
         <property name="adyenPartialPaymentOrderRepository" ref="adyenPartialPaymentOrderRepository" />
+        <property name="paymentAuthorisationGuardService" ref="adyenPaymentAuthorisationGuardService"/>
     </bean>
 
     <alias name="defaultPaymentMethodNameOverrideService" alias="paymentMethodNameOverrideService"/>
@@ -724,6 +743,11 @@
     <bean id="applicationInfoService" class="com.adyen.commerce.services.impl.ApplicationInfoService">
         <property name="configurationService" ref="configurationService"/>
     </bean>
+
+    <!-- The subscription connector extension overrides the alias with its registry-backed service. -->
+    <alias name="defaultBillingPlatformAvailabilityService" alias="billingPlatformAvailabilityService"/>
+    <bean id="defaultBillingPlatformAvailabilityService"
+          class="com.adyen.commerce.services.impl.DefaultBillingPlatformAvailabilityService"/>
 
     <bean id="adyenCustomerInteractionRetryTemplate" class="org.springframework.retry.support.RetryTemplate">
         <property name="retryPolicy">

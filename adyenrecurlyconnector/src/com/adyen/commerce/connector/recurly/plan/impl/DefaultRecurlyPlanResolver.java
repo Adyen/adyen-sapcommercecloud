@@ -30,7 +30,7 @@ public class DefaultRecurlyPlanResolver implements RecurlyPlanResolver {
                 .<RecurlyPlanMappingModel>search(query).getResult();
 
         final RecurlyPlanMappingModel mapping = pick(candidates, request);
-        return new PlanRef(mapping.getPlanCode(), mapping.getPriceId());
+        return new PlanRef(mapping.getPlanCode(), mapping.getPriceId(), mapping.getPlanFamily());
     }
 
     protected RecurlyPlanMappingModel pick(final List<RecurlyPlanMappingModel> candidates,

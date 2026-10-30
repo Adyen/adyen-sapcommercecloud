@@ -102,7 +102,7 @@ const Payment: React.FC<Props> = (props) => {
             return (
                 <>
                     <ScrollHere />
-                    <PaymentError errorCode={paymentState.errorCode} />
+                    <PaymentError errorCode={paymentState.errorCode} linkPath={paymentState.errorLinkPath} />
                 </>
             );
         }

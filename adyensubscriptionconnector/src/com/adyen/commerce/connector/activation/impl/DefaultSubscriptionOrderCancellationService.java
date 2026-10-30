@@ -169,8 +169,9 @@ public class DefaultSubscriptionOrderCancellationService implements Subscription
 
 	/**
 	 * Why this reference should be left alone, or {@code null} to go ahead. Both answers are idempotency:
-	 * an order can be announced cancelled more than once, and the Chargebee adapter passes no idempotency
-	 * key, so a second cancellation would be a real API call.
+	 * an order can be announced cancelled more than once, and the local state settles a repeat without
+	 * calling the platform, rather than relying on an idempotency key the platform remembers only for a
+	 * limited time.
 	 */
 	protected String reasonToLeaveAlone(final BillingSubscriptionRefModel ref)
 	{

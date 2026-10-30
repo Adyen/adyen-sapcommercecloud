@@ -7,6 +7,7 @@ import com.adyen.model.checkout.PaymentRequest;
 import com.adyen.model.checkout.PaymentResponse;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
+import com.adyen.v6.service.PaymentAuthorisationRefusedException;
 import com.adyen.commerce.facades.AdyenExpressCheckoutFacade;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -73,6 +74,10 @@ public abstract class ExpressCheckoutControllerBase {
             } else if (PaymentResponse.ResultCodeEnum.ERROR == paymentsResponse.getResultCode()) {
                 LOGGER.error("PaymentResponse is ERROR, reason: " + paymentsResponse.getRefusalReason() + " pspReference: " + paymentsResponse.getPspReference());
             }
+        } catch (PaymentAuthorisationRefusedException e) {
+            // A guard refused before anything went to Adyen: answer with its own code, not the generic failure.
+            LOGGER.info("Refusing to authorize: " + e.getErrorCode());
+            throw new AdyenControllerException(e);
         } catch (Exception e) {
             LOGGER.error(ExceptionUtils.getStackTrace(e));
         }

@@ -80,6 +80,7 @@ import de.hybris.platform.store.services.BaseStoreService;
 @UnitTest
 public class DefaultSubscriptionOrderActivatorTest
 {
+	private static final BillingPlatform CHARGEBEE = BillingPlatform.valueOf("CHARGEBEE");
 	private static final String SUB_PRODUCT = "sub-product";
 	private static final String SECOND_SUB_PRODUCT = "second-sub-product";
 	private static final String PLAIN_PRODUCT = "plain-product";
@@ -140,11 +141,11 @@ public class DefaultSubscriptionOrderActivatorTest
 		when(order.getStore()).thenReturn(store);
 		when(store.getUid()).thenReturn("electronics");
 		when(store.getPk()).thenReturn(STORE_PK);
-		when(store.getActiveBillingPlatform()).thenReturn(BillingPlatform.CHARGEBEE);
+		when(store.getActiveBillingPlatform()).thenReturn(CHARGEBEE);
 		when(baseStoreService.getCurrentBaseStore()).thenReturn(store);
 		when(attemptService.begin(any(), any(), any(), any())).thenReturn(attempt);
 		when(connectorRegistry.getActiveConnector(store)).thenReturn(connector);
-		when(connector.platform()).thenReturn(BillingPlatform.CHARGEBEE);
+		when(connector.platform()).thenReturn(CHARGEBEE);
 
 		// Only the two subscription codes are mapped to a plan; anything else is an ordinary product.
 		when(connector.resolvePlan(any(PlanResolutionRequest.class))).thenAnswer(invocation -> {
@@ -189,7 +190,7 @@ public class DefaultSubscriptionOrderActivatorTest
 
 		activator.activateFor(order);
 
-		verify(attemptService).begin(order, BillingPlatform.CHARGEBEE, SUB_PRODUCT, "order-1");
+		verify(attemptService).begin(order, CHARGEBEE, SUB_PRODUCT, "order-1");
 		verify(attemptService).succeeded(attempt, ref);
 		verify(attemptService, never()).failed(any(), any());
 	}
@@ -413,7 +414,7 @@ public class DefaultSubscriptionOrderActivatorTest
 
 		activator.activateFor(order);
 
-		verify(attemptService).begin(order, BillingPlatform.CHARGEBEE, SUB_PRODUCT, "order-1");
+		verify(attemptService).begin(order, CHARGEBEE, SUB_PRODUCT, "order-1");
 	}
 
 	@Test
@@ -506,7 +507,7 @@ public class DefaultSubscriptionOrderActivatorTest
 
 		// No product code on the row marks an order that could not be classified, as opposed to a row carrying
 		// the product that was tried and the platform's own refusal.
-		verify(attemptService).begin(order, BillingPlatform.CHARGEBEE, null, "order-1");
+		verify(attemptService).begin(order, CHARGEBEE, null, "order-1");
 		verify(attemptService).failed(eq(attempt), any(SubscriptionProductUndecidableException.class));
 		verify(subscriptionBillingService, never()).activateSubscription(any(), any());
 	}

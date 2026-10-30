@@ -5,6 +5,7 @@ import com.adyen.commerce.dto.OrderPaymentResult;
 import com.adyen.commerce.facades.AdyenCheckoutApiFacade;
 import com.adyen.commerce.facades.AdyenPartialPaymentOrderFacade;
 import com.adyen.model.checkout.*;
+import com.adyen.v6.service.PaymentAuthorisationRefusedException;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
 import com.adyen.v6.forms.AddressForm;
 import com.adyen.v6.model.RequestInfo;
@@ -108,7 +109,17 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
     public OrderPaymentResult placeOrderWithPayment(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest, RequestInfo requestInfo, AdyenPartialPaymentOrderData partialPaymentOrderData) throws Exception{
         requestInfo.setShopperLocale(getShopperLocale());
 
-        PaymentResponse paymentResponse = getAdyenPaymentService().processPaymentRequest(cartData, paymentRequest, requestInfo, getCheckoutCustomerStrategy().getCurrentUserForCheckout(), partialPaymentOrderData);
+        PaymentResponse paymentResponse;
+        try {
+            paymentResponse = getAdyenPaymentService().processPaymentRequest(cartData, paymentRequest, requestInfo, getCheckoutCustomerStrategy().getCurrentUserForCheckout(), partialPaymentOrderData);
+        } catch (PaymentAuthorisationRefusedException e) {
+            // The remaining amount is refused after the gift card leg went through: release the held amount
+            // instead of leaving the shopper's gift card reserved for a payment that will not happen.
+            if (partialPaymentOrderData != null) {
+                cancelPartialPaymentOrdersOnFailure();
+            }
+            throw e;
+        }
         if (PaymentResponse.ResultCodeEnum.PENDING == paymentResponse.getResultCode()
                 || PaymentResponse.ResultCodeEnum.REDIRECTSHOPPER == paymentResponse.getResultCode()
                 || PaymentResponse.ResultCodeEnum.CHALLENGESHOPPER == paymentResponse.getResultCode()

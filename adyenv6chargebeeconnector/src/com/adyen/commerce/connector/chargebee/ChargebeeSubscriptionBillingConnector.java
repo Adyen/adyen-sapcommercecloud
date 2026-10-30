@@ -27,8 +27,10 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
 
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -65,6 +67,7 @@ import com.adyen.commerce.connector.dto.TokenImportStyle;
 import com.adyen.commerce.connector.enums.BillingPlatform;
 import com.adyen.commerce.connector.exception.BillingException;
 import com.adyen.commerce.connector.exception.CapabilityUnsupportedException;
+import com.adyen.commerce.connector.exception.PlanNotMappedException;
 import com.adyen.commerce.connector.exception.PreconditionFailedException;
 import com.adyen.commerce.connector.exception.TerminalBillingException;
 import com.adyen.commerce.connector.log.ConnectorLogContext;
@@ -183,11 +186,14 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 		{
 			final AdyenTokenHandle token = request.token();
 			verifyMerchantAccount(token);
+			final String referenceId = buildReferenceId(token);
 			final String paymentSourceId;
 			try
 			{
-				paymentSourceId = apiClient.importPermanentToken(request.customer().externalId(),
-						buildReferenceId(token), token.cardMetadata());
+				// The request carries no idempotency key; the deterministic reference id stands in for one, so a
+				// replay returns the original payment source.
+				paymentSourceId = apiClient.importPermanentToken(request.customer().externalId(), referenceId,
+						token.cardMetadata(), referenceId);
 			}
 			catch (final BillingException e)
 			{
@@ -225,14 +231,16 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 								+ "it does not repoint a subscription at a payment source Chargebee already holds");
 			};
 			verifyMerchantAccount(token);
+			final String referenceId = buildReferenceId(token);
 			final String paymentSourceId;
 			try
 			{
 				// The client sends replace_primary_payment_source, so creating the source and making it the
-				// one billing uses are a single round trip. The derived reference id is deterministic, so
-				// re-selecting the customer's current card is a no-op rather than a duplicate source.
-				paymentSourceId = apiClient.importPermanentToken(request.customer().externalId(),
-						buildReferenceId(token), token.cardMetadata());
+				// one billing uses are a single round trip. Keyed by the request rather than by the card, so
+				// switching back to an earlier card is carried out instead of being answered from the first
+				// switch to it; without a request key the reference id stands in, as on import.
+				paymentSourceId = apiClient.importPermanentToken(request.customer().externalId(), referenceId,
+						token.cardMetadata(), StringUtils.defaultIfBlank(request.idempotencyKey(), referenceId));
 			}
 			catch (final BillingException e)
 			{
@@ -256,6 +264,12 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 		}
 	}
 
+	/** The logger of {@link #resolvePlan}; a seam so a test can observe the level. */
+	protected Logger resolvePlanLog()
+	{
+		return LOG;
+	}
+
 	@Override
 	public PlanRef resolvePlan(final PlanResolutionRequest request) throws BillingException
 	{
@@ -267,13 +281,24 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 			{
 				plan = planResolver.resolve(request);
 			}
+			catch (final PlanNotMappedException e)
+			{
+				// Every non-subscription product in a cart asks and is told no: not a failure.
+				ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
+						.outcome(ConnectorLogEvent.OUTCOME_NOT_MAPPED)
+						.durationSince(startedAt)
+						.field("product_code", request.productCode())
+						.field("base_store", request.baseStoreUid())
+						.debug(resolvePlanLog());
+				throw e;
+			}
 			catch (final BillingException e)
 			{
 				ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
 						.failure(startedAt, e)
 						.field("product_code", request.productCode())
 						.field("base_store", request.baseStoreUid())
-						.warn(LOG);
+						.warn(resolvePlanLog());
 				throw e;
 			}
 			ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
@@ -281,7 +306,7 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 					.field("product_code", request.productCode())
 					.field("base_store", request.baseStoreUid())
 					.field(PLAN_ID, itemPriceIdOrNull(plan))
-					.info(LOG);
+					.info(resolvePlanLog());
 			return plan;
 		}
 	}
@@ -359,6 +384,40 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 	}
 
 	@Override
+	public List<NormalizedSubscription> listCustomerSubscriptions(final String externalCustomerId)
+			throws BillingException
+	{
+		return listCustomerSubscriptions(externalCustomerId, () -> true);
+	}
+
+	@Override
+	public List<NormalizedSubscription> listCustomerSubscriptions(final String externalCustomerId,
+			final BooleanSupplier mayContinue) throws BillingException
+	{
+		final long startedAt = System.nanoTime();
+		try (ConnectorLogContext ignored = ConnectorLogContext.open(platform(), "list_customer_subscriptions"))
+		{
+			final List<NormalizedSubscription> subscriptions;
+			try
+			{
+				subscriptions = apiClient.listCustomerSubscriptions(externalCustomerId, mayContinue);
+			}
+			catch (final BillingException e)
+			{
+				ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
+						.failure(startedAt, e)
+						.warn(LOG);
+				throw e;
+			}
+			ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
+					.success(startedAt)
+					.field("subscription_count", subscriptions.size())
+					.info(LOG);
+			return subscriptions;
+		}
+	}
+
+	@Override
 	public void updateSubscription(final SubscriptionUpdateRequest request) throws BillingException
 	{
 		final long startedAt = System.nanoTime();
@@ -367,7 +426,8 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 			final String itemPriceId = request.plan() == null ? null : itemPriceId(request.plan());
 			try
 			{
-				apiClient.updateSubscription(request.subscription().externalId(), itemPriceId, request.quantity());
+				apiClient.updateSubscription(request.subscription().externalId(), itemPriceId, request.quantity(),
+						request.idempotencyKey());
 			}
 			catch (final BillingException e)
 			{
@@ -404,7 +464,7 @@ public class ChargebeeSubscriptionBillingConnector implements SubscriptionBillin
 			};
 			try
 			{
-				apiClient.cancelSubscription(request.subscription().externalId(), atPeriodEnd);
+				apiClient.cancelSubscription(request.subscription().externalId(), atPeriodEnd, request.idempotencyKey());
 			}
 			catch (final BillingException e)
 			{

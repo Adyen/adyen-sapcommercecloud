@@ -24,10 +24,15 @@ import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.BooleanSupplier;
 
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -66,6 +71,8 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 	private static final Logger LOG = LoggerFactory.getLogger(DefaultChargebeeApiClient.class);
 	private static final String EVENT_VENDOR_API_ERROR = "vendor_api_error";
 	private static final String SUBSCRIPTIONS_PATH = "/subscriptions/";
+	/** Ceiling on a listing, so a vendor that never stops paging cannot hold a checkout thread. */
+	protected static final int MAX_LISTING_PAGES = 20;
 	private static final String RESOURCE_SUBSCRIPTION = "subscription";
 
 	private final ObjectMapper objectMapper = new ObjectMapper();
@@ -106,8 +113,8 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 	}
 
 	@Override
-	public String importPermanentToken(final String customerId, final String referenceId, final CardMetadata card)
-			throws BillingException
+	public String importPermanentToken(final String customerId, final String referenceId, final CardMetadata card,
+			final String idempotencyKey) throws BillingException
 	{
 		final Map<String, String> params = new LinkedHashMap<>();
 		params.put("customer_id", customerId);
@@ -123,10 +130,9 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 			addExpiry(params, card.expiry());
 		}
 
-		// reference_id is a deterministic idempotency key: a replay returns the original payment source.
 		final ChargebeeHttpResponse response = httpClient.post(
 				configService.getApiBaseUrl() + "/payment_sources/create_using_permanent_token", authHeader(),
-				FormEncoder.encode(params), referenceId);
+				FormEncoder.encode(params), idempotencyKey);
 		requireSuccess(response, "import Adyen token");
 		return readId(response.body(), "payment_source");
 	}
@@ -167,9 +173,61 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 		return mapSubscription(response.body());
 	}
 
+	/**
+	 * Every subscription of the customer in any state, followed across pages. Each list entry has the shape
+	 * of a retrieve response ({@code {"subscription": {...}, "customer": {...}}}), so it is mapped the same way.
+	 */
+	@Override
+	public List<NormalizedSubscription> listCustomerSubscriptions(final String customerId,
+			final BooleanSupplier mayContinue) throws BillingException
+	{
+		final List<NormalizedSubscription> subscriptions = new ArrayList<>();
+		final Set<String> visitedOffsets = new HashSet<>();
+		String offset = null;
+		do
+		{
+			if (offset != null && !mayContinue.getAsBoolean())
+			{
+				// The caller's deadline has passed: what was read is evidence enough, and more is not worth waiting for.
+				LOG.debug("Subscription listing stopped after {} page(s): the caller's budget is spent",
+						visitedOffsets.size());
+				break;
+			}
+			if (!visitedOffsets.add(StringUtils.defaultString(offset)) || visitedOffsets.size() > MAX_LISTING_PAGES)
+			{
+				// Partial data can only add blocks to a duplicate check, never remove one: return what was read.
+				LOG.warn("Chargebee subscription listing degraded after {} page(s): pagination repeated a page or ran "
+						+ "past {} pages; returning the {} subscription(s) read so far",
+						visitedOffsets.size() - 1, MAX_LISTING_PAGES, subscriptions.size());
+				break;
+			}
+			final StringBuilder url = new StringBuilder(configService.getApiBaseUrl()).append("/subscriptions?limit=100&")
+					.append(URLEncoder.encode("customer_id[is]", StandardCharsets.UTF_8)).append('=')
+					.append(pathSegment(customerId));
+			if (offset != null)
+			{
+				url.append("&offset=").append(pathSegment(offset));
+			}
+			final ChargebeeHttpResponse response = httpClient.get(url.toString(), authHeader());
+			requireSuccess(response, "list customer subscriptions");
+			final JsonNode page = readJson(response.body(), "customer subscriptions");
+			for (final JsonNode entry : page.path("list"))
+			{
+				subscriptions.add(mapSubscription(entry));
+			}
+			offset = StringUtils.trimToNull(page.path("next_offset").asText(null));
+		}
+		while (offset != null);
+		return subscriptions;
+	}
+
 	protected NormalizedSubscription mapSubscription(final String body) throws BillingException
 	{
-		final JsonNode root = readJson(body, RESOURCE_SUBSCRIPTION);
+		return mapSubscription(readJson(body, RESOURCE_SUBSCRIPTION));
+	}
+
+	protected NormalizedSubscription mapSubscription(final JsonNode root) throws BillingException
+	{
 		final String subscriptionId = readId(root, RESOURCE_SUBSCRIPTION);
 		final JsonNode subscription = root.path(RESOURCE_SUBSCRIPTION);
 		final JsonNode planItem = findPlanItem(subscription);
@@ -294,8 +352,8 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 	}
 
 	@Override
-	public void updateSubscription(final String subscriptionId, final String itemPriceId, final Integer quantity)
-			throws BillingException
+	public void updateSubscription(final String subscriptionId, final String itemPriceId, final Integer quantity,
+			final String idempotencyKey) throws BillingException
 	{
 		if (StringUtils.isBlank(itemPriceId) && quantity == null)
 		{
@@ -323,19 +381,20 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 
 		final ChargebeeHttpResponse response = httpClient.post(
 				configService.getApiBaseUrl() + SUBSCRIPTIONS_PATH + pathSegment(subscriptionId) + "/update_for_items",
-				authHeader(), FormEncoder.encode(form), null);
+				authHeader(), FormEncoder.encode(form), idempotencyKey);
 		requireSuccess(response, "update subscription");
 	}
 
 	@Override
-	public void cancelSubscription(final String subscriptionId, final boolean atPeriodEnd) throws BillingException
+	public void cancelSubscription(final String subscriptionId, final boolean atPeriodEnd, final String idempotencyKey)
+			throws BillingException
 	{
 		final Map<String, String> form = new LinkedHashMap<>();
 		form.put("cancel_option", atPeriodEnd ? "end_of_term" : "immediately");
 
 		final ChargebeeHttpResponse response = httpClient.post(
 				configService.getApiBaseUrl() + SUBSCRIPTIONS_PATH + pathSegment(subscriptionId) + "/cancel_for_items",
-				authHeader(), FormEncoder.encode(form), null);
+				authHeader(), FormEncoder.encode(form), idempotencyKey);
 		requireSuccess(response, "cancel subscription");
 	}
 

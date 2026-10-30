@@ -60,6 +60,8 @@ import com.adyen.commerce.connector.dto.CustomerSyncRequest;
 import com.adyen.commerce.connector.dto.NormalizedBillingEvent;
 import com.adyen.commerce.connector.dto.NormalizedSubscription;
 import com.adyen.commerce.connector.dto.NormalizedSubscriptionStatus;
+import com.adyen.commerce.connector.dto.PaymentMethodChangeRequest;
+import com.adyen.commerce.connector.dto.PaymentMethodChoice;
 import com.adyen.commerce.connector.dto.PlanRef;
 import com.adyen.commerce.connector.dto.PlanResolutionRequest;
 import com.adyen.commerce.connector.dto.RawWebhook;
@@ -144,14 +146,14 @@ public class ChargebeeSubscriptionBillingConnectorTest
 	public void importAdyenTokenBuildsSlashJoinedReferenceId() throws Exception
 	{
 		when(configService.getConfiguredAdyenMerchantAccount()).thenReturn("MERCH");
-		when(apiClient.importPermanentToken(any(), any(), any())).thenReturn("pm-1");
+		when(apiClient.importPermanentToken(any(), any(), any(), any())).thenReturn("pm-1");
 		final AdyenTokenHandle token = new AdyenTokenHandle("MERCH", "shopper-1", "TOK-1", null, null);
 
 		final BillingPaymentMethodRef ref = connector.importAdyenToken(new TokenImportRequest(
 				new BillingCustomerRef(BillingPlatform.CHARGEBEE, "cb-cust-1"), token, RecurringProcessingModel.SUBSCRIPTION));
 
 		assertEquals("pm-1", ref.externalId());
-		verify(apiClient).importPermanentToken("cb-cust-1", "shopper-1/TOK-1", null);
+		verify(apiClient).importPermanentToken("cb-cust-1", "shopper-1/TOK-1", null, "shopper-1/TOK-1");
 	}
 
 	@Test
@@ -163,6 +165,64 @@ public class ChargebeeSubscriptionBillingConnectorTest
 		assertThrows(PreconditionFailedException.class, () -> connector.importAdyenToken(new TokenImportRequest(
 				new BillingCustomerRef(BillingPlatform.CHARGEBEE, "cb-cust-1"), token, RecurringProcessingModel.SUBSCRIPTION)));
 		verifyNoTokenImport();
+	}
+
+	@Test
+	public void resolvePlanLogsAnUnmappedProductAtDebugNotAsAFailure() throws Exception
+	{
+		final org.slf4j.Logger log = org.mockito.Mockito.mock(org.slf4j.Logger.class);
+		when(log.isDebugEnabled()).thenReturn(true);
+		when(log.isWarnEnabled()).thenReturn(true);
+		final ChargebeeSubscriptionBillingConnector logged = new ChargebeeSubscriptionBillingConnector()
+		{
+			@Override
+			protected org.slf4j.Logger resolvePlanLog()
+			{
+				return log;
+			}
+		};
+		logged.setPlanResolver(planResolver);
+		when(planResolver.resolve(any())).thenThrow(new com.adyen.commerce.connector.exception.PlanNotMappedException("no plan"));
+
+		assertThrows(com.adyen.commerce.connector.exception.PlanNotMappedException.class,
+				() -> logged.resolvePlan(new PlanResolutionRequest("PROD-1", "electronics", Map.of())));
+
+		final ArgumentCaptor<Object[]> values = ArgumentCaptor.forClass(Object[].class);
+
+		verify(log).debug(org.mockito.ArgumentMatchers.anyString(), values.capture());
+
+		verify(log, never()).warn(org.mockito.ArgumentMatchers.anyString(), (Object[]) org.mockito.ArgumentMatchers.any());
+
+		assertTrue(java.util.Arrays.stream(values.getValue()).anyMatch(v -> "not_mapped".equals(String.valueOf(v))));
+	}
+
+	@Test
+	public void resolvePlanStillWarnsOnAnyOtherBillingFailure() throws Exception
+	{
+		final org.slf4j.Logger log = org.mockito.Mockito.mock(org.slf4j.Logger.class);
+		when(log.isDebugEnabled()).thenReturn(true);
+		when(log.isWarnEnabled()).thenReturn(true);
+		final ChargebeeSubscriptionBillingConnector logged = new ChargebeeSubscriptionBillingConnector()
+		{
+			@Override
+			protected org.slf4j.Logger resolvePlanLog()
+			{
+				return log;
+			}
+		};
+		logged.setPlanResolver(planResolver);
+		when(planResolver.resolve(any())).thenThrow(new com.adyen.commerce.connector.exception.TerminalBillingException("boom"));
+
+		assertThrows(com.adyen.commerce.connector.exception.TerminalBillingException.class,
+				() -> logged.resolvePlan(new PlanResolutionRequest("PROD-1", "electronics", Map.of())));
+
+		final ArgumentCaptor<Object[]> values = ArgumentCaptor.forClass(Object[].class);
+
+		verify(log).warn(org.mockito.ArgumentMatchers.anyString(), values.capture());
+
+		verify(log, never()).debug(org.mockito.ArgumentMatchers.anyString(), (Object[]) org.mockito.ArgumentMatchers.any());
+
+		assertTrue(java.util.Arrays.stream(values.getValue()).anyMatch(v -> "failure".equals(String.valueOf(v))));
 	}
 
 	@Test
@@ -220,8 +280,9 @@ public class ChargebeeSubscriptionBillingConnectorTest
 	{
 		// A reference belonging to another platform must never be sent to Chargebee: subscription ids are
 		// caller-chosen here, so it could silently address an unrelated Chargebee subscription.
-		assertThrows(PreconditionFailedException.class,
-				() -> connector.fetchSubscription(new BillingSubscriptionRef(BillingPlatform.RECURLY, "sub-1")));
+		final BillingSubscriptionRef recurlyRef = new BillingSubscriptionRef(BillingPlatform.valueOf("RECURLY"), "sub-1");
+
+		assertThrows(PreconditionFailedException.class, () -> connector.fetchSubscription(recurlyRef));
 
 		verify(apiClient, never()).fetchSubscription(any());
 	}
@@ -234,7 +295,7 @@ public class ChargebeeSubscriptionBillingConnectorTest
 				new BillingSubscriptionRef(BillingPlatform.CHARGEBEE, "sub-1"), new PlanRef("price-9", "IGNORED"), 3, null,
 				Map.of(), "k"));
 
-		verify(apiClient).updateSubscription("sub-1", "price-9", 3);
+		verify(apiClient).updateSubscription("sub-1", "price-9", 3, "k");
 	}
 
 	@Test
@@ -243,7 +304,7 @@ public class ChargebeeSubscriptionBillingConnectorTest
 		connector.updateSubscription(new SubscriptionUpdateRequest(
 				new BillingSubscriptionRef(BillingPlatform.CHARGEBEE, "sub-1"), null, 5, null, Map.of(), "k"));
 
-		verify(apiClient).updateSubscription("sub-1", null, 5);
+		verify(apiClient).updateSubscription("sub-1", null, 5, "k");
 	}
 
 	@Test
@@ -251,9 +312,9 @@ public class ChargebeeSubscriptionBillingConnectorTest
 	{
 		connector.cancelSubscription(new SubscriptionCancelRequest(
 				new BillingSubscriptionRef(BillingPlatform.CHARGEBEE, "sub-1"), CancelReason.REQUESTED_BY_CUSTOMER,
-				CancellationTiming.AT_PERIOD_END, "k"));
+				CancellationTiming.AT_PERIOD_END, "ORDER-1/at_period_end"));
 
-		verify(apiClient).cancelSubscription("sub-1", true);
+		verify(apiClient).cancelSubscription("sub-1", true, "ORDER-1/at_period_end");
 	}
 
 	/**
@@ -265,9 +326,44 @@ public class ChargebeeSubscriptionBillingConnectorTest
 	{
 		connector.cancelSubscription(new SubscriptionCancelRequest(
 				new BillingSubscriptionRef(BillingPlatform.CHARGEBEE, "sub-1"), CancelReason.FRAUD,
-				CancellationTiming.IMMEDIATELY, "k"));
+				CancellationTiming.IMMEDIATELY, "ORDER-1/immediately"));
 
-		verify(apiClient).cancelSubscription("sub-1", false);
+		verify(apiClient).cancelSubscription("sub-1", false, "ORDER-1/immediately");
+	}
+
+	@Test
+	public void cancelSubscriptionWithoutKeyForwardsNone() throws Exception
+	{
+		connector.cancelSubscription(new SubscriptionCancelRequest(
+				new BillingSubscriptionRef(BillingPlatform.CHARGEBEE, "sub-1"), CancelReason.OTHER,
+				CancellationTiming.AT_PERIOD_END, null));
+
+		verify(apiClient).cancelSubscription("sub-1", true, null);
+	}
+
+	@Test
+	public void changePaymentMethodForwardsTheRequestKey() throws Exception
+	{
+		when(configService.getConfiguredAdyenMerchantAccount()).thenReturn("MERCH");
+		when(apiClient.importPermanentToken(any(), any(), any(), any())).thenReturn("pm-2");
+
+		connector.changePaymentMethod(paymentMethodChange("ORDER-1/payment-method/TOK-2/1"));
+
+		verify(apiClient).importPermanentToken("cb-cust-1", "shopper-1/TOK-2", null, "ORDER-1/payment-method/TOK-2/1");
+	}
+
+	/**
+	 * Without a request key the reference id stands in, as it does on import.
+	 */
+	@Test
+	public void changePaymentMethodWithoutKeyFallsBackToTheReferenceId() throws Exception
+	{
+		when(configService.getConfiguredAdyenMerchantAccount()).thenReturn("MERCH");
+		when(apiClient.importPermanentToken(any(), any(), any(), any())).thenReturn("pm-2");
+
+		connector.changePaymentMethod(paymentMethodChange(" "));
+
+		verify(apiClient).importPermanentToken("cb-cust-1", "shopper-1/TOK-2", null, "shopper-1/TOK-2");
 	}
 
 	@Test
@@ -537,8 +633,46 @@ public class ChargebeeSubscriptionBillingConnectorTest
 		return "{\"id\":\"ev_x\",\"occurred_at\":1784628600,\"event_type\":\"invoice_generated\",\"content\":{}}";
 	}
 
+	private static PaymentMethodChangeRequest paymentMethodChange(final String idempotencyKey)
+	{
+		return new PaymentMethodChangeRequest(new BillingCustomerRef(BillingPlatform.CHARGEBEE, "cb-cust-1"),
+				new BillingSubscriptionRef(BillingPlatform.CHARGEBEE, "sub-1"),
+				new PaymentMethodChoice.AdyenVaultedToken(new AdyenTokenHandle("MERCH", "shopper-1", "TOK-2", null, null)),
+				idempotencyKey);
+	}
+
 	private void verifyNoTokenImport() throws Exception
 	{
-		verify(apiClient, never()).importPermanentToken(any(), any(), any());
+		verify(apiClient, never()).importPermanentToken(any(), any(), any(), any());
+	}
+
+	@Test
+	public void listsTheCustomersSubscriptionsThroughTheApiClient() throws Exception
+	{
+		final NormalizedSubscription snapshot = new NormalizedSubscription(
+				new BillingSubscriptionRef(BillingPlatform.CHARGEBEE, "sub-1"), NormalizedSubscriptionStatus.ACTIVE,
+				"price-1", 1, null, null, false, null);
+		when(apiClient.listCustomerSubscriptions(org.mockito.ArgumentMatchers.eq("cust"), org.mockito.ArgumentMatchers.any())).thenReturn(java.util.List.of(snapshot));
+
+		assertEquals(java.util.List.of(snapshot), connector.listCustomerSubscriptions("cust"));
+	}
+
+	@Test
+	public void theCallersBudgetReachesTheApiClient() throws Exception
+	{
+		final java.util.function.BooleanSupplier budget = () -> true;
+		connector.listCustomerSubscriptions("cust", budget);
+
+		verify(apiClient).listCustomerSubscriptions("cust", budget);
+	}
+
+	@Test
+	public void aFailedListingIsNotSwallowedByTheConnector() throws Exception
+	{
+		when(apiClient.listCustomerSubscriptions(org.mockito.ArgumentMatchers.eq("cust"), org.mockito.ArgumentMatchers.any()))
+				.thenThrow(new com.adyen.commerce.connector.exception.RetryableBillingException("down"));
+
+		assertThrows(com.adyen.commerce.connector.exception.RetryableBillingException.class,
+				() -> connector.listCustomerSubscriptions("cust"));
 	}
 }

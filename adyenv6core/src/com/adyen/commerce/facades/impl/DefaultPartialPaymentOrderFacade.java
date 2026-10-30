@@ -12,6 +12,9 @@ import com.adyen.service.checkout.OrdersApi;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.repository.AdyenPartialPaymentOrderRepository;
 import com.adyen.v6.service.DefaultAdyenCheckoutApiService;
+import com.adyen.v6.service.PaymentAuthorisationGuardService;
+import com.adyen.v6.service.PaymentAuthorisationRefusedException;
+import com.adyen.v6.service.PaymentAuthorisationStage;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
 import com.adyen.v6.enums.AdyenPartialPaymentStatus;
 import com.adyen.v6.model.AdyenPartialPaymentOrderModel;
@@ -42,6 +45,7 @@ public class DefaultPartialPaymentOrderFacade implements AdyenPartialPaymentOrde
     private ModelService modelService;
     private FlexibleSearchService flexibleSearchService;
     private AdyenPartialPaymentOrderRepository adyenPartialPaymentOrderRepository;
+    private PaymentAuthorisationGuardService paymentAuthorisationGuardService;
     
     @Override
     public PartialPaymentOrderResponse createPartialPaymentOrder(PartialPaymentOrderRequest request) {
@@ -56,6 +60,11 @@ public class DefaultPartialPaymentOrderFacade implements AdyenPartialPaymentOrde
             if (cartData == null) {
                 LOG.error("No active cart found for partial payment order");
                 throw new RuntimeException(PARTIAL_PAYMENT_ERROR_NO_ACTIVE_CART);
+            }
+
+            // Before the gift card is touched: a cart that the payment guards refuse must not be charged a first leg.
+            if (paymentAuthorisationGuardService != null) {
+                paymentAuthorisationGuardService.check(cartData, PaymentAuthorisationStage.PARTIAL_PAYMENT_ORDER);
             }
             
             // Find existing partial payment order if partialPaymentId is provided
@@ -101,6 +110,9 @@ public class DefaultPartialPaymentOrderFacade implements AdyenPartialPaymentOrde
             
             return response;
             
+        } catch (PaymentAuthorisationRefusedException e) {
+            // A business refusal for the shopper, not a failure to create the order: keep it as it is.
+            throw e;
         } catch (ApiException e) {
             LOG.error("Adyen API error during partial payment order creation", e);
             throw new RuntimeException(PARTIAL_PAYMENT_ERROR_PAYMENT_SERVICE + ": " + e.getMessage());
@@ -258,6 +270,14 @@ public class DefaultPartialPaymentOrderFacade implements AdyenPartialPaymentOrde
         response.setPspReference(adyenResponse.getPspReference());
         response.setResultCode("Success");
         return response;
+    }
+
+    public PaymentAuthorisationGuardService getPaymentAuthorisationGuardService() {
+        return paymentAuthorisationGuardService;
+    }
+
+    public void setPaymentAuthorisationGuardService(PaymentAuthorisationGuardService paymentAuthorisationGuardService) {
+        this.paymentAuthorisationGuardService = paymentAuthorisationGuardService;
     }
 
     public CartFacade getCartFacade() {

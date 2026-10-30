@@ -25,7 +25,10 @@ import com.adyen.commerce.exception.AdyenControllerException;
 import com.adyen.commerce.facades.AdyenCheckoutApiFacade;
 import com.adyen.commerce.facades.AdyenCheckoutFacade;
 import com.adyen.commerce.request.PlaceOrderRequest;
+import com.adyen.commerce.response.ErrorResponse;
 import com.adyen.commerce.services.impl.RecurringContractHelper;
+import com.adyen.v6.service.PaymentAuthorisationRefusedException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.adyen.commerce.services.impl.RecurringContractHelper.TokenizationNotSupportedException;
 import com.adyen.model.checkout.CardDetails;
 import com.adyen.model.checkout.CheckoutPaymentMethod;
@@ -48,6 +51,7 @@ import java.util.Collections;
 
 import static com.adyen.commerce.constants.AdyenwebcommonsConstants.CHECKOUT_ERROR_AUTHORIZATION_FAILED;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -167,7 +171,90 @@ public class PlaceOrderControllerBaseErrorSurfacingTest {
         verify(adyenCheckoutApiFacade).updatePartialPaymentStatus(partialPayment, AdyenPartialPaymentStatus.FAILED);
     }
 
+    /**
+     * A guard refused before Adyen was called (a subscription the shopper already owns). The shopper has to be told
+     * why, in the refusal's own message key, with the path that lets them put it right - not the generic
+     * "internal technical error" the catch-all would produce.
+     */
+    @Test
+    public void aPaymentGuardRefusalKeepsItsOwnMessageKeyAndTheLinkToResolveIt() throws Exception {
+        when(adyenCheckoutApiFacade.placeOrderWithPayment(any(), any(), any(), any()))
+                .thenThrow(new PaymentAuthorisationRefusedException("subscriptionAlreadyOwned",
+                        "checkout.error.subscriptionAlreadyOwned", Collections.emptyList(), "/my-account/subscriptions"));
+
+        AdyenControllerException thrown = assertThrows(AdyenControllerException.class,
+                () -> controller.placeOrderOCC(newPlaceOrderRequest(), request));
+
+        assertEquals("checkout.error.subscriptionAlreadyOwned", thrown.getErrorResponse().getErrorCode());
+        assertEquals("/my-account/subscriptions", thrown.getErrorResponse().getLinkPath());
+    }
+
+    @Test
+    public void aPaymentGuardRefusalWithoutAPathCarriesNoLink() throws Exception {
+        when(adyenCheckoutApiFacade.placeOrderWithPayment(any(), any(), any(), any()))
+                .thenThrow(new PaymentAuthorisationRefusedException("subscriptionLimitPerCart"));
+
+        AdyenControllerException thrown = assertThrows(AdyenControllerException.class,
+                () -> controller.placeOrderOCC(newPlaceOrderRequest(), request));
+
+        assertEquals("checkout.error.subscriptionLimitPerCart", thrown.getErrorResponse().getErrorCode());
+        assertNull(thrown.getErrorResponse().getLinkPath());
+    }
+
+    /** What the storefront receives: the link is in the body when there is one and absent when there is not. */
+    @Test
+    public void theRefusalBodyHasALinkPathOnlyWhenThereIsOne() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+
+        String withLink = mapper.writeValueAsString(ErrorResponse.of(new PaymentAuthorisationRefusedException(
+                "subscriptionAlreadyOwned", "checkout.error.subscriptionAlreadyOwned", Collections.emptyList(), "/my-account/subscriptions")));
+        String withoutLink = mapper.writeValueAsString(ErrorResponse.of(new PaymentAuthorisationRefusedException("subscriptionQuantityLimit")));
+
+        assertEquals("{\"errorCode\":\"checkout.error.subscriptionAlreadyOwned\",\"invalidFields\":[],\"linkPath\":\"/my-account/subscriptions\"}", withLink);
+        assertEquals("{\"errorCode\":\"checkout.error.subscriptionQuantityLimit\",\"invalidFields\":[]}", withoutLink);
+    }
+
+    /** The gift card leg is refused before anything was charged: the refusal's code, not the authorization failure. */
+    @Test
+    public void aPaymentGuardRefusalOnTheGiftCardLegKeepsItsOwnMessageKey() throws Exception {
+        cartData.setAdyenPartialPaymentOrders(Collections.singletonList(createdGiftCardPayment()));
+        when(adyenCheckoutApiFacade.processPartialPaymentAuthorization(any(), any(), any(), any(), any()))
+                .thenThrow(new PaymentAuthorisationRefusedException("subscriptionAlreadyOwned"));
+
+        PlaceOrderRequest placeOrderRequest = newPlaceOrderRequest();
+        placeOrderRequest.setPartialPaymentId(GIFT_CARD_PSP);
+
+        AdyenControllerException thrown = assertThrows(AdyenControllerException.class,
+                () -> controller.placeOrderOCC(placeOrderRequest, request));
+
+        assertEquals("checkout.error.subscriptionAlreadyOwned", thrown.getErrorResponse().getErrorCode());
+    }
+
+    /** Refused before /payments went out: no payment failed, so the partial payment is not written off. */
+    @Test
+    public void aPaymentGuardRefusalOnTheRemainingAmountDoesNotRecordAPaymentFailure() throws Exception {
+        cartData.setAdyenPartialPaymentOrders(Collections.singletonList(authorizedGiftCardPayment()));
+        when(adyenCheckoutApiFacade.placeOrderWithPayment(any(), any(), any(), any(), any()))
+                .thenThrow(new PaymentAuthorisationRefusedException("subscriptionAlreadyOwned"));
+
+        PlaceOrderRequest placeOrderRequest = newPlaceOrderRequest();
+        placeOrderRequest.setPartialPaymentId(GIFT_CARD_PSP);
+
+        AdyenControllerException thrown = assertThrows(AdyenControllerException.class,
+                () -> controller.placeOrderOCC(placeOrderRequest, request));
+
+        assertEquals("checkout.error.subscriptionAlreadyOwned", thrown.getErrorResponse().getErrorCode());
+        verify(adyenCheckoutApiFacade, never()).updatePartialPaymentStatus(any(), eq(AdyenPartialPaymentStatus.FAILED));
+    }
+
     // -------------------------------------------------------------- helpers
+
+    private AdyenPartialPaymentOrderData createdGiftCardPayment() {
+        AdyenPartialPaymentOrderData partialPayment = new AdyenPartialPaymentOrderData();
+        partialPayment.setPspReference(GIFT_CARD_PSP);
+        partialPayment.setStatus("CREATED");
+        return partialPayment;
+    }
 
     private AdyenPartialPaymentOrderData authorizedGiftCardPayment() {
         AdyenPartialPaymentOrderData partialPayment = new AdyenPartialPaymentOrderData();

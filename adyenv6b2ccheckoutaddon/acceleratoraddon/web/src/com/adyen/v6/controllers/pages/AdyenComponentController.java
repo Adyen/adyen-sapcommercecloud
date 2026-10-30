@@ -21,6 +21,7 @@
 package com.adyen.v6.controllers.pages;
 
 
+import com.adyen.v6.service.PaymentAuthorisationRefusedException;
 import com.adyen.model.checkout.PaymentDetailsRequest;
 import com.adyen.model.checkout.PaymentDetailsResponse;
 import com.adyen.model.checkout.PaymentRequest;
@@ -117,6 +118,9 @@ public class AdyenComponentController extends AbstractCheckoutController {
         } catch (InvalidCartException e) {
             LOGGER.error("InvalidCartException: " + e.getMessage());
             throw new AdyenComponentException(e.getMessage());
+        } catch (PaymentAuthorisationRefusedException e) {
+            LOGGER.info("Payment refused before authorisation, errorCode: " + e.getErrorCode());
+            throw new AdyenComponentException(e.getMessageKey());
         } catch (ApiException e) {
             LOGGER.error("ApiException: " + e);
             throw new AdyenComponentException(CHECKOUT_ERROR_AUTHORIZATION_PAYMENT_REFUSED);

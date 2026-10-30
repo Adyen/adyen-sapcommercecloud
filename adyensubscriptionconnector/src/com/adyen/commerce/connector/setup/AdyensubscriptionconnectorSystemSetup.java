@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.UUID;
 
 import com.adyen.commerce.connector.constants.AdyensubscriptionconnectorConstants;
+import com.adyen.commerce.connector.enums.DuplicateSubscriptionRule;
 import com.adyen.commerce.connector.model.BillingSubscriptionRefModel;
 
 import de.hybris.platform.commerceservices.setup.AbstractSystemSetup;
@@ -35,6 +36,7 @@ import de.hybris.platform.core.initialization.SystemSetupParameter;
 import de.hybris.platform.servicelayer.model.ModelService;
 import de.hybris.platform.servicelayer.search.FlexibleSearchQuery;
 import de.hybris.platform.servicelayer.search.FlexibleSearchService;
+import de.hybris.platform.store.BaseStoreModel;
 
 /**
  * Creates the extension's essential data on every system update: the background jobs that make the connector
@@ -62,6 +64,33 @@ public class AdyensubscriptionconnectorSystemSetup extends AbstractSystemSetup
 		importImpexFile(context, RECONCILIATION_JOB_IMPEX);
 		importImpexFile(context, RETENTION_JOB_IMPEX);
 		mintMissingSubscriptionCodes(context);
+		fillMissingDuplicateSubscriptionRules(context);
+	}
+
+	/**
+	 * Gives the stores that predate {@code BaseStore.duplicateSubscriptionRule} its default, SAME_PRODUCT.
+	 *
+	 * <p>Here rather than in an impex because an impex cannot say "only where empty" without naming every
+	 * store, and a store an operator has set to DISABLED must stay that way. The attribute's default value
+	 * applies to new rows only. A no-op once there is nothing left to fill.</p>
+	 */
+	protected void fillMissingDuplicateSubscriptionRules(final SystemSetupContext context)
+	{
+		final FlexibleSearchQuery query = new FlexibleSearchQuery(
+				"SELECT {pk} FROM {BaseStore} WHERE {duplicateSubscriptionRule} IS NULL");
+		final List<BaseStoreModel> missing = flexibleSearchService.<BaseStoreModel> search(query).getResult();
+		if (missing.isEmpty())
+		{
+			return;
+		}
+
+		for (final BaseStoreModel store : missing)
+		{
+			store.setDuplicateSubscriptionRule(DuplicateSubscriptionRule.SAME_PRODUCT);
+		}
+		modelService.saveAll(missing);
+		logInfo(context, "Set the duplicate subscription rule of " + missing.size() + " base store(s) to "
+				+ DuplicateSubscriptionRule.SAME_PRODUCT + ".");
 	}
 
 	/**

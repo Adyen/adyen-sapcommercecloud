@@ -84,6 +84,25 @@ public class DefaultChargebeePlanResolverTest
 		assertNull(ref.priceId());
 	}
 
+	/** The core cannot see this extension's mapping type, so the family travels up in the PlanRef. */
+	@Test
+	public void carriesThePlanFamilyOfTheMappingUp() throws Exception
+	{
+		final ChargebeePlanMappingModel mapping = mapping(null, "price-1");
+		when(mapping.getPlanFamily()).thenReturn("gold");
+		givenMappings(mapping);
+
+		assertEquals("gold", resolver.resolve(request("PROD-1")).planFamily());
+	}
+
+	@Test
+	public void aMappingWithoutAFamilyResolvesToAPlanWithoutOne() throws Exception
+	{
+		givenMappings(mapping(null, "price-1"));
+
+		assertNull(resolver.resolve(request("PROD-1")).planFamily());
+	}
+
 	@Test
 	public void theStoresOwnMappingWinsOverTheDefault() throws Exception
 	{

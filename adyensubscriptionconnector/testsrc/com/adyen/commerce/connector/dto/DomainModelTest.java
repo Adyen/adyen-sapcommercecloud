@@ -41,6 +41,8 @@ import de.hybris.bootstrap.annotations.UnitTest;
 @UnitTest
 public class DomainModelTest
 {
+	private static final BillingPlatform CHARGEBEE = BillingPlatform.valueOf("CHARGEBEE");
+
 	@Test
 	public void adyenTokenHandleAcceptsValidContract()
 	{
@@ -63,7 +65,7 @@ public class DomainModelTest
 	@Test
 	public void referenceRejectsBlankExternalId()
 	{
-		assertThrows(IllegalArgumentException.class, () -> new BillingSubscriptionRef(BillingPlatform.CHARGEBEE, ""));
+		assertThrows(IllegalArgumentException.class, () -> new BillingSubscriptionRef(CHARGEBEE, ""));
 	}
 
 	@Test

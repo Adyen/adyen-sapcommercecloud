@@ -52,7 +52,7 @@ public class DefaultChargebeePlanResolver implements ChargebeePlanResolver
 				.<ChargebeePlanMappingModel> search(query).getResult();
 
 		final ChargebeePlanMappingModel mapping = pick(candidates, request);
-		return new PlanRef(mapping.getItemPriceId(), mapping.getPriceId());
+		return new PlanRef(mapping.getItemPriceId(), mapping.getPriceId(), mapping.getPlanFamily());
 	}
 
 	protected ChargebeePlanMappingModel pick(final List<ChargebeePlanMappingModel> candidates,

@@ -36,6 +36,7 @@ public class AdyenPaymentServiceFactory {
     private final PaymentMethodNameOverrideService paymentMethodNameOverrideService;
     private final RetryTemplate adyenCustomerInteractionRetryTemplate;
     private final RetryTemplate adyenBackgroundProcessRetryTemplate;
+    protected PaymentAuthorisationGuardService paymentAuthorisationGuardService;
 
 
     public AdyenPaymentServiceFactory(final AdyenMerchantAccountStrategy adyenMerchantAccountStrategy, @Lazy DefaultAdyenRequestService defaultAdyenRequestService, PaymentMethodNameOverrideService paymentMethodNameOverrideService, RetryTemplate adyenCustomerInteractionRetryTemplate, RetryTemplate adyenBackgroundProcessRetryTemplate) {
@@ -49,7 +50,12 @@ public class AdyenPaymentServiceFactory {
     public AdyenCheckoutApiService createAdyenCheckoutApiService(final BaseStoreModel baseStoreModel) {
         String webMerchantAccount = adyenMerchantAccountStrategy.getWebMerchantAccount(baseStoreModel);
         DefaultAdyenCheckoutApiService defaultAdyenCheckoutApiService = new DefaultAdyenCheckoutApiService(baseStoreModel, webMerchantAccount, defaultAdyenRequestService,paymentMethodNameOverrideService, adyenCustomerInteractionRetryTemplate, adyenBackgroundProcessRetryTemplate);
+        defaultAdyenCheckoutApiService.setPaymentAuthorisationGuardService(paymentAuthorisationGuardService);
         return defaultAdyenCheckoutApiService;
+    }
+
+    public void setPaymentAuthorisationGuardService(final PaymentAuthorisationGuardService paymentAuthorisationGuardService) {
+        this.paymentAuthorisationGuardService = paymentAuthorisationGuardService;
     }
 
     public AdyenModificationsApiService createAdyenModificationsApiService(final BaseStoreModel baseStoreModel) {

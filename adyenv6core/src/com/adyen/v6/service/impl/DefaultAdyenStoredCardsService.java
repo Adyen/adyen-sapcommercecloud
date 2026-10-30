@@ -3,6 +3,7 @@ package com.adyen.v6.service.impl;
 import com.adyen.model.checkout.StoredPaymentMethodResource;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.enums.AdyenRegions;
+import com.adyen.v6.exceptions.AdyenStoredCardsUnavailableException;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
 import com.adyen.v6.service.*;
 import de.hybris.platform.core.model.user.CustomerModel;
@@ -31,8 +32,27 @@ public class DefaultAdyenStoredCardsService implements AdyenStoredCardsService {
 	@Resource(name = "adyenPaymentServiceFactory")
 	private AdyenPaymentServiceFactory adyenPaymentServiceFactory;
 
+	/**
+	 * The display read: an empty list when there are no cards or when Adyen could not be asked. It only
+	 * translates the failure; to change which cards are listed, override {@link #getStoredCardsOrThrow}, which
+	 * every reader in this class goes through (this one, {@code disableStoredCard} and the subscription pages).
+	 */
 	@Override
 	public List<StoredPaymentMethodResource> getStoredCards(final CustomerModel customer) {
+		try {
+			return getStoredCardsOrThrow(customer);
+		} catch (AdyenStoredCardsUnavailableException e) {
+			LOGGER.error(e.getMessage(), e.getCause());
+			return new ArrayList<>();
+		}
+	}
+
+	/**
+	 * Do not call {@link #getStoredCards} from an override: it delegates here, so the two would call each other.
+	 */
+	@Override
+	public List<StoredPaymentMethodResource> getStoredCardsOrThrow(final CustomerModel customer)
+			throws AdyenStoredCardsUnavailableException {
 		if (customer == null) {
 			LOGGER.warn("Customer is null, cannot retrieve stored cards");
 			return new ArrayList<>();
@@ -40,13 +60,10 @@ public class DefaultAdyenStoredCardsService implements AdyenStoredCardsService {
 
 		try {
 			return getAdyenPaymentService().getStoredCards(customer.getCustomerID());
-		} catch (IOException e) {
-			LOGGER.error("IOException while retrieving stored cards", e);
-		} catch (ApiException e) {
-			LOGGER.error("ApiException while retrieving stored cards", e);
+		} catch (IOException | ApiException e) {
+			throw new AdyenStoredCardsUnavailableException(
+					(e instanceof ApiException ? "ApiException" : "IOException") + " while retrieving stored cards", e);
 		}
-
-		return new ArrayList<>();
 	}
 
 	@Override
@@ -61,7 +78,14 @@ public class DefaultAdyenStoredCardsService implements AdyenStoredCardsService {
 			return false;
 		}
 
-		final List<StoredPaymentMethodResource> storedCards = getStoredCards(customer);
+		final List<StoredPaymentMethodResource> storedCards;
+		try {
+			storedCards = getStoredCardsOrThrow(customer);
+		} catch (AdyenStoredCardsUnavailableException e) {
+			// Not "card not found": nothing is known about the card, so nothing is disabled.
+			LOGGER.error(e.getMessage() + "; not disabling the stored card", e.getCause());
+			return false;
+		}
 		final boolean contains = storedCards.stream()
 				.anyMatch(storedCard -> paymentInfoId.equals(storedCard.getId()));
 

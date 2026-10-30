@@ -12,6 +12,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -688,6 +689,103 @@ public class DefaultRecurlyApiClientTest
         return "{\"object\":\"list\",\"has_more\":" + hasMore + ","
                 + "\"next\":" + (next == null ? "null" : "\"" + next + "\"") + ","
                 + "\"data\":[{\"subscription_ids\":[\"" + subscriptionId + "\"]}]}";
+    }
+
+    /**
+     * The account's subscriptions are read across pages, every state is normalized the way a single fetch
+     * would normalize it, and no past-due invoice query is made per subscription.
+     */
+    @Test
+    public void listsEverySubscriptionOfTheAccountAcrossPages() throws Exception
+    {
+        when(httpClient.get(BASE + "/accounts/code-customer/subscriptions?limit=200", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"object\":\"list\",\"has_more\":true,"
+                        + "\"next\":\"/accounts/code-customer/subscriptions?limit=200&cursor=abc\",\"data\":["
+                        + subscriptionJson("active", true) + "]}"));
+        when(httpClient.get(BASE + "/accounts/code-customer/subscriptions?limit=200&cursor=abc", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"object\":\"list\",\"has_more\":false,\"data\":["
+                        + subscriptionJson("canceled", false).replace("subscription-1", "subscription-2") + ","
+                        + subscriptionJson("expired", false).replace("subscription-1", "subscription-3") + ","
+                        + subscriptionJson("future", true).replace("subscription-1", "subscription-4") + "]}"));
+
+        final List<NormalizedSubscription> result = client.listSubscriptions("code-customer");
+
+        assertEquals(4, result.size());
+        assertEquals("uuid-subscription-1", result.get(0).subscription().externalId());
+        assertEquals(NormalizedSubscriptionStatus.ACTIVE, result.get(0).status());
+        assertEquals("monthly", result.get(0).planId());
+        // canceled still serves until the term ends: ACTIVE, ending.
+        assertEquals(NormalizedSubscriptionStatus.ACTIVE, result.get(1).status());
+        assertTrue(result.get(1).cancelAtPeriodEnd());
+        assertEquals(NormalizedSubscriptionStatus.EXPIRED, result.get(2).status());
+        assertEquals(NormalizedSubscriptionStatus.PENDING, result.get(3).status());
+        verify(httpClient, never()).get(contains("/invoices"), any(), any());
+    }
+
+    @Test
+    public void aListingStopsPagingWhenTheCallersBudgetIsSpentAndReturnsWhatItRead() throws Exception
+    {
+        when(httpClient.get(BASE + "/accounts/code-customer/subscriptions?limit=200", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"object\":\"list\",\"has_more\":true,"
+                        + "\"next\":\"/accounts/code-customer/subscriptions?limit=200&cursor=abc\",\"data\":["
+                        + subscriptionJson("active", true) + "]}"));
+
+        final List<NormalizedSubscription> result = client.listSubscriptions("code-customer", () -> false);
+
+        assertEquals(1, result.size());
+        verify(httpClient, times(1)).get(any(), any(), any());
+    }
+
+    /** The URL check is shared with the invoice listing; the message must name the listing that failed. */
+    @Test
+    public void aSubscriptionListingPointingOffTheApiHostSaysSubscriptionNotInvoice() throws Exception
+    {
+        when(httpClient.get(BASE + "/accounts/code-customer/subscriptions?limit=200", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"object\":\"list\",\"has_more\":true,"
+                        + "\"next\":\"https://evil.example/x\",\"data\":[]}"));
+
+        final TerminalBillingException e = assertThrows(TerminalBillingException.class,
+                () -> client.listSubscriptions("code-customer"));
+
+        assertEquals("Recurly subscription pagination returned an unexpected URL", e.getMessage());
+    }
+
+    /** Partial data can only add blocks to a duplicate check, so a looping cursor ends the listing, it does not fail it. */
+    @Test
+    public void aListingThatPagesBackToAPageItAlreadyReadReturnsWhatItReadInsteadOfLooping() throws Exception
+    {
+        when(httpClient.get(BASE + "/accounts/code-customer/subscriptions?limit=200", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_OK, "{\"object\":\"list\",\"has_more\":true,"
+                        + "\"next\":\"/accounts/code-customer/subscriptions?limit=200\",\"data\":["
+                        + subscriptionJson("active", true) + "]}"));
+
+        final List<NormalizedSubscription> result = client.listSubscriptions("code-customer");
+
+        assertEquals(1, result.size());
+        verify(httpClient, times(1)).get(any(), any(), any());
+    }
+
+    @Test
+    public void aListingThatRunsPastThePageCapReturnsTheCappedPages() throws Exception
+    {
+        final java.util.concurrent.atomic.AtomicInteger page = new java.util.concurrent.atomic.AtomicInteger();
+        when(httpClient.get(any(), any(), any())).thenAnswer(invocation -> new RecurlyHttpResponse(HTTP_OK,
+                "{\"object\":\"list\",\"has_more\":true,\"next\":\"/accounts/code-customer/subscriptions?limit=200&cursor=p"
+                        + page.incrementAndGet() + "\",\"data\":[" + subscriptionJson("active", true) + "]}"));
+
+        final List<NormalizedSubscription> result = client.listSubscriptions("code-customer");
+
+        assertEquals(DefaultRecurlyApiClient.MAX_LISTING_PAGES, result.size());
+        verify(httpClient, times(DefaultRecurlyApiClient.MAX_LISTING_PAGES)).get(any(), any(), any());
+    }
+
+    @Test
+    public void aListingFailureSurfacesAsABillingException() throws Exception
+    {
+        when(httpClient.get(BASE + "/accounts/code-customer/subscriptions?limit=200", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(503, "{}"));
+
+        assertThrows(BillingException.class, () -> client.listSubscriptions("code-customer"));
     }
 
     private String subscriptionJson(final String state, final boolean autoRenew)

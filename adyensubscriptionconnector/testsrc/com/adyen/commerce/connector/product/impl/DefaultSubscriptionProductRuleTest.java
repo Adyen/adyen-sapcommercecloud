@@ -54,6 +54,7 @@ import de.hybris.platform.store.BaseStoreModel;
 @UnitTest
 public class DefaultSubscriptionProductRuleTest
 {
+	private static final BillingPlatform RECURLY = BillingPlatform.valueOf("RECURLY");
 	private static final String PRODUCT_CODE = "300938";
 	private static final String STORE_UID = "electronics";
 
@@ -66,7 +67,7 @@ public class DefaultSubscriptionProductRuleTest
 	{
 		rule = new DefaultSubscriptionProductRule();
 		connector = mock(SubscriptionBillingConnector.class);
-		when(connector.platform()).thenReturn(BillingPlatform.RECURLY);
+		when(connector.platform()).thenReturn(RECURLY);
 		store = mock(BaseStoreModel.class);
 		when(store.getUid()).thenReturn(STORE_UID);
 	}

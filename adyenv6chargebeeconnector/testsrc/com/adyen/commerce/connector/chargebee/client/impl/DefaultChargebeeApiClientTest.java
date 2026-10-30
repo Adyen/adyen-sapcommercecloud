@@ -27,6 +27,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -36,6 +37,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 
 import org.junit.Before;
@@ -120,11 +122,11 @@ public class DefaultChargebeeApiClientTest
 				.thenReturn(new ChargebeeHttpResponse(200, "{\"payment_source\":{\"id\":\"pm-1\"}}"));
 
 		final CardMetadata card = new CardMetadata("visa", "1111", "Alice", "03/2030", "credit");
-		assertEquals("pm-1", client.importPermanentToken("cust", "shopper/TOK-1", card));
+		assertEquals("pm-1", client.importPermanentToken("cust", "shopper/TOK-1", card, "ORDER-1/payment-method"));
 
 		final ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
 		verify(httpClient).post(eq(BASE + "/payment_sources/create_using_permanent_token"), eq(expectedAuth),
-				body.capture(), eq("shopper/TOK-1"));
+				body.capture(), eq("ORDER-1/payment-method"));
 		final String encoded = body.getValue();
 		assertTrue(encoded.contains("customer_id=cust"));
 		assertTrue(encoded.contains("type=card"));
@@ -140,7 +142,7 @@ public class DefaultChargebeeApiClientTest
 				new ChargebeeHttpResponse(422, "{\"message\":\"bad token\",\"api_error_code\":\"invalid_request\"}"));
 
 		final TerminalBillingException ex = assertThrows(TerminalBillingException.class,
-				() -> client.importPermanentToken("cust", "shopper/TOK-1", null));
+				() -> client.importPermanentToken("cust", "shopper/TOK-1", null, null));
 		assertTrue(ex.getMessage().contains("invalid_request"));
 	}
 
@@ -149,7 +151,8 @@ public class DefaultChargebeeApiClientTest
 	{
 		when(httpClient.post(any(), any(), any(), any())).thenReturn(new ChargebeeHttpResponse(503, "{}"));
 
-		assertThrows(RetryableBillingException.class, () -> client.importPermanentToken("cust", "shopper/TOK-1", null));
+		assertThrows(RetryableBillingException.class,
+				() -> client.importPermanentToken("cust", "shopper/TOK-1", null, null));
 	}
 
 	/**
@@ -164,7 +167,8 @@ public class DefaultChargebeeApiClientTest
 				"{\"message\":\"The previous request is still in progress. Please retry the request\","
 						+ "\"api_error_code\":\"invalid_state_for_request\"}"));
 
-		assertThrows(RetryableBillingException.class, () -> client.importPermanentToken("cust", "shopper/TOK-1", null));
+		assertThrows(RetryableBillingException.class,
+				() -> client.importPermanentToken("cust", "shopper/TOK-1", null, null));
 	}
 
 	/**
@@ -177,7 +181,8 @@ public class DefaultChargebeeApiClientTest
 		when(httpClient.post(any(), any(), any(), any())).thenReturn(new ChargebeeHttpResponse(409,
 				"{\"message\":\"Subscription is already cancelled\",\"api_error_code\":\"invalid_state\"}"));
 
-		assertThrows(TerminalBillingException.class, () -> client.importPermanentToken("cust", "shopper/TOK-1", null));
+		assertThrows(TerminalBillingException.class,
+				() -> client.importPermanentToken("cust", "shopper/TOK-1", null, null));
 	}
 
 	/**
@@ -188,7 +193,8 @@ public class DefaultChargebeeApiClientTest
 	{
 		when(httpClient.post(any(), any(), any(), any())).thenReturn(new ChargebeeHttpResponse(409, ""));
 
-		assertThrows(TerminalBillingException.class, () -> client.importPermanentToken("cust", "shopper/TOK-1", null));
+		assertThrows(TerminalBillingException.class,
+				() -> client.importPermanentToken("cust", "shopper/TOK-1", null, null));
 	}
 
 	@Test
@@ -234,11 +240,11 @@ public class DefaultChargebeeApiClientTest
 		when(httpClient.post(eq(BASE + "/subscriptions/sub-1/update_for_items"), eq(expectedAuth), any(), any()))
 				.thenReturn(new ChargebeeHttpResponse(200, "{\"subscription\":{\"id\":\"sub-1\"}}"));
 
-		client.updateSubscription("sub-1", "price-2", null);
+		client.updateSubscription("sub-1", "price-2", null, "ORDER-1/update");
 
 		final ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
 		verify(httpClient).post(eq(BASE + "/subscriptions/sub-1/update_for_items"), eq(expectedAuth), body.capture(),
-				any());
+				eq("ORDER-1/update"));
 		final String encoded = body.getValue();
 		assertTrue(encoded.contains(
 				URLEncoder.encode("subscription_items[item_price_id][0]", StandardCharsets.UTF_8) + "=price-2"));
@@ -248,7 +254,7 @@ public class DefaultChargebeeApiClientTest
 	@Test
 	public void updateSubscriptionRejectsEmptyChange()
 	{
-		assertThrows(PreconditionFailedException.class, () -> client.updateSubscription("sub-1", null, null));
+		assertThrows(PreconditionFailedException.class, () -> client.updateSubscription("sub-1", null, null, null));
 	}
 
 	@Test
@@ -257,7 +263,35 @@ public class DefaultChargebeeApiClientTest
 		// Chargebee's update_for_items needs subscription_items[item_price_id][0] to anchor a quantity change;
 		// a quantity-only call 400s at the API ("item_price_id[0]: cannot be blank"), so the guard turns an
 		// opaque remote error into a local precondition.
-		assertThrows(PreconditionFailedException.class, () -> client.updateSubscription("sub-1", null, 2));
+		assertThrows(PreconditionFailedException.class, () -> client.updateSubscription("sub-1", null, 2, null));
+	}
+
+	@Test
+	public void cancelSubscriptionSendsCancelOptionAndIdempotencyKey() throws Exception
+	{
+		when(httpClient.post(eq(BASE + "/subscriptions/sub-1/cancel_for_items"), eq(expectedAuth), any(), any()))
+				.thenReturn(new ChargebeeHttpResponse(200, "{\"subscription\":{\"id\":\"sub-1\"}}"));
+
+		client.cancelSubscription("sub-1", true, "ORDER-1/at_period_end");
+
+		final ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
+		verify(httpClient).post(eq(BASE + "/subscriptions/sub-1/cancel_for_items"), eq(expectedAuth), body.capture(),
+				eq("ORDER-1/at_period_end"));
+		assertEquals("cancel_option=end_of_term", body.getValue());
+	}
+
+	@Test
+	public void cancelSubscriptionWithoutKeyPassesNone() throws Exception
+	{
+		when(httpClient.post(eq(BASE + "/subscriptions/sub-1/cancel_for_items"), eq(expectedAuth), any(), any()))
+				.thenReturn(new ChargebeeHttpResponse(200, "{\"subscription\":{\"id\":\"sub-1\"}}"));
+
+		client.cancelSubscription("sub-1", false, null);
+
+		final ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
+		verify(httpClient).post(eq(BASE + "/subscriptions/sub-1/cancel_for_items"), eq(expectedAuth), body.capture(),
+				isNull());
+		assertEquals("cancel_option=immediately", body.getValue());
 	}
 
 	@Test
@@ -419,6 +453,84 @@ public class DefaultChargebeeApiClientTest
 	{
 		when(httpClient.get(BASE + "/subscriptions/sub-1", expectedAuth))
 				.thenReturn(new ChargebeeHttpResponse(200, body));
+	}
+
+	/**
+	 * The customer's subscriptions are read with the {@code customer_id[is]} filter across pages ({@code next_offset}),
+	 * each list entry mapped like a retrieve response, in-trial included.
+	 */
+	@Test
+	public void listsEverySubscriptionOfTheCustomerAcrossPages() throws Exception
+	{
+		final String filter = URLEncoder.encode("customer_id[is]", StandardCharsets.UTF_8) + "=cust";
+		final String nextOffset = "[\"1784628635000\",\"900\"]";
+		when(httpClient.get(BASE + "/subscriptions?limit=100&" + filter, expectedAuth))
+				.thenReturn(new ChargebeeHttpResponse(200, "{\"list\":[" + subscriptionJson("in_trial", "")
+						+ "],\"next_offset\":\"" + nextOffset.replace("\"", "\\\"") + "\"}"));
+		when(httpClient.get(BASE + "/subscriptions?limit=100&" + filter + "&offset="
+				+ URLEncoder.encode(nextOffset, StandardCharsets.UTF_8), expectedAuth))
+				.thenReturn(new ChargebeeHttpResponse(200, "{\"list\":["
+						+ subscriptionJson("non_renewing", "").replace("sub-1", "sub-2") + ","
+						+ subscriptionJson("cancelled", "").replace("sub-1", "sub-3") + "]}"));
+
+		final List<NormalizedSubscription> result = client.listCustomerSubscriptions("cust");
+
+		assertEquals(3, result.size());
+		assertEquals("sub-1", result.get(0).subscription().externalId());
+		assertEquals(NormalizedSubscriptionStatus.ACTIVE, result.get(0).status());
+		assertEquals("price-1", result.get(0).planId());
+		assertEquals(NormalizedSubscriptionStatus.ACTIVE, result.get(1).status());
+		assertTrue(result.get(1).cancelAtPeriodEnd());
+		assertEquals(NormalizedSubscriptionStatus.EXPIRED, result.get(2).status());
+	}
+
+	/** The caller's deadline is asked before each page after the first; a spent one ends the listing with what was read. */
+	@Test
+	public void aListingStopsPagingWhenTheCallersBudgetIsSpentAndReturnsWhatItRead() throws Exception
+	{
+		final String filter = URLEncoder.encode("customer_id[is]", StandardCharsets.UTF_8) + "=cust";
+		when(httpClient.get(BASE + "/subscriptions?limit=100&" + filter, expectedAuth))
+				.thenReturn(new ChargebeeHttpResponse(200, "{\"list\":[" + subscriptionJson("active", "")
+						+ "],\"next_offset\":\"more\"}"));
+
+		final List<NormalizedSubscription> result = client.listCustomerSubscriptions("cust", () -> false);
+
+		assertEquals(1, result.size());
+		verify(httpClient, times(1)).get(any(), any());
+	}
+
+	/** Partial data can only add blocks to a duplicate check, so a looping cursor ends the listing, it does not fail it. */
+	@Test
+	public void aCustomerListingThatRepeatsItsOffsetReturnsWhatItReadInsteadOfLooping() throws Exception
+	{
+		when(httpClient.get(any(), any())).thenReturn(new ChargebeeHttpResponse(200,
+				"{\"list\":[" + subscriptionJson("active", "") + "],\"next_offset\":\"same\"}"));
+
+		final List<NormalizedSubscription> result = client.listCustomerSubscriptions("cust");
+
+		assertEquals(2, result.size());
+		verify(httpClient, times(2)).get(any(), any());
+	}
+
+	@Test
+	public void aCustomerListingThatRunsPastThePageCapReturnsTheCappedPages() throws Exception
+	{
+		final java.util.concurrent.atomic.AtomicInteger page = new java.util.concurrent.atomic.AtomicInteger();
+		when(httpClient.get(any(), any())).thenAnswer(invocation -> new ChargebeeHttpResponse(200,
+				"{\"list\":[" + subscriptionJson("active", "") + "],\"next_offset\":\"p" + page.incrementAndGet() + "\"}"));
+
+		final List<NormalizedSubscription> result = client.listCustomerSubscriptions("cust");
+
+		assertEquals(DefaultChargebeeApiClient.MAX_LISTING_PAGES, result.size());
+		verify(httpClient, times(DefaultChargebeeApiClient.MAX_LISTING_PAGES)).get(any(), any());
+	}
+
+	@Test
+	public void aCustomerListingFailureSurfacesAsABillingException() throws Exception
+	{
+		when(httpClient.get(any(), any())).thenReturn(new ChargebeeHttpResponse(500, "{}"));
+
+		assertThrows(RetryableBillingException.class, () -> client.listCustomerSubscriptions("cust"));
 	}
 
 	/**

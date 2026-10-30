@@ -62,6 +62,8 @@ import de.hybris.platform.store.BaseStoreModel;
 @UnitTest
 public class DefaultSubscriptionOrderCancellationServiceTest
 {
+	private static final BillingPlatform CHARGEBEE = BillingPlatform.valueOf("CHARGEBEE");
+
 	@Mock
 	private SubscriptionBillingService subscriptionBillingService;
 	@Mock
@@ -133,8 +135,8 @@ public class DefaultSubscriptionOrderCancellationServiceTest
 	}
 
 	/**
-	 * An order can be announced cancelled more than once, and on Chargebee a second cancellation is a real
-	 * API call — that adapter sends no idempotency key.
+	 * An order can be announced cancelled more than once, and a platform remembers an idempotency key only
+	 * for a while, so a late second announcement would be a real API call.
 	 */
 	@Test
 	public void leavesASubscriptionAlreadySetToStopAlone() throws Exception
@@ -244,7 +246,7 @@ public class DefaultSubscriptionOrderCancellationServiceTest
 	private static BillingSubscriptionRefModel active()
 	{
 		final BillingSubscriptionRefModel ref = mock(BillingSubscriptionRefModel.class);
-		when(ref.getPlatform()).thenReturn(BillingPlatform.CHARGEBEE);
+		when(ref.getPlatform()).thenReturn(CHARGEBEE);
 		when(ref.getExternalSubscriptionId()).thenReturn("sub-1");
 		when(ref.getStatus()).thenReturn(NormalizedSubscriptionStatus.ACTIVE.name());
 		return ref;

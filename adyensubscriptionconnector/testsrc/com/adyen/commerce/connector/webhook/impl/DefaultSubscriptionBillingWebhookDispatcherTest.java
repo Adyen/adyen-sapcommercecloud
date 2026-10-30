@@ -78,6 +78,7 @@ import de.hybris.platform.servicelayer.search.SearchResult;
 @UnitTest
 public class DefaultSubscriptionBillingWebhookDispatcherTest
 {
+	private static final BillingPlatform RECURLY = BillingPlatform.valueOf("RECURLY");
 	private static final Instant T1 = Instant.parse("2026-08-06T10:00:00Z");
 	private static final Instant T2 = Instant.parse("2026-08-06T10:05:00Z");
 	private static final Instant NOW = Instant.parse("2026-08-06T12:00:00Z");
@@ -118,7 +119,7 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 		dispatcher.setRetryPolicy(retryPolicy);
 
 		raw = new RawWebhook(Map.of(), "{}", null);
-		when(connectorRegistry.getConnector(BillingPlatform.RECURLY)).thenReturn(connector);
+		when(connectorRegistry.getConnector(RECURLY)).thenReturn(connector);
 		when(modelService.create(BillingWebhookEventModel.class)).thenAnswer(i -> statefulEvent());
 		when(modelService.create(BillingWebhookEventApplicationModel.class)).thenAnswer(i -> statefulApplication());
 		doAnswer(i -> {
@@ -433,8 +434,8 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 		final NormalizedBillingEvent event = eventOf(BillingEventType.SUBSCRIPTION_CREATED, null, "sub-1", T1);
 		when(connector.parseWebhook(body)).thenReturn(event);
 
-		dispatcher.dispatch(BillingPlatform.RECURLY, body);
-		dispatcher.dispatch(BillingPlatform.RECURLY, body);
+		dispatcher.dispatch(RECURLY, body);
+		dispatcher.dispatch(RECURLY, body);
 
 		verify(reconciliationService, times(1)).reconcile(ref);
 		assertTrue(events.keySet().iterator().next().startsWith("derived:"));
@@ -448,7 +449,7 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 		final NormalizedBillingEvent event = eventOf(BillingEventType.SUBSCRIPTION_UPDATED, "ev-1", "sub-1", T1);
 		when(connector.parseWebhook(raw)).thenReturn(event);
 
-		assertSame(event, dispatcher.dispatch(BillingPlatform.RECURLY, raw));
+		assertSame(event, dispatcher.dispatch(RECURLY, raw));
 	}
 
 	@Test
@@ -456,7 +457,7 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 	{
 		when(connector.parseWebhook(raw)).thenReturn(null);
 
-		assertNull(dispatcher.dispatch(BillingPlatform.RECURLY, raw));
+		assertNull(dispatcher.dispatch(RECURLY, raw));
 		verify(modelService, never()).save(any());
 	}
 
@@ -470,7 +471,7 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 		when(connector.parseWebhook(raw)).thenReturn(eventOf(BillingEventType.INVOICE_PAID, "ev-1", null, T1));
 		when(connector.resolveSubscriptionIds(any())).thenThrow(new BillingException("this event names nothing we know"));
 
-		dispatcher.dispatch(BillingPlatform.RECURLY, raw);
+		dispatcher.dispatch(RECURLY, raw);
 
 		final BillingWebhookEventModel record = events.get("ev-1");
 		assertEquals("DEAD_LETTER", record.getProcessingStatus());
@@ -493,11 +494,11 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 
 		for (int attempt = 1; attempt < MAX_ATTEMPTS; attempt++)
 		{
-			assertThrows(IllegalStateException.class, () -> dispatcher.dispatch(BillingPlatform.RECURLY, raw));
+			assertThrows(IllegalStateException.class, () -> dispatcher.dispatch(RECURLY, raw));
 			assertEquals("FAILED", events.get("ev-1").getProcessingStatus());
 		}
 
-		dispatcher.dispatch(BillingPlatform.RECURLY, raw);
+		dispatcher.dispatch(RECURLY, raw);
 
 		assertEquals("DEAD_LETTER", events.get("ev-1").getProcessingStatus());
 		assertEquals(Integer.valueOf(MAX_ATTEMPTS), events.get("ev-1").getAttemptCount());
@@ -513,9 +514,9 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 	{
 		when(connector.parseWebhook(raw)).thenReturn(eventOf(BillingEventType.INVOICE_PAID, "ev-1", null, T1));
 		when(connector.resolveSubscriptionIds(any())).thenThrow(new BillingException("terminal"));
-		dispatcher.dispatch(BillingPlatform.RECURLY, raw);
+		dispatcher.dispatch(RECURLY, raw);
 
-		dispatcher.dispatch(BillingPlatform.RECURLY, raw);
+		dispatcher.dispatch(RECURLY, raw);
 
 		assertEquals("DEAD_LETTER", events.get("ev-1").getProcessingStatus());
 		assertEquals(Integer.valueOf(1), events.get("ev-1").getAttemptCount());
@@ -524,7 +525,7 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 	private void dispatch(final NormalizedBillingEvent event) throws Exception
 	{
 		when(connector.parseWebhook(raw)).thenReturn(event);
-		dispatcher.dispatch(BillingPlatform.RECURLY, raw);
+		dispatcher.dispatch(RECURLY, raw);
 	}
 
 	private BillingSubscriptionRefModel givenSubscription(final String id, final String status)
@@ -552,7 +553,7 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 		ref.setPlatformUpdatedAt(Date.from(T2));
 		ref.setLastSyncedAt(Date.from(NOW));
 		return new NormalizedSubscription(
-				new BillingSubscriptionRef(BillingPlatform.RECURLY, ref.getExternalSubscriptionId()),
+				new BillingSubscriptionRef(RECURLY, ref.getExternalSubscriptionId()),
 				NormalizedSubscriptionStatus.valueOf(state.status()), state.plan(), state.quantity(), T1, T2,
 				"CANCELLED".equals(state.status()), T2);
 	}
@@ -641,14 +642,14 @@ public class DefaultSubscriptionBillingWebhookDispatcherTest
 	private static NormalizedBillingEvent eventOf(final BillingEventType type, final String eventId,
 			final String subscriptionId, final Instant occurredAt)
 	{
-		return new NormalizedBillingEvent(BillingPlatform.RECURLY, type, eventId, subscriptionId, "cust-1",
+		return new NormalizedBillingEvent(RECURLY, type, eventId, subscriptionId, "cust-1",
 				occurredAt, Map.of());
 	}
 
 	private static NormalizedBillingEvent recurlySubscriptionEvent(final BillingEventType type, final String eventId,
 			final String subscriptionId, final Instant occurredAt)
 	{
-		return new NormalizedBillingEvent(BillingPlatform.RECURLY, type, eventId, subscriptionId, "cust-1",
+		return new NormalizedBillingEvent(RECURLY, type, eventId, subscriptionId, "cust-1",
 				occurredAt, Map.of());
 	}
 

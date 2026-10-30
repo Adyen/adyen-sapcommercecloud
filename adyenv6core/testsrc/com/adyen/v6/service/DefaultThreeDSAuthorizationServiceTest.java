@@ -101,4 +101,40 @@ public class DefaultThreeDSAuthorizationServiceTest
 
         verify(publisher, never()).publishAuthorized(order);
     }
+
+    /**
+     * The order was placed with the action's code (RedirectShopper...). Once the shopper has finished and Adyen
+     * answers Received or Authorised, the order must say so: left as it was it reads as an abandoned redirect,
+     * which the duplicate-subscription check ignores, and a second purchase would get through.
+     */
+    @Test
+    public void aFinishedPaymentReplacesTheActionCodeInStatusInfo()
+    {
+        for (final PaymentDetailsResponse.ResultCodeEnum resultCode : new PaymentDetailsResponse.ResultCodeEnum[] {
+                PaymentDetailsResponse.ResultCodeEnum.RECEIVED, PaymentDetailsResponse.ResultCodeEnum.AUTHORISED })
+        {
+            final OrderModel order = mock(OrderModel.class);
+            final PaymentDetailsResponse response = mock(PaymentDetailsResponse.class);
+            when(order.getCode()).thenReturn("00060001");
+            when(response.getResultCode()).thenReturn(resultCode);
+
+            service.updateOrderPaymentStatusAndInfo(order, response);
+
+            verify(order).setStatusInfo(resultCode.getValue());
+        }
+    }
+
+    @Test
+    public void aRefusedPaymentKeepsTheReferenceInStatusInfo()
+    {
+        final OrderModel order = mock(OrderModel.class);
+        final PaymentDetailsResponse response = mock(PaymentDetailsResponse.class);
+        when(order.getCode()).thenReturn("00060001");
+        when(response.getResultCode()).thenReturn(PaymentDetailsResponse.ResultCodeEnum.REFUSED);
+        when(response.getPspReference()).thenReturn("PSP123");
+
+        service.updateOrderPaymentStatusAndInfo(order, response);
+
+        verify(order).setStatusInfo("PSP123 - Refused");
+    }
 }

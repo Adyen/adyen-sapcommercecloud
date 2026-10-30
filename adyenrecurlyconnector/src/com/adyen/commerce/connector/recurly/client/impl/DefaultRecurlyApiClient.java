@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.BooleanSupplier;
 import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
@@ -58,6 +59,8 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
     private static final String GENERIC_METHOD_LABEL = "Saved payment method";
 
     private static final Logger LOG = LoggerFactory.getLogger(DefaultRecurlyApiClient.class);
+    /** Ceiling on a listing, so a vendor that never stops paging cannot hold a checkout thread. */
+    protected static final int MAX_LISTING_PAGES = 20;
 
     /** Bare host names only, so the configured value cannot point the shopper's link at another origin. */
     private static final Pattern HOSTED_PAGES_HOST =
@@ -419,12 +422,56 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
         return mapSubscription(response.body(), subscriptionId);
     }
 
+    /**
+     * Every subscription of the account, followed across pages. Past-due is not looked up per subscription
+     * (one invoice query each): the caller of a listing asks whether a subscription still serves the shopper,
+     * and ACTIVE and PAST_DUE answer that alike.
+     */
+    @Override
+    public List<NormalizedSubscription> listSubscriptions(final String accountId,
+                                                          final BooleanSupplier mayContinue) throws BillingException {
+        final List<NormalizedSubscription> subscriptions = new ArrayList<>();
+        // A cursor pointing back at a page already read would otherwise loop forever.
+        final Set<String> visitedPages = new LinkedHashSet<>();
+        String nextUrl = url(ACCOUNTS_PATH + pathSegment(accountId) + "/subscriptions?limit=200");
+        while (StringUtils.isNotBlank(nextUrl)) {
+            if (!visitedPages.isEmpty() && !mayContinue.getAsBoolean()) {
+                // The caller's deadline has passed: what was read is evidence enough, and more is not worth waiting for.
+                LOG.debug("Subscription listing stopped after {} page(s): the caller's budget is spent", visitedPages.size());
+                break;
+            }
+            validateRecurlyPageUrl(nextUrl, "subscription");
+            if (!visitedPages.add(nextUrl) || visitedPages.size() > MAX_LISTING_PAGES) {
+                // Partial data can only add blocks to a duplicate check, never remove one: return what was read.
+                LOG.warn("Recurly subscription listing degraded after {} page(s): pagination repeated a page or ran "
+                        + "past {} pages; returning the {} subscription(s) read so far",
+                        visitedPages.size() - 1, MAX_LISTING_PAGES, subscriptions.size());
+                break;
+            }
+            final RecurlyHttpResponse response = httpClient.get(nextUrl, authHeader(), acceptHeader());
+            requireSuccess(response, "list account subscriptions");
+            final JsonNode page = readJson(response.body(), "account subscriptions");
+            for (final JsonNode subscription : page.path("data")) {
+                subscriptions.add(mapSubscription(subscription, null, false));
+            }
+            nextUrl = page.path("has_more").asBoolean(false)
+                    ? resolvePageUrl(page.path("next").asText(null))
+                    : null;
+        }
+        return subscriptions;
+    }
+
     protected NormalizedSubscription mapSubscription(final String body, final String requestedSubscriptionId)
             throws BillingException {
-        final JsonNode subscription = readJson(body, "subscription");
+        return mapSubscription(readJson(body, "subscription"), requestedSubscriptionId, true);
+    }
+
+    protected NormalizedSubscription mapSubscription(final JsonNode subscription,
+                                                     final String requestedSubscriptionId,
+                                                     final boolean lookUpPastDue) throws BillingException {
         final String subscriptionId = readSubscriptionId(subscription);
         final NormalizedSubscriptionStatus lifecycleStatus = mapStatus(subscription.path("state").asText(null));
-        final NormalizedSubscriptionStatus status = isPastDueEligible(lifecycleStatus)
+        final NormalizedSubscriptionStatus status = lookUpPastDue && isPastDueEligible(lifecycleStatus)
                 && hasPastDueInvoice(subscription, requestedSubscriptionId, subscriptionId)
                 ? NormalizedSubscriptionStatus.PAST_DUE
                 : lifecycleStatus;
@@ -492,9 +539,14 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
     }
 
     protected void validateRecurlyPageUrl(final String pageUrl) throws BillingException {
+        validateRecurlyPageUrl(pageUrl, "invoice");
+    }
+
+    /** @param resource what is being paged, for the message: the shared check must not name the wrong listing */
+    protected void validateRecurlyPageUrl(final String pageUrl, final String resource) throws BillingException {
         final String baseUrl = configService.getApiBaseUrl();
         if (!StringUtils.startsWith(pageUrl, baseUrl + "/")) {
-            throw new TerminalBillingException("Recurly invoice pagination returned an unexpected URL");
+            throw new TerminalBillingException("Recurly " + resource + " pagination returned an unexpected URL");
         }
     }
 

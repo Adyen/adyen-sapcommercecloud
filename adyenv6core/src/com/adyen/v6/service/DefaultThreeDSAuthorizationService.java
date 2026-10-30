@@ -119,6 +119,9 @@ public class DefaultThreeDSAuthorizationService implements ThreeDSAuthorizationS
             LOGGER.info("PAYMENT_PENDING status, will be processed by order management");
 
             orderModel.setStatus(OrderStatus.PAYMENT_PENDING);
+            // The order was placed with the action's code (RedirectShopper, ChallengeShopper...). Now that the shopper
+            // has finished, say so: left as it was, a finished payment would read as an abandoned redirect.
+            orderModel.setStatusInfo(paymentDetailsResponse.getResultCode().getValue());
         } else {
             // Payment was not authorized, cancel pending order
             LOGGER.warn("Payment was not authorized, cancel pending order: " + paymentDetailsResponse.getPspReference());

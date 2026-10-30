@@ -14,6 +14,7 @@ export interface PlaceOrderResponse {
     paymentsResponse?: PaymentResponseData,
     paymentDetailsResponse?: PaymentResponseData,
     error?: string,
+    linkPath?: string,
     errorFieldCodes?: string[]
     orderNumber?: string,
     // Partial payment specific fields
@@ -63,6 +64,7 @@ export class PaymentService {
                     return {
                         success: false,
                         error: errorResponse.response.data.errorCode,
+                        linkPath: errorResponse.response.data.linkPath,
                         errorFieldCodes: errorResponse.response.data.invalidFields
                     }
                 }
@@ -106,6 +108,7 @@ export class PaymentService {
                     return {
                         success: false,
                         error: errorResponse.response.data.errorCode,
+                        linkPath: errorResponse.response.data.linkPath,
                         errorFieldCodes: errorResponse.response.data.invalidFields
                     }
                 }

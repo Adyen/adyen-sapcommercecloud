@@ -8,6 +8,7 @@ import com.adyen.commerce.request.PlaceOrderRequest;
 import com.adyen.commerce.response.OCCPlaceOrderResponse;
 import com.adyen.commerce.response.PlaceOrderResponse;
 import com.adyen.commerce.services.impl.RecurringContractHelper.TokenizationNotSupportedException;
+import com.adyen.v6.service.PaymentAuthorisationRefusedException;
 import com.adyen.commerce.validators.PaymentRequestValidator;
 import com.adyen.model.checkout.PaymentDetailsRequest;
 import com.adyen.model.checkout.PaymentResponse;
@@ -236,6 +237,11 @@ public abstract class PlaceOrderControllerBase {
             // single place the conversion happens; the partial-payment methods hand it back up untouched.
             LOGGER.info("Refusing to authorize: " + e.getMessage());
             throw new AdyenControllerException(e.getErrorCode());
+        } catch (PaymentAuthorisationRefusedException e) {
+            // A guard refused before anything went to Adyen (for example a subscription the shopper already
+            // owns): answer with its own code instead of the generic authorization failure.
+            LOGGER.info("Refusing to authorize: " + e.getErrorCode());
+            throw new AdyenControllerException(e);
         } catch (Exception e) {
             LOGGER.error(ExceptionUtils.getStackTrace(e));
         }
@@ -317,6 +323,9 @@ public abstract class PlaceOrderControllerBase {
             // "fix" this by wiring the decorators into the partial leg. The catch stays only so that a future
             // caller which does raise it here is not flattened into the authorization-failed default below.
             throw e;
+        } catch (PaymentAuthorisationRefusedException e) {
+            // Refused before the gift card was charged; handlePayment turns it into the controller exception.
+            throw e;
         } catch (AdyenControllerException e) {
             throw e;
         } catch (Exception e) {
@@ -390,6 +399,9 @@ public abstract class PlaceOrderControllerBase {
             // card hold behind this partial payment is untouched - deliberately not marked FAILED, which
             // would record a payment failure that did not happen. handlePayment turns it into the controller
             // exception that carries the message key.
+            throw e;
+        } catch (PaymentAuthorisationRefusedException e) {
+            // Refused before /payments went out: no payment failed, so the partial payment is not marked FAILED.
             throw e;
         } catch (AdyenControllerException e) {
             throw e;

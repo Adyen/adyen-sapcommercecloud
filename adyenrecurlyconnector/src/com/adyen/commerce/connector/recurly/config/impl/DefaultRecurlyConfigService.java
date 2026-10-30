@@ -2,7 +2,7 @@ package com.adyen.commerce.connector.recurly.config.impl;
 
 import com.adyen.commerce.connector.exception.ConnectorNotConfiguredException;
 import com.adyen.commerce.connector.recurly.config.RecurlyConfigService;
-import com.adyen.v6.model.RecurlyConfigModel;
+import com.adyen.commerce.connector.recurly.model.RecurlyConfigModel;
 import de.hybris.platform.servicelayer.config.ConfigurationService;
 import de.hybris.platform.store.BaseStoreModel;
 import de.hybris.platform.store.services.BaseStoreService;

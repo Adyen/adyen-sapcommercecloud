@@ -43,6 +43,8 @@ public final class ConnectorLogEvent
 	public static final String OUTCOME_FAILURE = "failure";
 	public static final String OUTCOME_IGNORED = "ignored";
 	public static final String OUTCOME_UNRESOLVED = "unresolved";
+	/** A product has no plan on the platform: the normal answer for every non-subscription product. */
+	public static final String OUTCOME_NOT_MAPPED = "not_mapped";
 
 	public static final String ERROR_CLASS_NONE = "none";
 	public static final String ERROR_CLASS_VALIDATION = "validation";

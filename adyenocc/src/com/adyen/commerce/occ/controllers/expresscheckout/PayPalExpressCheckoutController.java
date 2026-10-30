@@ -1,5 +1,7 @@
 package com.adyen.commerce.occ.controllers.expresscheckout;
 
+import com.adyen.commerce.exception.AdyenControllerException;
+import com.adyen.v6.service.PaymentAuthorisationRefusedException;
 import com.adyen.commerce.constants.AdyenoccConstants;
 import com.adyen.commerce.occ.api.expresscheclout.PayPalExpressCheckoutApi;
 import com.adyen.commerce.occ.request.PayPalExpressCartRequest;
@@ -95,6 +97,10 @@ public class PayPalExpressCheckoutController extends ExpressCheckoutControllerBa
             LOGGER.error(String.format("PayPal submit request failed. Error: {}, Message: {}, Response body: {}",
                     e.getError().toString(), e.getMessage(), e.getResponseBody()));
             return ResponseEntity.badRequest().build();
+        } catch (PaymentAuthorisationRefusedException e) {
+            // A guard refused before PayPal's submit reached Adyen: answer with its own code.
+            LOGGER.info("Refusing to submit: " + e.getErrorCode());
+            throw new AdyenControllerException(e);
         }
 
     }

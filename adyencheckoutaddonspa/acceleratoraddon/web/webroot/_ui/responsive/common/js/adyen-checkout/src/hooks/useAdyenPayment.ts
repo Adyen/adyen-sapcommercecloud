@@ -6,6 +6,8 @@ import { SubmitActions, AdditionalDetailsActions, CheckoutAdvancedFlowResponse }
 
 interface PaymentState {
     errorCode: string;
+    // Storefront-relative path (no context path) that helps the shopper, e.g. /my-account/subscriptions
+    errorLinkPath?: string;
     errorFieldCodes: string[];
     orderNumber: string;
     partialPaymentId?: string;
@@ -22,7 +24,7 @@ interface UseAdyenPaymentReturn {
     handleError: () => Promise<void>;
     resetDropInComponent: () => void;
     setDropIn: (dropIn: Dropin) => void;
-    setErrorCode: (errorCode: string) => void;
+    setErrorCode: (errorCode: string, linkPath?: string) => void;
     setPartialPaymentId: (id: string) => void;
 }
 
@@ -46,8 +48,8 @@ export const useAdyenPayment = (
         setDropInState(newDropIn);
     }, []);
 
-    const setErrorCode = useCallback((errorCode: string) => {
-        setPaymentState(prev => ({ ...prev, errorCode }));
+    const setErrorCode = useCallback((errorCode: string, linkPath?: string) => {
+        setPaymentState(prev => ({ ...prev, errorCode, errorLinkPath: linkPath }));
     }, []);
 
     const setPartialPaymentId = useCallback((partialPaymentId: string) => {
@@ -126,7 +128,7 @@ export const useAdyenPayment = (
                     }
                 }
             }
-            setPaymentState(prev => ({ ...prev, errorCode: responseData.error || '' }));
+            setPaymentState(prev => ({ ...prev, errorCode: responseData.error || '', errorLinkPath: responseData.linkPath }));
         }
     }, [dropIn]);
 
@@ -188,10 +190,16 @@ export const useAdyenPayment = (
                 remainingAmount: response.remainingAmount
             };
             resolve(balanceResponse);
-        } catch (error) {
+        } catch (error: any) {
+            // A payment guard refusal (e.g. subscription already owned) carries its message key: show it, as the
+            // place-order path does, instead of leaving the drop-in with a bare rejection.
+            const refusal = error?.response?.data?.errorCode;
+            if (refusal) {
+                setErrorCode(refusal, error?.response?.data?.linkPath);
+            }
             reject();
         }
-    }, []);
+    }, [setErrorCode]);
 
     const handleOrderRequest = useCallback(async (resolve: any, reject: any, data: any) => {
         try {
@@ -214,10 +222,16 @@ export const useAdyenPayment = (
             };
             resolve(orderResponse);
             
-        } catch (error) {
+        } catch (error: any) {
+            // A payment guard refusal (e.g. subscription already owned) carries its message key: show it, as the
+            // place-order path does, instead of leaving the drop-in with a bare rejection.
+            const refusal = error?.response?.data?.errorCode;
+            if (refusal) {
+                setErrorCode(refusal, error?.response?.data?.linkPath);
+            }
             reject();
         }
-    }, []);
+    }, [setErrorCode]);
 
     const handleError = useCallback(async () => {
         await PaymentService.sendPaymentCancel();
