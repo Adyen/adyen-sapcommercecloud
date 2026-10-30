@@ -14,4 +14,8 @@ public interface AdyenOrderFacade {
     String getOrderCodeForGUID(final String orderGUID, final String sessionGuid);
 
     OrderModel getOrderModelForCodeOCC(String code);
+
+    OrderModel getOrderModelForPaymentStatus(String orderIdentifier, String sessionGuid);
+
+    String getPaymentStatus(OrderModel order);
 }

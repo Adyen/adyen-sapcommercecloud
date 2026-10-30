@@ -2,32 +2,43 @@ package com.adyen.v6.listeners;
 
 import com.adyen.v6.events.OfferClosedEvent;
 import com.adyen.v6.model.AdyenNotificationModel;
-import de.hybris.platform.payment.model.PaymentTransactionModel;
 import org.apache.log4j.Logger;
 
 import java.util.Date;
 
-public class OfferClosedNotificationEventListener extends AbstractNotificationEventListener<OfferClosedEvent> {
+public class OfferClosedNotificationEventListener
+        extends AbstractNotificationEventListener<OfferClosedEvent> {
 
-
-    private static final Logger LOG = Logger.getLogger(OfferClosedNotificationEventListener.class);
-
-    public OfferClosedNotificationEventListener() {
-        super();
-    }
+    private static final Logger LOG =
+            Logger.getLogger(
+                    OfferClosedNotificationEventListener.class
+            );
 
     @Override
     protected void onEvent(final OfferClosedEvent event) {
-        AdyenNotificationModel notificationInfoModel = event.getNotificationRequestItem();
-        PaymentTransactionModel transactionModel = getPaymentTransactionRepository().getTransactionModel(notificationInfoModel.getOriginalReference());
+        final AdyenNotificationModel notificationInfoModel =
+                event.getNotificationRequestItem();
+
         try {
-            getAdyenNotificationService().processCancelEvent(notificationInfoModel, transactionModel);
-            LOG.info("Offer closed notification with PSPReference " + notificationInfoModel.getPspReference() + " was processed");
+            getAdyenNotificationService()
+                    .processOfferClosedEvent(
+                            notificationInfoModel
+                    );
+
+            LOG.info(
+                    "Offer closed notification with PSPReference "
+                            + notificationInfoModel.getPspReference()
+                            + " was processed"
+            );
+
             notificationInfoModel.setProcessedAt(new Date());
             getModelService().save(notificationInfoModel);
-        }catch (Exception e) {
-            logException(notificationInfoModel, e, LOG);
+        } catch (Exception exception) {
+            logException(
+                    notificationInfoModel,
+                    exception,
+                    LOG
+            );
         }
     }
-
 }

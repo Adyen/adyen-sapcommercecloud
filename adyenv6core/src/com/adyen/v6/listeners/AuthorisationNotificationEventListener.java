@@ -3,6 +3,7 @@ package com.adyen.v6.listeners;
 import com.adyen.v6.events.AuthorisationEvent;
 import com.adyen.v6.model.AdyenNotificationModel;
 import de.hybris.platform.payment.model.PaymentTransactionModel;
+import org.apache.commons.lang3.BooleanUtils;
 import org.apache.log4j.Logger;
 
 import java.util.Date;
@@ -18,19 +19,30 @@ public class AuthorisationNotificationEventListener extends AbstractNotification
 
     @Override
     protected void onEvent(final AuthorisationEvent event) {
-        AdyenNotificationModel notificationInfoModel = event.getNotificationRequestItem();
-        PaymentTransactionModel transactionModel = getPaymentTransactionRepository().getTransactionModel(notificationInfoModel.getPspReference());
+        final AdyenNotificationModel notification =
+                event.getNotificationRequestItem();
+
+        final PaymentTransactionModel existingTransaction =
+                getPaymentTransactionRepository()
+                        .getTransactionModel(notification.getPspReference());
+
         try {
-            if (transactionModel == null) {
-                getAdyenNotificationService().processAuthorisationEvent(notificationInfoModel);
+            final boolean failedAuthorisation =
+                    !BooleanUtils.isTrue(notification.getSuccess());
+
+            if (existingTransaction == null || failedAuthorisation) {
+                getAdyenNotificationService()
+                        .processAuthorisationEvent(notification);
             } else {
-                LOG.warn("Authorisation already processed " + transactionModel.getRequestId());
+                LOG.warn("Authorisation already processed "
+                        + existingTransaction.getRequestId());
             }
-            LOG.info("Notification with PSPReference " + notificationInfoModel.getPspReference() + " was processed");
-            notificationInfoModel.setProcessedAt(new Date());
-            getModelService().save(notificationInfoModel);
-        }catch (Exception e) {
-            logException(notificationInfoModel, e, LOG);
+
+            notification.setProcessedAt(new Date());
+            getModelService().save(notification);
+
+        } catch (final Exception e) {
+            logException(notification, e, LOG);
         }
     }
 

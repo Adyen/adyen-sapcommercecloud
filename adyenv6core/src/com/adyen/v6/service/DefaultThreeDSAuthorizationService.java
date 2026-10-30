@@ -127,10 +127,17 @@ public class DefaultThreeDSAuthorizationService implements ThreeDSAuthorizationS
             orderModel.setStatusInfo(paymentDetailsResponse.getPspReference() + " - " + 
                 paymentDetailsResponse.getResultCode().getValue());
         }
-        
+
         modelService.save(orderModel);
-        adyenBusinessProcessService.triggerOrderProcessEvent(orderModel, 
-            Adyenv6coreConstants.PROCESS_EVENT_ADYEN_PAYMENT_RESULT);
+
+        if (PaymentDetailsResponse.ResultCodeEnum.RECEIVED
+                != paymentDetailsResponse.getResultCode()) {
+
+            adyenBusinessProcessService.triggerOrderProcessEvent(
+                    orderModel,
+                    Adyenv6coreConstants.PROCESS_EVENT_ADYEN_PAYMENT_RESULT
+            );
+        }
 
         String paymentType = "";
         if (paymentDetailsResponse.getPaymentMethod() != null) {

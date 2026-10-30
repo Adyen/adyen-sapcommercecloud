@@ -203,12 +203,32 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
             placePendingOrder(paymentsDetailsResponse.getResultCode().getValue());
             throw new AdyenNonAuthorizedPaymentException(paymentsDetailsResponse);
         }
-        if (PaymentDetailsResponse.ResultCodeEnum.AUTHORISED == paymentsDetailsResponse.getResultCode() ||
-                PaymentDetailsResponse.ResultCodeEnum.RECEIVED == paymentsDetailsResponse.getResultCode()) {
-            LOGGER.info("Creating authorized order");
-            String orderCode = paymentsDetailsResponse.getMerchantReference();
-            OrderModel orderModel = retrievePendingOrder(orderCode);
-            return new OrderPaymentResult(getOrderConverter().convert(orderModel), paymentsDetailsResponse);
+        if (PaymentDetailsResponse.ResultCodeEnum.AUTHORISED
+                == paymentsDetailsResponse.getResultCode()) {
+
+            LOGGER.info("Payment authorised");
+
+            final OrderModel order =
+                    retrievePendingOrder(
+                            paymentsDetailsResponse.getMerchantReference());
+
+            return new OrderPaymentResult(
+                    getOrderConverter().convert(order),
+                    paymentsDetailsResponse);
+        }
+
+        if (PaymentDetailsResponse.ResultCodeEnum.RECEIVED
+                == paymentsDetailsResponse.getResultCode()) {
+
+            LOGGER.info("Payment received, waiting for final webhook result");
+
+            final OrderModel order =
+                    retrievePendingOrder(
+                            paymentsDetailsResponse.getMerchantReference());
+
+            return new OrderPaymentResult(
+                    getOrderConverter().convert(order),
+                    paymentsDetailsResponse);
         }
 
         // Payment additional details failed or unexpected result — cancel any partial payment

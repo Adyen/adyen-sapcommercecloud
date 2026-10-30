@@ -140,3 +140,48 @@ div#section_break {
 
     }
 }
+
+/* Inline spinner displayed while waiting for final payment status */
+.payment-pending-inline {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.payment-pending-inline__spinner {
+    box-sizing: border-box;
+    display: inline-block;
+    flex: 0 0 43px;
+    width: 43px;
+    height: 43px;
+    margin-right: 8px;
+    border: 3px solid #f3f3f3;
+    border-top-color: #000000;
+    border-radius: 50%;
+    animation: adyen-payment-pending-spin 2s linear infinite;
+}
+
+.payment-pending-inline__message {
+    font-weight: bold;
+}
+
+@-webkit-keyframes adyen-payment-pending-spin {
+    from {
+        -webkit-transform: rotate(0deg);
+    }
+
+    to {
+        -webkit-transform: rotate(360deg);
+    }
+}
+
+@keyframes adyen-payment-pending-spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}

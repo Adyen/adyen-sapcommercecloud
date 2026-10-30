@@ -861,6 +861,25 @@
                 <attribute qualifier="adyenRiskScore" type="java.lang.Integer">
                     <persistence type="property"/>
                 </attribute>
+
+                <attribute qualifier="adyenCartRestorationRequired"
+                           type="java.lang.Boolean">
+                    <modifiers optional="false"/>
+                    <defaultvalue>java.lang.Boolean.FALSE</defaultvalue>
+                    <persistence type="property"/>
+                </attribute>
+
+                <attribute qualifier="adyenRestoredCart"
+                           type="Cart">
+                    <modifiers optional="true"/>
+                    <persistence type="property"/>
+                </attribute>
+
+                <attribute qualifier="adyenPaymentFailureReason"
+                           type="java.lang.String">
+                    <modifiers optional="true"/>
+                    <persistence type="property"/>
+                </attribute>
             </attributes>
         </itemtype>
 

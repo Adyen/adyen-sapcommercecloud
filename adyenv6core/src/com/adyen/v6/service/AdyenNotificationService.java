@@ -87,4 +87,11 @@ public interface AdyenNotificationService {
      */
     void processChargebackEvent(AdyenNotificationModel notificationItem);
 
+    /**
+     * Processes an OFFER_CLOSED notification.
+     */
+    void processOfferClosedEvent(
+            AdyenNotificationModel notificationItemModel
+    );
+
 }

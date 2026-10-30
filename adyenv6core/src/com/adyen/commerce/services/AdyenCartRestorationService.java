@@ -21,6 +21,7 @@
 package com.adyen.commerce.services;
 
 import de.hybris.platform.core.model.order.CartModel;
+import de.hybris.platform.core.model.order.OrderModel;
 import de.hybris.platform.order.InvalidCartException;
 import de.hybris.platform.order.exceptions.CalculationException;
 
@@ -74,4 +75,7 @@ public interface AdyenCartRestorationService {
      * @throws CalculationException if cart recalculation fails
      */
     void restoreCartFromOrderCodeInSession() throws InvalidCartException, CalculationException;
+
+    void restoreFailedPaymentCartIfRequired(OrderModel order)
+            throws CalculationException, InvalidCartException;
 }

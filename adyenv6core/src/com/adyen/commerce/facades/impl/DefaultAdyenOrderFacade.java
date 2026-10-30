@@ -3,11 +3,14 @@ package com.adyen.commerce.facades.impl;
 import com.adyen.commerce.facades.AdyenOrderFacade;
 import de.hybris.platform.commerceservices.customer.CustomerAccountService;
 import de.hybris.platform.commerceservices.strategies.CheckoutCustomerStrategy;
+import de.hybris.platform.core.enums.OrderStatus;
 import de.hybris.platform.core.model.ItemModel;
 import de.hybris.platform.core.model.order.OrderModel;
 import de.hybris.platform.core.model.user.CustomerModel;
 import de.hybris.platform.core.model.user.UserModel;
 import de.hybris.platform.payment.dto.TransactionStatus;
+import de.hybris.platform.payment.dto.TransactionStatusDetails;
+import de.hybris.platform.payment.enums.PaymentTransactionType;
 import de.hybris.platform.payment.model.PaymentTransactionEntryModel;
 import de.hybris.platform.payment.model.PaymentTransactionModel;
 import de.hybris.platform.servicelayer.exceptions.ModelNotFoundException;
@@ -21,6 +24,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -78,6 +82,21 @@ public class DefaultAdyenOrderFacade implements AdyenOrderFacade {
         return orderModel;
     }
 
+    @Override
+    public OrderModel getOrderModelForPaymentStatus(
+            final String orderIdentifier,
+            final String sessionGuid) {
+
+        return getOrderModelForCode(
+                orderIdentifier,
+                sessionGuid);
+    }
+
+    @Override
+    public String getPaymentStatus(final OrderModel order) {
+        return getPaymentStatusForOrder(order);
+    }
+
     private static void checkIfUserIsCustomer(String code, UserModel currentUser) {
         if (!(currentUser instanceof CustomerModel)) {
             throw new IllegalStateException("Current user is not a CustomerModel, cannot retrieve order for code: " + code);
@@ -129,45 +148,83 @@ public class DefaultAdyenOrderFacade implements AdyenOrderFacade {
         return orderModel;
     }
 
-    protected String getPaymentStatusForOrder(final OrderModel orderModel) {
-        List<PaymentTransactionModel> paymentTransactions = orderModel.getPaymentTransactions();
-        if (paymentTransactions.isEmpty()) {
-            return getMessageFromStatus(TransactionStatus.REVIEW.name());
-        }
-        return getStatus(paymentTransactions);
-    }
+    protected String getPaymentStatusForOrder(
+            final OrderModel orderModel) {
 
-    protected String getStatus(List<PaymentTransactionModel> paymentTransactions) {
-        Optional<PaymentTransactionModel> paymentTransactionModelList = paymentTransactions.stream()
-                .max(Comparator.comparing(ItemModel::getCreationtime));
-
-        if (paymentTransactionModelList.isPresent()) {
-            Optional<PaymentTransactionEntryModel> paymentTransactionEntryModel = paymentTransactionModelList.get().getEntries().stream()
-                    .max(Comparator.comparing(ItemModel::getCreationtime));
-
-            if (paymentTransactionEntryModel.isPresent()) {
-                return getMessageFromStatus(paymentTransactionEntryModel.get().getTransactionStatus());
-            }
+        if (OrderStatus.CANCELLED.equals(orderModel.getStatus())) {
+            return "cancelled";
         }
 
-        throw new ModelNotFoundException("No entries in payment transaction model.");
-    }
-
-    protected String getMessageFromStatus(String transactionStatus) {
-        if (transactionStatus.equals(TransactionStatus.ACCEPTED.name())) {
-            return "completed";
-        }
-        if (transactionStatus.equals(TransactionStatus.REJECTED.name())) {
+        if (OrderStatus.PAYMENT_NOT_AUTHORIZED.equals(
+                orderModel.getStatus())) {
             return "rejected";
         }
-        if (transactionStatus.equals(TransactionStatus.REVIEW.name())) {
-            return "waiting";
-        }
-        if (transactionStatus.equals(TransactionStatus.ERROR.name())) {
+
+        if (OrderStatus.PROCESSING_ERROR.equals(
+                orderModel.getStatus())) {
             return "error";
         }
 
-        LOG.warn("Unknown transaction status.");
+        final List<PaymentTransactionModel> paymentTransactions =
+                orderModel.getPaymentTransactions();
+
+        if (paymentTransactions == null || paymentTransactions.isEmpty()) {
+            return "waiting";
+        }
+
+        return getStatus(paymentTransactions);
+    }
+
+    protected String getStatus(
+            final List<PaymentTransactionModel> paymentTransactions) {
+
+        final Optional<PaymentTransactionEntryModel> latestEntry =
+                paymentTransactions.stream()
+                        .filter(Objects::nonNull)
+                        .flatMap(paymentTransaction ->
+                                paymentTransaction.getEntries().stream())
+                        .filter(Objects::nonNull)
+                        .max(Comparator.comparing(ItemModel::getCreationtime));
+
+        if (latestEntry.isEmpty()) {
+            return "waiting";
+        }
+
+        final PaymentTransactionEntryModel entry = latestEntry.get();
+
+        if (PaymentTransactionType.CANCEL.equals(entry.getType())) {
+            if (TransactionStatus.ACCEPTED.name()
+                    .equals(entry.getTransactionStatus())
+                    && TransactionStatusDetails.SUCCESFULL.name()
+                    .equals(entry.getTransactionStatusDetails())) {
+
+                return "cancelled";
+            }
+
+            return "error";
+        }
+
+        return getMessageFromStatus(entry.getTransactionStatus());
+    }
+
+    protected String getMessageFromStatus(final String transactionStatus) {
+        if (TransactionStatus.ACCEPTED.name().equals(transactionStatus)) {
+            return "completed";
+        }
+
+        if (TransactionStatus.REJECTED.name().equals(transactionStatus)) {
+            return "rejected";
+        }
+
+        if (TransactionStatus.REVIEW.name().equals(transactionStatus)) {
+            return "waiting";
+        }
+
+        if (TransactionStatus.ERROR.name().equals(transactionStatus)) {
+            return "error";
+        }
+
+        LOG.warn("Unknown transaction status: {}", transactionStatus);
         return "unknown";
     }
 
