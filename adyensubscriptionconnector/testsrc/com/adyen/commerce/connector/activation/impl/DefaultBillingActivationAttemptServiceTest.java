@@ -73,6 +73,7 @@ import de.hybris.platform.servicelayer.search.SearchResult;
 @UnitTest
 public class DefaultBillingActivationAttemptServiceTest
 {
+	private static final BillingPlatform CHARGEBEE = BillingPlatform.valueOf("CHARGEBEE");
 	private static final Instant NOW = Instant.parse("2026-08-20T12:00:00Z");
 	private static final int MAX_ATTEMPTS = 3;
 
@@ -313,7 +314,7 @@ public class DefaultBillingActivationAttemptServiceTest
 
 	private BillingActivationAttemptModel begin()
 	{
-		return attemptService.begin(order, BillingPlatform.CHARGEBEE, "sub-product", "order-1");
+		return attemptService.begin(order, CHARGEBEE, "sub-product", "order-1");
 	}
 
 	private static SearchResult<BillingActivationAttemptModel> searchResult(

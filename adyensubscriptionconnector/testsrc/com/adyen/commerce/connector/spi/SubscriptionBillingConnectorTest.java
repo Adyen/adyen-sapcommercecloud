@@ -41,14 +41,16 @@ import de.hybris.bootstrap.annotations.UnitTest;
 @UnitTest
 public class SubscriptionBillingConnectorTest
 {
+	private static final BillingPlatform CHARGEBEE = BillingPlatform.valueOf("CHARGEBEE");
+
 	@Test
 	public void defaultPauseRejectsWithCapabilityUnsupported()
 	{
 		final SubscriptionBillingConnector connector = mock(SubscriptionBillingConnector.class, CALLS_REAL_METHODS);
-		doReturn(BillingPlatform.CHARGEBEE).when(connector).platform();
+		doReturn(CHARGEBEE).when(connector).platform();
 
 		final SubscriptionPauseRequest request = new SubscriptionPauseRequest(
-				new BillingSubscriptionRef(BillingPlatform.CHARGEBEE, "sub-1"), null, "key-1");
+				new BillingSubscriptionRef(CHARGEBEE, "sub-1"), null, "key-1");
 
 		assertThrows(CapabilityUnsupportedException.class, () -> connector.pauseSubscription(request));
 	}

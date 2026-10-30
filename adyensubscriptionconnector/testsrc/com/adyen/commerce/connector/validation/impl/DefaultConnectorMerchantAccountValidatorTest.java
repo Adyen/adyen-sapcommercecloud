@@ -45,6 +45,9 @@ import de.hybris.platform.store.BaseStoreModel;
 @UnitTest
 public class DefaultConnectorMerchantAccountValidatorTest
 {
+	private static final BillingPlatform RECURLY = BillingPlatform.valueOf("RECURLY");
+	private static final BillingPlatform CHARGEBEE = BillingPlatform.valueOf("CHARGEBEE");
+
 	@Mock
 	private AdyenMerchantAccountStrategy adyenMerchantAccountStrategy;
 	@Mock
@@ -75,7 +78,7 @@ public class DefaultConnectorMerchantAccountValidatorTest
 	public void shouldFailWhenAccountsMismatch()
 	{
 		when(connector.configuredAdyenMerchantAccount()).thenReturn("MERCH-A");
-		when(connector.platform()).thenReturn(BillingPlatform.ZUORA);
+		when(connector.platform()).thenReturn(CHARGEBEE);
 		when(adyenMerchantAccountStrategy.getWebMerchantAccount(store)).thenReturn("MERCH-B");
 		when(store.getUid()).thenReturn("electronics");
 
@@ -83,29 +86,14 @@ public class DefaultConnectorMerchantAccountValidatorTest
 	}
 
 	/**
-	 * ADYEN_NATIVE has no external gateway, so there is nothing to bind and nothing to compare.
+	 * No platform is exempt: a connector answering "not configured" must not disable the check before
+	 * activateSubscription creates the customer on the remote platform.
 	 */
 	@Test
-	public void shouldSkipForTheAdyenNativeConnector() throws Exception
+	public void shouldFailWhenTheConnectorHasNoConfiguredAccount()
 	{
 		when(connector.configuredAdyenMerchantAccount()).thenReturn(null);
-		when(connector.platform()).thenReturn(BillingPlatform.ADYEN_NATIVE);
-
-		validator.validate(connector, store);
-
-		verify(adyenMerchantAccountStrategy, never()).getWebMerchantAccount(store);
-	}
-
-	/**
-	 * An external connector answering "not configured" is not ADYEN_NATIVE's "not applicable": treating the
-	 * two alike would disable the check before activateSubscription creates the customer on the remote
-	 * platform.
-	 */
-	@Test
-	public void shouldFailWhenAnExternalConnectorHasNoConfiguredAccount()
-	{
-		when(connector.configuredAdyenMerchantAccount()).thenReturn(null);
-		when(connector.platform()).thenReturn(BillingPlatform.CHARGEBEE);
+		when(connector.platform()).thenReturn(CHARGEBEE);
 		when(store.getUid()).thenReturn("electronics");
 
 		assertThrows(PreconditionFailedException.class, () -> validator.validate(connector, store));
@@ -116,7 +104,7 @@ public class DefaultConnectorMerchantAccountValidatorTest
 	public void shouldTreatABlankConfiguredAccountAsUnset()
 	{
 		when(connector.configuredAdyenMerchantAccount()).thenReturn("   ");
-		when(connector.platform()).thenReturn(BillingPlatform.RECURLY);
+		when(connector.platform()).thenReturn(RECURLY);
 		when(store.getUid()).thenReturn("electronics");
 
 		assertThrows(PreconditionFailedException.class, () -> validator.validate(connector, store));

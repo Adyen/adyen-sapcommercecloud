@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+ Backoffice configuration of the subscription billing connector core: the store's platform choice and the
+ operator's view of what the connector stack is doing. Connector extensions add their own sections to the
+ same tab and their own nodes to the same explorer-tree node.
+-->
+<config xmlns="http://www.hybris.com/cockpit/config"
+        xmlns:lv="http://www.hybris.com/cockpitng/component/listView"
+        xmlns:as="http://www.hybris.com/cockpitng/config/advancedsearch">
+
+    <context merge-by="type" type="BaseStore" component="editor-area">
+        <editorArea:editorArea xmlns:editorArea="http://www.hybris.com/cockpitng/component/editorArea">
+            <editorArea:tab name="hmc.adyen.subscriptionBilling">
+                <editorArea:section name="hmc.adyen.subscriptionPlatform">
+                    <!-- The resolver offers only platforms whose connector is loaded (and keeps the current
+                         value visible); activeBillingPlatformValidateInterceptor enforces the same for
+                         every other writer. The resolver bean is defined by adyenv6backoffice; without that
+                         extension the editor lists no platforms. -->
+                    <editorArea:attribute qualifier="activeBillingPlatform">
+                        <editorArea:editor-parameter>
+                            <editorArea:name>valueResolver</editorArea:name>
+                            <editorArea:value>adyenBillingPlatformEnumValueResolver</editorArea:value>
+                        </editorArea:editor-parameter>
+                    </editorArea:attribute>
+                </editorArea:section>
+            </editorArea:tab>
+        </editorArea:editorArea>
+    </context>
+
+    <!-- BillingActivationAttempt comes first: a row in DEAD_LETTER there means a shopper paid and has no
+         subscription. -->
+    <context merge-by="module" parent="auto" component="explorer-tree">
+        <explorer-tree:explorer-tree xmlns:explorer-tree="http://www.hybris.com/cockpitng/config/explorertree">
+            <explorer-tree:navigation-node id="hmc_treenode_system" merge-mode="append">
+                <explorer-tree:navigation-node id="adyen.subscriptionBilling">
+                    <explorer-tree:type-node code="BillingActivationAttempt" id="adyen.billingActivationAttempt"/>
+                    <explorer-tree:type-node code="BillingWebhookEvent" id="adyen.billingWebhookEvent"/>
+                    <!-- Right after the delivery: one delivery can name several subscriptions, and only
+                         here does the operator see which of them got the update. -->
+                    <explorer-tree:type-node code="BillingWebhookEventApplication" id="adyen.billingWebhookEventApplication"/>
+                    <explorer-tree:type-node code="BillingSubscriptionRef" id="adyen.billingSubscriptionRef"/>
+                </explorer-tree:navigation-node>
+            </explorer-tree:navigation-node>
+        </explorer-tree:explorer-tree>
+    </context>
+
+    <context merge-by="type" parent="GenericItem" type="BillingActivationAttempt" component="listview">
+        <lv:list-view>
+            <!-- Status, attempts and next attempt first: is anything wrong, and will anything still
+                 happen about it. -->
+            <lv:column qualifier="status"/>
+            <lv:column qualifier="attemptCount"/>
+            <lv:column qualifier="nextAttemptAt"/>
+            <lv:column qualifier="deadLetteredAt"/>
+            <lv:column qualifier="order"/>
+            <lv:column qualifier="platform"/>
+            <lv:column qualifier="productCode"/>
+            <lv:column qualifier="subscriptionRef"/>
+            <lv:column qualifier="lastError"/>
+        </lv:list-view>
+    </context>
+
+    <context merge-by="type" parent="GenericItem" type="BillingActivationAttempt" component="advanced-search">
+        <as:advanced-search>
+            <as:field-list>
+                <as:field name="status" selected="true"/>
+                <as:field name="platform" selected="true"/>
+                <as:field name="deadLetteredAt" selected="true"/>
+                <as:field name="attemptCount"/>
+                <as:field name="nextAttemptAt"/>
+                <as:field name="idempotencyKey"/>
+                <as:field name="productCode"/>
+            </as:field-list>
+        </as:advanced-search>
+    </context>
+
+    <context merge-by="type" type="BillingActivationAttempt" component="editor-area">
+        <editorArea:editorArea xmlns:editorArea="http://www.hybris.com/cockpitng/component/editorArea">
+            <editorArea:tab name="hmc.adyen.subscriptionBilling.attempt">
+                <editorArea:section name="hmc.adyen.subscriptionBilling.outcome">
+                    <editorArea:attribute qualifier="status"/>
+                    <editorArea:attribute qualifier="subscriptionRef"/>
+                    <editorArea:attribute qualifier="lastError"/>
+                </editorArea:section>
+                <editorArea:section name="hmc.adyen.subscriptionBilling.request">
+                    <editorArea:attribute qualifier="order"/>
+                    <editorArea:attribute qualifier="platform"/>
+                    <editorArea:attribute qualifier="productCode"/>
+                    <editorArea:attribute qualifier="idempotencyKey"/>
+                </editorArea:section>
+                <editorArea:section name="hmc.adyen.subscriptionBilling.retry">
+                    <editorArea:attribute qualifier="attemptCount"/>
+                    <editorArea:attribute qualifier="firstAttemptAt"/>
+                    <editorArea:attribute qualifier="lastAttemptAt"/>
+                    <editorArea:attribute qualifier="nextAttemptAt"/>
+                    <editorArea:attribute qualifier="deadLetteredAt"/>
+                </editorArea:section>
+            </editorArea:tab>
+        </editorArea:editorArea>
+    </context>
+
+    <context merge-by="type" parent="GenericItem" type="BillingWebhookEvent" component="listview">
+        <lv:list-view>
+            <lv:column qualifier="processingStatus"/>
+            <lv:column qualifier="attemptCount"/>
+            <lv:column qualifier="deadLetteredAt"/>
+            <lv:column qualifier="platform"/>
+            <lv:column qualifier="eventType"/>
+            <lv:column qualifier="eventId"/>
+            <lv:column qualifier="externalSubscriptionId"/>
+            <lv:column qualifier="occurredAt"/>
+            <lv:column qualifier="receivedAt"/>
+            <lv:column qualifier="lastError"/>
+        </lv:list-view>
+    </context>
+
+    <context merge-by="type" parent="GenericItem" type="BillingWebhookEvent" component="advanced-search">
+        <as:advanced-search>
+            <as:field-list>
+                <as:field name="processingStatus" selected="true"/>
+                <as:field name="platform" selected="true"/>
+                <as:field name="deadLetteredAt" selected="true"/>
+                <as:field name="eventType"/>
+                <as:field name="eventId"/>
+                <as:field name="externalSubscriptionId"/>
+                <as:field name="receivedAt"/>
+            </as:field-list>
+        </as:advanced-search>
+    </context>
+
+    <context merge-by="type" type="BillingWebhookEvent" component="editor-area">
+        <editorArea:editorArea xmlns:editorArea="http://www.hybris.com/cockpitng/component/editorArea">
+            <editorArea:tab name="hmc.adyen.subscriptionBilling.event">
+                <editorArea:section name="hmc.adyen.subscriptionBilling.outcome">
+                    <editorArea:attribute qualifier="processingStatus"/>
+                    <editorArea:attribute qualifier="attemptCount"/>
+                    <editorArea:attribute qualifier="deadLetteredAt"/>
+                    <editorArea:attribute qualifier="subscriptionRef"/>
+                    <editorArea:attribute qualifier="lastError"/>
+                    <!-- Next to its error: the body is kept only for deliveries that failed. -->
+                    <editorArea:attribute qualifier="payload"/>
+                </editorArea:section>
+                <editorArea:section name="hmc.adyen.subscriptionBilling.delivery">
+                    <editorArea:attribute qualifier="platform"/>
+                    <editorArea:attribute qualifier="eventId"/>
+                    <editorArea:attribute qualifier="eventType"/>
+                    <editorArea:attribute qualifier="externalSubscriptionId"/>
+                    <editorArea:attribute qualifier="occurredAt"/>
+                    <editorArea:attribute qualifier="receivedAt"/>
+                </editorArea:section>
+            </editorArea:tab>
+        </editorArea:editorArea>
+    </context>
+
+    <context merge-by="type" parent="GenericItem" type="BillingSubscriptionRef" component="listview">
+        <lv:list-view>
+            <lv:column qualifier="status"/>
+            <lv:column qualifier="platform"/>
+            <lv:column qualifier="externalSubscriptionId"/>
+            <lv:column qualifier="customer"/>
+            <lv:column qualifier="order"/>
+            <lv:column qualifier="planCode"/>
+            <lv:column qualifier="currentPeriodEnd"/>
+            <lv:column qualifier="lastSyncedAt"/>
+        </lv:list-view>
+    </context>
+
+    <!-- Per-subscription outcome of one delivery. lastError sits next to processingStatus in every view:
+         SKIPPED_UNKNOWN_SUBSCRIPTION with an empty lastError needs nothing, with a lastError it means the
+         expected local reference never appeared and somebody has to look. -->
+    <context merge-by="type" parent="GenericItem" type="BillingWebhookEventApplication" component="listview">
+        <lv:list-view>
+            <lv:column qualifier="processingStatus"/>
+            <lv:column qualifier="lastError"/>
+            <lv:column qualifier="externalSubscriptionId"/>
+            <lv:column qualifier="subscriptionRef"/>
+            <lv:column qualifier="attemptCount"/>
+            <lv:column qualifier="reconciledAt"/>
+            <lv:column qualifier="event"/>
+        </lv:list-view>
+    </context>
+
+    <context merge-by="type" parent="GenericItem" type="BillingWebhookEventApplication" component="advanced-search">
+        <as:advanced-search>
+            <as:field-list>
+                <as:field name="processingStatus" selected="true"/>
+                <as:field name="externalSubscriptionId" selected="true"/>
+                <!-- Searching it non-empty finds the skips that need an operator. -->
+                <as:field name="lastError" selected="true"/>
+                <as:field name="subscriptionRef"/>
+                <as:field name="reconciledAt"/>
+                <as:field name="attemptCount"/>
+            </as:field-list>
+        </as:advanced-search>
+    </context>
+
+    <context merge-by="type" type="BillingWebhookEventApplication" component="editor-area">
+        <editorArea:editorArea xmlns:editorArea="http://www.hybris.com/cockpitng/component/editorArea">
+            <editorArea:tab name="hmc.adyen.subscriptionBilling.application">
+                <editorArea:section name="hmc.adyen.subscriptionBilling.outcome">
+                    <editorArea:attribute qualifier="processingStatus"/>
+                    <editorArea:attribute qualifier="lastError"/>
+                    <editorArea:attribute qualifier="attemptCount"/>
+                    <editorArea:attribute qualifier="reconciledAt"/>
+                </editorArea:section>
+                <editorArea:section name="hmc.adyen.subscriptionBilling.subject">
+                    <editorArea:attribute qualifier="externalSubscriptionId"/>
+                    <editorArea:attribute qualifier="subscriptionRef"/>
+                    <editorArea:attribute qualifier="event"/>
+                </editorArea:section>
+            </editorArea:tab>
+        </editorArea:editorArea>
+    </context>
+
+</config>

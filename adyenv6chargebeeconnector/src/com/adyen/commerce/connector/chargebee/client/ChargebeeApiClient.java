@@ -43,12 +43,14 @@ public interface ChargebeeApiClient
 	 * Import an externally-vaulted Adyen token as a Chargebee payment source via
 	 * {@code create_using_permanent_token}.
 	 *
-	 * @param customerId  the Chargebee customer id
-	 * @param referenceId {@code shopperReference/recurringDetailReference} (slash-joined)
-	 * @param cardMetadata optional non-PCI card hints; may be {@code null}
+	 * @param customerId     the Chargebee customer id
+	 * @param referenceId    {@code shopperReference/recurringDetailReference} (slash-joined)
+	 * @param cardMetadata   optional non-PCI card hints; may be {@code null}
+	 * @param idempotencyKey optional idempotency key for this call; blank sends none
 	 * @return the Chargebee payment source id
 	 */
-	String importPermanentToken(String customerId, String referenceId, CardMetadata cardMetadata) throws BillingException;
+	String importPermanentToken(String customerId, String referenceId, CardMetadata cardMetadata,
+			String idempotencyKey) throws BillingException;
 
 	/**
 	 * Create a subscription for an item price.
@@ -68,11 +70,16 @@ public interface ChargebeeApiClient
 
 	/**
 	 * Update an existing subscription. Null arguments are omitted (left unchanged).
+	 *
+	 * @param idempotencyKey optional idempotency key for this call; blank sends none
 	 */
-	void updateSubscription(String subscriptionId, String itemPriceId, Integer quantity) throws BillingException;
+	void updateSubscription(String subscriptionId, String itemPriceId, Integer quantity, String idempotencyKey)
+			throws BillingException;
 
 	/**
 	 * Cancel a subscription immediately or at end of the current term.
+	 *
+	 * @param idempotencyKey optional idempotency key for this call; blank sends none
 	 */
-	void cancelSubscription(String subscriptionId, boolean atPeriodEnd) throws BillingException;
+	void cancelSubscription(String subscriptionId, boolean atPeriodEnd, String idempotencyKey) throws BillingException;
 }

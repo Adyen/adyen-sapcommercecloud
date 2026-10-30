@@ -468,8 +468,9 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
     }
 
     /**
-     * Namespaces the idempotency key by operation. The core uses one key per subscription, and Recurly replays
-     * the first response recorded for a key, so an un-namespaced cancel would get the create's 201 back.
+     * Namespaces the idempotency key by operation. The core derives its keys from the subscription's creation
+     * key, and Recurly replays the first response recorded for a key, so a key that ever matched the create's
+     * would get the create's 201 back.
      */
     protected static String operationKey(final String idempotencyKey, final String operation) {
         return StringUtils.isBlank(idempotencyKey) ? null : idempotencyKey + "/" + operation;

@@ -106,8 +106,8 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 	}
 
 	@Override
-	public String importPermanentToken(final String customerId, final String referenceId, final CardMetadata card)
-			throws BillingException
+	public String importPermanentToken(final String customerId, final String referenceId, final CardMetadata card,
+			final String idempotencyKey) throws BillingException
 	{
 		final Map<String, String> params = new LinkedHashMap<>();
 		params.put("customer_id", customerId);
@@ -123,10 +123,9 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 			addExpiry(params, card.expiry());
 		}
 
-		// reference_id is a deterministic idempotency key: a replay returns the original payment source.
 		final ChargebeeHttpResponse response = httpClient.post(
 				configService.getApiBaseUrl() + "/payment_sources/create_using_permanent_token", authHeader(),
-				FormEncoder.encode(params), referenceId);
+				FormEncoder.encode(params), idempotencyKey);
 		requireSuccess(response, "import Adyen token");
 		return readId(response.body(), "payment_source");
 	}
@@ -294,8 +293,8 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 	}
 
 	@Override
-	public void updateSubscription(final String subscriptionId, final String itemPriceId, final Integer quantity)
-			throws BillingException
+	public void updateSubscription(final String subscriptionId, final String itemPriceId, final Integer quantity,
+			final String idempotencyKey) throws BillingException
 	{
 		if (StringUtils.isBlank(itemPriceId) && quantity == null)
 		{
@@ -323,19 +322,20 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 
 		final ChargebeeHttpResponse response = httpClient.post(
 				configService.getApiBaseUrl() + SUBSCRIPTIONS_PATH + pathSegment(subscriptionId) + "/update_for_items",
-				authHeader(), FormEncoder.encode(form), null);
+				authHeader(), FormEncoder.encode(form), idempotencyKey);
 		requireSuccess(response, "update subscription");
 	}
 
 	@Override
-	public void cancelSubscription(final String subscriptionId, final boolean atPeriodEnd) throws BillingException
+	public void cancelSubscription(final String subscriptionId, final boolean atPeriodEnd, final String idempotencyKey)
+			throws BillingException
 	{
 		final Map<String, String> form = new LinkedHashMap<>();
 		form.put("cancel_option", atPeriodEnd ? "end_of_term" : "immediately");
 
 		final ChargebeeHttpResponse response = httpClient.post(
 				configService.getApiBaseUrl() + SUBSCRIPTIONS_PATH + pathSegment(subscriptionId) + "/cancel_for_items",
-				authHeader(), FormEncoder.encode(form), null);
+				authHeader(), FormEncoder.encode(form), idempotencyKey);
 		requireSuccess(response, "cancel subscription");
 	}
 

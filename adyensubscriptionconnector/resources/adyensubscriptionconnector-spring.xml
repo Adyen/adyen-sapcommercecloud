@@ -18,6 +18,34 @@
     <bean id="defaultSubscriptionBillingConnectorRegistry"
           class="com.adyen.commerce.connector.registry.impl.DefaultSubscriptionBillingConnectorRegistry"/>
 
+    <!-- Replaces adyenv6core's empty default: a platform is available when its connector is registered. -->
+    <alias name="connectorBillingPlatformAvailabilityService" alias="billingPlatformAvailabilityService"/>
+    <bean id="connectorBillingPlatformAvailabilityService"
+          class="com.adyen.commerce.connector.registry.impl.ConnectorBillingPlatformAvailabilityService">
+        <property name="connectorRegistry" ref="subscriptionBillingConnectorRegistry"/>
+    </bean>
+
+    <!-- ============================================================= -->
+    <!-- BaseStore.activeBillingPlatform guard                         -->
+    <!-- a store switches only to a platform whose connector is loaded -->
+    <!-- and whose configuration on the store is complete. Connector   -->
+    <!-- extensions add their BillingPlatformReadinessCheck with a     -->
+    <!-- listMergeDirective (depends-on this bean, fieldName           -->
+    <!-- readinessChecks).                                             -->
+    <!-- ============================================================= -->
+    <bean id="activeBillingPlatformValidateInterceptor"
+          class="com.adyen.commerce.connector.interceptor.ActiveBillingPlatformValidateInterceptor">
+        <property name="connectorRegistry" ref="subscriptionBillingConnectorRegistry"/>
+        <property name="readinessChecks">
+            <list/>
+        </property>
+    </bean>
+    <bean id="activeBillingPlatformValidateInterceptorMapping"
+          class="de.hybris.platform.servicelayer.interceptor.impl.InterceptorMapping">
+        <property name="interceptor" ref="activeBillingPlatformValidateInterceptor"/>
+        <property name="typeCode" value="BaseStore"/>
+    </bean>
+
     <!-- ============================================================= -->
     <!-- Startup / pre-activation validation                          -->
     <!-- connector's Adyen merchant account must equal the store's.    -->
@@ -257,19 +285,25 @@
     <!-- ============================================================= -->
     <!-- My Account: the shopper's own view of their subscriptions      -->
     <!-- ============================================================= -->
+    <alias name="defaultCustomerSubscriptionService" alias="customerSubscriptionService"/>
+    <bean id="defaultCustomerSubscriptionService"
+          class="com.adyen.commerce.connector.selfservice.impl.DefaultCustomerSubscriptionService">
+        <property name="flexibleSearchService" ref="flexibleSearchService"/>
+        <property name="subscriptionBillingService" ref="subscriptionBillingService"/>
+        <property name="connectorRegistry" ref="subscriptionBillingConnectorRegistry"/>
+        <property name="storeContext" ref="subscriptionStoreContext"/>
+        <property name="tokenHandleFactory" ref="adyenTokenHandleFactory"/>
+        <property name="storedCardsService" ref="adyenStoredCardsService"/>
+        <property name="storedCardAuthorisationService" ref="adyenStoredCardAuthorisationService"/>
+    </bean>
+
     <alias name="defaultMySubscriptionsFacade" alias="mySubscriptionsFacade"/>
     <bean id="defaultMySubscriptionsFacade"
           class="com.adyen.commerce.connector.facades.impl.DefaultMySubscriptionsFacade">
         <property name="userService" ref="userService"/>
-        <property name="flexibleSearchService" ref="flexibleSearchService"/>
         <property name="productService" ref="productService"/>
-        <property name="subscriptionBillingService" ref="subscriptionBillingService"/>
-        <property name="sessionService" ref="sessionService"/>
-        <property name="baseSiteService" ref="baseSiteService"/>
-        <property name="connectorRegistry" ref="subscriptionBillingConnectorRegistry"/>
-        <property name="tokenHandleFactory" ref="adyenTokenHandleFactory"/>
-        <property name="storedCardsFacade" ref="adyenStoredCardsFacade"/>
-        <property name="storedCardAuthorisationService" ref="adyenStoredCardAuthorisationService"/>
+        <property name="enumerationService" ref="enumerationService"/>
+        <property name="customerSubscriptionService" ref="customerSubscriptionService"/>
     </bean>
 
     <bean id="adyenOrderCancelledSubscriptionListener"
@@ -277,5 +311,24 @@
           parent="abstractEventListener">
         <property name="subscriptionOrderCancellationService" ref="subscriptionOrderCancellationService"/>
     </bean>
+
+    <!-- ============================================================= -->
+    <!-- CMS restriction: a My Account entry is shown only while a      -->
+    <!-- billing platform connector is loaded. The controllers answer   -->
+    <!-- 404 on the same condition.                                     -->
+    <!-- ============================================================= -->
+    <bean id="adyenSubscriptionPlatformRestrictionEvaluator"
+          class="com.adyen.commerce.connector.restrictions.SubscriptionPlatformRestrictionEvaluator">
+        <property name="mySubscriptionsFacade" ref="mySubscriptionsFacade"/>
+    </bean>
+
+    <bean id="adyenSubscriptionPlatformRestrictionEvaluatorMapping"
+          class="de.hybris.platform.cms2.servicelayer.services.evaluator.CMSRestrictionEvaluatorMapping">
+        <property name="restrictionTypeCode" value="AdyenSubscriptionPlatformRestriction"/>
+        <property name="restrictionEvaluator" ref="adyenSubscriptionPlatformRestrictionEvaluator"/>
+    </bean>
+
+    <bean id="adyenSubscriptionPlatformRestrictionDescriptionHandler"
+          class="com.adyen.commerce.connector.restrictions.SubscriptionPlatformRestrictionDescriptionHandler"/>
 
 </beans>

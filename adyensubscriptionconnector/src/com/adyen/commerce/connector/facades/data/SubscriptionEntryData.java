@@ -25,16 +25,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-import com.adyen.commerce.connector.dto.PaymentMethodChangeScope;
-import com.adyen.commerce.connector.dto.PlatformPaymentMethod;
-
 /**
- * One row of the shopper's subscription list.
- *
- * <p>A view of a {@code BillingSubscriptionRef} rather than a copy of it: it deliberately carries no
- * external subscription, customer or payment-method id, no platform name, no plan code and no idempotency
- * key. Those identify the shopper or their card on another system, or are the sequential SAP order code,
- * and none of them means anything on the page.</p>
+ * One subscription as the page shows it, inside the section of its own platform.
  */
 public class SubscriptionEntryData implements Serializable
 {
@@ -42,194 +34,69 @@ public class SubscriptionEntryData implements Serializable
 
 	/** The opaque public identifier. The only thing that comes back from the page in a request. */
 	private String code;
-
 	/**
 	 * The product's name, or its code when the product cannot be resolved in the catalogue being served.
 	 * Never the plan code: that is the billing platform's price identifier.
 	 */
 	private String productName;
-
 	private SubscriptionDisplayState state;
-
 	/**
 	 * The date the state refers to — the next renewal, the day access ends, the day it starts or the day it
 	 * ended — or {@code null} when it is not known yet. A subscription has no period until the first
 	 * platform read, so this is absent for a while after purchase.
 	 */
 	private Date effectiveDate;
-
 	/** Shown only when greater than one. */
 	private Integer quantity;
-
 	/** The order this was bought on, so the shopper can find what they paid and when. May be absent. */
 	private String orderCode;
-
 	/** The date of that order. */
 	private Date orderDate;
-
 	/**
-	 * The card <em>as it was at purchase</em>, for recognition only.
-	 *
-	 * <p>Read from the originating order's payment info, so it does not follow a payment-method change:
-	 * after the shopper moves their billing to another card this still names the old one.</p>
+	 * The card <em>as it was at purchase</em>, for recognition only. Read from the originating order's
+	 * payment info, so after the shopper moves their billing to another card this still names the old one.
 	 */
 	private String paymentMethodSummary;
-
-	/**
-	 * What a payment-method change would move <em>for this row</em>, as its own connector declares it.
-	 *
-	 * <p>Per row rather than per page because a shopper can hold subscriptions on more than one platform at
-	 * once and the platforms do not agree: one moves every subscription the customer has, another moves only
-	 * the one it was asked about, a third cannot do it at all.</p>
-	 */
-	private PaymentMethodChangeScope paymentMethodChangeScope = PaymentMethodChangeScope.NOT_SUPPORTED;
-
-	/**
-	 * Whether the shopper can change this row's payment method right now: its platform offers it, the row is
-	 * in a state where it would achieve something, and it carries a public identifier to name it by.
-	 *
-	 * <p>Read by the page to decide whether to render the control, and re-derived by the facade when a
-	 * request arrives, because a page rendered minutes ago is not evidence about now.</p>
-	 */
-	private boolean paymentMethodChangeable;
-
-	/**
-	 * What this row's own control may offer, for a platform that pins the method to one subscription.
-	 *
-	 * <p>These are the platform's methods, not the shopper's Adyen vault: a subscription-scoped change
-	 * repoints at something the billing account already holds, and importing a freshly chosen card is a
-	 * different operation that platform may not accept. Empty for every other kind of row.</p>
-	 */
-	private transient List<PlatformPaymentMethod> paymentMethodOptions = new ArrayList<>();
-
-	public List<PlatformPaymentMethod> getPaymentMethodOptions()
-	{
-		return paymentMethodOptions;
-	}
-
-	public void setPaymentMethodOptions(final List<PlatformPaymentMethod> paymentMethodOptions)
-	{
-		this.paymentMethodOptions = paymentMethodOptions == null ? new ArrayList<>() : paymentMethodOptions;
-	}
-
-	/**
-	 * The identifier, among this row's options, of the method the subscription is billed to right now.
-	 *
-	 * <p>Resolved by the row's own connector from the reference it stored, because only the adapter knows
-	 * how that reference is encoded. Distinct from {@code PlatformPaymentMethod.defaultForCustomer}, which
-	 * is the platform's default for the whole account and answers a different question - on a platform that
-	 * pins a method per subscription the two are routinely different instruments.</p>
-	 */
-	private String currentPaymentMethodId;
-
-	public String getCurrentPaymentMethodId()
-	{
-		return currentPaymentMethodId;
-	}
-
-	public void setCurrentPaymentMethodId(final String currentPaymentMethodId)
-	{
-		this.currentPaymentMethodId = currentPaymentMethodId;
-	}
-
-	/**
-	 * Whether this row's control can offer to put the chosen card behind the shopper's other subscriptions
-	 * too. False when it is the only one that could move, where the offer would promise nothing.
-	 */
-	private boolean paymentMethodShareable;
-
-	public boolean isPaymentMethodShareable()
-	{
-		return paymentMethodShareable;
-	}
-
-	public void setPaymentMethodShareable(final boolean paymentMethodShareable)
-	{
-		this.paymentMethodShareable = paymentMethodShareable;
-	}
-
-	/**
-	 * Cards from the shopper's Adyen vault this row could be repointed at, for a platform that accepts an
-	 * imported token as well as its own stored methods.
-	 *
-	 * <p>Already filtered: a platform that charges an imported token as a merchant-initiated transaction is
-	 * refused one carrying no network transaction id, so such a card never reaches this list.</p>
-	 */
-	private transient List<PlatformPaymentMethod> adyenVaultOptions = new ArrayList<>();
-
-	public List<PlatformPaymentMethod> getAdyenVaultOptions()
-	{
-		return adyenVaultOptions;
-	}
-
-	public void setAdyenVaultOptions(final List<PlatformPaymentMethod> adyenVaultOptions)
-	{
-		this.adyenVaultOptions = adyenVaultOptions == null ? new ArrayList<>() : adyenVaultOptions;
-	}
-
-	/**
-	 * Whether some control on this page will actually move this row's payment method.
-	 *
-	 * <p>Not the same question as {@link #paymentMethodChangeable}: a row with no public code cannot be
-	 * <em>named</em> in a form and is still moved by the control above the list, because a customer-scoped
-	 * change goes at the platform's customer record and takes every unpinned subscription with it. It
-	 * therefore depends on what the rest of the page offers, and is filled in once every row has been
-	 * examined rather than while each one is built.</p>
-	 */
-	private boolean paymentMethodChangeCovered;
-
 	/**
 	 * Whether anything can be <em>done</em> to this subscription from here, as opposed to whether it can be
-	 * described.
-	 *
-	 * <p>Every action is sent to the subscription's own platform with credentials taken from the base store
-	 * its originating order belongs to, so a reference with no order has nothing to reach the platform with.
-	 * The store gates this flag and this flag gates the buttons, while the state only describes. Defaults to
-	 * false and is set by the facade for every row it builds.</p>
+	 * described. Every action is sent with credentials of the store its originating order belongs to, so a
+	 * reference with no order has nothing to reach the platform with.
 	 */
 	private boolean manageable;
-
-	public boolean isManageable()
-	{
-		return manageable;
-	}
-
-	public void setManageable(final boolean manageable)
-	{
-		this.manageable = manageable;
-	}
-
-	public boolean isPaymentMethodChangeCovered()
-	{
-		return paymentMethodChangeCovered;
-	}
-
-	public void setPaymentMethodChangeCovered(final boolean paymentMethodChangeCovered)
-	{
-		this.paymentMethodChangeCovered = paymentMethodChangeCovered;
-	}
-
-	public PaymentMethodChangeScope getPaymentMethodChangeScope()
-	{
-		return paymentMethodChangeScope;
-	}
-
-	public void setPaymentMethodChangeScope(final PaymentMethodChangeScope paymentMethodChangeScope)
-	{
-		this.paymentMethodChangeScope = paymentMethodChangeScope == null
-				? PaymentMethodChangeScope.NOT_SUPPORTED
-				: paymentMethodChangeScope;
-	}
-
-	public boolean isPaymentMethodChangeable()
-	{
-		return paymentMethodChangeable;
-	}
-
-	public void setPaymentMethodChangeable(final boolean paymentMethodChangeable)
-	{
-		this.paymentMethodChangeable = paymentMethodChangeable;
-	}
+	/**
+	 * Whether the shopper can change this row's payment method right now: its platform offers it, the row is
+	 * in a state where it would achieve something, and it carries a public identifier to name it by. The
+	 * facade re-derives this when a request arrives, because a page rendered minutes ago is not evidence.
+	 */
+	private boolean paymentMethodChangeable;
+	/**
+	 * Whether this row carries its own control: its platform changes the payment method per subscription and
+	 * holds at least two methods to choose from. One option is no choice — it is what is already billing.
+	 */
+	private boolean paymentMethodControl;
+	/**
+	 * What the platform already holds for this row's account. Offered rather than the shopper's whole vault:
+	 * repointing at something the account holds imports nothing.
+	 */
+	private List<PaymentMethodOptionData> paymentMethodOptions = new ArrayList<>();
+	/**
+	 * Cards from the shopper's Adyen vault this row could be repointed at, where the platform accepts an
+	 * imported token as well. Already filtered to what the platform would accept, and without cards the
+	 * platform already holds under its own identifier.
+	 */
+	private List<PaymentMethodOptionData> adyenVaultOptions = new ArrayList<>();
+	/**
+	 * Whether this row's control may also offer to put the chosen method behind the shopper's other
+	 * subscriptions on the same account. False when it is the only one that could move.
+	 */
+	private boolean paymentMethodShareable;
+	/**
+	 * Whether the section accounts for this row's payment method: the row can be changed itself, or the
+	 * account-wide control of its own account moves it. When false while the section offers a change
+	 * elsewhere, the page tells the shopper this one cannot be changed online. Filled in once every row of
+	 * the section has been examined.
+	 */
+	private boolean paymentMethodChangeCovered;
 
 	public String getCode()
 	{
@@ -311,12 +178,79 @@ public class SubscriptionEntryData implements Serializable
 		this.paymentMethodSummary = paymentMethodSummary;
 	}
 
+	public boolean isManageable()
+	{
+		return manageable;
+	}
+
+	public void setManageable(final boolean manageable)
+	{
+		this.manageable = manageable;
+	}
+
+	public boolean isPaymentMethodChangeable()
+	{
+		return paymentMethodChangeable;
+	}
+
+	public void setPaymentMethodChangeable(final boolean paymentMethodChangeable)
+	{
+		this.paymentMethodChangeable = paymentMethodChangeable;
+	}
+
+	public boolean isPaymentMethodControl()
+	{
+		return paymentMethodControl;
+	}
+
+	public void setPaymentMethodControl(final boolean paymentMethodControl)
+	{
+		this.paymentMethodControl = paymentMethodControl;
+	}
+
+	public List<PaymentMethodOptionData> getPaymentMethodOptions()
+	{
+		return paymentMethodOptions;
+	}
+
+	public void setPaymentMethodOptions(final List<PaymentMethodOptionData> paymentMethodOptions)
+	{
+		this.paymentMethodOptions = paymentMethodOptions == null ? new ArrayList<>() : paymentMethodOptions;
+	}
+
+	public List<PaymentMethodOptionData> getAdyenVaultOptions()
+	{
+		return adyenVaultOptions;
+	}
+
+	public void setAdyenVaultOptions(final List<PaymentMethodOptionData> adyenVaultOptions)
+	{
+		this.adyenVaultOptions = adyenVaultOptions == null ? new ArrayList<>() : adyenVaultOptions;
+	}
+
+	public boolean isPaymentMethodShareable()
+	{
+		return paymentMethodShareable;
+	}
+
+	public void setPaymentMethodShareable(final boolean paymentMethodShareable)
+	{
+		this.paymentMethodShareable = paymentMethodShareable;
+	}
+
+	public boolean isPaymentMethodChangeCovered()
+	{
+		return paymentMethodChangeCovered;
+	}
+
+	public void setPaymentMethodChangeCovered(final boolean paymentMethodChangeCovered)
+	{
+		this.paymentMethodChangeCovered = paymentMethodChangeCovered;
+	}
+
 	/**
-	 * Whether to offer the shopper a way to stop this one. Convenience for the view, so the button condition
-	 * is not a second copy of the rule.
-	 *
-	 * <p>The code is part of the condition as much as the state is: a reference carries none until the
-	 * extension's essential data has been imported, and a button that posts an empty code can only fail.</p>
+	 * Whether to offer the shopper a way to stop this one, so the button condition is not a second copy of
+	 * the rule. The code is part of it: a button posting an empty code can only fail.
 	 */
 	public boolean isCancellable()
 	{

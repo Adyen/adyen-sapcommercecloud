@@ -37,6 +37,7 @@ import de.hybris.platform.store.BaseStoreModel;
 @UnitTest
 public class DefaultSubscriptionReconciliationServiceTest
 {
+	private static final BillingPlatform RECURLY = BillingPlatform.valueOf("RECURLY");
 	private static final Instant NOW = Instant.parse("2026-08-06T10:00:00Z");
 	private static final Instant PLATFORM_UPDATED = Instant.parse("2026-08-06T09:30:00Z");
 
@@ -66,15 +67,15 @@ public class DefaultSubscriptionReconciliationServiceTest
 		service.setClock(Clock.fixed(NOW, ZoneOffset.UTC));
 		when(storeContext.callInStoreOf(eq(model), any())).thenAnswer(
 				invocation -> invocation.<SubscriptionStoreContext.StoreBoundWork<?>> getArgument(1).call(store));
-		when(model.getPlatform()).thenReturn(BillingPlatform.RECURLY);
+		when(model.getPlatform()).thenReturn(RECURLY);
 		when(model.getExternalSubscriptionId()).thenReturn("uuid-sub");
-		when(connectorRegistry.getConnector(BillingPlatform.RECURLY)).thenReturn(connector);
+		when(connectorRegistry.getConnector(RECURLY)).thenReturn(connector);
 	}
 
 	@Test
 	public void appliesAuthoritativeSnapshotAfterMissedWebhook() throws Exception
 	{
-		final BillingSubscriptionRef ref = new BillingSubscriptionRef(BillingPlatform.RECURLY, "uuid-sub");
+		final BillingSubscriptionRef ref = new BillingSubscriptionRef(RECURLY, "uuid-sub");
 		final NormalizedSubscription snapshot = new NormalizedSubscription(ref,
 				NormalizedSubscriptionStatus.PAST_DUE, "annual", 3,
 				Instant.parse("2026-08-01T00:00:00Z"), Instant.parse("2027-08-01T00:00:00Z"), true,
@@ -116,7 +117,7 @@ public class DefaultSubscriptionReconciliationServiceTest
 	{
 		when(model.getPlatformUpdatedAt()).thenReturn(Date.from(PLATFORM_UPDATED));
 		final NormalizedSubscription older = new NormalizedSubscription(
-				new BillingSubscriptionRef(BillingPlatform.RECURLY, "uuid-sub"),
+				new BillingSubscriptionRef(RECURLY, "uuid-sub"),
 				NormalizedSubscriptionStatus.CANCELLED, "old-plan", 1, null, null, true,
 				PLATFORM_UPDATED.minusSeconds(60));
 		when(connector.fetchSubscription(anyRef())).thenReturn(older);
@@ -161,7 +162,7 @@ public class DefaultSubscriptionReconciliationServiceTest
 	private NormalizedSubscription snapshot()
 	{
 		return new NormalizedSubscription(
-				new BillingSubscriptionRef(BillingPlatform.RECURLY, "uuid-sub"),
+				new BillingSubscriptionRef(RECURLY, "uuid-sub"),
 				NormalizedSubscriptionStatus.ACTIVE, "monthly", 1, null, null, false,
 				PLATFORM_UPDATED);
 	}

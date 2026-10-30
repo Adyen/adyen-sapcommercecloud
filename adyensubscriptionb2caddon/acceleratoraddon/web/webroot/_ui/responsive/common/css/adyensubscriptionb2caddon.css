@@ -14,6 +14,13 @@
 .account-section .account-section-content .subx form,
 .subx form { padding-left: 0; padding-right: 0; }
 
+/* ---- one section per billing platform ---------------------------------------
+   Separated by space and a rule rather than by a box: each section already
+   contains boxed panels, and a box around boxes reads as a form, not a group. */
+.subx-section + .subx-section { margin-top: 36px; padding-top: 24px; border-top: 2px solid #e6e9ed; }
+.subx .subx-section-title { font-size: 18px; font-weight: 700; color: #153a59; margin: 0 0 16px;
+  text-transform: none; letter-spacing: 0; }
+
 /* ---- attention notice ------------------------------------------------------
    One block with a line per order, not one block per order: the sentence is 25
    words long and three copies of it is a wall, not an alert.                  */
@@ -23,7 +30,7 @@
 .subx-notice ul { list-style: none; margin: 0; padding: 0; }
 .subx-notice li + li { margin-top: 8px; padding-top: 8px; border-top: 1px solid #f0e1c4; }
 
-/* ---- page-level card change ------------------------------------------------ */
+/* ---- account-wide card change ---------------------------------------------- */
 .subx-panel { border: 1px solid #dfe3e8; border-radius: 3px; padding: 18px 20px; margin: 0 0 24px; }
 .subx-panel-title { font-size: 15px; font-weight: 600; color: #153a59; margin: 0 0 12px; }
 .subx-panel-fields { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
