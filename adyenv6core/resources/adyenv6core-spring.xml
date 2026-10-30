@@ -185,6 +185,7 @@
         <property name="ticketBusinessService" ref="ticketBusinessService"/>
         <property name="ticketService" ref="ticketService"/>
         <property name="configurationService" ref="configurationService"/>
+        <property name="adyenPaymentOutcomeService" ref="adyenPaymentOutcomeService"/>
     </bean>
 
     <bean id="adyenOrderCancelPaymentServiceAdapter" class="com.adyen.v6.service.AdyenOrderCancelPaymentServiceAdapter">
@@ -636,6 +637,12 @@
         <property name="adyenBusinessProcessService" ref="adyenBusinessProcessService"/>
         <property name="threeDSAuthorizationService" ref="threeDSAuthorizationService"/>
         <property name="addressPopulator" ref="addressPopulator"/>
+        <property name="transactionTemplate">
+            <bean class="org.springframework.transaction.support.TransactionTemplate">
+                <property name="transactionManager"
+                          ref="txManager"/>
+            </bean>
+        </property>
     </bean>
 
     <bean id="adyenCheckoutModelPopulator" class="com.adyen.commerce.populators.AdyenCheckoutModelPopulator"/>
@@ -748,6 +755,36 @@
         <property name="userService" ref="userService"/>
         <property name="baseStoreService" ref="baseStoreService"/>
         <property name="adyenStoredCardsService" ref="adyenStoredCardsService"/>
+    </bean>
+
+    <alias name="defaultAdyenPaymentOutcomeService"
+           alias="adyenPaymentOutcomeService"/>
+
+    <bean id="defaultAdyenPaymentOutcomeService"
+          class="com.adyen.v6.service.impl.DefaultAdyenPaymentOutcomeService">
+
+        <property name="modelService" ref="modelService"/>
+        <property name="adyenBusinessProcessService"
+                  ref="adyenBusinessProcessService"/>
+
+        <property name="transactionTemplate">
+            <bean class="org.springframework.transaction.support.TransactionTemplate">
+                <property name="transactionManager" ref="txManager"/>
+            </bean>
+        </property>
+    </bean>
+
+    <alias name="defaultAdyenPaymentOutcomeFacade"
+           alias="adyenPaymentOutcomeFacade"/>
+
+    <bean id="defaultAdyenPaymentOutcomeFacade"
+          class="com.adyen.commerce.facades.impl.DefaultAdyenPaymentOutcomeFacade">
+
+        <property name="adyenOrderFacade"
+                  ref="adyenOrderFacade"/>
+
+        <property name="adyenCartRestorationService"
+                  ref="adyenCartRestorationService"/>
     </bean>
 
 </beans>

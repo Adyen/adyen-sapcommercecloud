@@ -43,8 +43,11 @@ import de.hybris.platform.order.InvalidCartException;
 import de.hybris.platform.order.exceptions.CalculationException;
 import de.hybris.platform.servicelayer.model.ModelService;
 import de.hybris.platform.servicelayer.session.SessionService;
+import org.apache.commons.lang3.BooleanUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionOperations;
 
 import static de.hybris.platform.order.impl.DefaultCartService.SESSION_CART_PARAMETER_NAME;
 
@@ -72,7 +75,7 @@ public class DefaultAdyenCartRestorationService implements AdyenCartRestorationS
     private AdyenBusinessProcessService adyenBusinessProcessService;
     private ThreeDSAuthorizationService threeDSAuthorizationService;
     private Populator<AddressModel, AddressData> addressPopulator;
-
+    private TransactionOperations transactionTemplate;
     @Override
     public void lockSessionCart() {
         sessionService.setAttribute(SESSION_LOCKED_CART, cartService.getSessionCart());
@@ -143,6 +146,96 @@ public class DefaultAdyenCartRestorationService implements AdyenCartRestorationS
         threeDSAuthorizationService.clear3DSSessionTokens();
 
         restoreCartFromOrder(orderCode);
+    }
+
+    @Override
+    public void restoreFailedPaymentCartIfRequired(
+            final OrderModel order)
+            throws CalculationException, InvalidCartException {
+
+        try {
+            transactionTemplate.execute(transactionStatus -> {
+                try {
+                    modelService.refresh(order);
+
+                    if (!BooleanUtils.isTrue(
+                            order.getAdyenCartRestorationRequired())) {
+
+                        return null;
+                    }
+
+                    if (!isFinalPaymentFailure(order)) {
+                        throw new InvalidCartException(
+                                "Order '" + order.getCode()
+                                        + "' is not in a final "
+                                        + "payment failure state");
+                    }
+
+                    final CartModel alreadyRestoredCart =
+                            order.getAdyenRestoredCart();
+
+                    if (alreadyRestoredCart != null) {
+                        validateRestoredCart(
+                                order,
+                                alreadyRestoredCart);
+
+                        cartService.setSessionCart(
+                                alreadyRestoredCart);
+
+                        order.setAdyenCartRestorationRequired(
+                                Boolean.FALSE);
+
+                        modelService.save(order);
+                        return null;
+                    }
+
+                    restoreCartFromOrderInternal(order);
+
+                    final CartModel restoredCart =
+                            cartService.getSessionCart();
+
+                    order.setAdyenRestoredCart(restoredCart);
+                    order.setAdyenCartRestorationRequired(
+                            Boolean.FALSE);
+
+                    modelService.saveAll(
+                            restoredCart,
+                            order);
+
+                    return null;
+
+                } catch (CalculationException
+                         | InvalidCartException exception) {
+
+
+                    throw new CartRestorationRollbackException(
+                            exception);
+                }
+            });
+
+        } catch (CartRestorationRollbackException exception) {
+            rethrowCartRestorationException(exception);
+        }
+    }
+
+    protected boolean isFinalPaymentFailure(final OrderModel order) {
+        return OrderStatus.CANCELLED.equals(order.getStatus())
+                || OrderStatus.PAYMENT_NOT_AUTHORIZED.equals(
+                order.getStatus());
+    }
+
+    protected void validateRestoredCart(
+            final OrderModel order,
+            final CartModel cart)
+            throws InvalidCartException {
+
+        if (!order.getUser().equals(cart.getUser())
+                || !order.getStore().equals(cart.getStore())) {
+
+            throw new InvalidCartException(
+                    "Restored cart does not belong to order '"
+                            + order.getCode() + "'");
+        }
     }
 
     protected OrderModel retrievePendingOrder(final String orderCode) throws InvalidCartException {
@@ -220,6 +313,32 @@ public class DefaultAdyenCartRestorationService implements AdyenCartRestorationS
             cartModel.setAdyenAmazonPayConfiguration(paymentMethodsCartData.getAdyenAmazonPayConfiguration());
         } else {
             LOGGER.warn("Empty payment methods cart data in session");
+        }
+    }
+
+    protected void rethrowCartRestorationException(
+            final CartRestorationRollbackException exception)
+            throws CalculationException, InvalidCartException {
+
+        final Throwable cause = exception.getCause();
+
+        if (cause instanceof CalculationException) {
+            throw (CalculationException) cause;
+        }
+
+        if (cause instanceof InvalidCartException) {
+            throw (InvalidCartException) cause;
+        }
+
+        throw exception;
+    }
+
+    private static class CartRestorationRollbackException
+            extends RuntimeException {
+
+        private CartRestorationRollbackException(
+                final Throwable cause) {
+            super(cause);
         }
     }
 
@@ -319,5 +438,10 @@ public class DefaultAdyenCartRestorationService implements AdyenCartRestorationS
 
     public void setAddressPopulator(final Populator<AddressModel, AddressData> addressPopulator) {
         this.addressPopulator = addressPopulator;
+    }
+
+    public void setTransactionTemplate(
+            final TransactionOperations transactionTemplate) {
+        this.transactionTemplate = transactionTemplate;
     }
 }

@@ -671,33 +671,84 @@ public class AdyenSummaryCheckoutStepController extends AbstractCheckoutStepCont
 
         if (isValidResult(resultCode, isResultError)) {
             try {
-                OrderData orderData = adyenCheckoutFacade.handleComponentResult(resultCode, merchantReference);
+                final OrderData orderData =
+                        adyenCheckoutFacade.handleComponentResult(
+                                resultCode,
+                                merchantReference);
+
+                if (PaymentResponse.ResultCodeEnum.RECEIVED
+                        .getValue()
+                        .equals(resultCode)) {
+
+                    LOGGER.info(
+                            "Payment for order "
+                                    + merchantReference
+                                    + " is RECEIVED. "
+                                    + "Redirecting to pending page.");
+
+                    return redirectToPaymentPendingPage(orderData);
+                }
+
                 return redirectToOrderConfirmationPage(orderData);
+
             } catch (AdyenNonAuthorizedPaymentException e) {
                 LOGGER.debug(HANDLING_ADYEN_NON_AUTHORIZED_PAYMENT_EXCEPTION);
-                PaymentResponse paymentsResponse = e.getPaymentsResponse();
-                if (paymentsResponse != null && paymentsResponse.getResultCode() != null) {
+
+                final PaymentResponse paymentsResponse =
+                        e.getPaymentsResponse();
+
+                if (paymentsResponse != null
+                        && paymentsResponse.getResultCode() != null) {
+
                     switch (paymentsResponse.getResultCode()) {
                         case REDIRECTSHOPPER:
-                            LOGGER.debug("Component PaymentResponse resultCode is REDIRECTSHOPPER, redirecting shopper to 3DS flow");
-                            return getAdyen3DSService().prepareValidation3DSModel(model, paymentsResponse);
+                            LOGGER.debug(
+                                    "Component PaymentResponse resultCode is "
+                                            + "REDIRECTSHOPPER, redirecting shopper "
+                                            + "to 3DS flow");
+
+                            return getAdyen3DSService()
+                                    .prepareValidation3DSModel(
+                                            model,
+                                            paymentsResponse);
+
                         case REFUSED:
-                            LOGGER.info("PaymentResponse " + paymentsResponse.getPspReference() + " is REFUSED");
-                            errorMessageKey = CHECKOUT_ERROR_AUTHORIZATION_PAYMENT_REFUSED;
+                            LOGGER.info(
+                                    "PaymentResponse "
+                                            + paymentsResponse.getPspReference()
+                                            + " is REFUSED");
+
+                            errorMessageKey =
+                                    CHECKOUT_ERROR_AUTHORIZATION_PAYMENT_REFUSED;
                             break;
+
                         case CANCELLED:
-                            LOGGER.info("PaymentResponse " + paymentsResponse.getPspReference() + " is CANCELLED");
-                            errorMessageKey = CHECKOUT_ERROR_AUTHORIZATION_PAYMENT_CANCELLED;
+                            LOGGER.info(
+                                    "PaymentResponse "
+                                            + paymentsResponse.getPspReference()
+                                            + " is CANCELLED");
+
+                            errorMessageKey =
+                                    CHECKOUT_ERROR_AUTHORIZATION_PAYMENT_CANCELLED;
                             break;
+
                         default:
-                            LOGGER.error("PaymentResponse " + paymentsResponse.getPspReference() + " - error occurred");
+                            LOGGER.error(
+                                    "PaymentResponse "
+                                            + paymentsResponse.getPspReference()
+                                            + " - error occurred");
                             break;
                     }
                 }
+
             } catch (InvalidCartException e) {
                 LOGGER.error("Error retrieving order", e);
+
             } catch (Exception e) {
-                LOGGER.error("Unexpected error while validating component payment result", e);
+                LOGGER.error(
+                        "Unexpected error while validating "
+                                + "component payment result",
+                        e);
             }
         } else {
             if (StringUtils.isNotBlank(resultCode)) {
@@ -706,7 +757,10 @@ public class AdyenSummaryCheckoutStepController extends AbstractCheckoutStepCont
             }
         }
 
-        return redirectToOrderSummaryWithError(model, redirectAttributes, errorMessageKey);
+        return redirectToOrderSummaryWithError(
+                model,
+                redirectAttributes,
+                errorMessageKey);
     }
 
     private String redirectToOrderSummaryWithError(final Model model,

@@ -24,8 +24,9 @@ interface State {
 }
 
 export class ThankYouPage extends React.Component<Props, State> {
-    private readonly statusRequestInterval = 2 * 1000;
-    private readonly numberOfAllStatusChecks = 60;
+    private readonly statusRequestInterval = 10000;
+    private readonly numberOfAllStatusChecks = 120;
+    private statusCheckInProgress = false;
     private timer: NodeJS.Timeout;
     private retryTimer?: NodeJS.Timeout;
     private readonly retryTimeoutSeconds = 600; // 10 min
@@ -150,28 +151,50 @@ export class ThankYouPage extends React.Component<Props, State> {
     }
 
     private async checkStatus() {
-        if (this.state.numberOfStatusChecks + 1 <= this.numberOfAllStatusChecks) {
-            const paymentStatus = await PaymentStatusService.fetchPaymentStatus(this.props.orderCode);
+        if (this.statusCheckInProgress) {
+            return;
+        }
 
-            if (isNotEmpty(paymentStatus)) {
-                this.setState((state): State => ({...state, paymentStatus: paymentStatus}));
+        this.statusCheckInProgress = true;
 
-                if (paymentStatus === "rejected") {
-                    this.startRetryCountdownIfNeeded();
+        try {
+            if (this.state.numberOfStatusChecks + 1
+                <= this.numberOfAllStatusChecks) {
+
+                const paymentStatus =
+                    await PaymentStatusService.fetchPaymentStatus(
+                        this.props.orderCode
+                    );
+
+                if (isNotEmpty(paymentStatus)) {
+                    this.setState((state): State => ({
+                        ...state,
+                        paymentStatus: paymentStatus
+                    }));
+
+                    if (paymentStatus === "rejected") {
+                        this.startRetryCountdownIfNeeded();
+                    }
+
+                    if (paymentStatus !== "waiting") {
+                        clearInterval(this.timer);
+                    }
                 }
 
-                if (paymentStatus !== "waiting") {
-                    clearInterval(this.timer);
-                }
+                this.setState((state): State => ({
+                    ...state,
+                    numberOfStatusChecks:
+                        state.numberOfStatusChecks + 1
+                }));
+            } else {
+                this.setState({
+                    paymentStatus: "timeout"
+                });
+
+                clearInterval(this.timer);
             }
-
-            this.setState((state): State => ({
-                ...state,
-                numberOfStatusChecks: state.numberOfStatusChecks + 1
-            }));
-        } else {
-            this.setState({paymentStatus: "timeout"});
-            clearInterval(this.timer);
+        } finally {
+            this.statusCheckInProgress = false;
         }
     }
 

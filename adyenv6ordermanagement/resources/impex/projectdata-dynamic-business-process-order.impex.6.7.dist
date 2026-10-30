@@ -21,10 +21,15 @@ INSERT_UPDATE DynamicProcessDefinition;code[unique=true];active[unique=true];con
 ;adyen-order-process;true;"<process xmlns='http://www.hybris.de/xsd/processdefinition' start='checkNewOrder'
 name='adyen-order-process' processClass='de.hybris.platform.orderprocessing.model.OrderProcessModel'>
 
-<action id='checkNewOrder' bean='adyenCheckNewOrderAction'>
-   <transition name='OK' to='checkOrder'/>
-   <transition name='NOK' to='error'/>
-   <transition name='WAIT' to='waitForAdyenPendingPayment'/>
+
+<action id='checkNewOrder'
+        bean='adyenCheckNewOrderAction'>
+    <transition name='OK'
+                to='checkOrder'/>
+    <transition name='NOK'
+                to='classifyPaymentFailure'/>
+    <transition name='WAIT'
+                to='waitForAdyenPendingPayment'/>
 </action>
 
 <wait id='waitForAdyenPendingPayment' then='checkPendingOrder'>
@@ -32,9 +37,20 @@ name='adyen-order-process' processClass='de.hybris.platform.orderprocessing.mode
     <timeout delay='PT60M' then='checkPendingOrder'/>
 </wait>
 
-<action id='checkPendingOrder' bean='adyenCheckPendingOrderAction'>
-   <transition name='OK' to='checkOrder'/>
-   <transition name='NOK' to='error'/>
+<action id='checkPendingOrder'
+        bean='adyenCheckPendingOrderAction'>
+    <transition name='OK'
+                to='checkOrder'/>
+    <transition name='NOK'
+                to='classifyPaymentFailure'/>
+</action>
+
+<action id='classifyPaymentFailure'
+        bean='adyenClassifyPaymentFailureAction'>
+    <transition name='PAYMENT_FAILED'
+                to='sendPaymentFailedNotification'/>
+    <transition name='TECHNICAL_ERROR'
+                to='error'/>
 </action>
 
 <!-- Check Order -->
@@ -44,10 +60,14 @@ name='adyen-order-process' processClass='de.hybris.platform.orderprocessing.mode
 </action>
 
 <!-- Wait for HPP/3Ds authorization -->
-<action id='adyenCheckAuthorization' bean='adyenCheckAuthorizationAction'>
-    <transition name='OK' to='fraudCheck'/>
-    <transition name='NOK' to='error'/>
-    <transition name='WAIT' to='waitForAdyenAuthorization'/>
+<action id='adyenCheckAuthorization'
+        bean='adyenCheckAuthorizationAction'>
+    <transition name='OK'
+                to='fraudCheck'/>
+    <transition name='NOK'
+                to='classifyPaymentFailure'/>
+    <transition name='WAIT'
+                to='waitForAdyenAuthorization'/>
 </action>
 
 <!--Check authorization completion-->

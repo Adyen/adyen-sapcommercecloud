@@ -31,4 +31,11 @@
 	<bean id="defaultAdyenCancelOrRefundAction" class="com.adyen.v6.actions.order.AdyenCancelOrRefundAction" parent="abstractAction">
 		<property name="paymentService" ref="paymentService"/>
 	</bean>
+
+	<alias name="defaultAdyenClassifyPaymentFailureAction"
+	       alias="adyenClassifyPaymentFailureAction"/>
+
+	<bean id="defaultAdyenClassifyPaymentFailureAction"
+	      class="com.adyen.v6.actions.order.AdyenClassifyPaymentFailureAction"
+	      parent="abstractAction"/>
 </beans>

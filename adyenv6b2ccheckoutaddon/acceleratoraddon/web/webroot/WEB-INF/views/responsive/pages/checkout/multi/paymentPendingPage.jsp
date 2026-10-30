@@ -40,8 +40,8 @@
                 const orderIdentifier =
                     paymentPending.attr("data-order-identifier");
 
-                const pollingInterval = 2000;
-                const maximumAttempts = 60;
+                const pollingInterval = 10000;
+                const maximumAttempts = 120;
 
                 let attempts = 0;
                 let pollingFinished = false;

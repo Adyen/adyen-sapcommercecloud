@@ -82,6 +82,21 @@ public class DefaultAdyenOrderFacade implements AdyenOrderFacade {
         return orderModel;
     }
 
+    @Override
+    public OrderModel getOrderModelForPaymentStatus(
+            final String orderIdentifier,
+            final String sessionGuid) {
+
+        return getOrderModelForCode(
+                orderIdentifier,
+                sessionGuid);
+    }
+
+    @Override
+    public String getPaymentStatus(final OrderModel order) {
+        return getPaymentStatusForOrder(order);
+    }
+
     private static void checkIfUserIsCustomer(String code, UserModel currentUser) {
         if (!(currentUser instanceof CustomerModel)) {
             throw new IllegalStateException("Current user is not a CustomerModel, cannot retrieve order for code: " + code);
@@ -133,12 +148,20 @@ public class DefaultAdyenOrderFacade implements AdyenOrderFacade {
         return orderModel;
     }
 
-    protected String getPaymentStatusForOrder(final OrderModel orderModel) {
+    protected String getPaymentStatusForOrder(
+            final OrderModel orderModel) {
+
         if (OrderStatus.CANCELLED.equals(orderModel.getStatus())) {
             return "cancelled";
         }
 
-        if (OrderStatus.PROCESSING_ERROR.equals(orderModel.getStatus())) {
+        if (OrderStatus.PAYMENT_NOT_AUTHORIZED.equals(
+                orderModel.getStatus())) {
+            return "rejected";
+        }
+
+        if (OrderStatus.PROCESSING_ERROR.equals(
+                orderModel.getStatus())) {
             return "error";
         }
 
