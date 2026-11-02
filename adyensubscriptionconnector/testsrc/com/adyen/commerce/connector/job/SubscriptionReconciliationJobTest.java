@@ -25,6 +25,8 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import com.adyen.commerce.connector.context.SubscriptionBaseStoreSelectorStrategy;
+import com.adyen.commerce.connector.exception.SubscriptionNotFoundException;
+import com.adyen.commerce.connector.exception.TerminalBillingException;
 import com.adyen.commerce.connector.model.BillingSubscriptionRefModel;
 import com.adyen.commerce.connector.reconciliation.SubscriptionReconciliationService;
 
@@ -118,6 +120,50 @@ public class SubscriptionReconciliationJobTest
 				any(SessionExecutionBody.class));
 		assertEquals(CronJobResult.SUCCESS, result.getResult());
 		assertEquals(CronJobStatus.FINISHED, result.getStatus());
+	}
+
+	@Test
+	public void subscriptionNotFoundDoesNotFailTheSweep() throws Exception
+	{
+		when(reconciliationService.reconcile(subscription)).thenThrow(new SubscriptionNotFoundException("HTTP 404"));
+
+		final PerformResult result = job.perform(cronJob);
+
+		assertEquals(CronJobResult.SUCCESS, result.getResult());
+		assertEquals(CronJobStatus.FINISHED, result.getStatus());
+	}
+
+	@Test
+	public void sweepContinuesWithTheNextReferenceAfterANotFound() throws Exception
+	{
+		final BillingSubscriptionRefModel second = org.mockito.Mockito.mock(BillingSubscriptionRefModel.class);
+		when(second.getOrder()).thenReturn(order);
+		when(searchResult.getResult()).thenReturn(List.of(subscription, second));
+		when(reconciliationService.reconcile(subscription)).thenThrow(new SubscriptionNotFoundException("HTTP 404"));
+
+		final PerformResult result = job.perform(cronJob);
+
+		verify(reconciliationService).reconcile(second);
+		assertEquals(CronJobResult.SUCCESS, result.getResult());
+	}
+
+	@Test
+	public void otherBillingFailuresStillFailTheSweep() throws Exception
+	{
+		when(reconciliationService.reconcile(subscription)).thenThrow(new TerminalBillingException("HTTP 400"));
+
+		assertEquals(CronJobResult.ERROR, job.perform(cronJob).getResult());
+	}
+
+	@Test
+	public void unknownReferencesWithRecordedMissesAreExcludedButOrdinaryUnknownStaysEligible()
+	{
+		job.perform(cronJob);
+
+		final FlexibleSearchQuery query = capturedQuery();
+		assertTrue(query.getQuery().contains(
+				"({status} IS NULL OR {status} <> ?unknown OR {notFoundSince} IS NULL)"));
+		assertEquals("UNKNOWN", query.getQueryParameters().get("unknown"));
 	}
 
 	@Test

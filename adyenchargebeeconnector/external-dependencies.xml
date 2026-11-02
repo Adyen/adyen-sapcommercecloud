@@ -3,7 +3,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>de.hybris.platform</groupId>
-    <artifactId>adyenv6chargebeeconnector</artifactId>
+    <artifactId>adyenchargebeeconnector</artifactId>
     <version>2211.3</version>
     <packaging>jar</packaging>
     <!-- No own maven dependencies: httpclient5 comes from adyenv6core/lib and

@@ -255,6 +255,7 @@
     <bean id="defaultSubscriptionReconciliationService"
           class="com.adyen.commerce.connector.reconciliation.impl.DefaultSubscriptionReconciliationService">
         <property name="connectorRegistry" ref="subscriptionBillingConnectorRegistry"/>
+        <property name="configurationService" ref="configurationService"/>
         <property name="modelService" ref="modelService"/>
         <property name="storeContext" ref="subscriptionStoreContext"/>
     </bean>

@@ -18,16 +18,21 @@
  *  This file is open source and available under the MIT license.
  *  See the LICENSE file for more info.
  */
-package com.adyen.commerce.connector.chargebee.constants;
+package com.adyen.commerce.connector.exception;
 
 /**
- * Global constants for the adyenv6chargebeeconnector extension.
+ * The billing platform answered 404 when the subscription was read: it does not know the reference (any more).
+ * Terminal, but distinct so that a re-read can count the miss instead of failing the sweep forever.
  */
-public final class Adyenv6chargebeeconnectorConstants extends GeneratedAdyenv6chargebeeconnectorConstants
+public class SubscriptionNotFoundException extends TerminalBillingException
 {
-	public static final String EXTENSIONNAME = "adyenv6chargebeeconnector";
-
-	private Adyenv6chargebeeconnectorConstants()
+	public SubscriptionNotFoundException(final String message)
 	{
+		super(message);
+	}
+
+	public SubscriptionNotFoundException(final String message, final Throwable cause)
+	{
+		super(message, cause);
 	}
 }

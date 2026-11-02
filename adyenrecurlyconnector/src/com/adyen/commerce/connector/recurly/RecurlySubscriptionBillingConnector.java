@@ -45,6 +45,7 @@ import com.adyen.commerce.connector.exception.BillingException;
 import com.adyen.commerce.connector.exception.ConnectorNotConfiguredException;
 import com.adyen.commerce.connector.exception.PlanNotMappedException;
 import com.adyen.commerce.connector.exception.PreconditionFailedException;
+import com.adyen.commerce.connector.exception.SubscriptionNotFoundException;
 import com.adyen.commerce.connector.log.ConnectorLogContext;
 import com.adyen.commerce.connector.log.ConnectorLogEvent;
 import com.adyen.commerce.connector.recurly.client.RecurlyApiClient;
@@ -410,10 +411,15 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
             try {
                 fetched = apiClient.fetchSubscription(subscription.externalId());
             } catch (final BillingException e) {
-                ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
+                final ConnectorLogEvent failure = ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
                         .failure(startedAt, e)
-                        .field(F_SUBSCRIPTION_ID, subscription.externalId())
-                        .warn(LOG);
+                        .field(F_SUBSCRIPTION_ID, subscription.externalId());
+                // An unknown reference is an expected outcome of a re-read, counted by the caller.
+                if (e instanceof SubscriptionNotFoundException) {
+                    failure.info(LOG);
+                } else {
+                    failure.warn(LOG);
+                }
                 throw e;
             }
             ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)

@@ -56,6 +56,7 @@ import com.adyen.commerce.connector.dto.NormalizedSubscriptionStatus;
 import com.adyen.commerce.connector.enums.BillingPlatform;
 import com.adyen.commerce.connector.exception.PreconditionFailedException;
 import com.adyen.commerce.connector.exception.RetryableBillingException;
+import com.adyen.commerce.connector.exception.SubscriptionNotFoundException;
 import com.adyen.commerce.connector.exception.TerminalBillingException;
 
 import de.hybris.bootstrap.annotations.UnitTest;
@@ -292,6 +293,51 @@ public class DefaultChargebeeApiClientTest
 		verify(httpClient).post(eq(BASE + "/subscriptions/sub-1/cancel_for_items"), eq(expectedAuth), body.capture(),
 				isNull());
 		assertEquals("cancel_option=immediately", body.getValue());
+	}
+
+	@Test
+	public void fetchSubscriptionNotFoundIsReportedAsSubscriptionNotFound() throws Exception
+	{
+		when(httpClient.get(any(), any())).thenReturn(new ChargebeeHttpResponse(404,
+				"{\"api_error_code\":\"resource_not_found\",\"message\":\"nope\"}"));
+
+		final SubscriptionNotFoundException exception = assertThrows(SubscriptionNotFoundException.class,
+				() -> client.fetchSubscription("sub-1"));
+		assertTrue(exception.getMessage().contains("Chargebee retrieve subscription failed (HTTP 404)"));
+	}
+
+	@Test
+	public void fetchSubscriptionNotFoundWithAnotherVendorCodeOrNoneStaysAPlainTerminalFailure() throws Exception
+	{
+		when(httpClient.get(any(), any()))
+				.thenReturn(new ChargebeeHttpResponse(404, "{\"api_error_code\":\"site_not_found\"}"))
+				.thenReturn(new ChargebeeHttpResponse(404, "{}"))
+				.thenReturn(new ChargebeeHttpResponse(404, "not json"));
+
+		for (int i = 0; i < 3; i++)
+		{
+			final TerminalBillingException exception = assertThrows(TerminalBillingException.class,
+					() -> client.fetchSubscription("sub-1"));
+			assertFalse(exception instanceof SubscriptionNotFoundException);
+		}
+	}
+
+	@Test
+	public void fetchSubscriptionOtherClientErrorStaysAPlainTerminalFailure() throws Exception
+	{
+		when(httpClient.get(any(), any())).thenReturn(new ChargebeeHttpResponse(400, "{}"));
+
+		final TerminalBillingException exception = assertThrows(TerminalBillingException.class,
+				() -> client.fetchSubscription("sub-1"));
+		assertFalse(exception instanceof SubscriptionNotFoundException);
+	}
+
+	@Test
+	public void fetchSubscriptionServerErrorStaysRetryable() throws Exception
+	{
+		when(httpClient.get(any(), any())).thenReturn(new ChargebeeHttpResponse(503, "{}"));
+
+		assertThrows(RetryableBillingException.class, () -> client.fetchSubscription("sub-1"));
 	}
 
 	@Test

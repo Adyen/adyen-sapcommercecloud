@@ -52,6 +52,7 @@ import com.adyen.commerce.connector.enums.BillingPlatform;
 import com.adyen.commerce.connector.exception.BillingException;
 import com.adyen.commerce.connector.exception.PreconditionFailedException;
 import com.adyen.commerce.connector.exception.RetryableBillingException;
+import com.adyen.commerce.connector.exception.SubscriptionNotFoundException;
 import com.adyen.commerce.connector.exception.TerminalBillingException;
 import com.adyen.commerce.connector.log.ConnectorLogEvent;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -67,6 +68,7 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 	 * rather than terminal - see {@link #isRetryable}.
 	 */
 	protected static final String ERROR_CODE_REQUEST_IN_PROGRESS = "invalid_state_for_request";
+	protected static final String ERROR_CODE_RESOURCE_NOT_FOUND = "resource_not_found";
 
 	private static final Logger LOG = LoggerFactory.getLogger(DefaultChargebeeApiClient.class);
 	private static final String EVENT_VENDOR_API_ERROR = "vendor_api_error";
@@ -169,7 +171,7 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 	{
 		final ChargebeeHttpResponse response = httpClient
 				.get(configService.getApiBaseUrl() + SUBSCRIPTIONS_PATH + pathSegment(subscriptionId), authHeader());
-		requireSuccess(response, "retrieve subscription");
+		requireSubscriptionFound(response, "retrieve subscription");
 		return mapSubscription(response.body());
 	}
 
@@ -410,6 +412,24 @@ public class DefaultChargebeeApiClient implements ChargebeeApiClient
 		if (!response.isSuccess())
 		{
 			throw toBillingException(response, action);
+		}
+	}
+
+	/**
+	 * As {@link #requireSuccess}, but Chargebee's {@code resource_not_found} on a 404 means the subscription does not
+	 * exist. Any other 404 (wrong site, say) is a configuration fault and stays a plain failure.
+	 */
+	protected void requireSubscriptionFound(final ChargebeeHttpResponse response, final String action)
+			throws BillingException
+	{
+		if (!response.isSuccess())
+		{
+			final BillingException failure = toBillingException(response, action);
+			if (response.statusCode() == 404 && ERROR_CODE_RESOURCE_NOT_FOUND.equals(errorCode(response.body())))
+			{
+				throw new SubscriptionNotFoundException(failure.getMessage());
+			}
+			throw failure;
 		}
 	}
 

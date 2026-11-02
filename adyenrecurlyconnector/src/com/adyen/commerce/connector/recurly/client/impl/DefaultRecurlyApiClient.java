@@ -35,6 +35,7 @@ import com.adyen.commerce.connector.enums.BillingPlatform;
 import com.adyen.commerce.connector.exception.BillingException;
 import com.adyen.commerce.connector.exception.PreconditionFailedException;
 import com.adyen.commerce.connector.exception.RetryableBillingException;
+import com.adyen.commerce.connector.exception.SubscriptionNotFoundException;
 import com.adyen.commerce.connector.exception.TerminalBillingException;
 import com.adyen.commerce.connector.log.ConnectorLogEvent;
 import com.adyen.commerce.connector.recurly.client.RecurlyApiClient;
@@ -52,6 +53,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 public class DefaultRecurlyApiClient implements RecurlyApiClient {
     /** Stopped renewing but still serving until {@code current_period_ends_at}. */
     protected static final String STATE_CANCELED = "canceled";
+    protected static final String ERROR_TYPE_NOT_FOUND = "not_found";
 
     private static final String BULLETS = "\u2022\u2022\u2022\u2022";
 
@@ -418,7 +420,7 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
                 authHeader(),
                 acceptHeader());
 
-        requireSuccess(response, "retrieve subscription");
+        requireSubscriptionFound(response, "retrieve subscription");
         return mapSubscription(response.body(), subscriptionId);
     }
 
@@ -609,6 +611,21 @@ public class DefaultRecurlyApiClient implements RecurlyApiClient {
     protected void requireSuccess(final RecurlyHttpResponse response, final String action) throws BillingException {
         if (!response.isSuccess()) {
             throw toBillingException(response, action);
+        }
+    }
+
+    /**
+     * As {@link #requireSuccess}, but Recurly's {@code not_found} error type on a 404 means the subscription does not
+     * exist. Any other 404 stays a plain failure.
+     */
+    protected void requireSubscriptionFound(final RecurlyHttpResponse response, final String action)
+            throws BillingException {
+        if (!response.isSuccess()) {
+            final BillingException failure = toBillingException(response, action);
+            if (response.statusCode() == HTTP_NOT_FOUND && ERROR_TYPE_NOT_FOUND.equals(errorCode(response.body()))) {
+                throw new SubscriptionNotFoundException(failure.getMessage());
+            }
+            throw failure;
         }
     }
 

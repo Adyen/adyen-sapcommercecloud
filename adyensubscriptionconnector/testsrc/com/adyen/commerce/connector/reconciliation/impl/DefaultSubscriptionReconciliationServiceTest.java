@@ -5,6 +5,7 @@ import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -14,6 +15,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Date;
 
+import org.apache.commons.configuration2.Configuration;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
@@ -25,12 +27,14 @@ import com.adyen.commerce.connector.dto.NormalizedSubscription;
 import com.adyen.commerce.connector.dto.NormalizedSubscriptionStatus;
 import com.adyen.commerce.connector.enums.BillingPlatform;
 import com.adyen.commerce.connector.exception.PreconditionFailedException;
+import com.adyen.commerce.connector.exception.SubscriptionNotFoundException;
 import com.adyen.commerce.connector.model.BillingSubscriptionRefModel;
 import com.adyen.commerce.connector.registry.SubscriptionBillingConnectorRegistry;
 import com.adyen.commerce.connector.spi.SubscriptionBillingConnector;
 
 import de.hybris.bootstrap.annotations.UnitTest;
 import de.hybris.platform.core.PK;
+import de.hybris.platform.servicelayer.config.ConfigurationService;
 import de.hybris.platform.servicelayer.model.ModelService;
 import de.hybris.platform.store.BaseStoreModel;
 
@@ -53,6 +57,10 @@ public class DefaultSubscriptionReconciliationServiceTest
 	private SubscriptionStoreContext storeContext;
 	@Mock
 	private BaseStoreModel store;
+	@Mock
+	private ConfigurationService configurationService;
+	@Mock
+	private Configuration configuration;
 
 	private DefaultSubscriptionReconciliationService service;
 
@@ -64,6 +72,9 @@ public class DefaultSubscriptionReconciliationServiceTest
 		service.setConnectorRegistry(connectorRegistry);
 		service.setModelService(modelService);
 		service.setStoreContext(storeContext);
+		service.setConfigurationService(configurationService);
+		when(configurationService.getConfiguration()).thenReturn(configuration);
+		when(configuration.getInt(DefaultSubscriptionReconciliationService.NOT_FOUND_THRESHOLD, 3)).thenReturn(3);
 		service.setClock(Clock.fixed(NOW, ZoneOffset.UTC));
 		when(storeContext.callInStoreOf(eq(model), any())).thenAnswer(
 				invocation -> invocation.<SubscriptionStoreContext.StoreBoundWork<?>> getArgument(1).call(store));
@@ -157,6 +168,212 @@ public class DefaultSubscriptionReconciliationServiceTest
 
 		verify(modelService).lock(pk);
 		verify(modelService).refresh(model);
+	}
+
+	@Test
+	public void firstNotFoundIsCountedWithoutChangingTheProjection() throws Exception
+	{
+		when(connector.fetchSubscription(anyRef())).thenThrow(new SubscriptionNotFoundException("HTTP 404"));
+
+		assertThrows(SubscriptionNotFoundException.class, () -> service.reconcile(model));
+
+		verify(model).setNotFoundCount(1);
+		verify(model).setNotFoundSince(Date.from(NOW));
+		verify(model).setLastReconciledAt(Date.from(NOW));
+		verify(model).setLastSyncedAt(Date.from(NOW));
+		verify(model, never()).setStatus(any());
+		verify(model, never()).setPlanCode(any());
+		verify(model, never()).setQuantity(any());
+		verify(model, never()).setCurrentPeriodStart(any());
+		verify(model, never()).setCurrentPeriodEnd(any());
+		verify(model, never()).setCancelAtPeriodEnd(any());
+		verify(model, never()).setPlatformUpdatedAt(any());
+		verify(model, never()).setExternalSubscriptionId(any());
+		verify(model, never()).setOrder(any());
+		verify(modelService).save(model);
+	}
+
+	@Test
+	public void notFoundKeepsTheOriginalFirstMissTimestamp() throws Exception
+	{
+		final Date firstMiss = Date.from(NOW.minusSeconds(3600));
+		when(model.getNotFoundCount()).thenReturn(1);
+		when(model.getNotFoundSince()).thenReturn(firstMiss);
+		when(connector.fetchSubscription(anyRef())).thenThrow(new SubscriptionNotFoundException("HTTP 404"));
+
+		assertThrows(SubscriptionNotFoundException.class, () -> service.reconcile(model));
+
+		verify(model).setNotFoundCount(2);
+		verify(model, never()).setNotFoundSince(any());
+		verify(model, never()).setStatus(any());
+	}
+
+	@Test
+	public void thresholdNotFoundMarksTheReferenceUnknown() throws Exception
+	{
+		when(model.getNotFoundCount()).thenReturn(2);
+		when(model.getNotFoundSince()).thenReturn(Date.from(NOW.minusSeconds(3600)));
+		when(connector.fetchSubscription(anyRef())).thenThrow(new SubscriptionNotFoundException("HTTP 404"));
+
+		assertThrows(SubscriptionNotFoundException.class, () -> service.reconcile(model));
+
+		verify(model).setNotFoundCount(3);
+		verify(model).setStatus("UNKNOWN");
+		verify(model, never()).setPlanCode(any());
+		verify(modelService).save(model);
+	}
+
+	@Test
+	public void notFoundThresholdComesFromConfiguration() throws Exception
+	{
+		when(configuration.getInt(DefaultSubscriptionReconciliationService.NOT_FOUND_THRESHOLD, 3)).thenReturn(1);
+		when(connector.fetchSubscription(anyRef())).thenThrow(new SubscriptionNotFoundException("HTTP 404"));
+
+		assertThrows(SubscriptionNotFoundException.class, () -> service.reconcile(model));
+
+		verify(model).setStatus("UNKNOWN");
+	}
+
+	@Test
+	public void notFoundIsRecordedUnderTheRowLockAfterRefresh() throws Exception
+	{
+		final PK pk = PK.fromLong(8796093022208L);
+		when(model.getPk()).thenReturn(pk);
+		service.setExplicitRowLockingSupported(true);
+		when(connector.fetchSubscription(anyRef())).thenThrow(new SubscriptionNotFoundException("HTTP 404"));
+
+		assertThrows(SubscriptionNotFoundException.class, () -> service.reconcile(model));
+
+		final org.mockito.InOrder order = inOrder(modelService, model);
+		order.verify(modelService).lock(pk);
+		order.verify(modelService).refresh(model);
+		order.verify(model).setNotFoundCount(1);
+		order.verify(modelService).save(model);
+	}
+
+	@Test
+	public void successfulReadAfterMissesResetsTheNotFoundState() throws Exception
+	{
+		when(model.getNotFoundCount()).thenReturn(2);
+		when(model.getNotFoundSince()).thenReturn(Date.from(NOW.minusSeconds(3600)));
+		when(connector.fetchSubscription(anyRef())).thenReturn(snapshot());
+
+		service.reconcile(model);
+
+		verify(model).setNotFoundCount(null);
+		verify(model).setNotFoundSince(null);
+	}
+
+	@Test
+	public void staleSnapshotIsStillASuccessfulReadAndResetsTheNotFoundState() throws Exception
+	{
+		when(model.getPlatformUpdatedAt()).thenReturn(Date.from(PLATFORM_UPDATED));
+		when(connector.fetchSubscription(anyRef())).thenReturn(new NormalizedSubscription(
+				new BillingSubscriptionRef(RECURLY, "uuid-sub"), NormalizedSubscriptionStatus.ACTIVE, "p", 1,
+				null, null, false, PLATFORM_UPDATED.minusSeconds(60)));
+
+		service.reconcile(model);
+
+		verify(model).setNotFoundCount(null);
+		verify(model).setNotFoundSince(null);
+	}
+
+	@Test
+	public void notFoundDoesNotOverwriteATerminalStatusButIsStillCounted() throws Exception
+	{
+		for (final String terminal : new String[] { "CANCELLED", "FAILED", "EXPIRED" })
+		{
+			org.mockito.Mockito.clearInvocations(model);
+			when(model.getStatus()).thenReturn(terminal);
+			when(model.getNotFoundCount()).thenReturn(5);
+			when(connector.fetchSubscription(anyRef())).thenThrow(new SubscriptionNotFoundException("HTTP 404"));
+
+			assertThrows(SubscriptionNotFoundException.class, () -> service.reconcile(model));
+
+			verify(model).setNotFoundCount(6);
+			verify(model).setNotFoundSince(Date.from(NOW));
+			verify(model, never()).setStatus(any());
+		}
+	}
+
+	@Test
+	public void notFoundIsNotRecordedWhenAnotherReaderSucceededMeanwhile() throws Exception
+	{
+		when(model.getLastReconciledAt()).thenReturn(Date.from(NOW.plusSeconds(1)));
+		when(connector.fetchSubscription(anyRef())).thenThrow(new SubscriptionNotFoundException("HTTP 404"));
+
+		assertThrows(SubscriptionNotFoundException.class, () -> service.reconcile(model));
+
+		verify(model, never()).setNotFoundCount(any());
+		verify(model, never()).setStatus(any());
+		verify(modelService, never()).save(any());
+	}
+
+	@Test
+	public void notFoundIsRecordedWhenTheEarlierReadWasBeforeTheFetch() throws Exception
+	{
+		when(model.getLastReconciledAt()).thenReturn(Date.from(NOW.minusSeconds(60)));
+		when(connector.fetchSubscription(anyRef())).thenThrow(new SubscriptionNotFoundException("HTTP 404"));
+
+		assertThrows(SubscriptionNotFoundException.class, () -> service.reconcile(model));
+
+		verify(model).setNotFoundCount(1);
+	}
+
+	@Test
+	public void alreadyUnknownReferenceIsNotMarkedAgain() throws Exception
+	{
+		when(model.getStatus()).thenReturn("UNKNOWN");
+		when(model.getNotFoundCount()).thenReturn(4);
+		when(model.getNotFoundSince()).thenReturn(Date.from(NOW.minusSeconds(3600)));
+		when(connector.fetchSubscription(anyRef())).thenThrow(new SubscriptionNotFoundException("HTTP 404"));
+
+		assertThrows(SubscriptionNotFoundException.class, () -> service.reconcile(model));
+
+		verify(model).setNotFoundCount(5);
+		verify(model, never()).setStatus(any());
+	}
+
+	@Test
+	public void loweredThresholdMarksAnAlreadyCountedActiveReferenceUnknown() throws Exception
+	{
+		when(model.getStatus()).thenReturn("ACTIVE");
+		when(model.getNotFoundCount()).thenReturn(4);
+		when(model.getNotFoundSince()).thenReturn(Date.from(NOW.minusSeconds(3600)));
+		when(configuration.getInt(DefaultSubscriptionReconciliationService.NOT_FOUND_THRESHOLD, 3)).thenReturn(2);
+		when(connector.fetchSubscription(anyRef())).thenThrow(new SubscriptionNotFoundException("HTTP 404"));
+
+		assertThrows(SubscriptionNotFoundException.class, () -> service.reconcile(model));
+
+		verify(model).setStatus("UNKNOWN");
+	}
+
+	@Test
+	public void nonPositiveThresholdIsClampedToOne() throws Exception
+	{
+		for (final int configured : new int[] { 0, -5 })
+		{
+			org.mockito.Mockito.clearInvocations(model);
+			when(configuration.getInt(DefaultSubscriptionReconciliationService.NOT_FOUND_THRESHOLD, 3))
+					.thenReturn(configured);
+			when(connector.fetchSubscription(anyRef())).thenThrow(new SubscriptionNotFoundException("HTTP 404"));
+
+			assertThrows(SubscriptionNotFoundException.class, () -> service.reconcile(model));
+
+			verify(model).setStatus("UNKNOWN");
+		}
+	}
+
+	@Test
+	public void failureWhileRecordingTheMissKeepsTheOriginalNotFoundAsSuppressed() throws Exception
+	{
+		final SubscriptionNotFoundException notFound = new SubscriptionNotFoundException("HTTP 404");
+		when(connector.fetchSubscription(anyRef())).thenThrow(notFound);
+		org.mockito.Mockito.doThrow(new IllegalStateException("db down")).when(modelService).save(model);
+
+		final IllegalStateException thrown = assertThrows(IllegalStateException.class, () -> service.reconcile(model));
+
+		assertSame(notFound, thrown.getSuppressed()[0]);
 	}
 
 	private NormalizedSubscription snapshot()

@@ -36,6 +36,7 @@ import com.adyen.commerce.connector.dto.NormalizedSubscriptionStatus;
 import com.adyen.commerce.connector.exception.BillingException;
 import com.adyen.commerce.connector.exception.PreconditionFailedException;
 import com.adyen.commerce.connector.exception.RetryableBillingException;
+import com.adyen.commerce.connector.exception.SubscriptionNotFoundException;
 import com.adyen.commerce.connector.exception.TerminalBillingException;
 import com.adyen.commerce.connector.recurly.client.RecurlySubscriptionParams;
 import com.adyen.commerce.connector.recurly.config.RecurlyConfigService;
@@ -436,6 +437,53 @@ public class DefaultRecurlyApiClientTest
         assertEquals(java.time.Instant.parse("2026-08-01T00:00:00Z"), result.currentPeriodStart());
         assertEquals(java.time.Instant.parse("2026-09-01T00:00:00Z"), result.currentPeriodEnd());
         assertFalse(result.cancelAtPeriodEnd());
+    }
+
+    @Test
+    public void fetchSubscriptionNotFoundIsReportedAsSubscriptionNotFound() throws Exception
+    {
+        when(httpClient.get(BASE + "/subscriptions/uuid-subscription-1", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_NOT_FOUND,
+                        "{\"error\":{\"type\":\"not_found\",\"message\":\"nope\"}}"));
+
+        final SubscriptionNotFoundException exception = assertThrows(SubscriptionNotFoundException.class,
+                () -> client.fetchSubscription("uuid-subscription-1"));
+        assertTrue(exception.getMessage().contains("Recurly retrieve subscription failed (HTTP 404)"));
+    }
+
+    @Test
+    public void fetchSubscriptionNotFoundWithAnotherTypeOrNoneStaysAPlainTerminalFailure() throws Exception
+    {
+        when(httpClient.get(BASE + "/subscriptions/uuid-subscription-1", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(HTTP_NOT_FOUND, "{\"error\":{\"type\":\"unknown_site\"}}"))
+                .thenReturn(new RecurlyHttpResponse(HTTP_NOT_FOUND, "{}"))
+                .thenReturn(new RecurlyHttpResponse(HTTP_NOT_FOUND, "not json"));
+
+        for (int i = 0; i < 3; i++) {
+            final TerminalBillingException exception = assertThrows(TerminalBillingException.class,
+                    () -> client.fetchSubscription("uuid-subscription-1"));
+            assertFalse(exception instanceof SubscriptionNotFoundException);
+        }
+    }
+
+    @Test
+    public void fetchSubscriptionOtherClientErrorStaysAPlainTerminalFailure() throws Exception
+    {
+        when(httpClient.get(BASE + "/subscriptions/uuid-subscription-1", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(400, "{}"));
+
+        final TerminalBillingException exception = assertThrows(TerminalBillingException.class,
+                () -> client.fetchSubscription("uuid-subscription-1"));
+        assertFalse(exception instanceof SubscriptionNotFoundException);
+    }
+
+    @Test
+    public void fetchSubscriptionServerErrorStaysRetryable() throws Exception
+    {
+        when(httpClient.get(BASE + "/subscriptions/uuid-subscription-1", auth, ACCEPT))
+                .thenReturn(new RecurlyHttpResponse(503, "{}"));
+
+        assertThrows(RetryableBillingException.class, () -> client.fetchSubscription("uuid-subscription-1"));
     }
 
     @Test

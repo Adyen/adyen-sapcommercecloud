@@ -216,6 +216,14 @@
                     <description>Normalized subscription status as last synced from the platform.</description>
                     <persistence type="property"/>
                 </attribute>
+                <attribute qualifier="notFoundCount" type="java.lang.Integer">
+                    <description>Consecutive 404s on a pull re-fetch; reset by any successful read or applied webhook.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="notFoundSince" type="java.util.Date">
+                    <description>When the platform first answered 404 for this reference in the current run of misses; together with status UNKNOWN it takes the reference out of the reconciliation sweep.</description>
+                    <persistence type="property"/>
+                </attribute>
                 <attribute qualifier="planCode" type="java.lang.String">
                     <description>Resolved platform plan/price code.</description>
                     <persistence type="property"/>
