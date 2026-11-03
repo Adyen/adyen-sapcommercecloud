@@ -152,6 +152,8 @@ const Payment: React.FC<Props> = (props) => {
                     <PaymentDropIn
                         adyenConfig={adyenConfig}
                         shippingAddress={shippingAddressFromCart}
+                        billingAddress={billingAddress}
+                        useDifferentBillingAddress={useDifferentBillingAddress}
                         partialPaymentId={paymentState.partialPaymentId}
                         onPayment={handlePayment}
                         onAdditionalDetails={handleAdditionalDetails}

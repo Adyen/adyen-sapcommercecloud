@@ -257,6 +257,11 @@
     </bean>
 
 
+    <alias name="defaultAdyenVoucherService" alias="adyenVoucherService"/>
+    <bean id="defaultAdyenVoucherService" class="com.adyen.v6.service.DefaultAdyenVoucherService">
+        <property name="modelService" ref="modelService"/>
+    </bean>
+
     <alias name="defaultAdyenCheckoutFacade" alias="adyenCheckoutFacade" />
     <bean id="defaultAdyenCheckoutFacade" class="com.adyen.commerce.facades.impl.DefaultAdyenCheckoutFacade">
         <property name="countryConverter" ref="countryConverter"/>
@@ -270,6 +275,7 @@
         <property name="orderRepository" ref="adyenOrderRepository"/>
         <property name="adyenOrderService" ref="adyenOrderService"/>
         <property name="adyenPaymentAuthorizedEventPublisher" ref="adyenPaymentAuthorizedEventPublisher"/>
+        <property name="adyenVoucherService" ref="adyenVoucherService"/>
         <property name="checkoutCustomerStrategy" ref="checkoutCustomerStrategy"/>
         <property name="modelService" ref="modelService"/>
         <property name="commonI18NService" ref="commonI18NService"/>
@@ -325,6 +331,7 @@
         <property name="orderRepository" ref="adyenOrderRepository"/>
         <property name="adyenOrderService" ref="adyenOrderService"/>
         <property name="adyenPaymentAuthorizedEventPublisher" ref="adyenPaymentAuthorizedEventPublisher"/>
+        <property name="adyenVoucherService" ref="adyenVoucherService"/>
         <property name="checkoutCustomerStrategy" ref="checkoutCustomerStrategy"/>
         <property name="modelService" ref="modelService"/>
         <property name="commonI18NService" ref="commonI18NService"/>

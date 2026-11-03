@@ -861,6 +861,11 @@
                 <attribute qualifier="adyenRiskScore" type="java.lang.Integer">
                     <persistence type="property"/>
                 </attribute>
+                <attribute qualifier="adyenVoucherExpiresAt" type="java.util.Date">
+                    <description>Expiry of the voucher (PresentToShopper) payment, used to decide how long the order process waits for the payment</description>
+                    <modifiers optional="true"/>
+                    <persistence type="property"/>
+                </attribute>
             </attributes>
         </itemtype>
 

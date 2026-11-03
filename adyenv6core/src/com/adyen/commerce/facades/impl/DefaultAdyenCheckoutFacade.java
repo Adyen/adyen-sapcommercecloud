@@ -132,6 +132,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     private OrderRepository orderRepository;
     private AdyenOrderService adyenOrderService;
     private AdyenPaymentAuthorizedEventPublisher adyenPaymentAuthorizedEventPublisher;
+    private AdyenVoucherService adyenVoucherService;
     private CheckoutCustomerStrategy checkoutCustomerStrategy;
     private AdyenPaymentServiceFactory adyenPaymentServiceFactory;
     private ModelService modelService;
@@ -397,7 +398,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
                 PaymentResponse.ResultCodeEnum.REDIRECTSHOPPER == paymentResponse.getResultCode() ||
                 PaymentResponse.ResultCodeEnum.PRESENTTOSHOPPER == paymentResponse.getResultCode()) {
             LOGGER.info("Placing pending order");
-            placePendingOrder(paymentResponse.getResultCode().getValue());
+            placePendingOrder(paymentResponse.getResultCode().getValue(), paymentResponse.getAction());
             return paymentResponse;
         }
         if (PaymentResponse.ResultCodeEnum.AUTHORISED == paymentResponse.getResultCode()) {
@@ -618,6 +619,9 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         getAdyenOrderService().updatePaymentInfo((AbstractOrderModel) orderModel, paymentType, additionalData);
         announceAuthorization(orderModel, paymentsResponse);
         getAdyenOrderService().storeFraudReport(orderModel, paymentsResponse.getPspReference(), paymentsResponse.getFraudResult());
+        if (PaymentResponse.ResultCodeEnum.PRESENTTOSHOPPER == paymentsResponse.getResultCode()) {
+            storeVoucherExpiry(orderModel, paymentsResponse.getAction());
+        }
         return orderData;
     }
 
@@ -674,19 +678,42 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         }
     }
 
+    /**
+     * Stores the voucher expiry on the order. Never fails the checkout: the order is already placed at this point.
+     */
+    protected void storeVoucherExpiry(final OrderModel orderModel, final PaymentResponseAction action) {
+        if (getAdyenVoucherService() == null) {
+            LOGGER.warn("No AdyenVoucherService configured, voucher expiry not stored");
+            return;
+        }
+        try {
+            getAdyenVoucherService().storeVoucherExpiry(orderModel, action);
+        } catch (RuntimeException e) {
+            LOGGER.warn("Could not store the voucher expiry on the order", e);
+        }
+    }
+
     protected OrderData placePendingOrder(String resultCode) throws InvalidCartException {
-        return placeOrderWithStatus(OrderStatus.PAYMENT_PENDING, resultCode);
+        return placeOrderWithStatus(OrderStatus.PAYMENT_PENDING, resultCode, null);
+    }
+
+    /**
+     * Places a pending order and, for voucher payments (PresentToShopper), stores the voucher expiry
+     * from the response action on the placed order.
+     */
+    protected OrderData placePendingOrder(String resultCode, PaymentResponseAction action) throws InvalidCartException {
+        return placeOrderWithStatus(OrderStatus.PAYMENT_PENDING, resultCode, action);
     }
 
     protected OrderData placeAuthorisedOrder(PaymentResponse.ResultCodeEnum resultCode) throws InvalidCartException {
-        return placeOrderWithStatus(OrderStatus.PAYMENT_AUTHORIZED, resultCode.getValue());
+        return placeOrderWithStatus(OrderStatus.PAYMENT_AUTHORIZED, resultCode.getValue(), null);
     }
 
     /**
      * Common implementation for placing an order with a given payment status.
      * Used by both {@link #placePendingOrder(String)} and {@link #placeAuthorisedOrder(PaymentResponse.ResultCodeEnum)}.
      */
-    private OrderData placeOrderWithStatus(final OrderStatus status, final String statusInfo) throws InvalidCartException {
+    protected OrderData placeOrderWithStatus(final OrderStatus status, final String statusInfo, final PaymentResponseAction action) throws InvalidCartException {
         CartModel cartModel = getCartService().getSessionCart();
         cartModel.setStatus(status);
         cartModel.setStatusInfo(statusInfo);
@@ -696,6 +723,14 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         getModelService().save(cartModel);
 
         OrderData orderData = getCheckoutFacade().placeOrder();
+
+        if (action != null && PaymentResponse.ResultCodeEnum.PRESENTTOSHOPPER.getValue().equals(statusInfo)) {
+            try {
+                storeVoucherExpiry(orderRepository.getOrderModel(orderData.getCode()), action);
+            } catch (RuntimeException e) {
+                LOGGER.warn("Could not load order {} to store the voucher expiry", orderData.getCode(), e);
+            }
+        }
 
         getSessionService().setAttribute(SESSION_PENDING_ORDER_CODE, orderData.getCode());
         getSessionService().setAttribute(SESSION_PAYMENT_METHODS_CART_DATA, paymentMethodsCartData);
@@ -1166,6 +1201,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         }
 
         adyenPaymentFormValidator.validate(adyenPaymentForm, errors);
+        validateKonbiniTelephone(adyenPaymentForm, cartModel, errors);
 
         if (errors.hasErrors()) {
             return;
@@ -1209,6 +1245,29 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
             modelService.save(cartModel);
             return null;
         });
+    }
+
+    protected void validateKonbiniTelephone(
+            AdyenPaymentForm adyenPaymentForm,
+            CartModel cartModel,
+            Errors errors) {
+
+        if (adyenPaymentForm.getPaymentMethod() == null
+                || !adyenPaymentForm.getPaymentMethod().startsWith(PAYMENT_METHOD_ECONTEXT_PREFIX)) {
+            return;
+        }
+
+        String billingPhone = adyenPaymentForm.getBillingAddress() != null
+                ? adyenPaymentForm.getBillingAddress().getPhoneNumber()
+                : null;
+        String shippingPhone = cartModel.getDeliveryAddress() != null
+                ? cartModel.getDeliveryAddress().getPhone1()
+                : null;
+
+        if (StringUtils.isBlank(billingPhone)
+                && StringUtils.isBlank(shippingPhone)) {
+            errors.reject(CHECKOUT_ERROR_KONBINI_TELEPHONE_MISSING);
+        }
     }
 
     public AddressModel convertToAddressModel(final AddressForm addressForm) {
@@ -1391,6 +1450,14 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
 
     public void setOrderRepository(OrderRepository orderRepository) {
         this.orderRepository = orderRepository;
+    }
+
+    public AdyenVoucherService getAdyenVoucherService() {
+        return adyenVoucherService;
+    }
+
+    public void setAdyenVoucherService(AdyenVoucherService adyenVoucherService) {
+        this.adyenVoucherService = adyenVoucherService;
     }
 
     public AdyenOrderService getAdyenOrderService() {
@@ -1619,3 +1686,4 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         this.expressPaymentConfigConverter = expressPaymentConfigConverter;
     }
 }
+
