@@ -48,6 +48,12 @@ public abstract class AbstractAdyenApiService {
         }
     }
 
+    /** The Adyen merchant account this service talks to; a vaulted token is only valid against it. */
+    public String getMerchantAccount() {
+        return merchantAccount;
+    }
+
+
 
     public BaseStoreModel getBaseStore() {
         return baseStore;

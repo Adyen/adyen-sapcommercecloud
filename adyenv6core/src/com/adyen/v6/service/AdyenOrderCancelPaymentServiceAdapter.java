@@ -20,6 +20,7 @@
  */
 package com.adyen.v6.service;
 
+import com.adyen.v6.event.AdyenOrderCancelledEventPublisher;
 import de.hybris.platform.core.model.order.OrderModel;
 import de.hybris.platform.order.CalculationService;
 import de.hybris.platform.order.exceptions.CalculationException;
@@ -40,6 +41,7 @@ public class AdyenOrderCancelPaymentServiceAdapter implements OrderCancelPayment
     private PaymentService paymentService;
     private ModelService modelService;
     private CalculationService calculationService;
+    private AdyenOrderCancelledEventPublisher adyenOrderCancelledEventPublisher;
 
     private static final Logger LOG = Logger.getLogger(AdyenOrderCancelPaymentServiceAdapter.class);
 
@@ -64,6 +66,13 @@ public class AdyenOrderCancelPaymentServiceAdapter implements OrderCancelPayment
             LOG.info("Partial cancellation - do nothing");
             return;
         }
+
+        // Announced here, above every check below it, because those checks are about this order's Adyen
+        // payment and the announcement is not: an order can be fully cancelled while carrying no payment
+        // transaction, or one taken through another provider, and a subscription sold on it still has to
+        // stop. Held back until the cancelling transaction commits, since a listener cancels on an external
+        // platform and that cannot be rolled back afterwards.
+        adyenOrderCancelledEventPublisher.publishCancelled(order);
 
         if(order.getPaymentTransactions().isEmpty()) {
             LOG.warn("No transaction found!");
@@ -90,6 +99,11 @@ public class AdyenOrderCancelPaymentServiceAdapter implements OrderCancelPayment
                 + ":" + cancellationTransaction.getTransactionStatus()
                 + ":" + cancellationTransaction.getTransactionStatusDetails());
         modelService.save(cancellationTransaction);
+    }
+
+    public void setAdyenOrderCancelledEventPublisher(
+            final AdyenOrderCancelledEventPublisher adyenOrderCancelledEventPublisher) {
+        this.adyenOrderCancelledEventPublisher = adyenOrderCancelledEventPublisher;
     }
 
     public PaymentService getPaymentService() {

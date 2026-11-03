@@ -68,7 +68,7 @@ public class PaymentRequestValidator implements Validator {
             }
 
             //Check remember these details
-            if (BooleanUtils.isTrue(paymentRequest.getEnableOneClick())) {
+            if (BooleanUtils.isTrue(paymentRequest.getStorePaymentMethod())) {
                 if (!showRememberTheseDetails) {
                     errors.reject("checkout.error.paymentethod.rememberdetails.invalid");
                 }

@@ -40,12 +40,17 @@ public class PaymentTransactionRepository extends AbstractRepository {
         final Map queryParams = new HashMap();
         queryParams.put("paymentProvider", PAYMENT_PROVIDER);
         queryParams.put("requestId", pspReference);
+        // Joined to PaymentTransactionEntry: {requestId} lives on the entry (the AUTHORIZATION/CAPTURE/etc.
+        // pspReference), not on PaymentTransaction itself. A prior version of this query matched
+        // PaymentTransaction's own (coincidentally same-named) requestId column instead of the entry's,
+        // which only happened to work when both values matched by chance.
         final FlexibleSearchQuery selectOrderQuery = new FlexibleSearchQuery(
-                "SELECT {pk} FROM {" + PaymentTransactionModel._TYPECODE + "}"
-                        + " WHERE {" + PaymentTransactionModel.PAYMENTPROVIDER + "} = ?paymentProvider"
-                        + " AND {" + PaymentTransactionEntryModel.REQUESTID + "} = ?requestId"
+                "SELECT DISTINCT {pt:pk} FROM {" + PaymentTransactionModel._TYPECODE + " AS pt JOIN "
+                        + PaymentTransactionEntryModel._TYPECODE + " AS pte ON {pte:" + PaymentTransactionEntryModel.PAYMENTTRANSACTION + "} = {pt:pk}}"
+                        + " WHERE {pt:" + PaymentTransactionModel.PAYMENTPROVIDER + "} = ?paymentProvider"
+                        + " AND {pte:" + PaymentTransactionEntryModel.REQUESTID + "} = ?requestId"
                         //Adding "{versionID} IS NULL" to get the original order regardless of modification history
-                        + " AND {versionID} IS NULL",
+                        + " AND {pt:versionID} IS NULL",
                 queryParams
         );
 

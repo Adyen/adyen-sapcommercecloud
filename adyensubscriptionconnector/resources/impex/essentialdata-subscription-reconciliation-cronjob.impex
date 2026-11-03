@@ -1,0 +1,29 @@
+# -----------------------------------------------------------------------
+# The sweep that makes the local projection eventually true.
+#
+# Essential data, not project data, for the same reason as the retry job:
+# webhooks are best-effort, and this sweep is the only path from a delivery
+# that was lost, refused while the node was down, or never sent back to the
+# platform's actual answer. Without it a reference keeps whatever status it
+# was last told about — most often the PENDING written at activation — and
+# nothing ever comes back to correct it. An environment where an operator
+# forgot to import this looks healthy and quietly is not.
+#
+# Every fifteen minutes. The job only revisits references older than its
+# staleness window (an hour by default) or already known to be PAST_DUE, so
+# a shorter period mostly re-runs an empty query, while a longer one widens
+# the window in which a cancelled subscription still reads as active here.
+#
+# logToDatabase is off for the reason it is off on the retry job: at this
+# cadence a logging job writes about a hundred rows a day whether or not it
+# found anything, and this one is silent by design when nothing is stale.
+# -----------------------------------------------------------------------
+
+INSERT_UPDATE ServicelayerJob ; code[unique=true]                   ; springId
+                              ; subscriptionReconciliationJob       ; subscriptionReconciliationJob
+
+INSERT_UPDATE CronJob ; code[unique=true]                   ; job(code)[default=subscriptionReconciliationJob] ; singleExecutable[default=false] ; sessionLanguage(isocode)[default=en] ; active[default=true] ; logToDatabase[default=false] ; logToFile[default=true]
+                      ; subscriptionReconciliationCronJob    ;                                                  ;                                 ;                                      ;                      ;                              ;
+
+INSERT_UPDATE Trigger ; cronJob(code)[unique=true]           ; cronExpression   ; active[default=true]
+                      ; subscriptionReconciliationCronJob    ; 0 0/15 * * * ?   ;

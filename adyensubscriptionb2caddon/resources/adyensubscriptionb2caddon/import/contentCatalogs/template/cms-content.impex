@@ -1,0 +1,92 @@
+######
+## PARAMETERS REQUIRED FOR THIS SCRIPT
+##
+##   * contentCatalog     - content catalog id
+##   * addonExtensionName - extension name of the ui addon
+#######
+# -----------------------------------------------------------------------
+# The "My subscriptions" page in My Account - core-data variant.
+#
+# Two files, on purpose, and they are read by two different listeners:
+#   template/cms-content.impex         <- abstractCoreDataImportedEventListener  (any B2C catalogue)
+#   <catalog>ContentCatalog/...impex   <- abstractGenericAddOnSampleDataEventListener (that catalogue only)
+# Shipping only the second one is why an environment initialised without sample data ends up with the
+# controller, the JSP and the addon all present and no ContentPage behind them - which surfaces as
+# CMSItemNotFoundException, not as a missing import.
+#
+# $contentCatalog comes from the importer here rather than being written down, which is the whole point:
+# this half has to work for whichever B2C catalogue the site uses. The listener is restricted to the B2C
+# channel, so AccountPageTemplate and MyAccountNavNode - both from the B2C accelerator - can be relied on.
+#
+# Seven blocks, all of them required. Leave one out and the result is not an error message but a symptom:
+# no ContentPage gives CMSItemNotFoundException, no ContentSlot or component gives a blank page under the
+# right heading, and no navigation node gives a page nobody can find.
+#
+# Written to BOTH catalogue versions. The sibling addon's file writes only to Staged, and the storefront
+# serves Online - which is why its stored-cards page does not appear until somebody syncs the catalogue by
+# hand, and why that has been mistaken for a broken addon more than once.
+#
+# Note the document ids (&linkRefStaged, &linkRefOnline, ...). They are scoped to the whole import run, not
+# to a block, so the Staged and Online halves must not share one: reusing it fails the second half with
+# "id ... already used for item with pk=...", which leaves Staged populated, Online empty, and the
+# storefront - which serves Online - showing nothing.
+#
+# Running both halves on one environment is harmless: every block is INSERT_UPDATE keyed on uid plus
+# catalogue version, so the second run updates what the first one created.
+# -----------------------------------------------------------------------
+$contentCVS=catalogVersion(CatalogVersion.catalog(Catalog.id[default=$contentCatalog]),CatalogVersion.version[default=Staged])[default=$contentCatalog:Staged]
+$contentCVO=catalogVersion(CatalogVersion.catalog(Catalog.id[default=$contentCatalog]),CatalogVersion.version[default=Online])[default=$contentCatalog:Online]
+# $addonExtensionName is supplied by the importer.
+
+# 1. The page itself. The label is the URL the controller is mapped to; the two must agree or the
+#    controller renders a page the CMS cannot resolve.
+INSERT_UPDATE ContentPage;$contentCVS[unique=true];uid[unique=true];name;masterTemplate(uid,$contentCVS);label;defaultPage[default='true'];approvalStatus(code)[default='approved'];homepage[default='false']
+;;adyenSubscriptions;My Subscriptions;AccountPageTemplate;/my-account/subscriptions
+INSERT_UPDATE ContentPage;$contentCVO[unique=true];uid[unique=true];name;masterTemplate(uid,$contentCVO);label;defaultPage[default='true'];approvalStatus(code)[default='approved'];homepage[default='false']
+;;adyenSubscriptions;My Subscriptions;AccountPageTemplate;/my-account/subscriptions
+
+# 2. The link the navigation entry points at.
+INSERT_UPDATE CMSLinkComponent;$contentCVS[unique=true];uid[unique=true];name;url;&linkRefStaged;target(code)[default='sameWindow']
+;;AdyenSubscriptionsLink;AdyenSubscriptionsLink;/my-account/subscriptions;AdyenSubscriptionsLink;
+INSERT_UPDATE CMSLinkComponent;$contentCVO[unique=true];uid[unique=true];name;url;&linkRefOnline;target(code)[default='sameWindow']
+;;AdyenSubscriptionsLink;AdyenSubscriptionsLink;/my-account/subscriptions;AdyenSubscriptionsLink;
+
+# 3. Its place in the My Account menu. MyAccountNavNode belongs to the base accelerator catalogue, not to
+#    this addon - a project that renamed it will fail here, which is the right moment to find out.
+#    `links` is left empty on purpose: block 4 binds the link through a CMSNavigationEntry, and filling
+#    both would attach it twice and show the menu item twice.
+INSERT_UPDATE CMSNavigationNode;uid[unique=true];$contentCVS[unique=true];name;parent(uid,$contentCVS);links(&linkRefStaged)[mode=append];&nodeRefStaged
+;AdyenSubscriptionsNavNode;;AdyenSubscriptionsNavNode;MyAccountNavNode;;AdyenSubscriptionsNavNode
+INSERT_UPDATE CMSNavigationNode;uid[unique=true];$contentCVO[unique=true];name;parent(uid,$contentCVO);links(&linkRefOnline)[mode=append];&nodeRefOnline
+;AdyenSubscriptionsNavNode;;AdyenSubscriptionsNavNode;MyAccountNavNode;;AdyenSubscriptionsNavNode
+
+# 4. What ties the node to the link.
+INSERT_UPDATE CMSNavigationEntry;uid[unique=true];$contentCVS[unique=true];name;navigationNode(&nodeRefStaged);item(&linkRefStaged)
+;AdyenSubscriptionsNavNodeEntry;;AdyenSubscriptionsNavNodeEntry;AdyenSubscriptionsNavNode;AdyenSubscriptionsLink
+INSERT_UPDATE CMSNavigationEntry;uid[unique=true];$contentCVO[unique=true];name;navigationNode(&nodeRefOnline);item(&linkRefOnline)
+;AdyenSubscriptionsNavNodeEntry;;AdyenSubscriptionsNavNodeEntry;AdyenSubscriptionsNavNode;AdyenSubscriptionsLink
+
+# 5. The component that renders the JSP. The path resolves inside the storefront after addoninstall has
+#    copied the view there. The empty `actions` column is carried because the header and the row have to
+#    have the same width, and the precedent's rows leave it blank.
+INSERT_UPDATE JspIncludeComponent;$contentCVS[unique=true];uid[unique=true];name;page;actions(uid,$contentCVS)
+;;AdyenAccountSubscriptionsComponent;Adyen Account Subscriptions Component;/WEB-INF/views/addons/$addonExtensionName/responsive/pages/account/accountSubscriptionsPage.jsp;
+INSERT_UPDATE JspIncludeComponent;$contentCVO[unique=true];uid[unique=true];name;page;actions(uid,$contentCVO)
+;;AdyenAccountSubscriptionsComponent;Adyen Account Subscriptions Component;/WEB-INF/views/addons/$addonExtensionName/responsive/pages/account/accountSubscriptionsPage.jsp;
+
+# 6. The menu wording. Its own block because linkName is localised and cannot travel in the INSERT above.
+UPDATE CMSLinkComponent;$contentCVS[unique=true];uid[unique=true];linkName[lang=en]
+;;AdyenSubscriptionsLink;"Subscriptions"
+UPDATE CMSLinkComponent;$contentCVO[unique=true];uid[unique=true];linkName[lang=en]
+;;AdyenSubscriptionsLink;"Subscriptions"
+
+# 7. The slot, and the slot's place on the page.
+INSERT_UPDATE ContentSlot;$contentCVS[unique=true];uid[unique=true];name;active;cmsComponents(uid,$contentCVS)
+;;BodyContent-adyenSubscriptions;Body Content Slot for My Subscriptions;true;AdyenAccountSubscriptionsComponent
+INSERT_UPDATE ContentSlot;$contentCVO[unique=true];uid[unique=true];name;active;cmsComponents(uid,$contentCVO)
+;;BodyContent-adyenSubscriptions;Body Content Slot for My Subscriptions;true;AdyenAccountSubscriptionsComponent
+
+INSERT_UPDATE ContentSlotForPage;$contentCVS[unique=true];uid[unique=true];position[unique=true];page(uid,$contentCVS)[unique=true][default='adyenSubscriptions'];contentSlot(uid,$contentCVS)[unique=true]
+;;BodyContent-adyenSubscriptions;BodyContent;;BodyContent-adyenSubscriptions
+INSERT_UPDATE ContentSlotForPage;$contentCVO[unique=true];uid[unique=true];position[unique=true];page(uid,$contentCVO)[unique=true][default='adyenSubscriptions'];contentSlot(uid,$contentCVO)[unique=true]
+;;BodyContent-adyenSubscriptions;BodyContent;;BodyContent-adyenSubscriptions

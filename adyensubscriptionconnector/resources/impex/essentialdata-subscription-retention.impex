@@ -1,0 +1,26 @@
+# -----------------------------------------------------------------------
+# Retention for the two billing journals.
+#
+# Created active, like the retry job, but for the opposite kind of reason:
+# nothing breaks the day this does not run, it just quietly stops being
+# true that the tables have a bound. A retention job that ships inactive
+# is one nobody enables until the table is already the problem.
+#
+# Nightly, off-hours. The windows are measured in days, so running more
+# often would only mean competing with live traffic to delete the same
+# rows a few hours sooner. Each run takes one batch per journal and the
+# next one carries on, so a long backlog drains over several nights
+# rather than in one long-running transaction.
+#
+# logToDatabase is off for the same reason as the retry job: a nightly
+# job that finds nothing should not write a row saying so.
+# -----------------------------------------------------------------------
+
+INSERT_UPDATE ServicelayerJob ; code[unique=true]                  ; springId
+                              ; subscriptionBillingRetentionJob    ; subscriptionBillingRetentionJob
+
+INSERT_UPDATE CronJob ; code[unique=true]                       ; job(code)[default=subscriptionBillingRetentionJob] ; active[default=true] ; logToDatabase[default=false] ; logToFile[default=true]
+                      ; subscriptionBillingRetentionCronJob      ;                                                    ;                      ;                              ;
+
+INSERT_UPDATE Trigger ; cronJob(code)[unique=true]               ; cronExpression   ; active[default=true]
+                      ; subscriptionBillingRetentionCronJob      ; 0 30 3 * * ?     ;

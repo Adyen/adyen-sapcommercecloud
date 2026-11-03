@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    This addon defines no types of its own - the subscription types live in adyensubscriptionconnector,
+    which owns them.
+
+    The file exists anyway, and must, because extensioninfo.xml declares a generated coremodule. Without
+    an items.xml nothing is generated, so the Manager class named there is never produced and the platform
+    refuses to load the extension at startup with
+
+        ClassNotFoundException: com.adyen.commerce.subscription.jalo.Adyensubscriptionb2caddonManager
+
+    That failure does not break the build - it surfaces only when the extension is loaded - and its
+    symptom is not an error page but a quiet one: the CMS page still renders, because the page and its
+    slots are data, and the JSP still renders, because addoninstall copied it into the storefront. Only
+    the controller is missing, so the page comes up empty with nothing in the log to say why.
+-->
+<items xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="items.xsd">
+</items>

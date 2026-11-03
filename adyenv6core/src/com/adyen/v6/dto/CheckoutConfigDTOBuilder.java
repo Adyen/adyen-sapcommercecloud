@@ -45,7 +45,8 @@ public class CheckoutConfigDTOBuilder {
     }
 
     public CheckoutConfigDTOBuilder setAllowedCards(List<AdyenCardTypeEnum> allowedCards) {
-        List<String> mappedAllowedCards = allowedCards.stream().map(AdyenCardTypeEnum::toString).toList();
+        List<String> mappedAllowedCards = allowedCards == null ? List.of()
+                : allowedCards.stream().map(AdyenCardTypeEnum::toString).toList();
         checkoutConfigDTO.setAllowedCards(mappedAllowedCards);
         return this;
     }

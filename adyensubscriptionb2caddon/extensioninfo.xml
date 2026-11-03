@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<extensioninfo xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+               xsi:noNamespaceSchemaLocation="extensioninfo.xsd">
+
+	<!--
+	    The "My subscriptions" page in My Account.
+
+	    A separate addon rather than part of adyenv6b2ccheckoutaddon, because the page needs the
+	    subscription connector and the checkout addon must not: a store that sells no subscriptions would
+	    otherwise be made to load the connector, its item types and its background jobs in order to take an
+	    ordinary card payment. The dependency only runs the other way here, so installing this addon is the
+	    decision to sell subscriptions, and not installing it costs nothing.
+	-->
+	<extension abstractclassprefix="Generated" classprefix="Adyensubscriptionb2caddon"
+	           description="My Account subscriptions page for the B2C accelerator"
+	           managername="Adyensubscriptionb2caddonManager"
+	           managersuperclass="de.hybris.platform.jalo.extension.Extension"
+	           name="adyensubscriptionb2caddon">
+
+		<requires-extension name="addonsupport"/>
+		<requires-extension name="acceleratorstorefrontcommons"/>
+		<requires-extension name="adyensubscriptionconnector"/>
+
+		<coremodule generated="true"
+		            manager="com.adyen.commerce.subscription.jalo.Adyensubscriptionb2caddonManager"
+		            packageroot="com.adyen.commerce.subscription"/>
+	</extension>
+
+</extensioninfo>
