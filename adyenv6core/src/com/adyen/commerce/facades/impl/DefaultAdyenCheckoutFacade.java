@@ -129,6 +129,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     private AdyenTransactionService adyenTransactionService;
     private OrderRepository orderRepository;
     private AdyenOrderService adyenOrderService;
+    private AdyenVoucherService adyenVoucherService;
     private CheckoutCustomerStrategy checkoutCustomerStrategy;
     private AdyenPaymentServiceFactory adyenPaymentServiceFactory;
     private ModelService modelService;
@@ -394,7 +395,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
                 PaymentResponse.ResultCodeEnum.REDIRECTSHOPPER == paymentResponse.getResultCode() ||
                 PaymentResponse.ResultCodeEnum.PRESENTTOSHOPPER == paymentResponse.getResultCode()) {
             LOGGER.info("Placing pending order");
-            placePendingOrder(paymentResponse.getResultCode().getValue());
+            placePendingOrder(paymentResponse.getResultCode().getValue(), paymentResponse.getAction());
             return paymentResponse;
         }
         if (PaymentResponse.ResultCodeEnum.AUTHORISED == paymentResponse.getResultCode()) {
@@ -597,22 +598,48 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
 
         getAdyenOrderService().updatePaymentInfo(orderModel, paymentType, additionalData);
         getAdyenOrderService().storeFraudReport(orderModel, paymentsResponse.getPspReference(), paymentsResponse.getFraudResult());
+        if (PaymentResponse.ResultCodeEnum.PRESENTTOSHOPPER == paymentsResponse.getResultCode()) {
+            storeVoucherExpiry(orderModel, paymentsResponse.getAction());
+        }
         return orderData;
     }
 
+    /**
+     * Stores the voucher expiry on the order. Never fails the checkout: the order is already placed at this point.
+     */
+    protected void storeVoucherExpiry(final OrderModel orderModel, final PaymentResponseAction action) {
+        if (getAdyenVoucherService() == null) {
+            LOGGER.warn("No AdyenVoucherService configured, voucher expiry not stored");
+            return;
+        }
+        try {
+            getAdyenVoucherService().storeVoucherExpiry(orderModel, action);
+        } catch (RuntimeException e) {
+            LOGGER.warn("Could not store the voucher expiry on the order", e);
+        }
+    }
+
     protected OrderData placePendingOrder(String resultCode) throws InvalidCartException {
-        return placeOrderWithStatus(OrderStatus.PAYMENT_PENDING, resultCode);
+        return placeOrderWithStatus(OrderStatus.PAYMENT_PENDING, resultCode, null);
+    }
+
+    /**
+     * Places a pending order and, for voucher payments (PresentToShopper), stores the voucher expiry
+     * from the response action on the placed order.
+     */
+    protected OrderData placePendingOrder(String resultCode, PaymentResponseAction action) throws InvalidCartException {
+        return placeOrderWithStatus(OrderStatus.PAYMENT_PENDING, resultCode, action);
     }
 
     protected OrderData placeAuthorisedOrder(PaymentResponse.ResultCodeEnum resultCode) throws InvalidCartException {
-        return placeOrderWithStatus(OrderStatus.PAYMENT_AUTHORIZED, resultCode.getValue());
+        return placeOrderWithStatus(OrderStatus.PAYMENT_AUTHORIZED, resultCode.getValue(), null);
     }
 
     /**
      * Common implementation for placing an order with a given payment status.
      * Used by both {@link #placePendingOrder(String)} and {@link #placeAuthorisedOrder(PaymentResponse.ResultCodeEnum)}.
      */
-    private OrderData placeOrderWithStatus(final OrderStatus status, final String statusInfo) throws InvalidCartException {
+    protected OrderData placeOrderWithStatus(final OrderStatus status, final String statusInfo, final PaymentResponseAction action) throws InvalidCartException {
         CartModel cartModel = getCartService().getSessionCart();
         cartModel.setStatus(status);
         cartModel.setStatusInfo(statusInfo);
@@ -622,6 +649,14 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         getModelService().save(cartModel);
 
         OrderData orderData = getCheckoutFacade().placeOrder();
+
+        if (action != null && PaymentResponse.ResultCodeEnum.PRESENTTOSHOPPER.getValue().equals(statusInfo)) {
+            try {
+                storeVoucherExpiry(orderRepository.getOrderModel(orderData.getCode()), action);
+            } catch (RuntimeException e) {
+                LOGGER.warn("Could not load order {} to store the voucher expiry", orderData.getCode(), e);
+            }
+        }
 
         getSessionService().setAttribute(SESSION_PENDING_ORDER_CODE, orderData.getCode());
         getSessionService().setAttribute(SESSION_PAYMENT_METHODS_CART_DATA, paymentMethodsCartData);
@@ -1341,6 +1376,14 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
 
     public void setOrderRepository(OrderRepository orderRepository) {
         this.orderRepository = orderRepository;
+    }
+
+    public AdyenVoucherService getAdyenVoucherService() {
+        return adyenVoucherService;
+    }
+
+    public void setAdyenVoucherService(AdyenVoucherService adyenVoucherService) {
+        this.adyenVoucherService = adyenVoucherService;
     }
 
     public AdyenOrderService getAdyenOrderService() {
