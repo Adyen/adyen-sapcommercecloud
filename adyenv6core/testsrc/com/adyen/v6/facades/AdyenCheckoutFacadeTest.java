@@ -21,15 +21,16 @@
 
 package com.adyen.v6.facades;
 
+import com.adyen.commerce.facades.impl.DefaultAdyenCheckoutFacade;
 import com.adyen.model.checkout.*;
 import com.adyen.model.checkout.PaymentResponse;
 import com.adyen.model.nexo.*;
 import com.adyen.model.terminal.TerminalAPIResponse;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.constants.Adyenv6coreConstants;
+import com.adyen.v6.dto.DisclaimerConfigurationDTO;
 import com.adyen.v6.enums.RecurringContractMode;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
-import com.adyen.commerce.facades.impl.DefaultAdyenCheckoutFacade;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
 import com.adyen.v6.repository.OrderRepository;
 import com.adyen.v6.service.AdyenBusinessProcessService;
@@ -48,6 +49,7 @@ import de.hybris.platform.commerceservices.strategies.CheckoutCustomerStrategy;
 import de.hybris.platform.converters.Populator;
 import de.hybris.platform.core.enums.OrderStatus;
 import de.hybris.platform.core.model.c2l.CountryModel;
+import de.hybris.platform.core.model.c2l.LanguageModel;
 import de.hybris.platform.core.model.order.CartModel;
 import de.hybris.platform.core.model.order.OrderModel;
 import de.hybris.platform.core.model.order.delivery.DeliveryModeModel;
@@ -66,7 +68,7 @@ import de.hybris.platform.servicelayer.model.ModelService;
 import de.hybris.platform.servicelayer.session.SessionService;
 import de.hybris.platform.store.BaseStoreModel;
 import de.hybris.platform.store.services.BaseStoreService;
-
+import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.configuration2.Configuration;
 import org.junit.Before;
 import org.junit.Test;
@@ -78,18 +80,14 @@ import org.mockito.junit.MockitoJUnitRunner;
 import org.springframework.ui.ExtendedModelMap;
 import org.springframework.ui.Model;
 
-import jakarta.servlet.http.HttpServletRequest;
 import java.math.BigDecimal;
-import java.util.Collections;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
+import static com.adyen.commerce.facades.impl.DefaultAdyenCheckoutFacade.*;
 import static com.adyen.constants.ApiConstants.ThreeDS2Property.CHALLENGE_RESULT;
 import static com.adyen.constants.ApiConstants.ThreeDS2Property.FINGERPRINT_RESULT;
 import static com.adyen.v6.constants.Adyenv6coreConstants.PAYMENT_METHOD_EPS;
-import static com.adyen.commerce.facades.impl.DefaultAdyenCheckoutFacade.*;
 import static org.junit.Assert.*;
-
 import static org.mockito.Mockito.*;
 
 @UnitTest
@@ -257,6 +255,129 @@ public class AdyenCheckoutFacadeTest {
         assertEquals(PAYMENT_METHOD_EPS, model.asMap().get(MODEL_SELECTED_PAYMENT_METHOD));
         assertTrue(model.containsAttribute(MODEL_ISSUER_LISTS));
         assertTrue(((Map<String, String>) model.asMap().get(MODEL_ISSUER_LISTS)).containsKey(PAYMENT_METHOD_EPS));
+    }
+
+    @Test
+    public void testDisclaimerConfigurationUsesCountrySpecificLocalizedMessageForEuropeanCountry() {
+        final Locale germanLocale = Locale.GERMANY;
+        final LanguageModel germanLanguage = mockLanguage("de", germanLocale);
+        when(commonI18NService.getCurrentLanguage()).thenReturn(null);
+        when(commonI18NService.getAllLanguages()).thenReturn(List.of(germanLanguage));
+        when(baseStore.getDisclaimerMessage(germanLocale)).thenReturn("German disclaimer");
+        when(baseStore.getDisclaimerLink()).thenReturn("https://example.test/disclaimer");
+
+        final DisclaimerConfigurationDTO result = adyenCheckoutFacade.getDisclaimerConfiguration(" de ");
+
+        assertEquals("German disclaimer", result.getDisclaimerMessage());
+        assertEquals("https://example.test/disclaimer", result.getDisclaimerLink());
+        verify(commonI18NService, never()).getLocaleForIsoCode(any());
+        verify(baseStore).getDisclaimerMessage(germanLocale);
+    }
+
+    @Test
+    public void testDisclaimerConfigurationFallsBackToCurrentLanguageWhenCountryTranslationIsMissing() {
+        final Locale germanLocale = Locale.GERMANY;
+        final Locale englishLocale = Locale.ENGLISH;
+        final LanguageModel germanLanguage = mockLanguage("de", germanLocale);
+        final LanguageModel englishLanguage = mock(LanguageModel.class);
+        when(englishLanguage.getIsocode()).thenReturn("en");
+        final LanguageModel currentLanguage = mockLanguage("en", englishLocale);
+        when(commonI18NService.getCurrentLanguage()).thenReturn(currentLanguage);
+        when(commonI18NService.getAllLanguages()).thenReturn(List.of(englishLanguage, germanLanguage));
+        when(baseStore.getDisclaimerMessage(germanLocale)).thenReturn(null);
+        when(baseStore.getDisclaimerMessage(englishLocale)).thenReturn("English disclaimer");
+
+        final DisclaimerConfigurationDTO result = adyenCheckoutFacade.getDisclaimerConfiguration("DE");
+
+        assertEquals("English disclaimer", result.getDisclaimerMessage());
+        verify(baseStore).getDisclaimerMessage(germanLocale);
+        verify(baseStore).getDisclaimerMessage(englishLocale);
+    }
+
+    @Test
+    public void testDisclaimerConfigurationUsesCurrentLanguageWhenCountryLocaleIsUnavailable() {
+        final LanguageModel currentLanguage = mockLanguage("en", Locale.ENGLISH);
+        when(commonI18NService.getCurrentLanguage()).thenReturn(currentLanguage);
+        when(commonI18NService.getAllLanguages()).thenReturn(Collections.singletonList(currentLanguage));
+        when(baseStore.getDisclaimerMessage(Locale.ENGLISH)).thenReturn("English disclaimer");
+
+        final DisclaimerConfigurationDTO result = adyenCheckoutFacade.getDisclaimerConfiguration("DE");
+
+        assertEquals("English disclaimer", result.getDisclaimerMessage());
+        verify(baseStore).getDisclaimerMessage(Locale.ENGLISH);
+        verify(baseStore, never()).getDisclaimerMessage(Locale.GERMANY);
+    }
+
+    @Test
+    public void testDisclaimerConfigurationMapsCountryToItsLanguageNotToTheSameCode() {
+        final Locale swedishLocale = Locale.of("sv");
+        final LanguageModel currentLanguage = mockLanguage("en", Locale.ENGLISH);
+        final LanguageModel swedishLanguage = mockLanguage("sv", swedishLocale);
+        final LanguageModel northernSamiLanguage = mock(LanguageModel.class);
+        when(northernSamiLanguage.getIsocode()).thenReturn("se");
+        when(commonI18NService.getCurrentLanguage()).thenReturn(currentLanguage);
+        when(commonI18NService.getAllLanguages()).thenReturn(List.of(currentLanguage, northernSamiLanguage, swedishLanguage));
+        when(baseStore.getDisclaimerMessage(swedishLocale)).thenReturn("Svensk disclaimer");
+
+        final DisclaimerConfigurationDTO result = adyenCheckoutFacade.getDisclaimerConfiguration("SE");
+
+        assertEquals("Svensk disclaimer", result.getDisclaimerMessage());
+        verify(commonI18NService, never()).getLocaleForIsoCode(any());
+    }
+
+    @Test
+    public void testDisclaimerConfigurationUsesGermanForAustria() {
+        final LanguageModel germanLanguage = mockLanguage("de_AT", Locale.of("de", "AT"));
+        when(commonI18NService.getCurrentLanguage()).thenReturn(null);
+        when(commonI18NService.getAllLanguages()).thenReturn(List.of(germanLanguage));
+        when(baseStore.getDisclaimerMessage(Locale.of("de", "AT"))).thenReturn("Österreichischer Hinweis");
+
+        final DisclaimerConfigurationDTO result = adyenCheckoutFacade.getDisclaimerConfiguration("AT");
+
+        assertEquals("Österreichischer Hinweis", result.getDisclaimerMessage());
+    }
+
+    @Test
+    public void testDisclaimerConfigurationKeepsCurrentLanguageWhenItIsSpokenInTheCountry() {
+        final LanguageModel frenchLanguage = mockLanguage("fr", Locale.FRENCH);
+        when(commonI18NService.getCurrentLanguage()).thenReturn(frenchLanguage);
+        when(baseStore.getDisclaimerMessage(Locale.FRENCH)).thenReturn("Avertissement");
+
+        final DisclaimerConfigurationDTO result = adyenCheckoutFacade.getDisclaimerConfiguration("CH");
+
+        assertEquals("Avertissement", result.getDisclaimerMessage());
+        verify(commonI18NService, never()).getAllLanguages();
+    }
+
+    @Test
+    public void testDisclaimerConfigurationSkipsDisclaimerForNonEuropeanCountry() {
+        final DisclaimerConfigurationDTO result = adyenCheckoutFacade.getDisclaimerConfiguration("US");
+
+        assertNull(result.getDisclaimerMessage());
+        assertNull(result.getDisclaimerLink());
+        verifyNoInteractions(commonI18NService);
+        verify(baseStore, never()).getDisclaimerMessage(any(Locale.class));
+        verify(baseStore, never()).getDisclaimerLink();
+    }
+
+    @Test
+    public void testDisclaimerConfigurationFallsBackToDeliveryCountryWhenCountryIsNotProvided() {
+        final CartModel sessionCart = mock(CartModel.class);
+        final AddressModel deliveryAddress = mock(AddressModel.class);
+        final CountryModel deliveryCountry = mock(CountryModel.class);
+        final LanguageModel polishLanguage = mockLanguage("pl", Locale.forLanguageTag("pl-PL"));
+        when(cartService.getSessionCart()).thenReturn(sessionCart);
+        when(sessionCart.getDeliveryAddress()).thenReturn(deliveryAddress);
+        when(deliveryAddress.getCountry()).thenReturn(deliveryCountry);
+        when(deliveryCountry.getIsocode()).thenReturn("PL");
+        when(commonI18NService.getCurrentLanguage()).thenReturn(null);
+        when(commonI18NService.getAllLanguages()).thenReturn(List.of(polishLanguage));
+        when(baseStore.getDisclaimerMessage(Locale.forLanguageTag("pl-PL"))).thenReturn("Polish disclaimer");
+
+        final DisclaimerConfigurationDTO result = adyenCheckoutFacade.getDisclaimerConfiguration(null);
+
+        assertEquals("Polish disclaimer", result.getDisclaimerMessage());
+        verify(commonI18NService, never()).getLocaleForIsoCode(any());
     }
 
     private PaymentMethodsResponse createEpsPaymentMethodsResponse() {
@@ -610,5 +731,12 @@ public class AdyenCheckoutFacadeTest {
                 // not relevant
             }
         });
+    }
+
+    private LanguageModel mockLanguage(final String isocode, final Locale locale) {
+        final LanguageModel language = mock(LanguageModel.class);
+        when(language.getIsocode()).thenReturn(isocode);
+        when(commonI18NService.getLocaleForLanguage(language)).thenReturn(locale);
+        return language;
     }
 }

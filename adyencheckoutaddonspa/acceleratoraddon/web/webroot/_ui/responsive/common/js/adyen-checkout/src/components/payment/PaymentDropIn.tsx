@@ -1,5 +1,5 @@
-import React, { RefObject, useEffect, useRef, useCallback } from "react";
-import { AdyenCheckout, AdyenCheckoutError, Dropin, PromptPay } from '@adyen/adyen-web/auto';
+import React, {RefObject, useCallback, useEffect, useRef} from "react";
+import {AdyenCheckout, AdyenCheckoutError, Dropin, PromptPay} from '@adyen/adyen-web/auto';
 import '@adyen/adyen-web/styles/adyen.css';
 import {
     AdditionalDetailsActions,
@@ -181,6 +181,25 @@ export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
 
         try {
             const adyenCheckout = await AdyenCheckout(getAdyenCheckoutConfig());
+
+            const disclaimerMessage = adyenConfig.disclaimerMessage?.trim();
+            const disclaimerLink = adyenConfig.disclaimerLink?.trim();
+            const nonCardPaymentMethodConfigurations = disclaimerMessage
+                ? Object.fromEntries(
+                    adyenConfig.paymentMethods
+                    .filter(paymentMethod => adyenConfig.openInvoiceMethods.includes(paymentMethod.type))
+                    .map(paymentMethod => [paymentMethod.type, {
+                        disclaimerMessage: disclaimerLink
+                            ? {
+                                message: `${disclaimerMessage} %{learnMore}`,
+                                linkText: 'Learn more...',
+                                link: disclaimerLink
+                            }
+                            : { message: disclaimerMessage }
+                    }])
+                )
+                : {};
+
             const econtextConfiguration: EcontextConfiguration = {
                 personalDetailsRequired: false,
                 data: {
@@ -192,6 +211,7 @@ export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
             };
             const dropIn = new Dropin(adyenCheckout, {
                 paymentMethodsConfiguration: {
+                    ...nonCardPaymentMethodConfigurations,
                     card: getAdyenCardConfig(),
                     storedCard: getAdyenStoredCardConfig(),
                     econtext: econtextConfiguration,
@@ -233,6 +253,10 @@ export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
         }
     }, [
         adyenConfig.adyenClientKey,
+        adyenConfig.disclaimerMessage,
+        adyenConfig.disclaimerLink,
+        adyenConfig.paymentMethods,
+        adyenConfig.openInvoiceMethods,
         firstName,
         lastName,
         telephoneNumber,

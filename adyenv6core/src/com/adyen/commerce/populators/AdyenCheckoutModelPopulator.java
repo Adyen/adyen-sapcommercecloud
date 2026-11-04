@@ -90,6 +90,8 @@ public class AdyenCheckoutModelPopulator {
         model.addAttribute("merchantDisplayName", checkoutConfigDTO.getMerchantDisplayName());
         model.addAttribute("shopperEmail", checkoutConfigDTO.getShopperEmail());
         model.addAttribute(MODEL_OPEN_INVOICE_METHODS, checkoutConfigDTO.getOpenInvoiceMethods());
+        model.addAttribute("disclaimerMessage", checkoutConfigDTO.getDisclaimerMessage());
+        model.addAttribute("disclaimerLink", checkoutConfigDTO.getDisclaimerLink());
         model.addAttribute(MODEL_SHOW_SOCIAL_SECURITY_NUMBER, checkoutConfigDTO.isShowSocialSecurityNumber());
         model.addAttribute(MODEL_SHOW_BOLETO, checkoutConfigDTO.isShowBoleto());
         model.addAttribute(MODEL_SHOW_COMBO_CARD, checkoutConfigDTO.isShowComboCard());

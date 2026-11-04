@@ -8,6 +8,7 @@ import com.adyen.commerce.facades.AdyenCheckoutFacade;
 import com.adyen.commerce.facades.AdyenExpressCheckoutFacade;
 import com.adyen.commerce.occ.api.AdyenPaymentMethodsApi;
 import com.adyen.service.exception.ApiException;
+import com.adyen.v6.dto.DisclaimerConfigurationDTO;
 import com.adyen.v6.exceptions.AdyenCheckoutConfigurationException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -20,6 +21,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -46,9 +48,21 @@ public class PaymentMethodsController implements AdyenPaymentMethodsApi
     @Override
     @Secured({ "ROLE_CUSTOMERGROUP", "ROLE_TRUSTED_CLIENT", "ROLE_CUSTOMERMANAGERGROUP" })
     @GetMapping(value = AdyenoccConstants.ADYEN_USER_CART_PREFIX + "/checkout-configuration")
-    public ResponseEntity<String> getCheckoutConfiguration() throws ApiException, JsonProcessingException {
-        String response = objectMapper.writeValueAsString(adyenCheckoutFacade.getReactCheckoutConfig());
+    public ResponseEntity<String> getCheckoutConfiguration(
+            @RequestParam(name = "shopperCountryCode", required = false) final String shopperCountryCode)
+            throws ApiException, JsonProcessingException {
+        String response = objectMapper.writeValueAsString(adyenCheckoutFacade.getReactCheckoutConfig(shopperCountryCode));
         return ResponseEntity.ok().body(response);
+    }
+
+    @Override
+    @Secured({ "ROLE_CUSTOMERGROUP", "ROLE_TRUSTED_CLIENT", "ROLE_CUSTOMERMANAGERGROUP" })
+    @GetMapping(value = AdyenoccConstants.ADYEN_USER_CART_PREFIX + "/checkout-configuration/disclaimer")
+    public ResponseEntity<String> getDisclaimerConfiguration(
+            @RequestParam(name = "shopperCountryCode", required = false) final String shopperCountryCode)
+            throws JsonProcessingException {
+        final DisclaimerConfigurationDTO configuration = adyenCheckoutFacade.getDisclaimerConfiguration(shopperCountryCode);
+        return ResponseEntity.ok(objectMapper.writeValueAsString(configuration));
     }
 
     @Override
