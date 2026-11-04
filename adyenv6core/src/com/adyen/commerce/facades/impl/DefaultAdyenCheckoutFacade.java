@@ -77,6 +77,7 @@ import de.hybris.platform.core.model.order.CartModel;
 import de.hybris.platform.core.model.order.OrderModel;
 import de.hybris.platform.core.model.order.payment.PaymentInfoModel;
 import de.hybris.platform.core.model.user.AddressModel;
+import de.hybris.platform.core.model.c2l.LanguageModel;
 import de.hybris.platform.core.model.user.CustomerModel;
 import de.hybris.platform.deliveryzone.model.ZoneDeliveryModeValueModel;
 import de.hybris.platform.order.CalculationService;
@@ -117,10 +118,30 @@ import static com.adyen.v6.constants.Adyenv6coreConstants.*;
 public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
 
     public static final String DETAILS = "details";
-    private static final Set<String> DISCLAIMER_EUROPEAN_COUNTRY_CODES = Set.of(
-            "AL", "AD", "AM", "AT", "AZ", "BY", "BE", "BA", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "GE", "DE",
-            "GR", "HU", "IS", "IE", "IT", "KZ", "XK", "LV", "LI", "LT", "LU", "MT", "MD", "MC", "ME", "NL", "MK", "NO",
-            "PL", "PT", "RO", "RU", "SM", "RS", "SK", "SI", "ES", "SE", "CH", "TR", "UA", "GB", "VA");
+    /**
+     * European countries that get the pay-later disclaimer, mapped to their official languages (ISO 639-1),
+     * most widely used first. Country and language codes differ for many countries (SE/sv, DK/da, CZ/cs, AT/de),
+     * so the country code must never be used as a language code.
+     */
+    private static final Map<String, List<String>> DISCLAIMER_COUNTRY_LANGUAGES = Map.ofEntries(
+            Map.entry("AL", List.of("sq")), Map.entry("AD", List.of("ca")), Map.entry("AM", List.of("hy")),
+            Map.entry("AT", List.of("de")), Map.entry("AZ", List.of("az")), Map.entry("BY", List.of("be", "ru")),
+            Map.entry("BE", List.of("nl", "fr", "de")), Map.entry("BA", List.of("bs", "hr", "sr")),
+            Map.entry("BG", List.of("bg")), Map.entry("HR", List.of("hr")), Map.entry("CY", List.of("el", "tr")),
+            Map.entry("CZ", List.of("cs")), Map.entry("DK", List.of("da")), Map.entry("EE", List.of("et")),
+            Map.entry("FI", List.of("fi", "sv")), Map.entry("FR", List.of("fr")), Map.entry("GE", List.of("ka")),
+            Map.entry("DE", List.of("de")), Map.entry("GR", List.of("el")), Map.entry("HU", List.of("hu")),
+            Map.entry("IS", List.of("is")), Map.entry("IE", List.of("en", "ga")), Map.entry("IT", List.of("it")),
+            Map.entry("KZ", List.of("kk", "ru")), Map.entry("XK", List.of("sq", "sr")), Map.entry("LV", List.of("lv")),
+            Map.entry("LI", List.of("de")), Map.entry("LT", List.of("lt")), Map.entry("LU", List.of("lb", "fr", "de")),
+            Map.entry("MT", List.of("mt", "en")), Map.entry("MD", List.of("ro")), Map.entry("MC", List.of("fr")),
+            Map.entry("ME", List.of("sr")), Map.entry("NL", List.of("nl")), Map.entry("MK", List.of("mk")),
+            Map.entry("NO", List.of("nb", "no", "nn")), Map.entry("PL", List.of("pl")), Map.entry("PT", List.of("pt")),
+            Map.entry("RO", List.of("ro")), Map.entry("RU", List.of("ru")), Map.entry("SM", List.of("it")),
+            Map.entry("RS", List.of("sr")), Map.entry("SK", List.of("sk")), Map.entry("SI", List.of("sl")),
+            Map.entry("ES", List.of("es", "ca", "eu", "gl")), Map.entry("SE", List.of("sv")),
+            Map.entry("CH", List.of("de", "fr", "it", "rm")), Map.entry("TR", List.of("tr")),
+            Map.entry("UA", List.of("uk")), Map.entry("GB", List.of("en")), Map.entry("VA", List.of("it")));
     private static final String RECURRING_RECURRING_DETAIL_REFERENCE = "recurring.recurringDetailReference";
     public static final String EXPRESS_PAYMENT_CONFIG = "expressPaymentConfig";
 
@@ -948,16 +969,11 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         String disclaimerLink = null;
         final String countryCode = resolveShopperCountryCode(shopperCountryCode, cartService.getSessionCart());
 
-        if (countryCode != null && DISCLAIMER_EUROPEAN_COUNTRY_CODES.contains(countryCode)) {
-            final String currentLanguageIso = commonI18NService.getCurrentLanguage() != null
-                    ? commonI18NService.getCurrentLanguage().getIsocode()
-                    : Locale.ENGLISH.getLanguage();
-            final Locale currentLanguageLocale = Locale.of(currentLanguageIso);
-            final Locale countryLocale = commonI18NService.getLocaleForIsoCode(countryCode);
-            final boolean countryLocaleIsAvailable = countryLocale != null
-                    && commonI18NService.getAllLanguages().stream()
-                    .anyMatch(language -> language.getIsocode().equalsIgnoreCase(countryLocale.getLanguage()));
-            final Locale disclaimerLocale = countryLocaleIsAvailable ? countryLocale : currentLanguageLocale;
+        final List<String> countryLanguages = getDisclaimerLanguagesForCountry(countryCode);
+        if (!countryLanguages.isEmpty()) {
+            final LanguageModel currentLanguage = commonI18NService.getCurrentLanguage();
+            final Locale currentLanguageLocale = currentLanguage != null ? getLocaleForLanguage(currentLanguage) : Locale.ENGLISH;
+            final Locale disclaimerLocale = resolveDisclaimerLocale(countryLanguages, currentLanguage, currentLanguageLocale);
             LOGGER.info("Resolving disclaimer message: requestedCountry={}, selectedLocale={}", countryCode, disclaimerLocale);
 
             disclaimerMessage = baseStore.getDisclaimerMessage(disclaimerLocale);
@@ -973,6 +989,45 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         disclaimerConfiguration.setDisclaimerMessage(disclaimerMessage);
         disclaimerConfiguration.setDisclaimerLink(disclaimerLink);
         return disclaimerConfiguration;
+    }
+
+    /**
+     * Official languages of the given (upper-case ISO 3166-1) country for which the disclaimer is shown,
+     * most widely used first; an empty list means no disclaimer for that country.
+     */
+    protected List<String> getDisclaimerLanguagesForCountry(final String countryCode) {
+        return countryCode == null ? Collections.emptyList() : DISCLAIMER_COUNTRY_LANGUAGES.getOrDefault(countryCode, Collections.emptyList());
+    }
+
+    /**
+     * Keeps the shopper's current language when it is one of the country's languages (e.g. French in CH);
+     * otherwise takes the first country language configured in the system, falling back to the current language.
+     */
+    protected Locale resolveDisclaimerLocale(final List<String> countryLanguages,
+                                             final LanguageModel currentLanguage,
+                                             final Locale currentLanguageLocale) {
+        if (currentLanguage != null && countryLanguages.contains(getBaseLanguageCode(currentLanguage))) {
+            return currentLanguageLocale;
+        }
+        final Collection<LanguageModel> systemLanguages = commonI18NService.getAllLanguages();
+        for (final String countryLanguage : countryLanguages) {
+            final Optional<LanguageModel> systemLanguage = systemLanguages.stream()
+                    .filter(language -> countryLanguage.equals(getBaseLanguageCode(language)))
+                    .findFirst();
+            if (systemLanguage.isPresent()) {
+                return getLocaleForLanguage(systemLanguage.get());
+            }
+        }
+        return currentLanguageLocale;
+    }
+
+    protected String getBaseLanguageCode(final LanguageModel language) {
+        return StringUtils.substringBefore(StringUtils.defaultString(language.getIsocode()), "_").toLowerCase(Locale.ROOT);
+    }
+
+    protected Locale getLocaleForLanguage(final LanguageModel language) {
+        final Locale locale = commonI18NService.getLocaleForLanguage(language);
+        return locale != null ? locale : Locale.forLanguageTag(StringUtils.defaultString(language.getIsocode()).replace('_', '-'));
     }
 
     private String resolveShopperCountryCode(final String shopperCountryCode, final CartModel cartModel) {
