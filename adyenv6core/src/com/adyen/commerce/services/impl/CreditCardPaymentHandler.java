@@ -1,6 +1,9 @@
 package com.adyen.commerce.services.impl;
 
-import com.adyen.model.checkout.*;
+import com.adyen.model.checkout.CardDetails;
+import com.adyen.model.checkout.CheckoutPaymentMethod;
+import com.adyen.model.checkout.Installments;
+import com.adyen.model.checkout.PaymentRequest;
 import com.adyen.v6.enums.RecurringContractMode;
 import de.hybris.platform.commercefacades.order.data.CartData;
 import de.hybris.platform.core.model.user.CustomerModel;
@@ -26,6 +29,8 @@ public class CreditCardPaymentHandler implements PaymentMethodHandler {
 
         RecurringContractHelper.applyRecurringContract(paymentRequest, cartData, recurringContractMode,
                 customerModel, guestUserTokenizationEnabled);
+
+        setDeviceFingerprint(paymentRequest, cartData);
 
         if (CARD_TYPE_DEBIT.equals(cartData.getAdyenCardType())) {
             updateForDebitCard(paymentRequest, cartData);
@@ -81,6 +86,12 @@ public class CreditCardPaymentHandler implements PaymentMethodHandler {
             Installments installmentObj = new Installments();
             installmentObj.setValue(cartData.getAdyenInstallments());
             paymentRequest.setInstallments(installmentObj);
+        }
+    }
+
+    protected void setDeviceFingerprint(PaymentRequest paymentRequest, CartData cartData) {
+        if (StringUtils.isNotEmpty(cartData.getAdyenDfValue())) {
+            paymentRequest.setDeviceFingerprint(cartData.getAdyenDfValue());
         }
     }
 }
