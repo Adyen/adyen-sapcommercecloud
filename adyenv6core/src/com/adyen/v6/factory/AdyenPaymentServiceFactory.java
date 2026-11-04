@@ -23,6 +23,7 @@ package com.adyen.v6.factory;
 import com.adyen.commerce.services.PaymentMethodNameOverrideService;
 import com.adyen.commerce.services.impl.DefaultAdyenRequestService;
 import com.adyen.v6.service.*;
+import com.adyen.v6.service.impl.DefaultAdyenDonationsService;
 import com.adyen.v6.strategy.AdyenMerchantAccountStrategy;
 import de.hybris.platform.store.BaseStoreModel;
 import org.springframework.context.annotation.Lazy;
@@ -62,5 +63,11 @@ public class AdyenPaymentServiceFactory {
         String webMerchantAccount = adyenMerchantAccountStrategy.getWebMerchantAccount(baseStoreModel);
         DefaultAdyenUtilityApiService adyenUtilityApiService = new DefaultAdyenUtilityApiService(baseStoreModel, webMerchantAccount, defaultAdyenRequestService, adyenCustomerInteractionRetryTemplate, adyenBackgroundProcessRetryTemplate);
         return adyenUtilityApiService;
+    }
+
+    public AdyenDonationsService createAdyenDonationsService(final BaseStoreModel baseStoreModel) {
+        String webMerchantAccount = adyenMerchantAccountStrategy.getWebMerchantAccount(baseStoreModel);
+        DefaultAdyenDonationsService adyenDonationsService = new DefaultAdyenDonationsService(baseStoreModel, webMerchantAccount, defaultAdyenRequestService, adyenCustomerInteractionRetryTemplate, adyenBackgroundProcessRetryTemplate);
+        return adyenDonationsService;
     }
 }

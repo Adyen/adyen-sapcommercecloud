@@ -9,6 +9,7 @@ import {PaymentTimeout} from "./PaymentTimeout";
 import {PaymentStatusService} from "../../service/paymentStatusService";
 import {isEmpty, isNotEmpty} from "../../util/stringUtil";
 import {isGuid} from "../../util/guidUtil";
+import {DonationSection} from "./Donation";
 
 interface Props {
     orderCode: string;
@@ -216,6 +217,7 @@ export class ThankYouPage extends React.Component<Props, State> {
                     </div>
                     {this.renderOrderNumberSection()}
                     {this.renderPaymentStatus()}
+                    {this.state.paymentStatus === "completed" && <DonationSection/>}
                 </div>
             </div>
         );
