@@ -15,6 +15,7 @@ import com.adyen.v6.repository.AdyenPartialPaymentOrderRepository;
 import com.adyen.v6.service.AdyenCheckoutApiService;
 import com.adyen.v6.service.AdyenPartialPaymentService;
 import com.adyen.v6.service.DefaultAdyenCheckoutApiService;
+import com.adyen.v6.service.PaymentAuthorisationRefusedException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import de.hybris.platform.commercefacades.order.data.CartData;
 import de.hybris.platform.commercefacades.order.data.OrderData;
@@ -109,7 +110,17 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
         requestInfo.setShopperLocale(getShopperLocale());
 
         clearDonationSessionData();
-        PaymentResponse paymentResponse = getAdyenPaymentService().processPaymentRequest(cartData, paymentRequest, requestInfo, getCheckoutCustomerStrategy().getCurrentUserForCheckout(), partialPaymentOrderData);
+        PaymentResponse paymentResponse;
+        try {
+            paymentResponse = getAdyenPaymentService().processPaymentRequest(cartData, paymentRequest, requestInfo, getCheckoutCustomerStrategy().getCurrentUserForCheckout(), partialPaymentOrderData);
+        } catch (PaymentAuthorisationRefusedException e) {
+            // The remaining amount is refused after the gift card leg went through: release the held amount
+            // instead of leaving the shopper's gift card reserved for a payment that will not happen.
+            if (partialPaymentOrderData != null) {
+                cancelPartialPaymentOrdersOnFailure();
+            }
+            throw e;
+        }
         storeDonationPaymentData(paymentResponse);
         storeDonationCountryCode(cartData);
         if (PaymentResponse.ResultCodeEnum.PENDING == paymentResponse.getResultCode()

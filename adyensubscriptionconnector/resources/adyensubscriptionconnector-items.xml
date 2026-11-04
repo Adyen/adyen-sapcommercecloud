@@ -16,6 +16,16 @@
         <enumtype code="BillingPlatform" generate="true" autocreate="true" dynamic="true">
             <description>External subscription billing platform driven through a connector adapter.</description>
         </enumtype>
+
+        <!-- Closed set (dynamic="false"): a strategy is bound to each value, so a value added at runtime
+             would have nothing to evaluate it. Stored on BaseStore.duplicateSubscriptionRule. -->
+        <enumtype code="DuplicateSubscriptionRule" generate="true" autocreate="true" dynamic="false">
+            <description>What makes a purchase a duplicate of a subscription the customer already holds.</description>
+            <value code="DISABLED"/>
+            <value code="SAME_PRODUCT"/>
+            <value code="SAME_PLAN"/>
+            <value code="SAME_PLAN_FAMILY"/>
+        </enumtype>
     </enumtypes>
 
     <relations>
@@ -49,6 +59,14 @@
                     <description>Active subscription billing connector for this store (one active connector per BaseStore).</description>
                     <persistence type="property"/>
                     <modifiers optional="true"/>
+                </attribute>
+                <attribute qualifier="duplicateSubscriptionRule" type="DuplicateSubscriptionRule">
+                    <description>What counts as buying a subscription the customer already holds. DISABLED turns the check off.</description>
+                    <persistence type="property"/>
+                    <modifiers optional="true"/>
+                    <!-- Applies to stores created from now on; the existing rows are filled by
+                         AdyensubscriptionconnectorSystemSetup. -->
+                    <defaultvalue>em().getEnumerationValue("DuplicateSubscriptionRule","SAME_PRODUCT")</defaultvalue>
                 </attribute>
             </attributes>
         </itemtype>
@@ -196,6 +214,14 @@
                 </attribute>
                 <attribute qualifier="status" type="java.lang.String">
                     <description>Normalized subscription status as last synced from the platform.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="notFoundCount" type="java.lang.Integer">
+                    <description>Consecutive 404s on a pull re-fetch; reset by any successful read or applied webhook.</description>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="notFoundSince" type="java.util.Date">
+                    <description>When the platform first answered 404 for this reference in the current run of misses; together with status UNKNOWN it takes the reference out of the reconciliation sweep.</description>
                     <persistence type="property"/>
                 </attribute>
                 <attribute qualifier="planCode" type="java.lang.String">

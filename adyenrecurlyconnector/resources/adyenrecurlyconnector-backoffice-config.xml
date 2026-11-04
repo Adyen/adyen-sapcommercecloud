@@ -87,6 +87,7 @@
             <lv:column qualifier="baseStore"/>
             <lv:column qualifier="planCode"/>
             <lv:column qualifier="priceId"/>
+            <lv:column qualifier="planFamily"/>
         </lv:list-view>
     </context>
 
@@ -96,6 +97,7 @@
                 <as:field name="productCode" selected="true"/>
                 <as:field name="baseStore" selected="true"/>
                 <as:field name="planCode" selected="true"/>
+                <as:field name="planFamily"/>
             </as:field-list>
         </as:advanced-search>
     </context>
@@ -108,6 +110,7 @@
                     <editorArea:attribute qualifier="baseStore"/>
                     <editorArea:attribute qualifier="planCode"/>
                     <editorArea:attribute qualifier="priceId"/>
+                    <editorArea:attribute qualifier="planFamily"/>
                 </editorArea:section>
             </editorArea:tab>
         </editorArea:editorArea>
@@ -123,6 +126,7 @@
                     <wz:property qualifier="newObject.baseStore"/>
                     <wz:property qualifier="newObject.planCode"/>
                     <wz:property qualifier="newObject.priceId"/>
+                    <wz:property qualifier="newObject.planFamily"/>
                 </wz:content>
             </wz:step>
         </wz:flow>

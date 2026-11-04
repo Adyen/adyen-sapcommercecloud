@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.Map;
+import java.util.function.BooleanSupplier;
 
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -42,7 +43,9 @@ import com.adyen.commerce.connector.dto.TokenImportStyle;
 import com.adyen.commerce.connector.enums.BillingPlatform;
 import com.adyen.commerce.connector.exception.BillingException;
 import com.adyen.commerce.connector.exception.ConnectorNotConfiguredException;
+import com.adyen.commerce.connector.exception.PlanNotMappedException;
 import com.adyen.commerce.connector.exception.PreconditionFailedException;
+import com.adyen.commerce.connector.exception.SubscriptionNotFoundException;
 import com.adyen.commerce.connector.log.ConnectorLogContext;
 import com.adyen.commerce.connector.log.ConnectorLogEvent;
 import com.adyen.commerce.connector.recurly.client.RecurlyApiClient;
@@ -311,6 +314,11 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
         }
     }
 
+    /** The logger of {@link #resolvePlan}; a seam so a test can observe the level. */
+    protected Logger resolvePlanLog() {
+        return LOG;
+    }
+
     @Override
     public PlanRef resolvePlan(final PlanResolutionRequest request) throws BillingException {
         final long startedAt = System.nanoTime();
@@ -318,12 +326,21 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
             final PlanRef plan;
             try {
                 plan = planResolver.resolve(request);
+            } catch (final PlanNotMappedException e) {
+                // Every non-subscription product in a cart asks and is told no: not a failure.
+                ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
+                        .outcome(ConnectorLogEvent.OUTCOME_NOT_MAPPED)
+                        .durationSince(startedAt)
+                        .field("product_code", request.productCode())
+                        .field("base_store", request.baseStoreUid())
+                        .debug(resolvePlanLog());
+                throw e;
             } catch (final BillingException e) {
                 ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
                         .failure(startedAt, e)
                         .field("product_code", request.productCode())
                         .field("base_store", request.baseStoreUid())
-                        .warn(LOG);
+                        .warn(resolvePlanLog());
                 throw e;
             }
             ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
@@ -331,7 +348,7 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
                     .field("product_code", request.productCode())
                     .field("base_store", request.baseStoreUid())
                     .field(F_PLAN_ID, planCodeOrNull(plan))
-                    .info(LOG);
+                    .info(resolvePlanLog());
             return plan;
         }
     }
@@ -394,10 +411,15 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
             try {
                 fetched = apiClient.fetchSubscription(subscription.externalId());
             } catch (final BillingException e) {
-                ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
+                final ConnectorLogEvent failure = ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
                         .failure(startedAt, e)
-                        .field(F_SUBSCRIPTION_ID, subscription.externalId())
-                        .warn(LOG);
+                        .field(F_SUBSCRIPTION_ID, subscription.externalId());
+                // An unknown reference is an expected outcome of a re-read, counted by the caller.
+                if (e instanceof SubscriptionNotFoundException) {
+                    failure.info(LOG);
+                } else {
+                    failure.warn(LOG);
+                }
                 throw e;
             }
             ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
@@ -406,6 +428,35 @@ public class RecurlySubscriptionBillingConnector implements SubscriptionBillingC
                     .field("subscription_status", fetched == null ? null : fetched.status())
                     .info(LOG);
             return fetched;
+        }
+    }
+
+    @Override
+    public List<NormalizedSubscription> listCustomerSubscriptions(final String externalCustomerId)
+            throws BillingException {
+        return listCustomerSubscriptions(externalCustomerId, () -> true);
+    }
+
+    @Override
+    public List<NormalizedSubscription> listCustomerSubscriptions(final String externalCustomerId,
+                                                                  final BooleanSupplier mayContinue)
+            throws BillingException {
+        final long startedAt = System.nanoTime();
+        try (ConnectorLogContext ignored = ConnectorLogContext.open(platform(), "list_customer_subscriptions")) {
+            final List<NormalizedSubscription> subscriptions;
+            try {
+                subscriptions = apiClient.listSubscriptions(externalCustomerId, mayContinue);
+            } catch (final BillingException e) {
+                ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
+                        .failure(startedAt, e)
+                        .warn(LOG);
+                throw e;
+            }
+            ConnectorLogEvent.of(EVENT_CONNECTOR_OPERATION)
+                    .success(startedAt)
+                    .field("subscription_count", subscriptions.size())
+                    .info(LOG);
+            return subscriptions;
         }
     }
 

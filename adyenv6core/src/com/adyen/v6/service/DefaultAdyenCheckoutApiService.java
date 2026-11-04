@@ -51,9 +51,27 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
 
     private final PaymentMethodNameOverrideService paymentMethodNameOverrideService;
 
+    /** Optional: without it no guard runs. Set by {@code AdyenPaymentServiceFactory}. */
+    protected PaymentAuthorisationGuardService paymentAuthorisationGuardService;
+
     public DefaultAdyenCheckoutApiService(BaseStoreModel baseStore, String merchantAccount, AdyenRequestService adyenRequestService, PaymentMethodNameOverrideService paymentMethodNameOverrideService, RetryTemplate adyenCustomerInteractionRetryTemplate, RetryTemplate adyenBackgroundProcessRetryTemplate) {
         super(baseStore, merchantAccount, adyenRequestService,adyenCustomerInteractionRetryTemplate, adyenBackgroundProcessRetryTemplate);
         this.paymentMethodNameOverrideService = paymentMethodNameOverrideService;
+    }
+
+    /**
+     * Lets the registered {@link PaymentAuthorisationGuard}s refuse before anything is sent to Adyen.
+     *
+     * @throws PaymentAuthorisationRefusedException when a guard refuses
+     */
+    protected void checkGuards(final CartData cartData, final PaymentAuthorisationStage stage) {
+        if (paymentAuthorisationGuardService != null) {
+            paymentAuthorisationGuardService.check(cartData, stage);
+        }
+    }
+
+    public void setPaymentAuthorisationGuardService(final PaymentAuthorisationGuardService paymentAuthorisationGuardService) {
+        this.paymentAuthorisationGuardService = paymentAuthorisationGuardService;
     }
 
     @Override
@@ -64,6 +82,8 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
     @Override
     public PaymentResponse processPaymentRequest(final CartData cartData, PaymentRequest originPaymentsRequest, final RequestInfo requestInfo, final CustomerModel customerModel, AdyenPartialPaymentOrderData partialPaymentOrderData) throws Exception {
         LOG.debug("Component payment");
+
+        checkGuards(cartData, PaymentAuthorisationStage.PAYMENT);
 
         PaymentsApi checkoutApi = new PaymentsApi(client);
 
@@ -108,6 +128,8 @@ public class DefaultAdyenCheckoutApiService extends AbstractAdyenApiService impl
                                                        final BigDecimal customAmount,
                                                        final String currency) throws Exception {
         LOG.debug("Processing partial payment with custom amount: " + customAmount + " " + currency);
+
+        checkGuards(cartData, PaymentAuthorisationStage.PARTIAL_PAYMENT);
 
         PaymentsApi checkoutApi = new PaymentsApi(client);
 

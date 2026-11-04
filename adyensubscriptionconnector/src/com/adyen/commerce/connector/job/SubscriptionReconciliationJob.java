@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import com.adyen.commerce.connector.context.SubscriptionBaseStoreSelectorStrategy;
 import com.adyen.commerce.connector.dto.NormalizedSubscriptionStatus;
 import com.adyen.commerce.connector.exception.BillingException;
+import com.adyen.commerce.connector.exception.SubscriptionNotFoundException;
 import com.adyen.commerce.connector.model.BillingSubscriptionRefModel;
 import com.adyen.commerce.connector.reconciliation.SubscriptionReconciliationService;
 
@@ -33,7 +34,10 @@ import de.hybris.platform.servicelayer.session.SessionExecutionBody;
 import de.hybris.platform.servicelayer.session.SessionService;
 import de.hybris.platform.store.BaseStoreModel;
 
-/** Re-reads stale subscription references from their platform, oldest first. */
+/**
+ * Re-reads stale subscription references from their platform, oldest first. A reference the platform keeps
+ * answering 404 for is counted by the service and, once marked UNKNOWN, no longer swept.
+ */
 public class SubscriptionReconciliationJob extends AbstractJobPerformable<CronJobModel>
 {
 	static final String STALE_AFTER_MINUTES = "adyen.subscription.reconciliation.staleAfterMinutes";
@@ -89,6 +93,12 @@ public class SubscriptionReconciliationJob extends AbstractJobPerformable<CronJo
 			{
 				reconcileInOrderContext(subscription);
 			}
+			catch (final SubscriptionNotFoundException exception)
+			{
+				// Counted and logged by the service; a reference the platform does not know is not a failed sweep.
+				LOG.debug("{} subscription {} not found on the platform", subscription.getPlatform(),
+						subscription.getExternalSubscriptionId());
+			}
 			catch (final BillingException | RuntimeException exception)
 			{
 				failed = true;
@@ -142,6 +152,8 @@ public class SubscriptionReconciliationJob extends AbstractJobPerformable<CronJo
 	/**
 	 * The references due for a re-read, never-synced first. Null status is admitted explicitly, as
 	 * {@code NOT IN} is not true for null, and null ordering is spelled out because databases differ on it.
+	 * A reference the platform repeatedly answered 404 for ({@code UNKNOWN} with {@code notFoundSince} set) is left
+	 * out; an ordinary {@code UNKNOWN} one stays a candidate.
 	 *
 	 * @param endedAfter an {@code EXPIRED} reference stays a candidate while its {@code currentPeriodEnd} is later
 	 */
@@ -153,6 +165,7 @@ public class SubscriptionReconciliationJob extends AbstractJobPerformable<CronJo
 						+ "WHERE ({status} IS NULL OR {status} NOT IN (?terminalStatuses)) "
 						+ "AND ({status} IS NULL OR {status} <> ?expired "
 						+ "OR ({currentPeriodEnd} IS NOT NULL AND {currentPeriodEnd} > ?endedAfter)) "
+						+ "AND ({status} IS NULL OR {status} <> ?unknown OR {notFoundSince} IS NULL) "
 						+ "AND ({status} = ?pastDue "
 						+ "OR {lastSyncedAt} IS NULL "
 						+ "OR {lastSyncedAt} < ?staleBefore) "
@@ -161,6 +174,7 @@ public class SubscriptionReconciliationJob extends AbstractJobPerformable<CronJo
 		query.addQueryParameter("terminalStatuses", TERMINAL_STATUSES);
 		query.addQueryParameter("expired", NormalizedSubscriptionStatus.EXPIRED.name());
 		query.addQueryParameter("endedAfter", Date.from(endedAfter));
+		query.addQueryParameter("unknown", NormalizedSubscriptionStatus.UNKNOWN.name());
 		query.addQueryParameter("pastDue", NormalizedSubscriptionStatus.PAST_DUE.name());
 		query.addQueryParameter("staleBefore", Date.from(staleBefore));
 		query.setCount(batchSize);

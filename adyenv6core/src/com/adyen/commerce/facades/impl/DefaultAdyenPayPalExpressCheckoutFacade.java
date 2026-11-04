@@ -5,6 +5,8 @@ import com.adyen.model.checkout.*;
 import com.adyen.service.exception.ApiException;
 import com.adyen.v6.constants.StorefrontType;
 import com.adyen.v6.factory.AdyenPaymentServiceFactory;
+import com.adyen.v6.service.PaymentAuthorisationGuardService;
+import com.adyen.v6.service.PaymentAuthorisationStage;
 import com.adyen.v6.model.RequestInfo;
 import com.adyen.v6.response.PayPalExpressSubmitResponse;
 import com.adyen.v6.service.AdyenShopperIpResolverService;
@@ -51,6 +53,23 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
     private BaseSiteService baseSiteService;
     private AdyenPaymentServiceFactory adyenPaymentServiceFactory;
     private AdyenShopperIpResolverService adyenShopperIpResolverService;
+    /** Optional: PayPal's submit goes to Adyen through {@code sendPaymentRequest}, which has no cart to hand a guard. */
+    private PaymentAuthorisationGuardService paymentAuthorisationGuardService;
+
+    /**
+     * Lets the registered payment guards refuse before PayPal's submit reaches Adyen.
+     *
+     * @throws com.adyen.v6.service.PaymentAuthorisationRefusedException when a guard refuses
+     */
+    protected void checkPaymentAuthorisationGuards(final CartModel cart) {
+        if (paymentAuthorisationGuardService != null) {
+            paymentAuthorisationGuardService.check(cart, PaymentAuthorisationStage.PAYMENT);
+        }
+    }
+
+    public void setPaymentAuthorisationGuardService(PaymentAuthorisationGuardService paymentAuthorisationGuardService) {
+        this.paymentAuthorisationGuardService = paymentAuthorisationGuardService;
+    }
 
     @Override
     public PayPalExpressSubmitResponse onPayPalPDPSubmitOCC(HttpServletRequest request, PaymentRequest paymentRequest) throws IOException, ApiException {
@@ -71,6 +90,7 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
         requestInfo.setStorefrontType(StorefrontType.EXPRESSOCC);
         requestInfo.setShopperLocale(adyenCheckoutFacade.getShopperLocale());
 
+        checkPaymentAuthorisationGuards(expressCart);
         PaymentResponse paymentResponse = adyenCheckoutFacade.getAdyenPaymentService().sendPaymentRequest(paymentRequest, requestInfo);
         PayPalExpressSubmitResponse payPalExpressSubmitResponse = new PayPalExpressSubmitResponse();
         payPalExpressSubmitResponse.setPaymentResponse(paymentResponse);
@@ -105,6 +125,7 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
         requestInfo.setStorefrontType(StorefrontType.ACCELERATOR);
         requestInfo.setShopperLocale(adyenCheckoutFacade.getShopperLocale());
 
+        checkPaymentAuthorisationGuards(expressCart);
         PaymentResponse paymentResponse = adyenCheckoutFacade.getAdyenPaymentService().sendPaymentRequest(paymentRequest, requestInfo);
 
         PayPalExpressSubmitResponse payPalExpressSubmitResponse = new PayPalExpressSubmitResponse();
@@ -134,6 +155,7 @@ public class DefaultAdyenPayPalExpressCheckoutFacade extends DefaultAdyenExpress
         requestInfo.setStorefrontType(StorefrontType.ACCELERATOR);
         requestInfo.setShopperLocale(adyenCheckoutFacade.getShopperLocale());
 
+        checkPaymentAuthorisationGuards(sessionCart);
         return adyenCheckoutFacade.getAdyenPaymentService().sendPaymentRequest(paymentRequest, requestInfo);
     }
 

@@ -23,6 +23,9 @@
                         </editorArea:editor-parameter>
                     </editorArea:attribute>
                 </editorArea:section>
+                <editorArea:section name="hmc.adyen.duplicateSubscription">
+                    <editorArea:attribute qualifier="duplicateSubscriptionRule"/>
+                </editorArea:section>
             </editorArea:tab>
         </editorArea:editorArea>
     </context>

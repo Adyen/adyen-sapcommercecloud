@@ -4,7 +4,9 @@
 package com.adyen.commerce.occ.controllers;
 
 import com.adyen.commerce.constants.AdyenoccConstants;
+import com.adyen.commerce.exception.AdyenControllerException;
 import com.adyen.commerce.facades.AdyenPartialPaymentOrderFacade;
+import com.adyen.v6.service.PaymentAuthorisationRefusedException;
 import com.adyen.commerce.occ.api.AdyenPartialPaymentOrderApi;
 import com.adyen.commerce.request.PartialPaymentOrderRequest;
 import com.adyen.commerce.response.PartialPaymentOrderResponse;
@@ -61,6 +63,11 @@ public class AdyenPartialPaymentOrderController implements AdyenPartialPaymentOr
             String jsonResponse = objectMapper.writeValueAsString(response);
             return ResponseEntity.ok(jsonResponse);
             
+        } catch (PaymentAuthorisationRefusedException e) {
+            // Refused before the gift card was touched. The controller advice answers with the refusal's own
+            // code and a JSON body, which the generic message below would hide.
+            LOG.info("Refusing partial payment order: " + e.getErrorCode());
+            throw new AdyenControllerException(e);
         } catch (RuntimeException e) {
             LOG.error("Error during partial payment order creation", e);
             
