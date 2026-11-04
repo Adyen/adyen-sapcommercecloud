@@ -35,4 +35,9 @@
         <property name="baseSiteService" ref="baseSiteService"/>
     </bean>
 
+    <!-- Facade data to OCC DTOs for the shopper's subscriptions endpoint. Replace through the alias. -->
+    <alias name="defaultAdyenMySubscriptionsWsMapper" alias="adyenMySubscriptionsWsMapper"/>
+    <bean id="defaultAdyenMySubscriptionsWsMapper"
+          class="com.adyen.commerce.connector.occ.mapper.AdyenMySubscriptionsWsMapper"/>
+
 </beans>
