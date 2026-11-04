@@ -23,6 +23,12 @@ public class DefaultAdyenDonationsFacade implements AdyenDonationsFacade {
     private AdyenPaymentServiceFactory adyenPaymentServiceFactory;
 
     @Override
+    public boolean isGivingEnabled() {
+        final BaseStoreModel baseStoreModel = baseStoreService.getCurrentBaseStore();
+        return baseStoreModel != null && Boolean.TRUE.equals(baseStoreModel.getAdyenGivingEnabled());
+    }
+
+    @Override
     public DonationCampaignsResponse getDonationCampaigns(final String currency) throws IOException, ApiException {
         final BaseStoreModel baseStoreModel = baseStoreService.getCurrentBaseStore();
         if (baseStoreModel == null) {
