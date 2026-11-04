@@ -819,6 +819,12 @@
                         <persistence type="property"/>
                     </attribute>
                 </attributes>
+                <indexes>
+                    <index name="adyenNotificationPspEventIdx">
+                        <key attribute="pspReference"/>
+                        <key attribute="eventCode"/>
+                    </index>
+                </indexes>
         </itemtype>
         <itemtype code="AdyenDonation" generate="true" autocreate="true">
             <deployment table="adyenDonation" typecode="23000"/>
@@ -849,6 +855,9 @@
                 </attribute>
             </attributes>
             <indexes>
+                <index name="adyenDonationReferenceIdx" unique="true">
+                    <key attribute="reference" />
+                </index>
                 <index name="adyenDonationPspReferenceIdx">
                     <key attribute="pspReference" />
                 </index>

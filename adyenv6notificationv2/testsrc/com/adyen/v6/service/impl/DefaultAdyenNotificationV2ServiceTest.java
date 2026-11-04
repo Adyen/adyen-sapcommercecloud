@@ -46,10 +46,9 @@ public class DefaultAdyenNotificationV2ServiceTest {
 
     @Test
     public void createsDonationEventForDonationNotification() {
-        final AdyenNotificationModel notification = new AdyenNotificationModel();
-        notification.setEventCode(DONATION);
+        when(notificationModel.getEventCode()).thenReturn(DONATION);
 
-        assertTrue(service.createEvent(notification).orElseThrow() instanceof DonationEvent);
+        assertTrue(service.createEvent(notificationModel).orElseThrow() instanceof DonationEvent);
     }
 
     @Test
@@ -63,6 +62,51 @@ public class DefaultAdyenNotificationV2ServiceTest {
 
         verify(modelService, never()).save(any());
         verify(eventService, never()).publishEvent(any());
+    }
+
+    @Test
+    public void doesNotLookUpProcessedStateForNonDonationNotification() {
+        final NotificationRequestItem item = new NotificationRequestItem();
+        item.setEventCode("AUTHORISATION");
+        item.setPspReference("auth-psp");
+        item.setSuccess(true);
+        final NotificationRequest request = new NotificationRequest();
+        request.setNotificationItems(Collections.singletonList(item));
+        when(modelService.create(AdyenNotificationModel.class)).thenReturn(notificationModel);
+        when(notificationModel.getEventCode()).thenReturn("AUTHORISATION");
+
+        service.onRequest(request);
+
+        verify(adyenNotificationRepository, never()).isProcessed(any(), any(), anyBoolean());
+        verify(modelService).save(notificationModel);
+        verify(eventService).publishEvent(any());
+    }
+
+    @Test
+    public void looksUpProcessedStateForDonationNotification() {
+        final NotificationRequest request = new NotificationRequest();
+        request.setNotificationItems(Collections.singletonList(donationNotification()));
+        when(modelService.create(AdyenNotificationModel.class)).thenReturn(notificationModel);
+        when(notificationModel.getEventCode()).thenReturn(DONATION);
+
+        service.onRequest(request);
+
+        verify(adyenNotificationRepository).isProcessed("donation-psp", DONATION, true);
+    }
+
+    @Test
+    public void processesDonationNotificationWhenDuplicateCheckFails() {
+        final NotificationRequest request = new NotificationRequest();
+        request.setNotificationItems(Collections.singletonList(donationNotification()));
+        when(adyenNotificationRepository.isProcessed("donation-psp", DONATION, true))
+                .thenThrow(new IllegalStateException("db down"));
+        when(modelService.create(AdyenNotificationModel.class)).thenReturn(notificationModel);
+        when(notificationModel.getEventCode()).thenReturn(DONATION);
+
+        service.onRequest(request);
+
+        verify(modelService).save(notificationModel);
+        verify(eventService).publishEvent(any(DonationEvent.class));
     }
 
     @Test

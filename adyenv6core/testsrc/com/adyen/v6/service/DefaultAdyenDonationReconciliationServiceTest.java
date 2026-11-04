@@ -16,6 +16,9 @@ import org.mockito.junit.MockitoJUnitRunner;
 
 import java.math.BigDecimal;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -77,23 +80,91 @@ public class DefaultAdyenDonationReconciliationServiceTest {
     }
 
     @Test
-    public void doesNotPersistWhenOriginalPaymentCannotBeMatchedToAnOrder() {
+    public void throwsWhenOriginalPaymentCannotBeMatchedToAnOrder() {
         when(paymentTransactionRepository.getTransactionModel("original-psp")).thenReturn(null);
 
-        service.reconcile(donationNotification(true));
+        try {
+            service.reconcile(donationNotification(true));
+            fail("Expected IllegalStateException");
+        } catch (final IllegalStateException expected) {
+            // expected
+        }
 
         verify(modelService, never()).create(any(Class.class));
         verify(modelService, never()).save(any());
     }
 
+    @Test
+    public void derivesOriginalReferenceFromMerchantReferenceWhenMissing() {
+        final AdyenNotificationModel notification = donationNotification(true);
+        when(notification.getOriginalReference()).thenReturn(null);
+        when(notification.getMerchantReference()).thenReturn("ORIG-1-donation-1700000000000");
+        when(paymentTransactionRepository.getTransactionModel("ORIG-1")).thenReturn(transaction);
+        when(transaction.getOrder()).thenReturn(order);
+        when(donationRepository.findByReference("ORIG-1-donation-1700000000000")).thenReturn(null);
+        when(modelService.create(AdyenDonationModel.class)).thenReturn(donation);
+
+        service.reconcile(notification);
+
+        verify(donation).setOriginalPspReference("ORIG-1");
+        verify(modelService).save(donation);
+    }
+
+    @Test
+    public void usesLastDonationSeparatorWhenDerivingOriginalReference() {
+        final AdyenNotificationModel notification = mock(AdyenNotificationModel.class, withSettings().lenient());
+        when(notification.getMerchantReference()).thenReturn("A-donation-B-donation-123");
+
+        assertEquals("A-donation-B", service.resolveOriginalReference(notification));
+    }
+
+    @Test
+    public void doesNotDeriveOriginalReferenceFromNonDonationMerchantReference() {
+        final AdyenNotificationModel notification = mock(AdyenNotificationModel.class, withSettings().lenient());
+        when(notification.getMerchantReference()).thenReturn("order-123", "ORIG-donation-abc");
+        assertNull(service.resolveOriginalReference(notification));
+        assertNull(service.resolveOriginalReference(notification));
+    }
+
+    @Test
+    public void throwsWhenNoOriginalReferenceCanBeResolved() {
+        final AdyenNotificationModel notification = donationNotification(true);
+        when(notification.getOriginalReference()).thenReturn(null);
+        when(notification.getMerchantReference()).thenReturn("order-123");
+
+        try {
+            service.reconcile(notification);
+            fail("Expected IllegalStateException");
+        } catch (final IllegalStateException expected) {
+            // expected
+        }
+
+        verify(modelService, never()).save(any());
+    }
+
+    @Test
+    public void throwsWhenMerchantReferenceIsMissing() {
+        final AdyenNotificationModel notification = donationNotification(true);
+        when(notification.getMerchantReference()).thenReturn(null);
+
+        try {
+            service.reconcile(notification);
+            fail("Expected IllegalStateException");
+        } catch (final IllegalStateException expected) {
+            // expected
+        }
+
+        verify(modelService, never()).save(any());
+    }
+
     private AdyenNotificationModel donationNotification(final boolean success) {
-        final AdyenNotificationModel notification = new AdyenNotificationModel();
-        notification.setMerchantReference("donation-reference");
-        notification.setOriginalReference("original-psp");
-        notification.setPspReference("donation-psp");
-        notification.setAmountValue(BigDecimal.valueOf(1000));
-        notification.setAmountCurrency("EUR");
-        notification.setSuccess(success);
+        final AdyenNotificationModel notification = mock(AdyenNotificationModel.class, withSettings().lenient());
+        when(notification.getMerchantReference()).thenReturn("donation-reference");
+        when(notification.getOriginalReference()).thenReturn("original-psp");
+        when(notification.getPspReference()).thenReturn("donation-psp");
+        when(notification.getAmountValue()).thenReturn(BigDecimal.valueOf(1000));
+        when(notification.getAmountCurrency()).thenReturn("EUR");
+        when(notification.getSuccess()).thenReturn(success);
         return notification;
     }
 }

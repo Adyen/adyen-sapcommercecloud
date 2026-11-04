@@ -42,7 +42,7 @@ public class DefaultAdyenNotificationV2Service implements AdyenNotificationV2Ser
     public void onRequest(final NotificationRequest notificationRequest) {
         for (NotificationRequestItem item : notificationRequest.getNotificationItems()) {
             try {
-                if (adyenNotificationRepository.isProcessed(item.getPspReference(), item.getEventCode(), item.isSuccess())) {
+                if (isDuplicate(item)) {
                     LOG.info("Ignoring already processed " + item.getEventCode()
                             + " notification with PSP reference " + item.getPspReference());
                     continue;
@@ -53,6 +53,20 @@ public class DefaultAdyenNotificationV2Service implements AdyenNotificationV2Ser
             } catch (Exception e) {
                 LOG.error("NotificationRequestItem processing failed.", e);
             }
+        }
+    }
+
+    protected boolean isDuplicate(final NotificationRequestItem item) {
+        if (!EVENT_CODE_DONATION.equals(item.getEventCode())) {
+            return false;
+        }
+        try {
+            return adyenNotificationRepository.isProcessed(item.getPspReference(), item.getEventCode(), item.isSuccess());
+        } catch (RuntimeException e) {
+            // fail open: the donation upsert by reference is idempotent, so processing it again is safe
+            LOG.warn("Duplicate check failed for " + item.getEventCode() + " notification with PSP reference "
+                    + item.getPspReference() + ", processing it anyway", e);
+            return false;
         }
     }
 
