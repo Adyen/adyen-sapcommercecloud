@@ -310,6 +310,12 @@
                     <modifiers optional="false"/>
                     <defaultvalue>Boolean.FALSE</defaultvalue>
                 </attribute>
+                <attribute qualifier="adyenGivingEnabled" type="java.lang.boolean">
+                    <description>Enable Adyen Giving on the order confirmation page</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false"/>
+                    <defaultvalue>Boolean.FALSE</defaultvalue>
+                </attribute>
                 <attribute qualifier="adyenAPIEndpointPrefix" type="java.lang.String">
                     <description>API endpoint URL Prefix for Live</description>
                     <persistence type="property"/>

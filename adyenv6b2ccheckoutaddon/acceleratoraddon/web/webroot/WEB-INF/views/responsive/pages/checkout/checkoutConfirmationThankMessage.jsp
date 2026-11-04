@@ -9,7 +9,6 @@
 
 <spring:htmlEscape defaultHtmlEscape="true" />
 <spring:url value="/login/register/termsandconditions" var="getTermsAndConditionsUrl" htmlEscape="false"/>
-<spring:theme code="adyen.giving.error" var="givingErrorMessage"/>
 
 <div class="checkout-success">
     <div class="checkout-success__body">
@@ -76,27 +75,50 @@
     </c:if>
 </div>
 
-<c:set var="checkoutShopperHost" value="${adyenCheckoutShopperHost}"/>
-<c:set var="adyenGivingSdkVersion" value="6.41.0"/>
-<link rel="stylesheet" href="https://${checkoutShopperHost}/checkoutshopper/css/chckt-default-v1.css"/>
-<link rel="stylesheet" href="https://${checkoutShopperHost}/checkoutshopper/sdk/${adyenGivingSdkVersion}/adyen.css"/>
-<script src="https://${checkoutShopperHost}/checkoutshopper/sdk/${adyenGivingSdkVersion}/adyen.js"
-        crossorigin="anonymous"></script>
+<%-- keep in sync with adyenLibrary.tag --%>
+<c:set var="adyenGivingSdkVersion" value="6.40.1"/>
+<c:set var="adyenGivingSdkJsIntegrity" value="sha384-DSWsEqnnD+jomUFfNHEGA302VKHKB/aMOWJm312FYhNVcFutrbEgrLHuU3vLwwBe"/>
+<c:set var="adyenGivingSdkCssIntegrity" value="sha384-QCE3u3lliHH3SEx30M8NEuDhvEGmFCtZl62YVSVWw84cYNt2NYYbVwd/KPaaaIQ9"/>
 <script type="text/javascript">
     (function () {
         var contextPath = '${fn:escapeXml(encodedContextPath)}';
         var csrfToken = '${ycommerce:encodeJavaScript(CSRFToken.token)}';
-        var givingErrorMessage = '${ycommerce:encodeJavaScript(givingErrorMessage)}';
+        var sdkVersion = '${ycommerce:encodeJavaScript(adyenGivingSdkVersion)}';
+        var sdkJsIntegrity = '${ycommerce:encodeJavaScript(adyenGivingSdkJsIntegrity)}';
+        var sdkCssIntegrity = '${ycommerce:encodeJavaScript(adyenGivingSdkCssIntegrity)}';
 
-        function showGivingError(error) {
+        function hideGiving(error) {
             var node = document.getElementById('adyen-giving');
             if (node) {
                 node.innerHTML = '';
-                var message = document.createElement('p');
-                message.className = 'alert alert-danger';
-                message.textContent = givingErrorMessage;
-                node.appendChild(message);
             }
+            window.console.warn('Adyen Giving is not available', error);
+        }
+
+        function loadGivingSdk(host) {
+            if (window.AdyenWeb && window.AdyenWeb.Donation) {
+                return Promise.resolve();
+            }
+            if (!host) {
+                return Promise.reject(new Error('Adyen checkout shopper host is missing'));
+            }
+            var baseUrl = 'https://' + host + '/checkoutshopper/sdk/' + sdkVersion + '/adyen';
+            return new Promise(function (resolve, reject) {
+                var link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = baseUrl + '.css';
+                link.integrity = sdkCssIntegrity;
+                link.crossOrigin = 'anonymous';
+                document.head.appendChild(link);
+
+                var script = document.createElement('script');
+                script.src = baseUrl + '.js';
+                script.integrity = sdkJsIntegrity;
+                script.crossOrigin = 'anonymous';
+                script.onload = function () { resolve(); };
+                script.onerror = function () { reject(new Error('Adyen Giving SDK could not be loaded')); };
+                document.head.appendChild(script);
+            });
         }
 
         function initialiseGiving() {
@@ -121,16 +143,17 @@
                     if (!context || !context.campaigns || !context.campaigns.length) {
                         return;
                     }
-                    if (!window.AdyenWeb || !window.AdyenWeb.AdyenCheckout || !window.AdyenWeb.Donation) {
-                        throw new Error('Adyen Web Giving component is not available');
-                    }
-
-                    return window.AdyenWeb.AdyenCheckout({
-                        clientKey: context.clientKey,
-                        environment: context.environment,
-                        locale: context.locale,
-                        countryCode: context.countryCode,
-                        analytics: { enabled: false }
+                    return loadGivingSdk(context.checkoutShopperHost).then(function () {
+                        if (!window.AdyenWeb || !window.AdyenWeb.AdyenCheckout || !window.AdyenWeb.Donation) {
+                            throw new Error('Adyen Web Giving component is not available');
+                        }
+                        return window.AdyenWeb.AdyenCheckout({
+                            clientKey: context.clientKey,
+                            environment: context.environment,
+                            locale: context.locale,
+                            countryCode: context.countryCode,
+                            analytics: { enabled: false }
+                        });
                     }).then(function (checkout) {
                         var campaign = context.campaigns[0];
                         var donation = new window.AdyenWeb.Donation(checkout, Object.assign({}, campaign, {
@@ -172,8 +195,7 @@
                     });
                 })
                 .catch(function (error) {
-                    window.console.error('Adyen Giving could not be initialised', error);
-                    showGivingError(error);
+                    hideGiving(error);
                 });
         }
 

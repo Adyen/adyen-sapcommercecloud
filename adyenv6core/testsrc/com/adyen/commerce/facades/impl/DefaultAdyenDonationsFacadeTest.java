@@ -15,6 +15,8 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -71,5 +73,34 @@ public class DefaultAdyenDonationsFacadeTest {
         assertEquals("merchant", request.getValue().getMerchantAccount());
         assertEquals("campaign", request.getValue().getDonationCampaignId());
         assertEquals(Long.valueOf(500L), request.getValue().getAmount().getValue());
+    }
+
+    @Test
+    public void shouldReportGivingDisabledWhenNoCurrentBaseStore() {
+        final DefaultAdyenDonationsFacade facade = new DefaultAdyenDonationsFacade();
+        facade.setBaseStoreService(baseStoreService);
+        when(baseStoreService.getCurrentBaseStore()).thenReturn(null);
+
+        assertFalse(facade.isGivingEnabled());
+    }
+
+    @Test
+    public void shouldReportGivingDisabledWhenFlagIsFalse() {
+        final DefaultAdyenDonationsFacade facade = new DefaultAdyenDonationsFacade();
+        facade.setBaseStoreService(baseStoreService);
+        when(baseStoreService.getCurrentBaseStore()).thenReturn(baseStore);
+        when(baseStore.getAdyenGivingEnabled()).thenReturn(Boolean.FALSE);
+
+        assertFalse(facade.isGivingEnabled());
+    }
+
+    @Test
+    public void shouldReportGivingEnabledWhenFlagIsTrue() {
+        final DefaultAdyenDonationsFacade facade = new DefaultAdyenDonationsFacade();
+        facade.setBaseStoreService(baseStoreService);
+        when(baseStoreService.getCurrentBaseStore()).thenReturn(baseStore);
+        when(baseStore.getAdyenGivingEnabled()).thenReturn(Boolean.TRUE);
+
+        assertTrue(facade.isGivingEnabled());
     }
 }

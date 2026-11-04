@@ -67,6 +67,10 @@ public class AdyenDonationsController {
 
     @GetMapping(value = "/context", produces = "application/json")
     public ResponseEntity<DonationContextResponse> getContext() {
+        if (!adyenDonationsFacade.isGivingEnabled()) {
+            return ResponseEntity.noContent().build();
+        }
+
         final String donationToken = sessionService.getAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_TOKEN);
         final String originalPspReference = sessionService.getAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_ORIGINAL_PSP_REFERENCE);
         final Long commercialTxAmount = sessionService.getAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_ORIGINAL_AMOUNT_VALUE);
@@ -103,12 +107,16 @@ public class AdyenDonationsController {
 
         return ResponseEntity.ok(new DonationContextResponse(baseStore.getAdyenClientKey(),
                 adyenCheckoutFacade.getEnvironmentMode(), adyenCheckoutFacade.getShopperLocale(),
-                commercialTxAmount, currency, countryCode, campaigns));
+                commercialTxAmount, currency, countryCode, adyenCheckoutFacade.getCheckoutShopperHost(), campaigns));
     }
 
     @PostMapping(value = "/donate", consumes = "application/json", produces = "application/json")
     public ResponseEntity<DonationResponse> donate(@Valid @RequestBody final DonationRequest request,
                                                      final HttpServletRequest httpServletRequest) {
+        if (!adyenDonationsFacade.isGivingEnabled()) {
+            return ResponseEntity.badRequest().build();
+        }
+
         final String donationToken = sessionService.getAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_TOKEN);
         final String originalPspReference = sessionService.getAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_ORIGINAL_PSP_REFERENCE);
         final Long commercialTransactionValue = sessionService.getAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_ORIGINAL_AMOUNT_VALUE);

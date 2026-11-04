@@ -1,7 +1,6 @@
 import React, {useEffect, useRef, useState} from "react";
 import {AdyenCheckout, Donation, DonationConfiguration} from "@adyen/adyen-web/auto";
-import {adyenAxios} from "../../axios/AdyenAxios";
-import {translationsStore} from "../../store/translationsStore";
+import axios from "axios";
 import {CSRFToken, urlContextPath} from "../../util/baseUrlUtil";
 
 interface Amount {
@@ -47,7 +46,7 @@ interface DonationResult {
     status?: string;
 }
 
-type DisplayState = "loading" | "error" | "hidden";
+type DisplayState = "loading" | "hidden";
 
 export const DonationSection: React.FC = () => {
     const mountNode = useRef<HTMLDivElement>(null);
@@ -59,7 +58,7 @@ export const DonationSection: React.FC = () => {
 
         const mountDonation = async () => {
             try {
-                const contextResponse = await adyenAxios.get<DonationContext>(
+                const contextResponse = await axios.get<DonationContext>(
                     urlContextPath + "/api/checkout/donations/context",
                     {validateStatus: status => status === 200 || status === 204}
                 );
@@ -97,7 +96,7 @@ export const DonationSection: React.FC = () => {
                     onDonate: async (state: DonationStatePayload, component: Donation): Promise<void> => {
                         try {
                             component.setStatus("loading");
-                            const response = await adyenAxios.post<DonationResult>(
+                            const response = await axios.post<DonationResult>(
                                 urlContextPath + "/api/checkout/donations/donate",
                                 {donationCampaignId: campaign.id, amount: state.data.amount as Amount},
                                 {headers: {"Content-Type": "application/json", "CSRFToken": CSRFToken}}
@@ -115,9 +114,9 @@ export const DonationSection: React.FC = () => {
                 } as unknown as DonationConfiguration;
                 donationElement.current = new Donation(checkout, donationConfiguration).mount(mountNode.current);
             } catch (error) {
-                console.error("Adyen donation could not be initialised", error);
+                console.warn("Adyen donation could not be initialised", error);
                 if (!cancelled) {
-                    setDisplayState("error");
+                    setDisplayState("hidden");
                 }
             }
         };
@@ -136,7 +135,6 @@ export const DonationSection: React.FC = () => {
     return (
         <section className="adyen-donation" aria-live="polite">
             <div ref={mountNode}/>
-            {displayState === "error" && <p className="alert alert-danger">{translationsStore.get("adyen.giving.error")}</p>}
         </section>
     );
 };

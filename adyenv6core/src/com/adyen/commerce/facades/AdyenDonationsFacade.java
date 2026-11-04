@@ -9,6 +9,8 @@ import java.io.IOException;
 
 public interface AdyenDonationsFacade {
 
+    boolean isGivingEnabled();
+
     DonationCampaignsResponse getDonationCampaigns(String currency) throws IOException, ApiException;
 
     DonationPaymentResponse makeDonationPayment(DonationPaymentData paymentData, String idempotencyKey) throws IOException, ApiException;
