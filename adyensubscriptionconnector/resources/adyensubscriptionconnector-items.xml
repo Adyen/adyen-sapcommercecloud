@@ -2,22 +2,19 @@
 <!--
 
  Vendor-neutral type-system extensions for the subscription billing connector.
- Nothing here references a concrete platform; the BillingPlatform enum
- enumerates the supported adapters. Persisted external references let a single
- shopper carry credentials and subscriptions on more than one platform at once.
+ Nothing here references a concrete platform; each connector extension adds its
+ own BillingPlatform value and config type. Persisted external references let a
+ single shopper carry credentials and subscriptions on more than one platform at once.
 -->
 <items xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xsi:noNamespaceSchemaLocation="items.xsd">
 
     <enumtypes>
-        <!-- One value per supported connector adapter. ADYEN_NATIVE represents the
-             built-in, no-external-platform billing path (existing adyenv6subscription). -->
+        <!-- Declared without values: each connector extension contributes its own platform code. A value
+             stays in the database after its connector is removed, so writers check the loaded connectors
+             (billingPlatformAvailabilityService) rather than the enum. -->
         <enumtype code="BillingPlatform" generate="true" autocreate="true" dynamic="true">
             <description>External subscription billing platform driven through a connector adapter.</description>
-            <value code="RECURLY"/>
-            <value code="CHARGEBEE"/>
-            <value code="ZUORA"/>
-            <value code="ADYEN_NATIVE"/>
         </enumtype>
     </enumtypes>
 
@@ -52,6 +49,46 @@
                     <description>Active subscription billing connector for this store (one active connector per BaseStore).</description>
                     <persistence type="property"/>
                     <modifiers optional="true"/>
+                </attribute>
+            </attributes>
+        </itemtype>
+
+        <!-- Credentials every external platform needs. Each connector extension extends this with its
+             own config type and hangs it off BaseStore. -->
+        <itemtype code="AdyenSubscriptionConfig" extends="GenericItem" autocreate="true" generate="true">
+            <description>Adyen Subscription Configuration</description>
+            <deployment table="AdyenSubscriptionConfig" typecode="10103"/>
+            <attributes>
+                <attribute qualifier="subscriptionApiKey" type="java.lang.String">
+                    <description>Subscription API Key</description>
+                    <!-- Ciphertext needs far more room than the cleartext key; varchar(1024) matches
+                         BaseStore.adyenAPIKey. Widening it later needs a manual ALTER on every environment. -->
+                    <persistence type="property">
+                        <columntype>
+                            <value>varchar(1024)</value>
+                        </columntype>
+                    </persistence>
+                    <modifiers encrypted="true" optional="false"/>
+                </attribute>
+                <attribute qualifier="subscriptionSiteId" type="java.lang.String">
+                    <description>Subscription Site ID</description>
+                    <modifiers optional="false"/>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="subscriptionGatewayAccountId" type="java.lang.String">
+                    <description>Subscription Gateway Account ID</description>
+                    <modifiers optional="false"/>
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="adyenGatewayMerchantAccount" type="java.lang.String">
+                    <!-- Deliberately not BaseStore.adyenMerchantAccount: this is the account the vendor's own
+                         Adyen gateway is configured with, and the guard compares the two to catch them
+                         diverging. -->
+                    <description>Adyen merchant account the subscription platform's Adyen gateway is bound to (gateway-binding check)</description>
+                    <!-- Optional so rows saved before the attribute existed stay saveable; the connectors
+                         refuse a blank value. -->
+                    <modifiers optional="true"/>
+                    <persistence type="property"/>
                 </attribute>
             </attributes>
         </itemtype>

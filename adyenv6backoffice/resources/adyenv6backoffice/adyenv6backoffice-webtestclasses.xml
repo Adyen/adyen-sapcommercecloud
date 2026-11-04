@@ -1,1 +1,1 @@
-<?xml version="1.0" encoding="utf-8"?><testclasses><adyenv6backoffice><testclass>com.adyen.v6.backoffice.widgets.actions.cancel.AdyenCancelOrderActionTest</testclass></adyenv6backoffice></testclasses>
+<?xml version="1.0" encoding="utf-8"?><testclasses><adyenv6backoffice><testclass>com.adyen.v6.backoffice.widgets.actions.cancel.AdyenCancelOrderActionTest</testclass><testclass>com.adyen.v6.backoffice.editors.BillingPlatformEnumValueResolverTest</testclass></adyenv6backoffice></testclasses>

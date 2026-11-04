@@ -10,9 +10,10 @@
 	<context:annotation-config/>
 
 	<!--
-	    Everything else this addon adds is web-tier and lives in its own web context. What is here is only
-	    the pair of listeners that get the CMS page into the content catalogue, because a controller and a
-	    JSP with no ContentPage behind them are a 404 with nothing in the log to explain it.
+	    Everything else this addon adds is web-tier and lives in its own web context. What is here is the
+	    restriction that follows the loaded connectors, and the pair of listeners that get the CMS page into
+	    the content catalogue, because a controller and a JSP with no ContentPage behind them are a 404 with
+	    nothing in the log to explain it.
 	-->
 
 	<!-- B2C only: the page hangs off MyAccountNavNode in a B2C content catalogue, and Adyen checkout is
@@ -30,6 +31,22 @@
 			</bean>
 		</property>
 	</bean>
+
+	<!-- The My Account entry is hidden by this restriction while no billing platform connector is loaded; the
+	     controller answers 404 on the same condition. -->
+	<bean id="adyenSubscriptionPlatformRestrictionEvaluator"
+	      class="com.adyen.commerce.subscription.restrictions.SubscriptionPlatformRestrictionEvaluator">
+		<property name="mySubscriptionsFacade" ref="mySubscriptionsFacade"/>
+	</bean>
+
+	<bean id="adyenSubscriptionPlatformRestrictionEvaluatorMapping"
+	      class="de.hybris.platform.cms2.servicelayer.services.evaluator.CMSRestrictionEvaluatorMapping">
+		<property name="restrictionTypeCode" value="AdyenSubscriptionPlatformRestriction"/>
+		<property name="restrictionEvaluator" ref="adyenSubscriptionPlatformRestrictionEvaluator"/>
+	</bean>
+
+	<bean id="adyenSubscriptionPlatformRestrictionDescriptionHandler"
+	      class="com.adyen.commerce.subscription.restrictions.SubscriptionPlatformRestrictionDescriptionHandler"/>
 
 	<!-- Imports resources/adyensubscriptionb2caddon/import/contentCatalogs/**. -->
 	<bean id="adyensubscriptionb2caddonSampleDataEventListener" parent="abstractGenericAddOnSampleDataEventListener">

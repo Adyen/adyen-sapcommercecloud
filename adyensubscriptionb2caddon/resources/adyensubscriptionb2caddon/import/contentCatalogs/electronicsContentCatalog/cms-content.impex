@@ -6,9 +6,10 @@
 # needed: an environment initialised without sample data gets the page only from the template half, and an
 # environment that imports sample data for this catalogue gets it from here. Change one, change the other.
 #
-# Seven blocks, all of them required. Leave one out and the result is not an error message but a symptom:
+# Eight blocks, all of them required. Leave one out and the result is not an error message but a symptom:
 # no ContentPage gives CMSItemNotFoundException, no ContentSlot or component gives a blank page under the
-# right heading, and no navigation node gives a page nobody can find.
+# right heading, no navigation node gives a page nobody can find, and no restriction gives a menu entry that
+# stays visible with no billing platform connector loaded.
 #
 # Written to BOTH catalogue versions. The sibling addon's file writes only to Staged, and the storefront
 # serves Online - which is why its stored-cards page does not appear until somebody syncs the catalogue by
@@ -76,3 +77,17 @@ INSERT_UPDATE ContentSlotForPage;$contentCVS[unique=true];uid[unique=true];posit
 ;;BodyContent-adyenSubscriptions;BodyContent;;BodyContent-adyenSubscriptions
 INSERT_UPDATE ContentSlotForPage;$contentCVO[unique=true];uid[unique=true];position[unique=true];page(uid,$contentCVO)[unique=true][default='adyenSubscriptions'];contentSlot(uid,$contentCVO)[unique=true]
 ;;BodyContent-adyenSubscriptions;BodyContent;;BodyContent-adyenSubscriptions
+
+# 8. The menu entry follows the loaded extensions: this restriction lets the link through only while a
+#    subscription billing platform connector is loaded, and the navigation component evaluates it. Imported
+#    data cannot know which extensions a later deployment loads, so the decision is made at render time.
+#    Appended, so restrictions a project added to the link survive a re-import.
+INSERT_UPDATE AdyenSubscriptionPlatformRestriction;$contentCVS[unique=true];uid[unique=true];name
+;;AdyenSubscriptionPlatformRestriction;Subscription billing platform loaded
+INSERT_UPDATE AdyenSubscriptionPlatformRestriction;$contentCVO[unique=true];uid[unique=true];name
+;;AdyenSubscriptionPlatformRestriction;Subscription billing platform loaded
+
+UPDATE CMSLinkComponent;$contentCVS[unique=true];uid[unique=true];restrictions(uid,$contentCVS)[mode=append]
+;;AdyenSubscriptionsLink;AdyenSubscriptionPlatformRestriction
+UPDATE CMSLinkComponent;$contentCVO[unique=true];uid[unique=true];restrictions(uid,$contentCVO)[mode=append]
+;;AdyenSubscriptionsLink;AdyenSubscriptionPlatformRestriction

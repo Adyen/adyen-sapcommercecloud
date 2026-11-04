@@ -15,7 +15,7 @@ import org.mockito.MockitoAnnotations;
 
 import com.adyen.commerce.connector.enums.BillingPlatform;
 import com.adyen.commerce.connector.exception.ConnectorNotConfiguredException;
-import com.adyen.v6.model.RecurlyConfigModel;
+import com.adyen.commerce.connector.recurly.model.RecurlyConfigModel;
 
 import de.hybris.bootstrap.annotations.UnitTest;
 import de.hybris.platform.servicelayer.config.ConfigurationService;
@@ -83,7 +83,7 @@ public class DefaultRecurlyConfigServiceTest
     {
         when(recurlyConfig.getSubscriptionApiKey()).thenReturn("recurly-key");
         when(recurlyConfig.getWalletEnabled()).thenReturn(true);
-        when(baseStore.getActiveBillingPlatform()).thenReturn(BillingPlatform.CHARGEBEE);
+        when(baseStore.getActiveBillingPlatform()).thenReturn(BillingPlatform.valueOf("CHARGEBEE"));
 
         assertEquals("recurly-key", service.getApiKey());
         assertTrue(service.isWalletEnabled());

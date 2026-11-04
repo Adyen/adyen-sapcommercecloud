@@ -61,6 +61,8 @@ import jakarta.servlet.http.HttpServletRequest;
 @UnitTest
 public class SubscriptionBillingWebhookControllerTest
 {
+	private static final BillingPlatform RECURLY = BillingPlatform.valueOf("RECURLY");
+	private static final BillingPlatform CHARGEBEE = BillingPlatform.valueOf("CHARGEBEE");
 	private static final String SITE_UID = "electronics";
 
 	@Mock
@@ -86,7 +88,7 @@ public class SubscriptionBillingWebhookControllerTest
 		controller.setEnumerationService(enumerationService);
 
 		when(enumerationService.<BillingPlatform> getEnumerationValues(BillingPlatform._TYPECODE))
-				.thenReturn(List.of(BillingPlatform.CHARGEBEE, BillingPlatform.RECURLY));
+				.thenReturn(List.of(CHARGEBEE, RECURLY));
 		when(baseSiteService.getBaseSiteForUID(SITE_UID)).thenReturn(baseSite);
 		when(request.getHeaderNames()).thenReturn(emptyHeaderNames());
 	}
@@ -98,7 +100,7 @@ public class SubscriptionBillingWebhookControllerTest
 
 		assertEquals(HttpStatus.OK, response.getStatusCode());
 		verify(baseSiteService).setCurrentBaseSite(baseSite, false);
-		verify(webhookDispatcher).dispatch(eq(BillingPlatform.CHARGEBEE), any());
+		verify(webhookDispatcher).dispatch(eq(CHARGEBEE), any());
 	}
 
 	@Test
@@ -107,7 +109,7 @@ public class SubscriptionBillingWebhookControllerTest
 		final ResponseEntity<String> response = controller.receive(SITE_UID, "ChArGeBeE", "{}", request);
 
 		assertEquals(HttpStatus.OK, response.getStatusCode());
-		verify(webhookDispatcher).dispatch(eq(BillingPlatform.CHARGEBEE), any());
+		verify(webhookDispatcher).dispatch(eq(CHARGEBEE), any());
 	}
 
 	/**

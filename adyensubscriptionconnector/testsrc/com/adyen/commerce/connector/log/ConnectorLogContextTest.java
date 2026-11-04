@@ -39,6 +39,9 @@ import de.hybris.bootstrap.annotations.UnitTest;
 @UnitTest
 public class ConnectorLogContextTest
 {
+	private static final BillingPlatform RECURLY = BillingPlatform.valueOf("RECURLY");
+	private static final BillingPlatform CHARGEBEE = BillingPlatform.valueOf("CHARGEBEE");
+
 	@After
 	public void clearContext()
 	{
@@ -48,7 +51,7 @@ public class ConnectorLogContextTest
 	@Test
 	public void publishesPlatformAndOperationForTheDurationOfTheScope()
 	{
-		try (ConnectorLogContext scope = ConnectorLogContext.open(BillingPlatform.RECURLY, "create_subscription"))
+		try (ConnectorLogContext scope = ConnectorLogContext.open(RECURLY, "create_subscription"))
 		{
 			assertEquals("RECURLY", ConnectorLogContext.current(ConnectorLogContext.PLATFORM));
 			assertEquals("create_subscription", ConnectorLogContext.current(ConnectorLogContext.OPERATION));
@@ -60,9 +63,9 @@ public class ConnectorLogContextTest
 	@Test
 	public void anInnerScopeRestoresTheOuterOneRatherThanClearingIt()
 	{
-		try (ConnectorLogContext outer = ConnectorLogContext.open(BillingPlatform.RECURLY, "import_token"))
+		try (ConnectorLogContext outer = ConnectorLogContext.open(RECURLY, "import_token"))
 		{
-			try (ConnectorLogContext inner = ConnectorLogContext.open(BillingPlatform.RECURLY, "ensure_customer"))
+			try (ConnectorLogContext inner = ConnectorLogContext.open(RECURLY, "ensure_customer"))
 			{
 				assertEquals("ensure_customer", ConnectorLogContext.current(ConnectorLogContext.OPERATION));
 			}
@@ -75,7 +78,7 @@ public class ConnectorLogContextTest
 	public void leavesAValueTheHostApplicationPutThereIntact()
 	{
 		MDC.put(ConnectorLogContext.CORRELATION_ID, "order-4711");
-		try (ConnectorLogContext scope = ConnectorLogContext.open(BillingPlatform.CHARGEBEE, "cancel_subscription"))
+		try (ConnectorLogContext scope = ConnectorLogContext.open(CHARGEBEE, "cancel_subscription"))
 		{
 			assertEquals("order-4711", ConnectorLogContext.current(ConnectorLogContext.CORRELATION_ID));
 		}
@@ -97,7 +100,7 @@ public class ConnectorLogContextTest
 	public void aNullOperationPublishesNothingAndRestoresNothing()
 	{
 		MDC.put(ConnectorLogContext.OPERATION, "pre-existing");
-		try (ConnectorLogContext scope = ConnectorLogContext.open(BillingPlatform.RECURLY, null))
+		try (ConnectorLogContext scope = ConnectorLogContext.open(RECURLY, null))
 		{
 			assertEquals("pre-existing", ConnectorLogContext.current(ConnectorLogContext.OPERATION));
 		}
@@ -107,7 +110,7 @@ public class ConnectorLogContextTest
 	@Test
 	public void readsTheEnumCodeRatherThanAGeneratedToString()
 	{
-		assertEquals("CHARGEBEE", ConnectorLogContext.code(BillingPlatform.CHARGEBEE));
+		assertEquals("CHARGEBEE", ConnectorLogContext.code(CHARGEBEE));
 		assertEquals("plain", ConnectorLogContext.code("plain"));
 		assertNull(ConnectorLogContext.code(null));
 	}

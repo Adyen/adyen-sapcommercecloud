@@ -27,6 +27,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -120,11 +121,11 @@ public class DefaultChargebeeApiClientTest
 				.thenReturn(new ChargebeeHttpResponse(200, "{\"payment_source\":{\"id\":\"pm-1\"}}"));
 
 		final CardMetadata card = new CardMetadata("visa", "1111", "Alice", "03/2030", "credit");
-		assertEquals("pm-1", client.importPermanentToken("cust", "shopper/TOK-1", card));
+		assertEquals("pm-1", client.importPermanentToken("cust", "shopper/TOK-1", card, "ORDER-1/payment-method"));
 
 		final ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
 		verify(httpClient).post(eq(BASE + "/payment_sources/create_using_permanent_token"), eq(expectedAuth),
-				body.capture(), eq("shopper/TOK-1"));
+				body.capture(), eq("ORDER-1/payment-method"));
 		final String encoded = body.getValue();
 		assertTrue(encoded.contains("customer_id=cust"));
 		assertTrue(encoded.contains("type=card"));
@@ -140,7 +141,7 @@ public class DefaultChargebeeApiClientTest
 				new ChargebeeHttpResponse(422, "{\"message\":\"bad token\",\"api_error_code\":\"invalid_request\"}"));
 
 		final TerminalBillingException ex = assertThrows(TerminalBillingException.class,
-				() -> client.importPermanentToken("cust", "shopper/TOK-1", null));
+				() -> client.importPermanentToken("cust", "shopper/TOK-1", null, null));
 		assertTrue(ex.getMessage().contains("invalid_request"));
 	}
 
@@ -149,7 +150,8 @@ public class DefaultChargebeeApiClientTest
 	{
 		when(httpClient.post(any(), any(), any(), any())).thenReturn(new ChargebeeHttpResponse(503, "{}"));
 
-		assertThrows(RetryableBillingException.class, () -> client.importPermanentToken("cust", "shopper/TOK-1", null));
+		assertThrows(RetryableBillingException.class,
+				() -> client.importPermanentToken("cust", "shopper/TOK-1", null, null));
 	}
 
 	/**
@@ -164,7 +166,8 @@ public class DefaultChargebeeApiClientTest
 				"{\"message\":\"The previous request is still in progress. Please retry the request\","
 						+ "\"api_error_code\":\"invalid_state_for_request\"}"));
 
-		assertThrows(RetryableBillingException.class, () -> client.importPermanentToken("cust", "shopper/TOK-1", null));
+		assertThrows(RetryableBillingException.class,
+				() -> client.importPermanentToken("cust", "shopper/TOK-1", null, null));
 	}
 
 	/**
@@ -177,7 +180,8 @@ public class DefaultChargebeeApiClientTest
 		when(httpClient.post(any(), any(), any(), any())).thenReturn(new ChargebeeHttpResponse(409,
 				"{\"message\":\"Subscription is already cancelled\",\"api_error_code\":\"invalid_state\"}"));
 
-		assertThrows(TerminalBillingException.class, () -> client.importPermanentToken("cust", "shopper/TOK-1", null));
+		assertThrows(TerminalBillingException.class,
+				() -> client.importPermanentToken("cust", "shopper/TOK-1", null, null));
 	}
 
 	/**
@@ -188,7 +192,8 @@ public class DefaultChargebeeApiClientTest
 	{
 		when(httpClient.post(any(), any(), any(), any())).thenReturn(new ChargebeeHttpResponse(409, ""));
 
-		assertThrows(TerminalBillingException.class, () -> client.importPermanentToken("cust", "shopper/TOK-1", null));
+		assertThrows(TerminalBillingException.class,
+				() -> client.importPermanentToken("cust", "shopper/TOK-1", null, null));
 	}
 
 	@Test
@@ -234,11 +239,11 @@ public class DefaultChargebeeApiClientTest
 		when(httpClient.post(eq(BASE + "/subscriptions/sub-1/update_for_items"), eq(expectedAuth), any(), any()))
 				.thenReturn(new ChargebeeHttpResponse(200, "{\"subscription\":{\"id\":\"sub-1\"}}"));
 
-		client.updateSubscription("sub-1", "price-2", null);
+		client.updateSubscription("sub-1", "price-2", null, "ORDER-1/update");
 
 		final ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
 		verify(httpClient).post(eq(BASE + "/subscriptions/sub-1/update_for_items"), eq(expectedAuth), body.capture(),
-				any());
+				eq("ORDER-1/update"));
 		final String encoded = body.getValue();
 		assertTrue(encoded.contains(
 				URLEncoder.encode("subscription_items[item_price_id][0]", StandardCharsets.UTF_8) + "=price-2"));
@@ -248,7 +253,7 @@ public class DefaultChargebeeApiClientTest
 	@Test
 	public void updateSubscriptionRejectsEmptyChange()
 	{
-		assertThrows(PreconditionFailedException.class, () -> client.updateSubscription("sub-1", null, null));
+		assertThrows(PreconditionFailedException.class, () -> client.updateSubscription("sub-1", null, null, null));
 	}
 
 	@Test
@@ -257,7 +262,35 @@ public class DefaultChargebeeApiClientTest
 		// Chargebee's update_for_items needs subscription_items[item_price_id][0] to anchor a quantity change;
 		// a quantity-only call 400s at the API ("item_price_id[0]: cannot be blank"), so the guard turns an
 		// opaque remote error into a local precondition.
-		assertThrows(PreconditionFailedException.class, () -> client.updateSubscription("sub-1", null, 2));
+		assertThrows(PreconditionFailedException.class, () -> client.updateSubscription("sub-1", null, 2, null));
+	}
+
+	@Test
+	public void cancelSubscriptionSendsCancelOptionAndIdempotencyKey() throws Exception
+	{
+		when(httpClient.post(eq(BASE + "/subscriptions/sub-1/cancel_for_items"), eq(expectedAuth), any(), any()))
+				.thenReturn(new ChargebeeHttpResponse(200, "{\"subscription\":{\"id\":\"sub-1\"}}"));
+
+		client.cancelSubscription("sub-1", true, "ORDER-1/at_period_end");
+
+		final ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
+		verify(httpClient).post(eq(BASE + "/subscriptions/sub-1/cancel_for_items"), eq(expectedAuth), body.capture(),
+				eq("ORDER-1/at_period_end"));
+		assertEquals("cancel_option=end_of_term", body.getValue());
+	}
+
+	@Test
+	public void cancelSubscriptionWithoutKeyPassesNone() throws Exception
+	{
+		when(httpClient.post(eq(BASE + "/subscriptions/sub-1/cancel_for_items"), eq(expectedAuth), any(), any()))
+				.thenReturn(new ChargebeeHttpResponse(200, "{\"subscription\":{\"id\":\"sub-1\"}}"));
+
+		client.cancelSubscription("sub-1", false, null);
+
+		final ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
+		verify(httpClient).post(eq(BASE + "/subscriptions/sub-1/cancel_for_items"), eq(expectedAuth), body.capture(),
+				isNull());
+		assertEquals("cancel_option=immediately", body.getValue());
 	}
 
 	@Test

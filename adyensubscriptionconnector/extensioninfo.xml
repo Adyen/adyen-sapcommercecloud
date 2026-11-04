@@ -4,8 +4,8 @@
  adyensubscriptionconnector - agnostic subscription billing connector core.
  Defines the SubscriptionBillingConnector SPI (port), the vendor-neutral domain
  model, the orchestration service and the SAP type-system extensions. Concrete
- platform adapters (recurly/chargebee/zuora) live in their own extensions and
- implement the SPI defined here.
+ platform adapters (recurly, chargebee) live in their own extensions, implement
+ the SPI defined here and contribute their BillingPlatform value.
 -->
 <extensioninfo xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="extensioninfo.xsd">
 
@@ -27,6 +27,10 @@
 
         <coremodule generated="true" manager="com.adyen.commerce.connector.jalo.AdyensubscriptionconnectorManager"
                     packageroot="com.adyen.commerce.connector"/>
+
+        <!-- Configuration-only Backoffice module: resources/adyensubscriptionconnector-backoffice-config.xml
+             and its labels, no backoffice/src. The platform picker uses a resolver bean from adyenv6backoffice. -->
+        <meta key="backoffice-module" value="true"/>
     </extension>
 
 </extensioninfo>

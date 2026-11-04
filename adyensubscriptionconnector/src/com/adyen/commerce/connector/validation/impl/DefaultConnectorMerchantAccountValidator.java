@@ -22,7 +22,6 @@ package com.adyen.commerce.connector.validation.impl;
 
 import org.apache.commons.lang3.StringUtils;
 
-import com.adyen.commerce.connector.enums.BillingPlatform;
 import com.adyen.commerce.connector.exception.PreconditionFailedException;
 import com.adyen.commerce.connector.spi.SubscriptionBillingConnector;
 import com.adyen.commerce.connector.validation.ConnectorMerchantAccountValidator;
@@ -31,10 +30,8 @@ import com.adyen.v6.strategy.AdyenMerchantAccountStrategy;
 import de.hybris.platform.store.BaseStoreModel;
 
 /**
- * Default validator. Only {@code ADYEN_NATIVE} is exempt, being the one path with no external gateway to
- * bind; a blank {@code configuredAdyenMerchantAccount()} from any other connector is rejected as "not
- * configured" rather than treated as the SPI's opt-out, so an incompletely configured gateway cannot
- * disable the check by accident.
+ * Default validator. A blank {@code configuredAdyenMerchantAccount()} is rejected as "not configured", so an
+ * incompletely configured gateway cannot disable the check by accident.
  */
 public class DefaultConnectorMerchantAccountValidator implements ConnectorMerchantAccountValidator
 {
@@ -52,12 +49,6 @@ public class DefaultConnectorMerchantAccountValidator implements ConnectorMercha
 		final String connectorAccount = connector.configuredAdyenMerchantAccount();
 		if (StringUtils.isBlank(connectorAccount))
 		{
-			// For an external connector a blank answer means "not configured yet"; exempting it would
-			// disable the check exactly while the operator is still setting the gateway up.
-			if (BillingPlatform.ADYEN_NATIVE.equals(connector.platform()))
-			{
-				return;
-			}
 			throw new PreconditionFailedException(String.format(
 					"Connector '%s' has no configured Adyen merchant account, so that guarantee cannot be "
 							+ "established for base store '%s'. Set the platform's Adyen Gateway Merchant Account "

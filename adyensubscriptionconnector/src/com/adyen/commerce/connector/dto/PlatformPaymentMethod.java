@@ -29,6 +29,10 @@ package com.adyen.commerce.connector.dto;
  *
  * <p>{@code id} is the platform's own identifier and is never a vendor-encoded composite - it travels back
  * verbatim in a {@link PaymentMethodChoice.AlreadyOnPlatform}.</p>
+ *
+ * <p>{@code importedTokenId} is the vaulted Adyen token the method was imported from, or {@code null} when
+ * the platform does not say. It is what lets a card offered from the shopper's vault and the same card held
+ * by the platform be recognised as one instrument.</p>
  */
 public record PlatformPaymentMethod(String id, String displayLabel, CardMetadata card,
                                     boolean defaultForCustomer, String importedTokenId)
@@ -44,41 +48,5 @@ public record PlatformPaymentMethod(String id, String displayLabel, CardMetadata
 			final boolean defaultForCustomer)
 	{
 		this(id, displayLabel, card, defaultForCustomer, null);
-	}
-
-	/**
-	 * JavaBeans accessors, because this record is read from a JSP: EL resolves {@code ${option.id}} by
-	 * introspection and a record's {@code id()} is not a property. Without them the page throws
-	 * {@code PropertyNotFoundException}, which the CMS component renderer catches and renders as an empty
-	 * slot rather than an error. {@code SubscriptionViewContractTest} pins them.
-	 */
-	public String getId()
-	{
-		return id;
-	}
-
-	public String getDisplayLabel()
-	{
-		return displayLabel;
-	}
-
-	public CardMetadata getCard()
-	{
-		return card;
-	}
-
-	public boolean isDefaultForCustomer()
-	{
-		return defaultForCustomer;
-	}
-
-	/**
-	 * The vaulted-token identifier this method was imported from, or {@code null} when the platform does
-	 * not say. It is what lets the page tell that a card offered from the shopper's vault and one the
-	 * platform already holds are the same instrument, rather than offering it twice under two names.
-	 */
-	public String getImportedTokenId()
-	{
-		return importedTokenId;
 	}
 }

@@ -21,6 +21,10 @@
         <coremodule generated="true"
                     manager="com.adyen.commerce.connector.chargebee.jalo.Adyenv6chargebeeconnectorManager"
                     packageroot="com.adyen.commerce.connector.chargebee"/>
+
+        <!-- Contributes Backoffice configuration and labels only; with no Backoffice code it does not
+             require the backoffice extension. -->
+        <meta key="backoffice-module" value="true"/>
     </extension>
 
 </extensioninfo>

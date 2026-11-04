@@ -21,6 +21,7 @@
 package com.adyen.commerce.subscription.controllers.pages;
 
 import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Controller;
@@ -33,7 +34,6 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import org.springframework.web.servlet.view.RedirectView;
 
 import com.adyen.commerce.connector.facades.MySubscriptionsFacade;
-import com.adyen.commerce.facades.AdyenStoredCardsFacade;
 import com.adyen.commerce.connector.facades.data.PaymentMethodChangeReport;
 import com.adyen.commerce.connector.facades.data.PaymentMethodChangeResult;
 import com.adyen.commerce.connector.facades.data.SubscriptionOverviewData;
@@ -45,16 +45,15 @@ import de.hybris.platform.acceleratorstorefrontcommons.controllers.util.GlobalMe
 import de.hybris.platform.cms2.exceptions.CMSItemNotFoundException;
 
 /**
- * The shopper's own list of subscriptions, and the one thing they can do to them.
+ * The shopper's own subscriptions, one section per billing platform, and what they can do to them.
  *
- * <p>Both mutations are {@code POST} because the storefront's {@code CsrfProtectionMatcher} protects
- * {@code POST} and nothing else, so a {@code DELETE} or a {@code PUT} here would carry no CSRF token.</p>
+ * <p>Every action carries the platform of the section it came from, and the facade refuses a subscription
+ * that is not on it, or a request naming none, which a page rendered before sections existed would send. Mutations are {@code POST} because the storefront's {@code CsrfProtectionMatcher}
+ * protects {@code POST} and nothing else.</p>
  *
  * <p>{@code @RequireHardLogIn} is not what guards the page: the real barrier is the storefront's URL rule
- * confining {@code /my-account/**} to {@code ROLE_CUSTOMERGROUP}, since the annotation's evaluator lets an
- * anonymous shopper through when anonymous checkout is enabled. The facade independently refuses to answer
- * for anyone who is not a signed-in customer, so the page is empty rather than broken if it is reached
- * another way.</p>
+ * confining {@code /my-account/**} to {@code ROLE_CUSTOMERGROUP}. The facade independently refuses to answer
+ * for anyone who is not a signed-in customer.</p>
  */
 @Controller
 @RequestMapping("/my-account/subscriptions")
@@ -69,51 +68,27 @@ public class MySubscriptionsPageController extends AbstractSearchPageController
 	@Resource(name = "mySubscriptionsFacade")
 	private MySubscriptionsFacade mySubscriptionsFacade;
 
-	/** The Adyen vault listing, reused as-is: the shopper picks from cards they already have. */
-	@Resource(name = "adyenStoredCardsFacade")
-	private AdyenStoredCardsFacade adyenStoredCardsFacade;
-
+	/**
+	 * Not found while no billing platform connector is loaded, the same condition that hides the menu entry,
+	 * so a bookmarked address does not open an empty page.
+	 */
 	@RequestMapping(method = RequestMethod.GET)
 	@RequireHardLogIn
-	public String listSubscriptions(final Model model) throws CMSItemNotFoundException
+	public String listSubscriptions(final Model model, final HttpServletResponse response)
+			throws CMSItemNotFoundException
 	{
+		if (!mySubscriptionsFacade.hasAvailablePlatforms())
+		{
+			prepareNotFoundPage(model, response);
+			return getViewForPage(model);
+		}
+
 		final SubscriptionOverviewData overview = mySubscriptionsFacade.getSubscriptionsForCurrentCustomer();
 
 		storeCmsPageInModel(model, getContentPageForLabelOrId(SUBSCRIPTIONS_CMS_PAGE));
 		setUpMetaDataForContentPage(model, getContentPageForLabelOrId(SUBSCRIPTIONS_CMS_PAGE));
 
-		model.addAttribute("subscriptions", overview.getSubscriptions());
-		model.addAttribute("ordersAwaitingSetup", overview.getOrdersAwaitingSetup());
-		// The cards Adyen has already vaulted for this shopper. Offering only these is what makes the
-		// feature work without 3DS - see the facade.
-		model.addAttribute("storedCards", adyenStoredCardsFacade.getStoredCardsPageDataForCurrentCustomer()
-				.getStoredCards());
-		// Chosen by the facade, not by the view: it has to be a Chargebee row that actually carries a public
-		// identifier, which "the first one on screen" is not.
-		model.addAttribute("paymentMethodSubscriptionCode", overview.getPaymentMethodSubscriptionCode());
-		// The scope, not the platform's name: it decides which sentence under the control is true, and the
-		// view never learns which billing platform is behind the page.
-		model.addAttribute("paymentMethodChangeScope", overview.getPaymentMethodChangeScope().name());
-		// Distinct from the scope above, which describes only the control above the list. Without this the
-		// page cannot tell "no control up here" from "cannot be done at all".
-		model.addAttribute("anyPaymentMethodChangeable",
-				Boolean.valueOf(overview.isAnyPaymentMethodChangeable()));
-		// Whether any provider on this page can do it at all, as opposed to whether anything can be done
-		// right now: a subscription too new to act on must not be described as one whose provider is
-		// incapable.
-		model.addAttribute("paymentMethodChangeSupportedSomewhere",
-				Boolean.valueOf(overview.isPaymentMethodChangeSupportedSomewhere()));
-		// Whether any row will show a control of its own. The page-level control additionally needs the
-		// Adyen vault, which only this controller knows about, so the two halves meet in the view.
-		model.addAttribute("anyRowPaymentMethodControl",
-				Boolean.valueOf(overview.isAnyRowPaymentMethodControl()));
-		// Only whether to show the invitation and what to warn about. The address itself is minted when the
-		// shopper clicks, because on some platforms it is a credential and this page is not the place for one.
-		model.addAttribute("paymentMethodEnrollmentSubscriptionCode",
-				overview.getPaymentMethodEnrollmentSubscriptionCode());
-		model.addAttribute("paymentMethodEnrollmentEffect",
-				overview.getPaymentMethodEnrollmentEffect() == null
-						? null : overview.getPaymentMethodEnrollmentEffect().name());
+		model.addAttribute("subscriptionSections", overview.getSections());
 		model.addAttribute("breadcrumbs", accountBreadcrumbBuilder.getBreadcrumbs("text.account.subscriptions"));
 		// A page listing what somebody is paying for every month has no business in a search index.
 		model.addAttribute("metaRobots", "no-index,no-follow");
@@ -124,18 +99,16 @@ public class MySubscriptionsPageController extends AbstractSearchPageController
 	/**
 	 * Stops a subscription at the end of the period already paid for.
 	 *
-	 * <p>Redirects rather than rendering, so a refresh cannot replay the cancellation: the Chargebee adapter
-	 * sends no idempotency key, so a replayed POST would be a second real call to the platform.</p>
-	 *
-	 * <p>One message for every kind of no. Telling "not yours" apart from "too late" would tell somebody
-	 * probing for codes which ones exist.</p>
+	 * <p>Redirects rather than rendering, so a refresh cannot replay the cancellation. One message for every
+	 * kind of no: telling "not yours" apart from "too late" would tell somebody probing for codes which ones
+	 * exist.</p>
 	 */
 	@RequestMapping(value = "/cancel", method = RequestMethod.POST)
 	@RequireHardLogIn
-	public String cancelSubscription(@RequestParam("code") final String code,
-			final RedirectAttributes redirectAttributes)
+	public String cancelSubscription(@RequestParam(value = "platform", required = false) final String platform,
+			@RequestParam("code") final String code, final RedirectAttributes redirectAttributes)
 	{
-		if (mySubscriptionsFacade.cancelForCurrentCustomer(code))
+		if (mySubscriptionsFacade.cancelForCurrentCustomer(platform, code))
 		{
 			GlobalMessages.addFlashMessage(redirectAttributes, GlobalMessages.CONF_MESSAGES_HOLDER,
 					"text.account.subscriptions.cancel.success");
@@ -150,33 +123,29 @@ public class MySubscriptionsPageController extends AbstractSearchPageController
 	}
 
 	/**
-	 * Points billing at a different card the shopper has already stored.
-	 *
-	 * <p>POST for the same reason as the cancellation. The subscription code travels so the facade can
-	 * establish ownership and the store; on Chargebee the change itself is per customer, which the
-	 * confirmation message says out loud.</p>
+	 * Points billing at another payment method the shopper holds. The subscription code establishes
+	 * ownership, the store and, for an account-wide change, the account.
 	 */
 	@RequestMapping(value = "/payment-method", method = RequestMethod.POST)
 	@RequireHardLogIn
-	public String changePaymentMethod(@RequestParam("code") final String code,
+	public String changePaymentMethod(@RequestParam(value = "platform", required = false) final String platform,
+			@RequestParam("code") final String code,
 			@RequestParam("storedPaymentMethodId") final String storedPaymentMethodId,
 			@RequestParam(value = "applyToAll", required = false, defaultValue = "false") final boolean applyToAll,
 			final RedirectAttributes redirectAttributes)
 	{
 		if (applyToAll)
 		{
-			return report(mySubscriptionsFacade.changePaymentMethodForAllSubscriptions(code,
+			return report(mySubscriptionsFacade.changePaymentMethodForAllSubscriptions(platform, code,
 					storedPaymentMethodId), redirectAttributes);
 		}
-		return report(mySubscriptionsFacade.changePaymentMethodForCurrentCustomer(code, storedPaymentMethodId),
-				redirectAttributes);
+		return report(mySubscriptionsFacade.changePaymentMethodForCurrentCustomer(platform, code,
+				storedPaymentMethodId), redirectAttributes);
 	}
 
 	/**
-	 * Says what a fan-out actually did, counts included.
-	 *
-	 * <p>A partial result is reported as a failure even though something moved: what the shopper asked for
-	 * did not happen in full, and a green message naming the ones left behind would read as success.</p>
+	 * Says what a fan-out actually did, counts included. A partial result is reported as a failure even
+	 * though something moved: what the shopper asked for did not happen in full.
 	 */
 	protected String report(final PaymentMethodChangeReport report, final RedirectAttributes redirectAttributes)
 	{
@@ -201,8 +170,7 @@ public class MySubscriptionsPageController extends AbstractSearchPageController
 
 	protected String report(final PaymentMethodChangeResult result, final RedirectAttributes redirectAttributes)
 	{
-		// A switch expression, not a statement: only the expression form is checked for exhaustiveness, so
-		// a fifth result becomes a build failure here instead of a shopper reading nothing at all.
+		// A switch expression, not a statement: only the expression form is checked for exhaustiveness.
 		final String messageKey = switch (result)
 		{
 			case CHANGED_THIS_SUBSCRIPTION -> "text.account.subscriptions.paymentMethod.success.subscription";
@@ -210,8 +178,7 @@ public class MySubscriptionsPageController extends AbstractSearchPageController
 			case NOT_SUPPORTED_HERE -> "text.account.subscriptions.paymentMethod.unsupported";
 			case FAILED -> "text.account.subscriptions.paymentMethod.error";
 		};
-		// A refusal that no retry can turn into a success is a plain message rather than a red one; a
-		// genuine failure stays red.
+		// A refusal that no retry can turn into a success is a plain message; a genuine failure stays red.
 		final String holder = result == PaymentMethodChangeResult.FAILED
 				? GlobalMessages.ERROR_MESSAGES_HOLDER
 				: GlobalMessages.CONF_MESSAGES_HOLDER;
@@ -223,20 +190,16 @@ public class MySubscriptionsPageController extends AbstractSearchPageController
 	/**
 	 * Sends the shopper to their billing platform's own page for giving it a payment method.
 	 *
-	 * <p>{@code GET} because nothing changes here: the shopper is handed a destination, and the platform
-	 * decides what happens once they arrive. The address is resolved per request and never rendered into
-	 * the page, so on Recurly - where it carries a token that opens the account - it does not sit in the
-	 * markup, in the browser's history for this site, or in a referrer.</p>
-	 *
-	 * <p>Redirect rather than a link in the page for the same reason. The facade refuses a code the shopper
-	 * does not own, so nothing here can address another customer's billing account.</p>
+	 * <p>{@code GET} because nothing changes here. The address is resolved per request and never rendered into
+	 * the page, because on some platforms it carries a token that opens the account; for the same reason
+	 * nothing from this page is appended to it. The facade refuses a code the shopper does not own.</p>
 	 */
 	@RequestMapping(value = "/payment-method/add", method = RequestMethod.GET)
 	@RequireHardLogIn
-	public View addPaymentMethod(@RequestParam("code") final String code,
-			final RedirectAttributes redirectAttributes)
+	public View addPaymentMethod(@RequestParam(value = "platform", required = false) final String platform,
+			@RequestParam("code") final String code, final RedirectAttributes redirectAttributes)
 	{
-		final String url = mySubscriptionsFacade.paymentMethodEnrollmentUrlForCurrentCustomer(code);
+		final String url = mySubscriptionsFacade.paymentMethodEnrollmentUrlForCurrentCustomer(platform, code);
 		if (StringUtils.isBlank(url))
 		{
 			GlobalMessages.addFlashMessage(redirectAttributes, GlobalMessages.ERROR_MESSAGES_HOLDER,
@@ -245,8 +208,6 @@ public class MySubscriptionsPageController extends AbstractSearchPageController
 		}
 
 		final RedirectView redirect = new RedirectView(url);
-		// Nothing from this page is appended to the platform's address: on Recurly it already carries the
-		// token that opens the account, and whatever were appended would travel to the platform with it.
 		redirect.setExposeModelAttributes(false);
 		return redirect;
 	}

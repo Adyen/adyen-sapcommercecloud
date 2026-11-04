@@ -18,6 +18,7 @@
 	           name="adyensubscriptionb2caddon">
 
 		<requires-extension name="addonsupport"/>
+		<requires-extension name="cms2"/>
 		<requires-extension name="acceleratorstorefrontcommons"/>
 		<requires-extension name="adyensubscriptionconnector"/>
 

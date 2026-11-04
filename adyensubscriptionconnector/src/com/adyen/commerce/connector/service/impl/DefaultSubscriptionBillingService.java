@@ -309,8 +309,8 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 			case PaymentMethodChoice.AdyenVaultedToken vaulted -> vaulted.token().storedPaymentMethodId();
 			case PaymentMethodChoice.AlreadyOnPlatform onPlatform -> onPlatform.platformPaymentMethodId();
 		};
-		// Unique per action: Recurly replays the first response for a repeated key, so A -> B -> A -> B would be
-		// answered with a stored 200 for a change never made. Safe, as this call moves no money.
+		// Unique per action: a platform answers a repeated key with its first response, so A -> B -> A -> B would
+		// be answered with a stored 200 for a change never made. Safe, as this call moves no money.
 		return subscription.getIdempotencyKey() + "/payment-method/" + chosen + "/" + UUID.randomUUID();
 	}
 
@@ -408,8 +408,9 @@ public class DefaultSubscriptionBillingService implements SubscriptionBillingSer
 	}
 
 	/**
-	 * Keyed by timing as well: Recurly replays the first response for a repeated key, so an escalation from
-	 * end-of-period to immediate would never reach it. A blank key stays blank rather than becoming shared.
+	 * Keyed by timing as well: a platform answers a repeated key with its first response, or refuses it when
+	 * the request differs, so an escalation from end-of-period to immediate would never take effect. A blank
+	 * key stays blank rather than becoming shared.
 	 */
 	protected String cancellationKey(final String idempotencyKey, final CancellationTiming timing)
 	{

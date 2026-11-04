@@ -48,13 +48,17 @@ import com.adyen.commerce.connector.exception.CapabilityUnsupportedException;
 
 /**
  * Port (SPI) of the agnostic subscription billing connector, one implementation per billing platform
- * (Recurly, Chargebee, Zuora, ...), each living in its own extension and depending on this core rather
- * than the other way around.
+ * (Recurly, Chargebee, ...), each living in its own extension and depending on this core rather than the
+ * other way around.
  *
  * <p>No vendor type may appear in a signature; mutating calls are idempotent on a caller-supplied key;
  * every failure surfaces as a {@link BillingException} subtype, transient ones as
  * {@link com.adyen.commerce.connector.exception.RetryableBillingException}. Implementations receive an
  * {@link com.adyen.commerce.connector.dto.AdyenTokenHandle}, so a PAN never crosses this boundary.</p>
+ *
+ * <p>A key names one call, not one subscription: a platform answers a repeated key with its first
+ * response, or refuses it when the request differs, so a caller derives a separate key for each distinct
+ * call.</p>
  */
 public interface SubscriptionBillingConnector
 {
@@ -73,8 +77,7 @@ public interface SubscriptionBillingConnector
 	 * equals {@code BaseStore.adyenMerchantAccount}. A blank answer counts as "not configured" and is
 	 * rejected, so an incompletely configured gateway cannot switch the check off.
 	 *
-	 * @return the configured Adyen merchant account; {@code null} only for {@code ADYEN_NATIVE}, the one
-	 *         path with no external gateway to bind
+	 * @return the configured Adyen merchant account; blank while the platform's configuration lacks it
 	 */
 	String configuredAdyenMerchantAccount();
 

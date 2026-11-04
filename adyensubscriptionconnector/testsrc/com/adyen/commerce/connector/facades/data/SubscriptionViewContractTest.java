@@ -32,12 +32,11 @@ import java.util.stream.Collectors;
 
 import org.junit.Test;
 
-import com.adyen.commerce.connector.dto.PlatformPaymentMethod;
-
 import de.hybris.bootstrap.annotations.UnitTest;
 
 /**
- * The properties the subscriptions page reads through EL, asserted to exist as JavaBeans properties.
+ * The properties the subscriptions page and its tags read through EL, asserted to exist as JavaBeans
+ * properties.
  *
  * <p>A method called {@code tone()} is not a property called {@code tone}: EL resolves
  * {@code ${subscription.state.tone}} by introspection, finds no {@code getTone} and throws
@@ -51,36 +50,43 @@ import de.hybris.bootstrap.annotations.UnitTest;
 @UnitTest
 public class SubscriptionViewContractTest
 {
-	/** Read on each row of the list. */
+	/** Read by platformSection.tag on the section it renders. */
+	private static final List<String> SECTION_PROPERTIES = Arrays.asList(
+			"platformCode", "platformName", "subscriptions", "ordersAwaitingSetup",
+			"paymentMethodChangeOffers", "paymentMethodEnrollmentOffers", "paymentMethodChangeSupported",
+			"paymentMethodChangeOffered");
+
+	/** Read on each row of a section. */
 	private static final List<String> ENTRY_PROPERTIES = Arrays.asList(
 			"code", "productName", "quantity", "state", "effectiveDate",
 			"orderCode", "orderDate", "paymentMethodSummary",
-			"cancellable", "manageable",
-			"paymentMethodChangeScope", "paymentMethodChangeable", "paymentMethodChangeCovered",
-			"paymentMethodOptions", "adyenVaultOptions", "currentPaymentMethodId", "paymentMethodShareable");
+			"cancellable", "paymentMethodControl", "paymentMethodChangeCovered",
+			"paymentMethodOptions", "adyenVaultOptions", "paymentMethodShareable");
 
-	/** Read on the overview, by the controller rather than the page, but the same contract. */
-	private static final List<String> OVERVIEW_PROPERTIES = Arrays.asList(
-			"subscriptions", "ordersAwaitingSetup", "paymentMethodSubscriptionCode",
-			"paymentMethodChangeScope", "anyPaymentMethodChangeable",
-			"paymentMethodChangeSupportedSomewhere", "anyRowPaymentMethodControl", "empty",
-			"paymentMethodEnrollmentSubscriptionCode", "paymentMethodEnrollmentEffect");
+	/** Read on the overview by the controller. */
+	private static final List<String> OVERVIEW_PROPERTIES = Arrays.asList("sections", "empty");
 
-	/**
-	 * Read on each option of a row's payment-method picker.
-	 *
-	 * <p>A record: {@code id()} is not the property {@code id}, so a record reaches EL with no readable
-	 * properties at all unless the accessors are added by hand.</p>
-	 */
-	private static final List<String> OPTION_PROPERTIES = Arrays.asList(
-			"id", "displayLabel", "card", "defaultForCustomer", "importedTokenId");
+	private static final List<String> CHANGE_OFFER_PROPERTIES = Arrays.asList(
+			"subscriptionCode", "accountName", "paymentMethodOptions", "adyenVaultOptions");
+
+	private static final List<String> ENROLLMENT_OFFER_PROPERTIES = Arrays.asList(
+			"subscriptionCode", "accountName", "notice");
+
+	/** Read on each option by paymentMethodOptions.tag. */
+	private static final List<String> OPTION_PROPERTIES = Arrays.asList("id", "displayLabel", "current");
 
 	/** Read on the state enum from inside a row: {@code ${subscription.state.<name>}}. */
 	private static final List<String> STATE_PROPERTIES = Arrays.asList(
 			"tone", "cancellable", "paymentMethodChangeable");
 
 	@Test
-	public void everyRowPropertyTheePageReadsIsResolvableByEl() throws IntrospectionException
+	public void everySectionPropertyTheTagReadsIsResolvableByEl() throws IntrospectionException
+	{
+		assertResolvable(SubscriptionPlatformSectionData.class, SECTION_PROPERTIES);
+	}
+
+	@Test
+	public void everyRowPropertyThePageReadsIsResolvableByEl() throws IntrospectionException
 	{
 		assertResolvable(SubscriptionEntryData.class, ENTRY_PROPERTIES);
 	}
@@ -89,6 +95,13 @@ public class SubscriptionViewContractTest
 	public void everyOverviewPropertyIsResolvableByEl() throws IntrospectionException
 	{
 		assertResolvable(SubscriptionOverviewData.class, OVERVIEW_PROPERTIES);
+	}
+
+	@Test
+	public void everyOfferPropertyIsResolvableByEl() throws IntrospectionException
+	{
+		assertResolvable(PaymentMethodChangeOfferData.class, CHANGE_OFFER_PROPERTIES);
+		assertResolvable(PaymentMethodEnrollmentOfferData.class, ENROLLMENT_OFFER_PROPERTIES);
 	}
 
 	/** A plain method on the enum reads perfectly well in Java and is invisible to EL. */
@@ -101,7 +114,7 @@ public class SubscriptionViewContractTest
 	@Test
 	public void everyOptionPropertyThePickerReadsIsResolvableByEl() throws IntrospectionException
 	{
-		assertResolvable(PlatformPaymentMethod.class, OPTION_PROPERTIES);
+		assertResolvable(PaymentMethodOptionData.class, OPTION_PROPERTIES);
 	}
 
 	private static void assertResolvable(final Class<?> type, final List<String> properties)

@@ -46,6 +46,7 @@ import de.hybris.platform.store.BaseStoreModel;
 @UnitTest
 public class SubscriptionPaymentRequestDecoratorTest
 {
+	private static final BillingPlatform RECURLY = BillingPlatform.valueOf("RECURLY");
 	private static final String STORED_REFERENCE = "8415995487014051";
 
 	private SubscriptionPaymentRequestDecorator decorator;
@@ -78,9 +79,9 @@ public class SubscriptionPaymentRequestDecoratorTest
 		when(cartService.getSessionCart()).thenReturn(cart);
 		when(cart.getStore()).thenReturn(store);
 		when(store.getUid()).thenReturn("electronics");
-		when(store.getActiveBillingPlatform()).thenReturn(BillingPlatform.RECURLY);
-		when(connectorRegistry.findConnector(BillingPlatform.RECURLY)).thenReturn(Optional.of(connector));
-		when(connector.platform()).thenReturn(BillingPlatform.RECURLY);
+		when(store.getActiveBillingPlatform()).thenReturn(RECURLY);
+		when(connectorRegistry.findConnector(RECURLY)).thenReturn(Optional.of(connector));
+		when(connector.platform()).thenReturn(RECURLY);
 	}
 
 	// ------------------------------------------------------ subscription cart

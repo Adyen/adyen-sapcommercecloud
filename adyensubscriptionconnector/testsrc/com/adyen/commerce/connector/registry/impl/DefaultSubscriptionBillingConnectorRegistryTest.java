@@ -20,6 +20,7 @@
  */
 package com.adyen.commerce.connector.registry.impl;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
@@ -30,6 +31,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -51,6 +53,10 @@ import de.hybris.platform.store.BaseStoreModel;
 @UnitTest
 public class DefaultSubscriptionBillingConnectorRegistryTest
 {
+	private static final BillingPlatform CHARGEBEE = BillingPlatform.valueOf("CHARGEBEE");
+	private static final BillingPlatform RECURLY = BillingPlatform.valueOf("RECURLY");
+	private static final BillingPlatform UNSUPPORTED_PLATFORM = BillingPlatform.valueOf("UNSUPPORTED_PLATFORM");
+
 	@Mock
 	private SubscriptionBillingConnector chargebee;
 	@Mock
@@ -62,7 +68,7 @@ public class DefaultSubscriptionBillingConnectorRegistryTest
 	public void setUp()
 	{
 		MockitoAnnotations.openMocks(this);
-		when(chargebee.platform()).thenReturn(BillingPlatform.CHARGEBEE);
+		when(chargebee.platform()).thenReturn(CHARGEBEE);
 		registry = new DefaultSubscriptionBillingConnectorRegistry();
 		registry.setConnectors(List.of(chargebee));
 	}
@@ -70,8 +76,8 @@ public class DefaultSubscriptionBillingConnectorRegistryTest
 	@Test
 	public void shouldResolveByPlatform() throws Exception
 	{
-		assertSame(chargebee, registry.getConnector(BillingPlatform.CHARGEBEE));
-		assertTrue(registry.findConnector(BillingPlatform.ZUORA).isEmpty());
+		assertSame(chargebee, registry.getConnector(CHARGEBEE));
+		assertTrue(registry.findConnector(UNSUPPORTED_PLATFORM).isEmpty());
 	}
 
 	@Test
@@ -82,7 +88,7 @@ public class DefaultSubscriptionBillingConnectorRegistryTest
 		final DefaultSubscriptionBillingConnectorRegistry autoRegistry = new DefaultSubscriptionBillingConnectorRegistry();
 		autoRegistry.setApplicationContext(context);
 
-		assertSame(chargebee, autoRegistry.getConnector(BillingPlatform.CHARGEBEE));
+		assertSame(chargebee, autoRegistry.getConnector(CHARGEBEE));
 	}
 
 	@Test
@@ -93,20 +99,38 @@ public class DefaultSubscriptionBillingConnectorRegistryTest
 		emptyRegistry.setApplicationContext(context);
 		emptyRegistry.setConnectors(List.of());
 
-		assertThrows(ConnectorNotConfiguredException.class, () -> emptyRegistry.getConnector(BillingPlatform.CHARGEBEE));
+		assertThrows(ConnectorNotConfiguredException.class, () -> emptyRegistry.getConnector(CHARGEBEE));
 		verify(context, never()).getBeansOfType(SubscriptionBillingConnector.class);
 	}
 
 	@Test
 	public void shouldThrowForUnregisteredPlatform()
 	{
-		assertThrows(ConnectorNotConfiguredException.class, () -> registry.getConnector(BillingPlatform.ZUORA));
+		assertThrows(ConnectorNotConfiguredException.class, () -> registry.getConnector(UNSUPPORTED_PLATFORM));
+	}
+
+	@Test
+	public void shouldListThePlatformsOfRegisteredConnectors()
+	{
+		final SubscriptionBillingConnector recurly = mock(SubscriptionBillingConnector.class);
+		when(recurly.platform()).thenReturn(RECURLY);
+		registry.setConnectors(List.of(chargebee, recurly));
+
+		assertEquals(Set.of(CHARGEBEE, RECURLY), registry.getAvailablePlatforms());
+	}
+
+	@Test
+	public void shouldListNoPlatformsWithoutConnectors()
+	{
+		registry.setConnectors(List.of());
+
+		assertTrue(registry.getAvailablePlatforms().isEmpty());
 	}
 
 	@Test
 	public void shouldResolveActiveConnectorFromStore() throws Exception
 	{
-		when(store.getActiveBillingPlatform()).thenReturn(BillingPlatform.CHARGEBEE);
+		when(store.getActiveBillingPlatform()).thenReturn(CHARGEBEE);
 		assertSame(chargebee, registry.getActiveConnector(store));
 	}
 

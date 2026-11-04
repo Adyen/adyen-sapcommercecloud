@@ -54,6 +54,9 @@ import de.hybris.bootstrap.annotations.UnitTest;
 @UnitTest
 public class ConnectorLogEventTest
 {
+	private static final BillingPlatform RECURLY = BillingPlatform.valueOf("RECURLY");
+	private static final BillingPlatform CHARGEBEE = BillingPlatform.valueOf("CHARGEBEE");
+
 	@After
 	public void clearContext()
 	{
@@ -64,7 +67,7 @@ public class ConnectorLogEventTest
 	public void rendersFieldsInInsertionOrder()
 	{
 		final String line = render(ConnectorLogEvent.of("connector_operation")
-				.platform(BillingPlatform.RECURLY)
+				.platform(RECURLY)
 				.operation("create_subscription")
 				.outcome(ConnectorLogEvent.OUTCOME_SUCCESS)
 				.field("subscription_id", "uuid-1"));
@@ -154,7 +157,7 @@ public class ConnectorLogEventTest
 	@Test
 	public void inheritsPlatformAndOperationFromTheOpenScope()
 	{
-		try (ConnectorLogContext scope = ConnectorLogContext.open(BillingPlatform.CHARGEBEE, "import_token"))
+		try (ConnectorLogContext scope = ConnectorLogContext.open(CHARGEBEE, "import_token"))
 		{
 			assertEquals("event=connector_call platform=CHARGEBEE operation=import_token method=POST",
 					render(ConnectorLogEvent.of("connector_call").field("method", "POST")));
@@ -168,10 +171,10 @@ public class ConnectorLogEventTest
 	@Test
 	public void theOpenScopeWinsOverAFallbackStatedAtTheCallSite()
 	{
-		try (ConnectorLogContext scope = ConnectorLogContext.open(BillingPlatform.CHARGEBEE, "import_token"))
+		try (ConnectorLogContext scope = ConnectorLogContext.open(CHARGEBEE, "import_token"))
 		{
 			final String line = render(ConnectorLogEvent.of("connector_call")
-					.platform(BillingPlatform.RECURLY)
+					.platform(RECURLY)
 					.operation("ensure_customer"));
 
 			assertEquals("event=connector_call platform=CHARGEBEE operation=import_token", line);

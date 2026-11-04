@@ -1,0 +1,48 @@
+# -----------------------------------------------------------------------
+# Test fixture: three Recurly subscriptions for the same shopper as testdata-myaccount-subscriptions.impex,
+# so the page shows two platform sections at once (Chargebee from that file, Recurly from this one).
+# NOT imported by anything - paste it into hac > Console > ImpEx Import by hand, on a development machine
+# only, AFTER the Chargebee fixture.
+#
+# Same rules as the Chargebee fixture: the customer must already exist and be an account you can sign in
+# as; every subscription needs its own order, and those orders appear, empty, in the shopper's history.
+# Set $customer, $store and $site to match the environment.
+#
+# Nothing else is needed for the section to appear. The Recurly controls (changing the card, the hosted
+# page) additionally depend on the store's Recurly Config, so without one the section lists the
+# subscriptions and says the card cannot be changed online - which is the case worth seeing as well.
+#
+# Dates: see the Chargebee fixture; the same invariant  $past < $recently < TODAY < $future  applies.
+# -----------------------------------------------------------------------
+$customer=test@test.pl
+$store=electronics
+$site=electronics
+$currency=USD
+$product=2278102
+$platform=RECURLY
+$dateFormat=yyyy-MM-dd HH:mm:ss
+$recently=2026-08-15 10:00:00
+$future=2027-06-15 10:00:00
+
+INSERT_UPDATE Order;code[unique=true];user(uid);currency(isocode);date[dateformat=$dateFormat];net;store(uid);site(uid)
+;SUBREC-01;$customer;$currency;$recently;false;$store;$site
+;SUBREC-02;$customer;$currency;$recently;false;$store;$site
+;SUBREC-03;$customer;$currency;$recently;false;$store;$site
+
+INSERT_UPDATE BillingSubscriptionRef;platform(code)[unique=true];externalSubscriptionId[unique=true];code;productCode;status;quantity;currencyIsoCode;currentPeriodStart[dateformat=$dateFormat];currentPeriodEnd[dateformat=$dateFormat];cancelAtPeriodEnd;platformUpdatedAt[dateformat=$dateFormat];lastSyncedAt[dateformat=$dateFormat];order(Order.code);customer(uid);idempotencyKey
+;$platform;sub-rec-01;code-rec-01;$product;ACTIVE;1;$currency;$recently;$future;false;$recently;$recently;SUBREC-01;$customer;SUBREC-01
+;$platform;sub-rec-02;code-rec-02;$product;ACTIVE;1;$currency;$recently;$future;true;$recently;$recently;SUBREC-02;$customer;SUBREC-02
+;$platform;sub-rec-03;code-rec-03;$product;PAST_DUE;1;$currency;$recently;$future;false;$recently;$recently;SUBREC-03;$customer;SUBREC-03
+
+# -----------------------------------------------------------------------
+# Cleanup. Paste this instead, on its own, to take the fixture back out (references first, then orders).
+# -----------------------------------------------------------------------
+# REMOVE BillingSubscriptionRef;platform(code)[unique=true];externalSubscriptionId[unique=true]
+# ;RECURLY;sub-rec-01
+# ;RECURLY;sub-rec-02
+# ;RECURLY;sub-rec-03
+#
+# REMOVE Order;code[unique=true]
+# ;SUBREC-01
+# ;SUBREC-02
+# ;SUBREC-03
