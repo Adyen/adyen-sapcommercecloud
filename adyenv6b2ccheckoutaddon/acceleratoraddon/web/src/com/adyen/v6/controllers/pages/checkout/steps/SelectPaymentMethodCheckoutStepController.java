@@ -25,6 +25,7 @@ import com.adyen.v6.constants.AdyenControllerConstants;
 import com.adyen.commerce.facades.AdyenCheckoutFacade;
 import com.adyen.v6.forms.AddressForm;
 import com.adyen.v6.forms.AdyenPaymentForm;
+import com.adyen.v6.dto.DisclaimerConfigurationDTO;
 import de.hybris.platform.acceleratorstorefrontcommons.annotations.RequireHardLogIn;
 import de.hybris.platform.acceleratorstorefrontcommons.checkout.steps.CheckoutStep;
 import de.hybris.platform.acceleratorstorefrontcommons.controllers.pages.checkout.steps.AbstractCheckoutStepController;
@@ -46,6 +47,7 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import jakarta.annotation.Resource;
@@ -60,6 +62,7 @@ import java.util.GregorianCalendar;
 import java.util.List;
 
 import static com.adyen.v6.constants.AdyenControllerConstants.Views.Pages.MultiStepCheckout.BillingAddressformPage;
+import static com.adyen.v6.constants.Adyenv6coreConstants.CHECKOUT_ERROR_KONBINI_TELEPHONE_MISSING;
 import static de.hybris.platform.acceleratorstorefrontcommons.constants.WebConstants.BREADCRUMBS_KEY;
 import static org.springframework.web.bind.annotation.RequestMethod.GET;
 import static org.springframework.web.bind.annotation.RequestMethod.POST;
@@ -76,6 +79,8 @@ public class SelectPaymentMethodCheckoutStepController extends AbstractCheckoutS
 
     protected static final String ADYEN_PAYMENT_FORM = "adyenPaymentForm";
     protected static final String CSE_GENERATION_TIME = "generationTime";
+    protected static final String CHECKOUT_ERROR_PAYMENT_FORM_INVALID =
+            "checkout.error.paymentethod.formentry.invalid";
 
     private static final String CART_DATA_ATTR = "cartData";
 
@@ -182,6 +187,13 @@ public class SelectPaymentMethodCheckoutStepController extends AbstractCheckoutS
         return BillingAddressformPage;
     }
 
+    @RequestMapping(value = "/disclaimer-configuration", method = GET)
+    @ResponseBody
+    public DisclaimerConfigurationDTO getDisclaimerConfiguration(
+            @RequestParam(name = "shopperCountryCode", required = false) final String shopperCountryCode) {
+        return adyenCheckoutFacade.getDisclaimerConfiguration(shopperCountryCode);
+    }
+
 
     @RequestMapping(value = "", method = POST)
     @RequireHardLogIn
@@ -203,7 +215,12 @@ public class SelectPaymentMethodCheckoutStepController extends AbstractCheckoutS
 
         if (bindingResult.hasGlobalErrors()|| bindingResult.hasErrors()|| isSessionCartInvalid()) {
             LOGGER.debug(bindingResult.getAllErrors().stream().map(error -> (error.getCode())).reduce((x, y) -> (x = x + y)));
-            GlobalMessages.addErrorMessage(model, "checkout.error.paymentethod.formentry.invalid");
+            String errorMessage = bindingResult.getAllErrors().stream()
+                    .map(error -> error.getCode())
+                    .filter(CHECKOUT_ERROR_KONBINI_TELEPHONE_MISSING::equals)
+                    .findFirst()
+                    .orElse(CHECKOUT_ERROR_PAYMENT_FORM_INVALID);
+            GlobalMessages.addErrorMessage(model, errorMessage);
             if (adyenPaymentForm.getBillingAddress() != null) {
                adyenPaymentForm.resetFormExceptBillingAddress();
             }

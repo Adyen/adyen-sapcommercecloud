@@ -43,6 +43,8 @@ public class CheckoutConfigDTO {
     private String clickToPayLocale;
     private InstallmentOptionsDTO installmentOptions;
     private boolean skipCvcForOneClick;
+    private String disclaimerMessage;
+    private String disclaimerLink;
 
     // Getters and setters for the new field
     public ExpressPaymentConfigDto getExpressPaymentConfig() {
@@ -283,5 +285,21 @@ public class CheckoutConfigDTO {
 
     public void setSkipCvcForOneClick(boolean skipCvcForOneClick) {
         this.skipCvcForOneClick = skipCvcForOneClick;
+    }
+
+    public String getDisclaimerMessage() {
+        return disclaimerMessage;
+    }
+
+    public void setDisclaimerMessage(String disclaimerMessage) {
+        this.disclaimerMessage = disclaimerMessage;
+    }
+
+    public String getDisclaimerLink() {
+        return disclaimerLink;
+    }
+
+    public void setDisclaimerLink(String disclaimerLink) {
+        this.disclaimerLink = disclaimerLink;
     }
 }

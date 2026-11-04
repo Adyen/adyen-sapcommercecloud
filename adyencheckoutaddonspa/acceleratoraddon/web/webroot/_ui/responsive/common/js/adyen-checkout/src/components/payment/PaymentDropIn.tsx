@@ -1,5 +1,5 @@
-import React, { RefObject, useEffect, useRef, useCallback } from "react";
-import { AdyenCheckout, AdyenCheckoutError, Dropin, PromptPay } from '@adyen/adyen-web/auto';
+import React, {RefObject, useCallback, useEffect, useRef} from "react";
+import {AdyenCheckout, AdyenCheckoutError, Dropin, PromptPay} from '@adyen/adyen-web/auto';
 import '@adyen/adyen-web/styles/adyen.css';
 import {
     AdditionalDetailsActions,
@@ -10,6 +10,8 @@ import {
 } from "@adyen/adyen-web";
 import { AdyenConfigData } from "../../types/adyenConfigData";
 import { AddressData } from "../../types/addressData";
+import { AddressModel } from "../../reducers/types";
+import type { EcontextConfiguration } from "@adyen/adyen-web";
 
 class IrisQrCodeElement extends PromptPay {}
 
@@ -17,9 +19,12 @@ class IrisQrCodeElement extends PromptPay {}
 (IrisQrCodeElement as any).txVariants = ['iris'];
 AdyenCheckout.register(IrisQrCodeElement as any);
 
+const firstNonBlank = (...values: Array<string | null | undefined>): string | undefined =>
+    values.find((value): value is string => typeof value === "string" && value.trim().length > 0)?.trim();
+
 interface PaymentDropInProps {
     adyenConfig: AdyenConfigData;
-    shippingAddress: AddressData;
+    shippingAddress?: AddressData;
     partialPaymentId?: string;
     onPayment: (state: any, element: UIElement, actions: SubmitActions) => void;
     onAdditionalDetails: (state: any, element: UIElement, actions: AdditionalDetailsActions) => void;
@@ -27,11 +32,15 @@ interface PaymentDropInProps {
     onOrderRequest: (resolve: any, reject: any, data: any) => Promise<void>;
     onError: (error: AdyenCheckoutError, element?: UIElement) => void;
     onDropInReady: (dropIn: Dropin) => void;
+    billingAddress?: AddressModel;
+    useDifferentBillingAddress: boolean;
 }
 
 export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
     adyenConfig,
     shippingAddress,
+    billingAddress,
+    useDifferentBillingAddress,
     partialPaymentId,
     onPayment,
     onAdditionalDetails,
@@ -40,9 +49,32 @@ export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
     onError,
     onDropInReady
 }) => {
+
     const paymentRef: RefObject<HTMLDivElement> = useRef(null);
     const dropInRef = useRef<Dropin | null>(null);
-    
+    const selectedBillingAddress = useDifferentBillingAddress ? billingAddress : undefined;
+
+    const firstName = firstNonBlank(
+        selectedBillingAddress?.firstName,
+        shippingAddress?.firstName
+    );
+
+    const lastName = firstNonBlank(
+        selectedBillingAddress?.lastName,
+        shippingAddress?.lastName
+    );
+
+    const telephoneNumber = firstNonBlank(
+        selectedBillingAddress?.phoneNumber,
+        shippingAddress?.phone,
+        shippingAddress?.cellphone
+    );
+
+    const shopperEmail = firstNonBlank(
+        adyenConfig.shopperEmail,
+        shippingAddress?.email
+    );
+
     // Use refs to store callback functions to avoid dependency issues
     const callbacksRef = useRef({
         onPayment,
@@ -52,7 +84,7 @@ export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
         onError,
         onDropInReady
     });
-    
+
     // Update refs when callbacks change
     useEffect(() => {
         callbacksRef.current = {
@@ -149,19 +181,52 @@ export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
 
         try {
             const adyenCheckout = await AdyenCheckout(getAdyenCheckoutConfig());
-            
+
+            const disclaimerMessage = adyenConfig.disclaimerMessage?.trim();
+            const disclaimerLink = adyenConfig.disclaimerLink?.trim();
+            const nonCardPaymentMethodConfigurations = disclaimerMessage
+                ? Object.fromEntries(
+                    adyenConfig.paymentMethods
+                    .filter(paymentMethod => adyenConfig.openInvoiceMethods.includes(paymentMethod.type))
+                    .map(paymentMethod => [paymentMethod.type, {
+                        disclaimerMessage: disclaimerLink
+                            ? {
+                                message: `${disclaimerMessage} %{learnMore}`,
+                                linkText: 'Learn more...',
+                                link: disclaimerLink
+                            }
+                            : { message: disclaimerMessage }
+                    }])
+                )
+                : {};
+
+            const econtextConfiguration: EcontextConfiguration = {
+                personalDetailsRequired: false,
+                data: {
+                    firstName,
+                    lastName,
+                    shopperEmail,
+                    ...(telephoneNumber ? { telephoneNumber } : {})
+                }
+            };
             const dropIn = new Dropin(adyenCheckout, {
                 paymentMethodsConfiguration: {
+                    ...nonCardPaymentMethodConfigurations,
                     card: getAdyenCardConfig(),
                     storedCard: getAdyenStoredCardConfig(),
+                    econtext: econtextConfiguration,
+                    econtext_atm: econtextConfiguration,
+                    econtext_online: econtextConfiguration,
+                    econtext_seven_eleven: econtextConfiguration,
+                    econtext_stores: econtextConfiguration,
                     boletobancario: {
                         // @ts-ignore
                         personalDetailsRequired: true,
                         billingAddressRequired: false,
                         showEmailAddress: false,
                         data: {
-                            firstName: shippingAddress.firstName,
-                            lastName: shippingAddress.lastName,
+                            firstName: shippingAddress?.firstName,
+                            lastName: shippingAddress?.lastName,
                         }
                     },
                     giftcard: {
@@ -188,8 +253,16 @@ export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
         }
     }, [
         adyenConfig.adyenClientKey,
-        shippingAddress.firstName,
-        shippingAddress.lastName,
+        adyenConfig.disclaimerMessage,
+        adyenConfig.disclaimerLink,
+        adyenConfig.paymentMethods,
+        adyenConfig.openInvoiceMethods,
+        firstName,
+        lastName,
+        telephoneNumber,
+        shopperEmail,
+        shippingAddress?.firstName,
+        shippingAddress?.lastName,
         getAdyenCheckoutConfig,
         getAdyenCardConfig,
         getAdyenStoredCardConfig
@@ -197,13 +270,13 @@ export const PaymentDropIn: React.FC<PaymentDropInProps> = ({
 
     useEffect(() => {
         initializeDropIn();
-        
+
         return () => {
             if (dropInRef.current) {
                 dropInRef.current.unmount();
             }
         };
-    }, [adyenConfig.adyenClientKey, initializeDropIn]);
+    }, [initializeDropIn]);
 
     return <div className="dropin-payment" ref={paymentRef} />;
 };

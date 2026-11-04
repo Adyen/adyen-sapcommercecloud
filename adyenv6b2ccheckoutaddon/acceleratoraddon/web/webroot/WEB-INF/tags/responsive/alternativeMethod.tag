@@ -28,10 +28,21 @@
 <%@ attribute name="showLastName" required="false" type="java.lang.Boolean" %>
 <%@ attribute name="countryCode" required="false" type="java.lang.String" %>
 <%@ attribute name="showTelephoneNumber" required="false" type="java.lang.Boolean" %>
+<%@ attribute name="openInvoiceMethods" required="false" type="java.util.List" %>
+<%@ attribute name="disclaimerMessage" required="false" type="java.lang.String" %>
+<%@ attribute name="disclaimerLink" required="false" type="java.lang.String" %>
 
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
 <%@ taglib prefix="adyen" tagdir="/WEB-INF/tags/addons/adyenv6b2ccheckoutaddon/responsive" %>
 <%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+
+<c:set var="isOpenInvoiceMethod" value="false"/>
+<c:forEach items="${openInvoiceMethods}" var="openInvoiceMethod">
+    <c:if test="${openInvoiceMethod eq brandCode}">
+        <c:set var="isOpenInvoiceMethod" value="true"/>
+    </c:if>
+</c:forEach>
 
 <div class="chckt-pm chckt-pm-${brandCode} js-chckt-pm" data-pm="${brandCode}">
     <div class="chckt-pm__header js-chckt-pm__header">
@@ -133,6 +144,14 @@
 
             <c:if test="${brandCode eq 'bcmc'}">
                 <div id="bcmc-container"></div>
+            </c:if>
+
+            <c:if test="${isOpenInvoiceMethod}">
+                <p class="adyen-disclaimer" ${empty disclaimerMessage ? 'style="display:none"' : ''}>
+                    <span class="adyen-disclaimer__message"><c:out value="${disclaimerMessage}"/></span>
+                    <a class="adyen-disclaimer__link" href="${fn:escapeXml(disclaimerLink)}" target="_blank"
+                       rel="noopener noreferrer" ${empty disclaimerLink ? 'style="display:none"' : ''}>Learn more...</a>
+                </p>
             </c:if>
         </div>
     </div>
