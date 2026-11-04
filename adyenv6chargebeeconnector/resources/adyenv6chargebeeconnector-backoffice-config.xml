@@ -46,6 +46,26 @@
         </wz:flow>
     </context>
 
+    <!-- Opened from the base store editor through chargebeeConfig. Without it Backoffice generates a default editor
+         that shows the decrypted API key and webhook password in plain text fields, so the encrypted fields get the
+         password editor here as they do in the wizard above. -->
+    <context merge-by="type" type="ChargebeeConfig" component="editor-area">
+        <editorArea:editorArea xmlns:editorArea="http://www.hybris.com/cockpitng/component/editorArea">
+            <editorArea:tab name="hmc.adyen">
+                <editorArea:section name="hmc.adyen.chargebeeConfig">
+                    <editorArea:attribute qualifier="subscriptionSiteId"/>
+                    <editorArea:attribute qualifier="subscriptionApiKey"
+                                          editor="com.hybris.cockpitng.editor.defaultpassword"/>
+                    <editorArea:attribute qualifier="subscriptionGatewayAccountId"/>
+                    <editorArea:attribute qualifier="adyenGatewayMerchantAccount"/>
+                    <editorArea:attribute qualifier="chargebeeWebhookUsername"/>
+                    <editorArea:attribute qualifier="chargebeeWebhookPassword"
+                                          editor="com.hybris.cockpitng.editor.defaultpassword"/>
+                </editorArea:section>
+            </editorArea:tab>
+        </editorArea:editorArea>
+    </context>
+
     <!-- A plan mapping is the one row an operator creates by hand before any subscription activity can appear:
          with no mapping the activator treats every order as non-subscription and exits without a trace. It goes
          after the activity nodes adyensubscriptionconnector puts in the same folder. -->
