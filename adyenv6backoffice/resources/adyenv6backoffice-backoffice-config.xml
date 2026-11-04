@@ -69,6 +69,9 @@
 					<editorArea:attribute qualifier="adyenAllowedCards"/>
 					<editorArea:attribute qualifier="adyenRegion"/>
 				</editorArea:section>
+				<editorArea:section name="hmc.adyen.giving">
+					<editorArea:attribute qualifier="adyenGivingEnabled"/>
+				</editorArea:section>
 				<editorArea:section name="hmc.adyen.api">
 					<editorArea:attribute qualifier="adyenAPIEndpointPrefix"/>
 					<editorArea:attribute qualifier="adyenAPIKey" editor="com.hybris.cockpitng.editor.defaultpassword"/>

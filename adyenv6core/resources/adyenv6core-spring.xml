@@ -103,6 +103,17 @@
     <bean id="adyenPaymentTransactionRepository" class="com.adyen.v6.repository.PaymentTransactionRepository">
         <property name="flexibleSearchService" ref="flexibleSearchService"/>
     </bean>
+    <bean id="adyenNotificationRepository" class="com.adyen.v6.repository.AdyenNotificationRepository">
+        <property name="flexibleSearchService" ref="flexibleSearchService"/>
+    </bean>
+    <bean id="adyenDonationRepository" class="com.adyen.v6.repository.AdyenDonationRepository">
+        <property name="flexibleSearchService" ref="flexibleSearchService"/>
+    </bean>
+    <bean id="adyenDonationReconciliationService" class="com.adyen.v6.service.DefaultAdyenDonationReconciliationService">
+        <property name="modelService" ref="modelService"/>
+        <property name="adyenDonationRepository" ref="adyenDonationRepository"/>
+        <property name="paymentTransactionRepository" ref="adyenPaymentTransactionRepository"/>
+    </bean>
     <bean id="adyenBaseStoreRepository" class="com.adyen.v6.repository.BaseStoreRepository">
         <property name="flexibleSearchService" ref="flexibleSearchService"/>
         <property name="orderRepository" ref="adyenOrderRepository" />
@@ -257,6 +268,11 @@
     </bean>
 
 
+    <alias name="defaultAdyenVoucherService" alias="adyenVoucherService"/>
+    <bean id="defaultAdyenVoucherService" class="com.adyen.v6.service.DefaultAdyenVoucherService">
+        <property name="modelService" ref="modelService"/>
+    </bean>
+
     <alias name="defaultAdyenCheckoutFacade" alias="adyenCheckoutFacade" />
     <bean id="defaultAdyenCheckoutFacade" class="com.adyen.commerce.facades.impl.DefaultAdyenCheckoutFacade">
         <property name="countryConverter" ref="countryConverter"/>
@@ -270,6 +286,7 @@
         <property name="orderRepository" ref="adyenOrderRepository"/>
         <property name="adyenOrderService" ref="adyenOrderService"/>
         <property name="adyenPaymentAuthorizedEventPublisher" ref="adyenPaymentAuthorizedEventPublisher"/>
+        <property name="adyenVoucherService" ref="adyenVoucherService"/>
         <property name="checkoutCustomerStrategy" ref="checkoutCustomerStrategy"/>
         <property name="modelService" ref="modelService"/>
         <property name="commonI18NService" ref="commonI18NService"/>
@@ -325,6 +342,7 @@
         <property name="orderRepository" ref="adyenOrderRepository"/>
         <property name="adyenOrderService" ref="adyenOrderService"/>
         <property name="adyenPaymentAuthorizedEventPublisher" ref="adyenPaymentAuthorizedEventPublisher"/>
+        <property name="adyenVoucherService" ref="adyenVoucherService"/>
         <property name="checkoutCustomerStrategy" ref="checkoutCustomerStrategy"/>
         <property name="modelService" ref="modelService"/>
         <property name="commonI18NService" ref="commonI18NService"/>
@@ -528,6 +546,11 @@
         <property name="modelService" ref="modelService"/>
         <property name="paymentTransactionRepository" ref="adyenPaymentTransactionRepository"/>
         <property name="adyenNotificationService" ref="adyenNotificationService"/>
+    </bean>
+
+    <bean id="donationNotificationEventListener" class="com.adyen.v6.listeners.DonationNotificationEventListener" parent="abstractEventListener">
+        <property name="modelService" ref="modelService"/>
+        <property name="adyenDonationReconciliationService" ref="adyenDonationReconciliationService"/>
     </bean>
 
     <bean id="adyenExpressCheckoutFacade" class="com.adyen.commerce.facades.impl.DefaultAdyenExpressCheckoutFacade">
@@ -776,6 +799,14 @@
         <property name="userService" ref="userService"/>
         <property name="baseStoreService" ref="baseStoreService"/>
         <property name="adyenStoredCardsService" ref="adyenStoredCardsService"/>
+    </bean>
+
+    <bean id="adyenDonationsFacade"
+          class="com.adyen.commerce.facades.impl.DefaultAdyenDonationsFacade">
+        <property name="adyenPaymentServiceFactory" ref="adyenPaymentServiceFactory"/>
+        <property name="baseStoreService" ref="baseStoreService"/>
+        <property name="i18NService" ref="i18NService"/>
+        <property name="commonI18NService" ref="commonI18NService"/>
     </bean>
 
 </beans>

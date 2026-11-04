@@ -310,6 +310,12 @@
                     <modifiers optional="false"/>
                     <defaultvalue>Boolean.FALSE</defaultvalue>
                 </attribute>
+                <attribute qualifier="adyenGivingEnabled" type="java.lang.boolean">
+                    <description>Enable Adyen Giving on the order confirmation page</description>
+                    <persistence type="property"/>
+                    <modifiers optional="false"/>
+                    <defaultvalue>Boolean.FALSE</defaultvalue>
+                </attribute>
                 <attribute qualifier="adyenAPIEndpointPrefix" type="java.lang.String">
                     <description>API endpoint URL Prefix for Live</description>
                     <persistence type="property"/>
@@ -823,6 +829,52 @@
                         <persistence type="property"/>
                     </attribute>
                 </attributes>
+                <indexes>
+                    <index name="adyenNotificationPspEventIdx">
+                        <key attribute="pspReference"/>
+                        <key attribute="eventCode"/>
+                    </index>
+                </indexes>
+        </itemtype>
+        <itemtype code="AdyenDonation" generate="true" autocreate="true">
+            <deployment table="adyenDonation" typecode="23000"/>
+            <attributes>
+                <attribute qualifier="reference" type="java.lang.String">
+                    <persistence type="property"/>
+                    <modifiers optional="false" initial="true" unique="true"/>
+                </attribute>
+                <attribute qualifier="pspReference" type="java.lang.String">
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="originalPspReference" type="java.lang.String">
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="status" type="java.lang.String">
+                    <persistence type="property"/>
+                    <modifiers optional="false" />
+                </attribute>
+                <attribute qualifier="amountValue" type="java.math.BigDecimal">
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="amountCurrency" type="java.lang.String">
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="order" type="Order">
+                    <persistence type="property"/>
+                    <modifiers optional="false" initial="true" />
+                </attribute>
+            </attributes>
+            <indexes>
+                <index name="adyenDonationReferenceIdx" unique="true">
+                    <key attribute="reference" />
+                </index>
+                <index name="adyenDonationPspReferenceIdx">
+                    <key attribute="pspReference" />
+                </index>
+                <index name="adyenDonationOrderIdx">
+                    <key attribute="order" />
+                </index>
+            </indexes>
         </itemtype>
         <itemtype code="AdyenMerchantConfig" generate="true" autocreate="true">
             <deployment table="adyenMerchantConfig" typecode="22938"/>
@@ -869,6 +921,11 @@
         <itemtype code="Order" autocreate="false" generate="false">
             <attributes>
                 <attribute qualifier="adyenRiskScore" type="java.lang.Integer">
+                    <persistence type="property"/>
+                </attribute>
+                <attribute qualifier="adyenVoucherExpiresAt" type="java.util.Date">
+                    <description>Expiry of the voucher (PresentToShopper) payment, used to decide how long the order process waits for the payment</description>
+                    <modifiers optional="true"/>
                     <persistence type="property"/>
                 </attribute>
             </attributes>

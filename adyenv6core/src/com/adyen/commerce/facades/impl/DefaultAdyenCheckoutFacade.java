@@ -133,6 +133,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     private OrderRepository orderRepository;
     private AdyenOrderService adyenOrderService;
     private AdyenPaymentAuthorizedEventPublisher adyenPaymentAuthorizedEventPublisher;
+    private AdyenVoucherService adyenVoucherService;
     private CheckoutCustomerStrategy checkoutCustomerStrategy;
     private AdyenPaymentServiceFactory adyenPaymentServiceFactory;
     private ModelService modelService;
@@ -179,6 +180,14 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     public static final String SESSION_SF_SECURITY_CODE = "encryptedSecurityCode";
     public static final String SESSION_CARD_BRAND = "cardBrand";
     public static final String SESSION_ADYEN_RISK_DATA = "adyenRiskData";
+    public static final String SESSION_DONATION_TOKEN = "adyen_donation_token";
+    public static final String SESSION_DONATION_ORIGINAL_PSP_REFERENCE = "adyen_donation_original_psp_reference";
+    public static final String SESSION_DONATION_ORIGINAL_AMOUNT_VALUE = "adyen_donation_original_amount_value";
+    public static final String SESSION_DONATION_ORIGINAL_AMOUNT_CURRENCY = "adyen_donation_original_amount_currency";
+    public static final String SESSION_DONATION_COUNTRY_CODE = "adyen_donation_country_code";
+    public static final String SESSION_DONATION_IN_PROGRESS = "adyen_donation_in_progress";
+    public static final String SESSION_DONATION_IDEMPOTENCY_KEY = "adyen_donation_idempotency_key";
+    public static final String SESSION_DONATION_REFERENCE = "adyen_donation_reference";
     // Session attribute keys
     public static final String MODEL_SELECTED_PAYMENT_METHOD = "selectedPaymentMethod";
     public static final String MODEL_PAYMENT_METHODS = "paymentMethods";
@@ -298,6 +307,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
             restoreCartFromOrderCodeInSession();
             throw new AdyenNonAuthorizedPaymentException(e.getMessage());
         }
+        storeDonationPaymentData(response);
 
         String orderCode = response.getMerchantReference();
         OrderModel orderModel = retrievePendingOrder(orderCode);
@@ -319,6 +329,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
 
         CustomerModel customer = checkoutCustomerStrategy.getCurrentUserForCheckout();
 
+        clearDonationSessionData();
         updateCartWithSessionData(cartData);
         String adyenPaymentMethod = cartData.getAdyenPaymentMethod();
 
@@ -336,6 +347,8 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         } catch (Exception e) {
             throw new IOException("Payment request failed", e);
         }
+        storeDonationPaymentData(paymentResponse);
+        storeDonationCountryCode(cartData);
         PaymentResponse.ResultCodeEnum resultCode = paymentResponse.getResultCode();
         PaymentResponseAction action = paymentResponse.getAction();
 
@@ -378,6 +391,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     @Override
     public PaymentResponse componentPayment(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest)
             throws AdyenNonAuthorizedPaymentException, InvalidCartException, ApiException, IOException {
+        clearDonationSessionData();
         updateCartWithSessionData(cartData);
 
         String shopperIp = adyenShopperIpResolverService.resolveShopperIp(request);
@@ -394,11 +408,13 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         } catch (Exception e) {
             throw new IOException("Payment request failed", e);
         }
+        storeDonationPaymentData(paymentResponse);
+        storeDonationCountryCode(cartData);
         if (PaymentResponse.ResultCodeEnum.PENDING == paymentResponse.getResultCode() ||
                 PaymentResponse.ResultCodeEnum.REDIRECTSHOPPER == paymentResponse.getResultCode() ||
                 PaymentResponse.ResultCodeEnum.PRESENTTOSHOPPER == paymentResponse.getResultCode()) {
             LOGGER.info("Placing pending order");
-            placePendingOrder(paymentResponse.getResultCode().getValue());
+            placePendingOrder(paymentResponse.getResultCode().getValue(), paymentResponse.getAction());
             return paymentResponse;
         }
         if (PaymentResponse.ResultCodeEnum.AUTHORISED == paymentResponse.getResultCode()) {
@@ -420,6 +436,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         } catch (Exception e) {
             throw new IOException("Payment details request failed", e);
         }
+        storeDonationPaymentData(response);
         String orderCode = response.getMerchantReference();
         OrderModel orderModel = retrievePendingOrder(orderCode);
         threeDSAuthorizationService.updateOrderPaymentStatusAndInfo(orderModel, response);
@@ -591,6 +608,59 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         }
     }
 
+    protected void storeDonationPaymentData(final PaymentResponse response) {
+        clearDonationPaymentData();
+        if (response != null && response.getAmount() != null) {
+            getSessionService().setAttribute(SESSION_DONATION_ORIGINAL_AMOUNT_VALUE, response.getAmount().getValue());
+            getSessionService().setAttribute(SESSION_DONATION_ORIGINAL_AMOUNT_CURRENCY, response.getAmount().getCurrency());
+        }
+        if (response != null && StringUtils.isNotBlank(response.getDonationToken()) && StringUtils.isNotBlank(response.getPspReference())) {
+            getSessionService().setAttribute(SESSION_DONATION_TOKEN, response.getDonationToken());
+            getSessionService().setAttribute(SESSION_DONATION_ORIGINAL_PSP_REFERENCE, response.getPspReference());
+        }
+    }
+
+    protected void storeDonationPaymentData(final PaymentDetailsResponse response) {
+        clearDonationPaymentData();
+        if (response != null && response.getAmount() != null) {
+            getSessionService().setAttribute(SESSION_DONATION_ORIGINAL_AMOUNT_VALUE, response.getAmount().getValue());
+            getSessionService().setAttribute(SESSION_DONATION_ORIGINAL_AMOUNT_CURRENCY, response.getAmount().getCurrency());
+        }
+        if (response != null && StringUtils.isNotBlank(response.getDonationToken()) && StringUtils.isNotBlank(response.getPspReference())) {
+            getSessionService().setAttribute(SESSION_DONATION_TOKEN, response.getDonationToken());
+            getSessionService().setAttribute(SESSION_DONATION_ORIGINAL_PSP_REFERENCE, response.getPspReference());
+        }
+    }
+
+    protected void storeDonationCountryCode(final CartData cartData) {
+        if (cartData == null) {
+            return;
+        }
+        AddressData address = cartData.getDeliveryAddress();
+        if (address == null && cartData.getPaymentInfo() != null) {
+            address = cartData.getPaymentInfo().getBillingAddress();
+        }
+        if (address != null && address.getCountry() != null
+                && StringUtils.isNotBlank(address.getCountry().getIsocode())) {
+            getSessionService().setAttribute(SESSION_DONATION_COUNTRY_CODE, address.getCountry().getIsocode());
+        }
+    }
+
+    protected void clearDonationSessionData() {
+        clearDonationPaymentData();
+        getSessionService().removeAttribute(SESSION_DONATION_COUNTRY_CODE);
+    }
+
+    protected void clearDonationPaymentData() {
+        getSessionService().removeAttribute(SESSION_DONATION_TOKEN);
+        getSessionService().removeAttribute(SESSION_DONATION_ORIGINAL_PSP_REFERENCE);
+        getSessionService().removeAttribute(SESSION_DONATION_ORIGINAL_AMOUNT_VALUE);
+        getSessionService().removeAttribute(SESSION_DONATION_ORIGINAL_AMOUNT_CURRENCY);
+        getSessionService().removeAttribute(SESSION_DONATION_IN_PROGRESS);
+        getSessionService().removeAttribute(SESSION_DONATION_IDEMPOTENCY_KEY);
+        getSessionService().removeAttribute(SESSION_DONATION_REFERENCE);
+    }
+
     /**
      * Create order
      */
@@ -619,6 +689,9 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         getAdyenOrderService().updatePaymentInfo((AbstractOrderModel) orderModel, paymentType, additionalData);
         announceAuthorization(orderModel, paymentsResponse);
         getAdyenOrderService().storeFraudReport(orderModel, paymentsResponse.getPspReference(), paymentsResponse.getFraudResult());
+        if (PaymentResponse.ResultCodeEnum.PRESENTTOSHOPPER == paymentsResponse.getResultCode()) {
+            storeVoucherExpiry(orderModel, paymentsResponse.getAction());
+        }
         return orderData;
     }
 
@@ -675,19 +748,42 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         }
     }
 
+    /**
+     * Stores the voucher expiry on the order. Never fails the checkout: the order is already placed at this point.
+     */
+    protected void storeVoucherExpiry(final OrderModel orderModel, final PaymentResponseAction action) {
+        if (getAdyenVoucherService() == null) {
+            LOGGER.warn("No AdyenVoucherService configured, voucher expiry not stored");
+            return;
+        }
+        try {
+            getAdyenVoucherService().storeVoucherExpiry(orderModel, action);
+        } catch (RuntimeException e) {
+            LOGGER.warn("Could not store the voucher expiry on the order", e);
+        }
+    }
+
     protected OrderData placePendingOrder(String resultCode) throws InvalidCartException {
-        return placeOrderWithStatus(OrderStatus.PAYMENT_PENDING, resultCode);
+        return placeOrderWithStatus(OrderStatus.PAYMENT_PENDING, resultCode, null);
+    }
+
+    /**
+     * Places a pending order and, for voucher payments (PresentToShopper), stores the voucher expiry
+     * from the response action on the placed order.
+     */
+    protected OrderData placePendingOrder(String resultCode, PaymentResponseAction action) throws InvalidCartException {
+        return placeOrderWithStatus(OrderStatus.PAYMENT_PENDING, resultCode, action);
     }
 
     protected OrderData placeAuthorisedOrder(PaymentResponse.ResultCodeEnum resultCode) throws InvalidCartException {
-        return placeOrderWithStatus(OrderStatus.PAYMENT_AUTHORIZED, resultCode.getValue());
+        return placeOrderWithStatus(OrderStatus.PAYMENT_AUTHORIZED, resultCode.getValue(), null);
     }
 
     /**
      * Common implementation for placing an order with a given payment status.
      * Used by both {@link #placePendingOrder(String)} and {@link #placeAuthorisedOrder(PaymentResponse.ResultCodeEnum)}.
      */
-    private OrderData placeOrderWithStatus(final OrderStatus status, final String statusInfo) throws InvalidCartException {
+    protected OrderData placeOrderWithStatus(final OrderStatus status, final String statusInfo, final PaymentResponseAction action) throws InvalidCartException {
         CartModel cartModel = getCartService().getSessionCart();
         cartModel.setStatus(status);
         cartModel.setStatusInfo(statusInfo);
@@ -697,6 +793,14 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         getModelService().save(cartModel);
 
         OrderData orderData = getCheckoutFacade().placeOrder();
+
+        if (action != null && PaymentResponse.ResultCodeEnum.PRESENTTOSHOPPER.getValue().equals(statusInfo)) {
+            try {
+                storeVoucherExpiry(orderRepository.getOrderModel(orderData.getCode()), action);
+            } catch (RuntimeException e) {
+                LOGGER.warn("Could not load order {} to store the voucher expiry", orderData.getCode(), e);
+            }
+        }
 
         getSessionService().setAttribute(SESSION_PENDING_ORDER_CODE, orderData.getCode());
         getSessionService().setAttribute(SESSION_PAYMENT_METHODS_CART_DATA, paymentMethodsCartData);
@@ -1236,6 +1340,7 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         }
 
         adyenPaymentFormValidator.validate(adyenPaymentForm, errors);
+        validateKonbiniTelephone(adyenPaymentForm, cartModel, errors);
 
         if (errors.hasErrors()) {
             return;
@@ -1279,6 +1384,29 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
             modelService.save(cartModel);
             return null;
         });
+    }
+
+    protected void validateKonbiniTelephone(
+            AdyenPaymentForm adyenPaymentForm,
+            CartModel cartModel,
+            Errors errors) {
+
+        if (adyenPaymentForm.getPaymentMethod() == null
+                || !adyenPaymentForm.getPaymentMethod().startsWith(PAYMENT_METHOD_ECONTEXT_PREFIX)) {
+            return;
+        }
+
+        String billingPhone = adyenPaymentForm.getBillingAddress() != null
+                ? adyenPaymentForm.getBillingAddress().getPhoneNumber()
+                : null;
+        String shippingPhone = cartModel.getDeliveryAddress() != null
+                ? cartModel.getDeliveryAddress().getPhone1()
+                : null;
+
+        if (StringUtils.isBlank(billingPhone)
+                && StringUtils.isBlank(shippingPhone)) {
+            errors.reject(CHECKOUT_ERROR_KONBINI_TELEPHONE_MISSING);
+        }
     }
 
     public AddressModel convertToAddressModel(final AddressForm addressForm) {
@@ -1461,6 +1589,14 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
 
     public void setOrderRepository(OrderRepository orderRepository) {
         this.orderRepository = orderRepository;
+    }
+
+    public AdyenVoucherService getAdyenVoucherService() {
+        return adyenVoucherService;
+    }
+
+    public void setAdyenVoucherService(AdyenVoucherService adyenVoucherService) {
+        this.adyenVoucherService = adyenVoucherService;
     }
 
     public AdyenOrderService getAdyenOrderService() {
@@ -1689,3 +1825,4 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         this.expressPaymentConfigConverter = expressPaymentConfigConverter;
     }
 }
+
