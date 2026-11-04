@@ -12,6 +12,7 @@ import com.adyen.model.checkout.DonationCampaign;
 import com.adyen.model.checkout.DonationCampaignsResponse;
 import com.adyen.model.checkout.DonationPaymentResponse;
 import com.adyen.service.exception.ApiException;
+import com.google.gson.Gson;
 import de.hybris.platform.acceleratorservices.urlresolver.SiteBaseUrlResolutionService;
 import de.hybris.platform.basecommerce.model.site.BaseSiteModel;
 import de.hybris.platform.servicelayer.session.SessionService;
@@ -27,22 +28,22 @@ import org.apache.log4j.Logger;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
-@Controller
+@RestController
 @RequestMapping("/api/checkout/donations")
 public class AdyenDonationsController {
     private static final Logger LOG = Logger.getLogger(AdyenDonationsController.class);
     private static final String COMPLETED = "completed";
+    private static final String SESSION_DONATION_CAMPAIGNS = "adyen_donation_campaigns";
+    private static final String SESSION_DONATION_CAMPAIGNS_CURRENCY = "adyen_donation_campaigns_currency";
+    private static final Gson GSON = new Gson();
 
     private static final DonationCampaignValidator DONATION_CAMPAIGN_VALIDATOR = new DonationCampaignValidator();
 
@@ -65,7 +66,6 @@ public class AdyenDonationsController {
     private SiteBaseUrlResolutionService siteBaseUrlResolutionService;
 
     @GetMapping(value = "/context", produces = "application/json")
-    @ResponseBody
     public ResponseEntity<DonationContextResponse> getContext() {
         if (!adyenDonationsFacade.isGivingEnabled()) {
             return ResponseEntity.noContent().build();
@@ -76,6 +76,8 @@ public class AdyenDonationsController {
         final Long commercialTxAmount = sessionService.getAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_ORIGINAL_AMOUNT_VALUE);
         final String currency = sessionService.getAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_ORIGINAL_AMOUNT_CURRENCY);
         final String countryCode = sessionService.getAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_COUNTRY_CODE);
+
+        clearDonationCampaignCache();
 
         if (StringUtils.isAnyBlank(donationToken, originalPspReference, currency, countryCode) || commercialTxAmount == null) {
             LOG.info("Giving context unavailable: token=" + StringUtils.isNotBlank(donationToken)
@@ -101,6 +103,7 @@ public class AdyenDonationsController {
         if (campaigns.isEmpty()) {
             return ResponseEntity.noContent().build();
         }
+        cacheDonationCampaigns(currency, campaigns);
 
         return ResponseEntity.ok(new DonationContextResponse(baseStore.getAdyenClientKey(),
                 adyenCheckoutFacade.getEnvironmentMode(), adyenCheckoutFacade.getShopperLocale(),
@@ -108,7 +111,6 @@ public class AdyenDonationsController {
     }
 
     @PostMapping(value = "/donate", consumes = "application/json", produces = "application/json")
-    @ResponseBody
     public ResponseEntity<DonationResponse> donate(@Valid @RequestBody final DonationRequest request,
                                                      final HttpServletRequest httpServletRequest) {
         if (!adyenDonationsFacade.isGivingEnabled()) {
@@ -127,7 +129,7 @@ public class AdyenDonationsController {
 
         final DonationCampaign campaign;
         try {
-            campaign = findCampaign(request.getDonationCampaignId(), getCampaigns(request.getAmount().getCurrency()));
+            campaign = findCampaign(request.getDonationCampaignId(), getCampaignsForDonation(request.getAmount().getCurrency()));
         } catch (ApiException | IOException exception) {
             LOG.warn("Unable to validate Adyen Giving campaign", exception);
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
@@ -207,7 +209,36 @@ public class AdyenDonationsController {
             sessionService.removeAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_IN_PROGRESS);
             sessionService.removeAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_IDEMPOTENCY_KEY);
             sessionService.removeAttribute(DefaultAdyenCheckoutFacade.SESSION_DONATION_REFERENCE);
+            clearDonationCampaignCache();
         }
+    }
+
+    protected List<DonationCampaign> getCampaignsForDonation(final String currency) throws IOException, ApiException {
+        final String cachedCurrency = sessionService.getAttribute(SESSION_DONATION_CAMPAIGNS_CURRENCY);
+        final String cachedCampaigns = sessionService.getAttribute(SESSION_DONATION_CAMPAIGNS);
+        if (StringUtils.equalsIgnoreCase(currency, cachedCurrency)
+                && StringUtils.isNotBlank(cachedCampaigns)) {
+            final DonationCampaign[] cachedCampaignArray = GSON.fromJson(cachedCampaigns, DonationCampaign[].class);
+            final List<DonationCampaign> campaigns = cachedCampaignArray == null
+                    ? null : Arrays.asList(cachedCampaignArray);
+            if (campaigns != null) {
+                return campaigns;
+            }
+        }
+
+        final List<DonationCampaign> campaigns = getCampaigns(currency);
+        cacheDonationCampaigns(currency, campaigns);
+        return campaigns;
+    }
+
+    protected void cacheDonationCampaigns(final String currency, final List<DonationCampaign> campaigns) {
+        sessionService.setAttribute(SESSION_DONATION_CAMPAIGNS, GSON.toJson(campaigns));
+        sessionService.setAttribute(SESSION_DONATION_CAMPAIGNS_CURRENCY, currency);
+    }
+
+    protected void clearDonationCampaignCache() {
+        sessionService.removeAttribute(SESSION_DONATION_CAMPAIGNS);
+        sessionService.removeAttribute(SESSION_DONATION_CAMPAIGNS_CURRENCY);
     }
 
     protected String getOrCreateDonationIdempotencyKey() {
