@@ -59,6 +59,59 @@ public class DefaultRecurlyConfigServiceTest
     }
 
     @Test
+    public void rejectsHttpLoopbackBaseUrlByDefault()
+    {
+        when(recurlyConfig.getSubscriptionSiteId()).thenReturn("http://localhost:8092");
+
+        assertThrows(ConnectorNotConfiguredException.class, service::getApiBaseUrl);
+    }
+
+    @Test
+    public void acceptsHttpLoopbackBaseUrlWhenAllowed() throws Exception
+    {
+        when(configuration.getBoolean("recurly.api.allowInsecureLoopback", false)).thenReturn(true);
+
+        when(recurlyConfig.getSubscriptionSiteId()).thenReturn("http://localhost:8092/");
+        assertEquals("http://localhost:8092", service.getApiBaseUrl());
+
+        when(recurlyConfig.getSubscriptionSiteId()).thenReturn("http://127.0.0.1:8092");
+        assertEquals("http://127.0.0.1:8092", service.getApiBaseUrl());
+
+        when(recurlyConfig.getSubscriptionSiteId()).thenReturn("http://[::1]:8092");
+        assertEquals("http://[::1]:8092", service.getApiBaseUrl());
+    }
+
+    @Test
+    public void rejectsHttpNonLoopbackBaseUrlEvenWhenLoopbackAllowed()
+    {
+        when(configuration.getBoolean("recurly.api.allowInsecureLoopback", false)).thenReturn(true);
+        when(recurlyConfig.getSubscriptionSiteId()).thenReturn("http://example.com");
+
+        assertThrows(ConnectorNotConfiguredException.class, service::getApiBaseUrl);
+    }
+
+    @Test
+    public void rejectsLookalikeLoopbackHostsEvenWhenLoopbackAllowed()
+    {
+        when(configuration.getBoolean("recurly.api.allowInsecureLoopback", false)).thenReturn(true);
+
+        when(recurlyConfig.getSubscriptionSiteId()).thenReturn("http://localhost.evil.com");
+        assertThrows(ConnectorNotConfiguredException.class, service::getApiBaseUrl);
+
+        when(recurlyConfig.getSubscriptionSiteId()).thenReturn("http://localhost:8091@evil.com");
+        assertThrows(ConnectorNotConfiguredException.class, service::getApiBaseUrl);
+    }
+
+    @Test
+    public void acceptsUppercaseLoopbackBaseUrlWhenAllowed() throws Exception
+    {
+        when(configuration.getBoolean("recurly.api.allowInsecureLoopback", false)).thenReturn(true);
+        when(recurlyConfig.getSubscriptionSiteId()).thenReturn("HTTP://LOCALHOST:8091");
+
+        assertEquals("HTTP://LOCALHOST:8091", service.getApiBaseUrl());
+    }
+
+    @Test
     public void rejectsBaseUrlWithoutScheme()
     {
         when(recurlyConfig.getSubscriptionSiteId()).thenReturn("v3.recurly.com");

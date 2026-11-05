@@ -115,6 +115,88 @@ public class DefaultChargebeeConfigServiceTest
 		assertEquals("https://acme.chargebee.com/api/v2", service.getApiBaseUrl());
 	}
 
+	private void override(final String value)
+	{
+		when(configuration.getString("chargebee.api.baseUrlOverride", null)).thenReturn(value);
+	}
+
+	@Test
+	public void blankOverrideKeepsProductionUrl() throws Exception
+	{
+		when(chargebeeConfig.getSubscriptionSiteId()).thenReturn("acme");
+		override("   ");
+
+		assertEquals("https://acme.chargebee.com/api/v2", service.getApiBaseUrl());
+	}
+
+	@Test
+	public void httpsLoopbackOverrideIsUsedWithTrailingSlashStripped() throws Exception
+	{
+		override("https://localhost:8091/api/v2/");
+
+		assertEquals("https://localhost:8091/api/v2", service.getApiBaseUrl());
+	}
+
+	@Test
+	public void httpsNonLoopbackOverrideIsRejected()
+	{
+		override("https://emulator.example.com/api/v2");
+
+		assertThrows(ConnectorNotConfiguredException.class, service::getApiBaseUrl);
+	}
+
+	@Test
+	public void lookalikeLoopbackHostsAreRejected()
+	{
+		override("http://localhost.evil.com:8091/api/v2");
+		assertThrows(ConnectorNotConfiguredException.class, service::getApiBaseUrl);
+
+		override("http://localhost:8091@evil.com/api/v2");
+		assertThrows(ConnectorNotConfiguredException.class, service::getApiBaseUrl);
+	}
+
+	@Test
+	public void uppercaseLoopbackOverrideIsAccepted() throws Exception
+	{
+		override("HTTP://LOCALHOST:8091/api/v2");
+
+		assertEquals("HTTP://LOCALHOST:8091/api/v2", service.getApiBaseUrl());
+	}
+
+	@Test
+	public void httpLoopbackOverrideIsAccepted() throws Exception
+	{
+		override("http://localhost:8091/api/v2");
+		assertEquals("http://localhost:8091/api/v2", service.getApiBaseUrl());
+
+		override("http://127.0.0.1:8091/api/v2");
+		assertEquals("http://127.0.0.1:8091/api/v2", service.getApiBaseUrl());
+
+		override("http://[::1]:8091/api/v2");
+		assertEquals("http://[::1]:8091/api/v2", service.getApiBaseUrl());
+	}
+
+	@Test
+	public void httpNonLoopbackOverrideIsRejected()
+	{
+		override("http://example.com/api/v2");
+
+		assertThrows(ConnectorNotConfiguredException.class, service::getApiBaseUrl);
+	}
+
+	@Test
+	public void overrideWithoutHostOrWithOtherSchemeIsRejected()
+	{
+		override("ftp://localhost/api/v2");
+		assertThrows(ConnectorNotConfiguredException.class, service::getApiBaseUrl);
+
+		override("localhost:8091/api/v2");
+		assertThrows(ConnectorNotConfiguredException.class, service::getApiBaseUrl);
+
+		override("https:///api/v2");
+		assertThrows(ConnectorNotConfiguredException.class, service::getApiBaseUrl);
+	}
+
 	@Test
 	public void missingApiKeyThrowsConnectorNotConfigured()
 	{
