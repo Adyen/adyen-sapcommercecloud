@@ -10,6 +10,8 @@ import org.apache.commons.lang3.StringUtils;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Locale;
+import java.util.Set;
 
 /**
  * Credentials and feature flags come from the current base store's {@code recurlyConfig}; transport tuning
@@ -23,6 +25,9 @@ public class DefaultRecurlyConfigService implements RecurlyConfigService {
     static final String P_CONNECTION_REQUEST_TIMEOUT_MILLIS = "recurly.http.connectionRequestTimeoutMillis";
     static final String P_MAX_CONNECTIONS = "recurly.http.maxConnections";
     static final String P_WEBHOOK_TOLERANCE_SECONDS = "recurly.webhookToleranceSeconds";
+    /** For local emulators / testing only: also accept an http API base URL on a loopback host. */
+    static final String P_ALLOW_INSECURE_LOOPBACK = "recurly.api.allowInsecureLoopback";
+    static final Set<String> LOOPBACK_HOSTS = Set.of("localhost", "127.0.0.1", "::1", "[::1]");
     static final String DEFAULT_API_VERSION = "v2021-02-25";
     static final int DEFAULT_MINIMUM_START_DELAY_SECONDS = 300;
     static final int DEFAULT_CONNECT_TIMEOUT_MILLIS = 5000;
@@ -183,12 +188,26 @@ public class DefaultRecurlyConfigService implements RecurlyConfigService {
     protected void validateBaseUrl(final String baseUrl) throws ConnectorNotConfiguredException {
         try {
             final URI uri = new URI(baseUrl);
-            if (!"https".equalsIgnoreCase(uri.getScheme()) || StringUtils.isBlank(uri.getHost())) {
+            if (StringUtils.isBlank(uri.getHost())) {
+                throw invalidBaseUrl();
+            }
+            final boolean https = "https".equalsIgnoreCase(uri.getScheme());
+            final boolean loopbackHttp = "http".equalsIgnoreCase(uri.getScheme())
+                    && isInsecureLoopbackAllowed() && isLoopbackHost(uri.getHost());
+            if (!https && !loopbackHttp) {
                 throw invalidBaseUrl();
             }
         } catch (final URISyntaxException e) {
             throw invalidBaseUrl();
         }
+    }
+
+    protected boolean isInsecureLoopbackAllowed() {
+        return configurationService.getConfiguration().getBoolean(P_ALLOW_INSECURE_LOOPBACK, false);
+    }
+
+    protected boolean isLoopbackHost(final String host) {
+        return LOOPBACK_HOSTS.contains(host.toLowerCase(Locale.ROOT));
     }
 
     /** The value is not echoed: it is free text from Backoffice and may hold a mistakenly pasted secret. */

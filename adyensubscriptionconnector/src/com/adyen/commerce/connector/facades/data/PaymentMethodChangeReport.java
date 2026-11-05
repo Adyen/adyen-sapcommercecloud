@@ -33,9 +33,16 @@ package com.adyen.commerce.connector.facades.data;
  */
 public record PaymentMethodChangeReport(PaymentMethodChangeResult result, int moved, int failed)
 {
+	/**
+	 * The report for a change that was made, or refused, as one call. The subscription the shopper named is the
+	 * one that moved, so a success counts it; an account-wide change by the platform moved at least that one,
+	 * and how many more is not known here.
+	 */
 	public static PaymentMethodChangeReport of(final PaymentMethodChangeResult result)
 	{
-		return new PaymentMethodChangeReport(result, 0, 0);
+		final boolean changed = result == PaymentMethodChangeResult.CHANGED_THIS_SUBSCRIPTION
+				|| result == PaymentMethodChangeResult.CHANGED_ALL_SUBSCRIPTIONS;
+		return new PaymentMethodChangeReport(result, changed ? 1 : 0, 0);
 	}
 
 	public boolean isPartial()

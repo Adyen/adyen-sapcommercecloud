@@ -40,7 +40,9 @@ public interface ChargebeeConfigService
 	String getSiteName() throws ConnectorNotConfiguredException;
 
 	/**
-	 * @return {@code https://<site>.chargebee.com/api/v2}
+	 * @return {@code https://<site>.chargebee.com/api/v2}, or the value of {@code chargebee.api.baseUrlOverride}
+	 *         (trailing slash stripped) when set; the override accepts http or https on a loopback host only
+	 *         (it exists for local emulators and must not redirect the live API key elsewhere)
 	 * @throws ConnectorNotConfiguredException if the site is unset
 	 */
 	String getApiBaseUrl() throws ConnectorNotConfiguredException;

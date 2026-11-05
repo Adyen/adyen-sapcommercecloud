@@ -84,7 +84,7 @@
                     <label class="subx-label" for="${offerId}-method">
                         <spring:theme code="text.account.subscriptions.paymentMethod.choose"/>
                     </label>
-                    <select name="storedPaymentMethodId" id="${offerId}-method" class="form-control subx-select">
+                    <select name="storedPaymentMethodId" id="${offerId}-method" class="form-control subx-select" required="required">
                         <subscriptions:paymentMethodOptions platformOptions="${offer.paymentMethodOptions}"
                                                             vaultOptions="${offer.adyenVaultOptions}"/>
                     </select>
@@ -233,7 +233,7 @@
                                                     <spring:theme code="text.account.subscriptions.paymentMethod.choose.row"/>
                                                 </label>
                                                 <select name="storedPaymentMethodId" id="${rowId}-method"
-                                                        class="form-control subx-select">
+                                                        class="form-control subx-select" required="required">
                                                     <subscriptions:paymentMethodOptions
                                                             platformOptions="${subscription.paymentMethodOptions}"
                                                             vaultOptions="${subscription.adyenVaultOptions}"/>

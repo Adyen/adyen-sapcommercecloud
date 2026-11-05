@@ -44,6 +44,7 @@ name='adyen-order-process' processClass='de.hybris.platform.orderprocessing.mode
 </wait>
 
 <action id='checkPendingOrder' bean='adyenCheckPendingOrderAction'>
+   <transition name='WAIT' to='waitForAdyenPendingPayment'/>
    <transition name='OK' to='checkOrder'/>
    <transition name='NOK' to='error'/>
 </action>

@@ -31,7 +31,7 @@
 </c:if>
 
 <script src="https://${checkoutShopperHost}/checkoutshopper/sdk/${VERSION}/adyen.js"
-        integrity="${hashVersion}"
+        integrity="${jsHashVersion}"
         crossorigin="anonymous">
 </script>
 

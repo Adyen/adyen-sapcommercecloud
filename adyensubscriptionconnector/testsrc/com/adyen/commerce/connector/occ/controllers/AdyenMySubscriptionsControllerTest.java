@@ -181,7 +181,7 @@ public class AdyenMySubscriptionsControllerTest
 	// ---- payment method change ---------------------------------------------------------------------
 
 	@Test
-	public void changeForOneSubscriptionReportsTheResultWithNoCounts()
+	public void changeForOneSubscriptionCountsTheOneThatMoved()
 	{
 		when(facade.changePaymentMethodForCurrentCustomer(PLATFORM, CODE, "pm-1"))
 				.thenReturn(PaymentMethodChangeResult.CHANGED_THIS_SUBSCRIPTION);
@@ -190,10 +190,25 @@ public class AdyenMySubscriptionsControllerTest
 				.changePaymentMethod(CODE, changeRequest(false)).getBody();
 
 		assertEquals("CHANGED_THIS_SUBSCRIPTION", body.getResult());
-		assertEquals(0, body.getMoved());
+		assertEquals(1, body.getMoved());
 		assertEquals(0, body.getFailed());
 		assertFalse(body.isPartial());
 		verify(facade, never()).changePaymentMethodForAllSubscriptions(anyString(), anyString(), anyString());
+	}
+
+	@Test
+	public void aRefusedChangeForOneSubscriptionMovedNothing()
+	{
+		when(facade.changePaymentMethodForCurrentCustomer(PLATFORM, CODE, "pm-1"))
+				.thenReturn(PaymentMethodChangeResult.FAILED);
+
+		final AdyenSubscriptionPaymentMethodChangeResultWsDTO body = controller
+				.changePaymentMethod(CODE, changeRequest(false)).getBody();
+
+		assertEquals("FAILED", body.getResult());
+		assertEquals(0, body.getMoved());
+		assertEquals(0, body.getFailed());
+		assertFalse(body.isPartial());
 	}
 
 	@Test
@@ -222,6 +237,7 @@ public class AdyenMySubscriptionsControllerTest
 				.changePaymentMethod(CODE, changeRequest(false)).getBody();
 
 		assertEquals("FAILED", body.getResult());
+		assertEquals(0, body.getMoved());
 	}
 
 	@Test
