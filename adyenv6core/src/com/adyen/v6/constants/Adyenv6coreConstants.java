@@ -69,6 +69,9 @@ public final class Adyenv6coreConstants extends GeneratedAdyenv6coreConstants {
 	public static final String PAYMENT_METHOD_ONLINEBANKING_PL = "onlineBanking_PL";
 	public static final String PAYMENT_METHOD_ONLINEBANKING_IN = "onlinebanking_IN";
 	public static final String PAYMENT_METHOD_PAYPO = "paypo";
+	public static final String PAYMENT_METHOD_ECONTEXT_PREFIX = "econtext";
+	public static final String CHECKOUT_ERROR_KONBINI_TELEPHONE_MISSING =
+			"checkout.error.konbini.telephone.missing";
 
 
 	public static final String PROCESS_EVENT_ADYEN_CAPTURED = "AdyenCaptured";

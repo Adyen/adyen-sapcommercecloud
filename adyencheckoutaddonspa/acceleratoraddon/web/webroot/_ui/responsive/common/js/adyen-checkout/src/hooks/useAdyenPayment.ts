@@ -75,8 +75,6 @@ export const useAdyenPayment = (
         response: Promise<void | PlaceOrderResponse>,
         actions: SubmitActions | AdditionalDetailsActions
     ) => {
-        setPaymentState(prev => ({ ...prev, errorFieldCodes: [] }));
-
         const responseData = await response;
         if (!!responseData) {
             if (responseData.success) {
@@ -115,22 +113,17 @@ export const useAdyenPayment = (
                     }
                 }
             } else {
+                actions.reject();
+
                 setPaymentState(prev => ({
                     ...prev,
+                    errorCode: responseData.error || 'checkout.error.default',
+                    errorLinkPath: responseData.linkPath,
                     errorFieldCodes: responseData.errorFieldCodes || []
                 }));
-                // Call resetDropInComponent directly without dependency
-                if (dropIn) {
-                    dropIn.unmount();
-                    const element = document.querySelector('.dropin-payment');
-                    if (element) {
-                        dropIn.mount(element as HTMLElement);
-                    }
-                }
             }
-            setPaymentState(prev => ({ ...prev, errorCode: responseData.error || '', errorLinkPath: responseData.linkPath }));
         }
-    }, [dropIn]);
+    }, []);
 
     const handlePayment = useCallback(async (data: any, element: any, actions: SubmitActions) => {
         const adyenPaymentForm = PaymentService.preparePlaceOrderRequest(

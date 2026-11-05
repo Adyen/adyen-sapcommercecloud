@@ -7,8 +7,14 @@ export const adyenAxios: AxiosInstance = axios.create({
 })
 adyenAxios.interceptors.response.use(
     response => {
-        if (!response.request.responseURL.endsWith(response.config.url)) {
-            window.location.replace(response.request.responseURL)
+        const responseURL = response.request?.responseURL;
+        const requestURL = response.config.url;
+        if (responseURL && requestURL) {
+            const responseAddress = new URL(responseURL, window.location.href);
+            const requestAddress = new URL(requestURL, window.location.href);
+            if (responseAddress.origin !== requestAddress.origin || responseAddress.pathname !== requestAddress.pathname) {
+                window.location.replace(responseURL);
+            }
         }
         return response
     },

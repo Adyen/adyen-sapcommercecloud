@@ -39,6 +39,32 @@
         </wz:flow>
     </context>
 
+    <!-- Opened from the base store editor through recurlyConfig. Without it Backoffice generates a default editor
+         that shows the decrypted API key and webhook signing key in plain text fields, so the encrypted fields get
+         the password editor here as they do in the wizard above. -->
+    <context merge-by="type" type="RecurlyConfig" component="editor-area">
+        <editorArea:editorArea xmlns:editorArea="http://www.hybris.com/cockpitng/component/editorArea">
+            <editorArea:tab name="hmc.adyen">
+                <editorArea:section name="hmc.adyen.recurlyConfig">
+                    <editorArea:attribute qualifier="subscriptionSiteId"/>
+                    <editorArea:attribute qualifier="subscriptionApiKey"
+                                          editor="com.hybris.cockpitng.editor.defaultpassword"/>
+                    <editorArea:attribute qualifier="subscriptionGatewayAccountId"/>
+                    <editorArea:attribute qualifier="adyenGatewayMerchantAccount"/>
+                    <editorArea:attribute qualifier="recurlyWebhookSigningKey"
+                                          editor="com.hybris.cockpitng.editor.defaultpassword"/>
+                    <editorArea:attribute qualifier="walletEnabled"/>
+                    <editorArea:attribute qualifier="externalNtidFeatureEnabled"/>
+                    <editorArea:attribute qualifier="paymentMethodChangeEnabled"/>
+                    <editorArea:attribute qualifier="networkTransactionIdOnBillingInfoEnabled"/>
+                    <editorArea:attribute qualifier="promoteChosenCardToPrimary"/>
+                    <editorArea:attribute qualifier="hostedPagesHost"/>
+                    <editorArea:attribute qualifier="hostedAccountManagementEnabled"/>
+                </editorArea:section>
+            </editorArea:tab>
+        </editorArea:editorArea>
+    </context>
+
     <!-- Same node ids as adyensubscriptionconnector, so the mapping lands in its subscription billing node.
          A plan mapping is the one row an operator creates by hand before any subscription can appear: without
          one the activator treats every order as non-subscription. -->

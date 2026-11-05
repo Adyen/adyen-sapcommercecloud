@@ -35,6 +35,7 @@ import de.hybris.platform.commercefacades.order.data.CartData;
 import de.hybris.platform.commerceservices.strategies.CheckoutCustomerStrategy;
 import de.hybris.platform.core.model.order.CartModel;
 import de.hybris.platform.order.CartService;
+import de.hybris.platform.servicelayer.session.SessionService;
 
 import java.util.List;
 
@@ -60,6 +61,7 @@ public class DefaultAdyenCheckoutApiFacadeRefusalTest
     {
         facade = spy(new DefaultAdyenCheckoutApiFacade());
         facade.setCartService(cartService);
+        facade.setSessionService(mock(SessionService.class));
         facade.setAdyenPartialPaymentOrderFacade(partialPaymentOrderFacade);
         doReturn(apiService).when(facade).getAdyenPaymentService();
         doReturn("en").when(facade).getShopperLocale();

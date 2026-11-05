@@ -258,6 +258,9 @@
                                             showSocialSecurityNumber="${showSocialSecurityNumber || paymentMethod.type=='pix'}"
                                             countryCode="${countryCode}"
                                             showTelephoneNumber="${paymentMethod.type=='paybright'}"
+                                            openInvoiceMethods="${openInvoiceMethods}"
+                                            disclaimerMessage="${disclaimerMessage}"
+                                            disclaimerLink="${disclaimerLink}"
                                     />
                                 </c:forEach>
 

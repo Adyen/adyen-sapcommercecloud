@@ -58,17 +58,18 @@ export class PaymentService {
                     pspReference: placeOrderData.pspReference  // PSP reference for partial payment
                 }
             })
-            .catch((errorResponse: AxiosError<ErrorResponse>): PlaceOrderResponse | void => {
-                console.error('Error on place order')
-                if (errorResponse.response.status === 400) {
-                    return {
-                        success: false,
-                        error: errorResponse.response.data.errorCode,
-                        linkPath: errorResponse.response.data.linkPath,
-                        errorFieldCodes: errorResponse.response.data.invalidFields
-                    }
-                }
-            })
+            .catch((errorResponse: AxiosError<ErrorResponse>): PlaceOrderResponse => {
+                console.error('Error on place order', errorResponse);
+
+                const errorData = errorResponse.response?.data;
+
+                return {
+                    success: false,
+                    error: errorData?.errorCode || 'checkout.error.default',
+                    linkPath: errorData?.linkPath,
+                    errorFieldCodes: errorData?.invalidFields || []
+                };
+            });
     }
 
     static async sendAdditionalDetails(details: any) {

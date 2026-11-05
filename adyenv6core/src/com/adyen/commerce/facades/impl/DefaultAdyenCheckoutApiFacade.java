@@ -4,18 +4,18 @@ import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
 import com.adyen.commerce.dto.OrderPaymentResult;
 import com.adyen.commerce.facades.AdyenCheckoutApiFacade;
 import com.adyen.commerce.facades.AdyenPartialPaymentOrderFacade;
+import com.adyen.commerce.services.AdyenStoredCardAuthorisationService;
 import com.adyen.model.checkout.*;
-import com.adyen.v6.service.PaymentAuthorisationRefusedException;
+import com.adyen.v6.enums.AdyenPartialPaymentStatus;
 import com.adyen.v6.exceptions.AdyenNonAuthorizedPaymentException;
 import com.adyen.v6.forms.AddressForm;
-import com.adyen.v6.model.RequestInfo;
-import com.adyen.commerce.services.AdyenStoredCardAuthorisationService;
 import com.adyen.v6.model.AdyenPartialPaymentOrderModel;
-import com.adyen.v6.enums.AdyenPartialPaymentStatus;
+import com.adyen.v6.model.RequestInfo;
 import com.adyen.v6.repository.AdyenPartialPaymentOrderRepository;
 import com.adyen.v6.service.AdyenCheckoutApiService;
-import com.adyen.v6.service.DefaultAdyenCheckoutApiService;
 import com.adyen.v6.service.AdyenPartialPaymentService;
+import com.adyen.v6.service.DefaultAdyenCheckoutApiService;
+import com.adyen.v6.service.PaymentAuthorisationRefusedException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import de.hybris.platform.commercefacades.order.data.CartData;
 import de.hybris.platform.commercefacades.order.data.OrderData;
@@ -109,6 +109,7 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
     public OrderPaymentResult placeOrderWithPayment(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest, RequestInfo requestInfo, AdyenPartialPaymentOrderData partialPaymentOrderData) throws Exception{
         requestInfo.setShopperLocale(getShopperLocale());
 
+        clearDonationSessionData();
         PaymentResponse paymentResponse;
         try {
             paymentResponse = getAdyenPaymentService().processPaymentRequest(cartData, paymentRequest, requestInfo, getCheckoutCustomerStrategy().getCurrentUserForCheckout(), partialPaymentOrderData);
@@ -120,13 +121,15 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
             }
             throw e;
         }
+        storeDonationPaymentData(paymentResponse);
+        storeDonationCountryCode(cartData);
         if (PaymentResponse.ResultCodeEnum.PENDING == paymentResponse.getResultCode()
                 || PaymentResponse.ResultCodeEnum.REDIRECTSHOPPER == paymentResponse.getResultCode()
                 || PaymentResponse.ResultCodeEnum.CHALLENGESHOPPER == paymentResponse.getResultCode()
                 || PaymentResponse.ResultCodeEnum.IDENTIFYSHOPPER == paymentResponse.getResultCode()
                 || PaymentResponse.ResultCodeEnum.PRESENTTOSHOPPER == paymentResponse.getResultCode()) {
             LOGGER.info("Placing pending order");
-            OrderData orderData = placePendingOrder(paymentResponse.getResultCode().getValue());
+            OrderData orderData = placePendingOrder(paymentResponse.getResultCode().getValue(), paymentResponse.getAction());
             paymentResponse.setMerchantReference(orderData.getCode());
             throw new AdyenNonAuthorizedPaymentException(paymentResponse);
         }
@@ -179,14 +182,17 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
     public OrderPaymentResult placeOrderWithPaymentOCC(final HttpServletRequest request, final CartData cartData, PaymentRequest paymentRequest, RequestInfo requestInfo) throws Exception {
         requestInfo.setShopperLocale(getShopperLocale());
 
+        clearDonationSessionData();
         PaymentResponse paymentResponse = getAdyenPaymentService().processPaymentRequest(cartData, paymentRequest, requestInfo, getCheckoutCustomerStrategy().getCurrentUserForCheckout());
+        storeDonationPaymentData(paymentResponse);
+        storeDonationCountryCode(cartData);
         if (PaymentResponse.ResultCodeEnum.PENDING == paymentResponse.getResultCode()
                 || PaymentResponse.ResultCodeEnum.REDIRECTSHOPPER == paymentResponse.getResultCode()
                 || PaymentResponse.ResultCodeEnum.CHALLENGESHOPPER == paymentResponse.getResultCode()
                 || PaymentResponse.ResultCodeEnum.IDENTIFYSHOPPER == paymentResponse.getResultCode()
                 || PaymentResponse.ResultCodeEnum.PRESENTTOSHOPPER == paymentResponse.getResultCode()) {
             LOGGER.info("Placing pending order");
-            OrderData orderData = placePendingOrder(paymentResponse.getResultCode().getValue());
+            OrderData orderData = placePendingOrder(paymentResponse.getResultCode().getValue(), paymentResponse.getAction());
             paymentResponse.setMerchantReference(orderData.getCode());
             return new OrderPaymentResult(orderData, paymentResponse);
         }

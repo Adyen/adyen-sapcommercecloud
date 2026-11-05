@@ -13,7 +13,9 @@
 
 	<!--Step of order-process that checks if order in pending status is already completed -->
 	<alias name="defaultAdyenCheckPendingOrderAction" alias="adyenCheckPendingOrderAction"/>
-	<bean id="defaultAdyenCheckPendingOrderAction" class="com.adyen.v6.actions.order.AdyenCheckPendingOrderAction" parent="abstractAction"/>
+	<bean id="defaultAdyenCheckPendingOrderAction" class="com.adyen.v6.actions.order.AdyenCheckPendingOrderAction" parent="abstractAction">
+        <property name="configurationService" ref="configurationService"/>
+    </bean>
 
 	<!--Step of order-process that checks authorization completion-->
 	<alias name="defaultAdyenCheckAuthorizationAction" alias="adyenCheckAuthorizationAction"/>
