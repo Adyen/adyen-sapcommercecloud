@@ -5,6 +5,10 @@
     the shopper's Adyen vault the provider would accept. The facade has already removed a vaulted card the
     provider holds under its own identifier, so each card appears once. Labels are composed server-side,
     because only the provider's adapter knows whether it is describing a card, a mandate or an agreement.
+
+    When no option is the one billing now (vault cards never are; the provider may have no current method),
+    a disabled placeholder is selected instead of letting the browser pick the first card: the shopper must
+    choose, and the required select cannot post the placeholder.
 --%>
 <%@ tag body-content="empty" trimDirectiveWhitespaces="true" %>
 <%@ attribute name="platformOptions" required="true" type="java.util.List" %>
@@ -14,6 +18,15 @@
 <%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
 
 <c:set var="grouped" value="${not empty platformOptions and not empty vaultOptions}"/>
+
+<c:set var="hasCurrent" value="false"/>
+<c:forEach items="${platformOptions}" var="option">
+    <c:if test="${option.current}"><c:set var="hasCurrent" value="true"/></c:if>
+</c:forEach>
+<c:if test="${not hasCurrent}">
+    <option value="" disabled="disabled" selected="selected"><spring:theme
+        code="text.account.subscriptions.paymentMethod.placeholder"/></option>
+</c:if>
 
 <c:if test="${not empty platformOptions}">
     <c:if test="${grouped}"><optgroup label="<spring:theme code='text.account.subscriptions.paymentMethod.group.platform'/>"></c:if>
