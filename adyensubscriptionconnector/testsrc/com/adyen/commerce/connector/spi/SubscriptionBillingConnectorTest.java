@@ -21,6 +21,7 @@
 package com.adyen.commerce.connector.spi;
 
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -53,5 +54,14 @@ public class SubscriptionBillingConnectorTest
 				new BillingSubscriptionRef(CHARGEBEE, "sub-1"), null, "key-1");
 
 		assertThrows(CapabilityUnsupportedException.class, () -> connector.pauseSubscription(request));
+	}
+
+	/** A third-party connector that predates the listing must keep compiling and simply report nothing. */
+	@Test
+	public void defaultListingOfCustomerSubscriptionsIsEmptyRatherThanARefusal() throws Exception
+	{
+		final SubscriptionBillingConnector connector = mock(SubscriptionBillingConnector.class, CALLS_REAL_METHODS);
+
+		assertTrue(connector.listCustomerSubscriptions("cust-1").isEmpty());
 	}
 }

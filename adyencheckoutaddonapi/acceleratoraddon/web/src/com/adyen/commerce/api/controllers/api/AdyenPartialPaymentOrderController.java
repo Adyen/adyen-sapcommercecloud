@@ -1,6 +1,8 @@
 package com.adyen.commerce.api.controllers.api;
 
+import com.adyen.commerce.exception.AdyenControllerException;
 import com.adyen.commerce.facades.AdyenPartialPaymentOrderFacade;
+import com.adyen.v6.service.PaymentAuthorisationRefusedException;
 import com.adyen.commerce.request.PartialPaymentOrderRequest;
 import com.adyen.commerce.response.PartialPaymentOrderResponse;
 import de.hybris.platform.acceleratorstorefrontcommons.annotations.RequireHardLogIn;
@@ -54,6 +56,11 @@ public class AdyenPartialPaymentOrderController {
             
             return ResponseEntity.ok(response);
             
+        } catch (PaymentAuthorisationRefusedException e) {
+            // Refused before the gift card was touched. The controller advice answers with the refusal's own
+            // code and a JSON body, which the generic message below would hide.
+            LOG.info("Refusing partial payment order: " + e.getErrorCode());
+            throw new AdyenControllerException(e);
         } catch (RuntimeException e) {
             LOG.error("Error during partial payment order creation", e);
             

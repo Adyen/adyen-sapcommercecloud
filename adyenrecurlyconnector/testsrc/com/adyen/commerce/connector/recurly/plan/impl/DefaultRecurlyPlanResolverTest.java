@@ -65,6 +65,25 @@ public class DefaultRecurlyPlanResolverTest
         assertEquals("PRODUCT", query.getValue().getQueryParameters().get("productCode"));
     }
 
+    /** The core cannot see this extension's mapping type, so the family travels up in the PlanRef. */
+    @Test
+    public void carriesThePlanFamilyOfTheMappingUp() throws Exception
+    {
+        final RecurlyPlanMappingModel mapping = mapping(null, "monthly", null);
+        when(mapping.getPlanFamily()).thenReturn("gold");
+        givenMappings(mapping);
+
+        assertEquals("gold", resolver.resolve(request("PRODUCT")).planFamily());
+    }
+
+    @Test
+    public void aMappingWithoutAFamilyResolvesToAPlanWithoutOne() throws Exception
+    {
+        givenMappings(mapping(null, "monthly", null));
+
+        assertEquals(null, resolver.resolve(request("PRODUCT")).planFamily());
+    }
+
     @Test
     public void theStoresOwnMappingWinsOverTheDefault() throws Exception
     {

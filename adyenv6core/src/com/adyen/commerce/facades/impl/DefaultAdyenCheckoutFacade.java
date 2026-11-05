@@ -363,6 +363,9 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         PaymentResponse paymentResponse;
         try {
             paymentResponse = getAdyenPaymentService().processPaymentRequest(cartData, null, requestInfo, customer);
+        } catch (PaymentAuthorisationRefusedException e) {
+            // A guard's refusal is a business answer for the shopper, not a failed request: keep it as it is.
+            throw e;
         } catch (ApiException | IOException e) {
             throw e;
         } catch (Exception e) {
@@ -424,6 +427,8 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
         PaymentResponse paymentResponse;
         try {
             paymentResponse = getAdyenPaymentService().processPaymentRequest(cartData, paymentRequest, requestInfo, getCheckoutCustomerStrategy().getCurrentUserForCheckout());
+        } catch (PaymentAuthorisationRefusedException e) {
+            throw e;
         } catch (ApiException | IOException e) {
             throw e;
         } catch (Exception e) {

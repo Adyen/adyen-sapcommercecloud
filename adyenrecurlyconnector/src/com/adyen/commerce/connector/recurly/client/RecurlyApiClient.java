@@ -1,6 +1,7 @@
 package com.adyen.commerce.connector.recurly.client;
 
 import java.util.List;
+import java.util.function.BooleanSupplier;
 
 import com.adyen.commerce.connector.dto.BillingAddress;
 import com.adyen.commerce.connector.dto.CardMetadata;
@@ -55,6 +56,23 @@ public interface RecurlyApiClient {
 
     /** Subscription UUIDs referenced by an invoice or payment webhook. */
     List<String> resolveWebhookSubscriptionIds(String resourceType, String resourceId) throws BillingException;
+
+    /**
+     * Every subscription of the account in any state, across pages. Not tied to what this integration created:
+     * the account is the ownership boundary. A past-due state is not resolved here (it costs one invoice query
+     * per subscription), so such a subscription reads as ACTIVE.
+     */
+    default List<NormalizedSubscription> listSubscriptions(String accountId) throws BillingException {
+        return listSubscriptions(accountId, () -> true);
+    }
+
+    /**
+     * As {@link #listSubscriptions(String)}, for a caller with a deadline: {@code mayContinue} is asked before
+     * each page after the first, and once it answers {@code false} the pages read so far are returned. A request
+     * already in flight is not interrupted; it is bounded by the transport timeout.
+     */
+    List<NormalizedSubscription> listSubscriptions(String accountId, BooleanSupplier mayContinue)
+            throws BillingException;
 
     NormalizedSubscription fetchSubscription(String subscriptionId)
             throws BillingException;

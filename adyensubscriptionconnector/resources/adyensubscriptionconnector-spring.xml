@@ -80,6 +80,122 @@
     <bean id="defaultSubscriptionProductRule"
           class="com.adyen.commerce.connector.product.impl.DefaultSubscriptionProductRule"/>
 
+    <!-- ============================================================= -->
+    <!-- Duplicate-subscription check                                  -->
+    <!-- "Does this customer already own what they are buying?" One     -->
+    <!-- strategy per BaseStore.duplicateSubscriptionRule value;        -->
+    <!-- DISABLED needs none, the service answers before looking one up. -->
+    <!-- A merchant swaps a meaning by overriding the strategy bean or  -->
+    <!-- the strategies map.                                            -->
+    <!-- ============================================================= -->
+    <alias name="defaultAdyenSameProductRuleStrategy" alias="adyenSameProductRuleStrategy"/>
+    <bean id="defaultAdyenSameProductRuleStrategy"
+          class="com.adyen.commerce.connector.duplicate.impl.SameProductRuleStrategy"/>
+    <alias name="defaultAdyenSamePlanRuleStrategy" alias="adyenSamePlanRuleStrategy"/>
+    <bean id="defaultAdyenSamePlanRuleStrategy"
+          class="com.adyen.commerce.connector.duplicate.impl.SamePlanRuleStrategy"/>
+    <alias name="defaultAdyenSamePlanFamilyRuleStrategy" alias="adyenSamePlanFamilyRuleStrategy"/>
+    <bean id="defaultAdyenSamePlanFamilyRuleStrategy"
+          class="com.adyen.commerce.connector.duplicate.impl.SamePlanFamilyRuleStrategy"/>
+
+    <util:map id="adyenDuplicateSubscriptionRuleStrategies"
+              key-type="com.adyen.commerce.connector.enums.DuplicateSubscriptionRule"
+              value-type="com.adyen.commerce.connector.duplicate.DuplicateSubscriptionRuleStrategy">
+        <entry key="SAME_PRODUCT" value-ref="adyenSameProductRuleStrategy"/>
+        <entry key="SAME_PLAN" value-ref="adyenSamePlanRuleStrategy"/>
+        <entry key="SAME_PLAN_FAMILY" value-ref="adyenSamePlanFamilyRuleStrategy"/>
+    </util:map>
+
+    <alias name="defaultAdyenSubscriptionOwnershipService" alias="adyenSubscriptionOwnershipService"/>
+    <bean id="defaultAdyenSubscriptionOwnershipService"
+          class="com.adyen.commerce.connector.duplicate.impl.DefaultSubscriptionOwnershipService">
+        <property name="flexibleSearchService" ref="flexibleSearchService"/>
+        <property name="userService" ref="userService"/>
+        <property name="connectorRegistry" ref="subscriptionBillingConnectorRegistry"/>
+        <!-- The same rule that decides tokenization and activation, so "subscription product" means one thing. -->
+        <property name="subscriptionProductRule" ref="subscriptionProductRule"/>
+        <property name="customerSubscriptionService" ref="customerSubscriptionService"/>
+        <property name="reconciliationService" ref="subscriptionReconciliationService"/>
+        <property name="strategies" ref="adyenDuplicateSubscriptionRuleStrategies"/>
+        <property name="staleAfterMinutes" value="${adyen.subscription.duplicateCheck.staleAfterMinutes}"/>
+        <property name="pendingOrderWindowHours" value="${adyen.subscription.duplicateCheck.pendingOrderWindowHours}"/>
+        <property name="refreshBudgetMillis" value="${adyen.subscription.duplicateCheck.refreshBudgetMillis}"/>
+    </bean>
+
+    <!-- ============================================================= -->
+    <!-- Subscription rules in the cart                                -->
+    <!-- Not one the customer owns, one subscription product per cart,  -->
+    <!-- quantity one: weighed when an entry is added or changed and    -->
+    <!-- when the cart is validated (cart page, checkout steps, OCC     -->
+    <!-- /validate). Hooks, merged into the platform's lists, so they   -->
+    <!-- sit beside what other modules register instead of replacing    -->
+    <!-- the strategy alias they also override. The hooks run only      -->
+    <!-- while commerceservices.commerceaddtocartmethodhook.enabled,    -->
+    <!-- ...commerceupdatecartentryhook.enabled and                     -->
+    <!-- ...commercecartvalidationmethodhook.enabled stay true (the     -->
+    <!-- default); the check before authorisation does not depend on    -->
+    <!-- them.                                                          -->
+    <!-- ============================================================= -->
+    <alias name="defaultAdyenSubscriptionCartGuard" alias="adyenSubscriptionCartGuard"/>
+    <bean id="defaultAdyenSubscriptionCartGuard"
+          class="com.adyen.commerce.connector.cart.impl.DefaultSubscriptionCartGuard">
+        <property name="connectorRegistry" ref="subscriptionBillingConnectorRegistry"/>
+        <property name="subscriptionProductRule" ref="subscriptionProductRule"/>
+        <property name="subscriptionOwnershipService" ref="adyenSubscriptionOwnershipService"/>
+        <property name="baseStoreService" ref="baseStoreService"/>
+        <property name="modelService" ref="modelService"/>
+        <property name="userService" ref="userService"/>
+    </bean>
+
+    <alias name="defaultAdyenSubscriptionAddToCartHook" alias="adyenSubscriptionAddToCartHook"/>
+    <bean id="defaultAdyenSubscriptionAddToCartHook"
+          class="com.adyen.commerce.connector.cart.impl.SubscriptionAddToCartHook">
+        <property name="subscriptionCartGuard" ref="adyenSubscriptionCartGuard"/>
+        <property name="commerceCartCalculationStrategy" ref="commerceCartCalculationStrategy"/>
+    </bean>
+    <bean id="adyenSubscriptionAddToCartHookListMergeDirective" depends-on="commerceAddToCartMethodHooks"
+          parent="listMergeDirective">
+        <property name="add" ref="adyenSubscriptionAddToCartHook"/>
+    </bean>
+
+    <alias name="defaultAdyenSubscriptionUpdateCartEntryHook" alias="adyenSubscriptionUpdateCartEntryHook"/>
+    <bean id="defaultAdyenSubscriptionUpdateCartEntryHook"
+          class="com.adyen.commerce.connector.cart.impl.SubscriptionUpdateCartEntryHook">
+        <property name="subscriptionCartGuard" ref="adyenSubscriptionCartGuard"/>
+        <property name="commerceCartCalculationStrategy" ref="commerceCartCalculationStrategy"/>
+    </bean>
+    <bean id="adyenSubscriptionUpdateCartEntryHookListMergeDirective" depends-on="commerceUpdateCartEntryMethodHooks"
+          parent="listMergeDirective">
+        <property name="add" ref="adyenSubscriptionUpdateCartEntryHook"/>
+    </bean>
+
+    <alias name="defaultAdyenSubscriptionCartValidationHook" alias="adyenSubscriptionCartValidationHook"/>
+    <bean id="defaultAdyenSubscriptionCartValidationHook"
+          class="com.adyen.commerce.connector.cart.impl.SubscriptionCartValidationHook">
+        <property name="subscriptionCartGuard" ref="adyenSubscriptionCartGuard"/>
+    </bean>
+    <bean id="adyenSubscriptionCartValidationHookListMergeDirective" depends-on="cartValidationHooks"
+          parent="listMergeDirective">
+        <property name="add" ref="adyenSubscriptionCartValidationHook"/>
+    </bean>
+
+    <!-- The last line of defence: refuses a payment before Adyen is called (before /payments and before the
+         partial payment order of a gift card) when the cart breaks the subscription limits or holds one the
+         customer already owns. Registered in adyenv6core's adyenPaymentAuthorisationGuards list. -->
+    <alias name="defaultAdyenSubscriptionPaymentAuthorisationGuard" alias="adyenSubscriptionPaymentAuthorisationGuard"/>
+    <bean id="defaultAdyenSubscriptionPaymentAuthorisationGuard"
+          class="com.adyen.commerce.connector.payment.AdyenSubscriptionPaymentAuthorisationGuard">
+        <property name="subscriptionCartGuard" ref="adyenSubscriptionCartGuard"/>
+        <property name="subscriptionOwnershipService" ref="adyenSubscriptionOwnershipService"/>
+        <property name="userService" ref="userService"/>
+        <property name="sessionService" ref="sessionService"/>
+        <property name="refreshReuseSeconds" value="${adyen.subscription.duplicateCheck.refreshReuseSeconds}"/>
+    </bean>
+    <bean id="adyenSubscriptionPaymentAuthorisationGuardListMergeDirective"
+          depends-on="adyenPaymentAuthorisationGuards" parent="listMergeDirective">
+        <property name="add" ref="adyenSubscriptionPaymentAuthorisationGuard"/>
+    </bean>
+
     <!-- Runs while the Adyen /payments request is still being built, before the shopper can be
          charged. It both forces tokenization for mapped subscription products and rejects payment
          methods that the connector cannot safely reuse for renewals. -->
@@ -139,6 +255,7 @@
     <bean id="defaultSubscriptionReconciliationService"
           class="com.adyen.commerce.connector.reconciliation.impl.DefaultSubscriptionReconciliationService">
         <property name="connectorRegistry" ref="subscriptionBillingConnectorRegistry"/>
+        <property name="configurationService" ref="configurationService"/>
         <property name="modelService" ref="modelService"/>
         <property name="storeContext" ref="subscriptionStoreContext"/>
     </bean>

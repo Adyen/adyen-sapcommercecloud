@@ -217,6 +217,64 @@ public class RecurlySubscriptionBillingConnectorTest
     }
 
     @Test
+    public void resolvePlanLogsAnUnmappedProductAtDebugNotAsAFailure() throws Exception
+    {
+        final org.slf4j.Logger log = org.mockito.Mockito.mock(org.slf4j.Logger.class);
+        when(log.isDebugEnabled()).thenReturn(true);
+        when(log.isWarnEnabled()).thenReturn(true);
+        final RecurlySubscriptionBillingConnector logged = new RecurlySubscriptionBillingConnector()
+        {
+            @Override
+            protected org.slf4j.Logger resolvePlanLog()
+            {
+                return log;
+            }
+        };
+        logged.setPlanResolver(planResolver);
+        when(planResolver.resolve(any())).thenThrow(new com.adyen.commerce.connector.exception.PlanNotMappedException("no plan"));
+
+        assertThrows(com.adyen.commerce.connector.exception.PlanNotMappedException.class,
+                () -> logged.resolvePlan(new PlanResolutionRequest("PROD-1", "electronics", Map.of())));
+
+        final ArgumentCaptor<Object[]> values = ArgumentCaptor.forClass(Object[].class);
+
+        verify(log).debug(org.mockito.ArgumentMatchers.anyString(), values.capture());
+
+        verify(log, never()).warn(org.mockito.ArgumentMatchers.anyString(), (Object[]) org.mockito.ArgumentMatchers.any());
+
+        assertTrue(java.util.Arrays.stream(values.getValue()).anyMatch(v -> "not_mapped".equals(String.valueOf(v))));
+    }
+
+    @Test
+    public void resolvePlanStillWarnsOnAnyOtherBillingFailure() throws Exception
+    {
+        final org.slf4j.Logger log = org.mockito.Mockito.mock(org.slf4j.Logger.class);
+        when(log.isDebugEnabled()).thenReturn(true);
+        when(log.isWarnEnabled()).thenReturn(true);
+        final RecurlySubscriptionBillingConnector logged = new RecurlySubscriptionBillingConnector()
+        {
+            @Override
+            protected org.slf4j.Logger resolvePlanLog()
+            {
+                return log;
+            }
+        };
+        logged.setPlanResolver(planResolver);
+        when(planResolver.resolve(any())).thenThrow(new com.adyen.commerce.connector.exception.TerminalBillingException("boom"));
+
+        assertThrows(com.adyen.commerce.connector.exception.TerminalBillingException.class,
+                () -> logged.resolvePlan(new PlanResolutionRequest("PROD-1", "electronics", Map.of())));
+
+        final ArgumentCaptor<Object[]> values = ArgumentCaptor.forClass(Object[].class);
+
+        verify(log).warn(org.mockito.ArgumentMatchers.anyString(), values.capture());
+
+        verify(log, never()).debug(org.mockito.ArgumentMatchers.anyString(), (Object[]) org.mockito.ArgumentMatchers.any());
+
+        assertTrue(java.util.Arrays.stream(values.getValue()).anyMatch(v -> "failure".equals(String.valueOf(v))));
+    }
+
+    @Test
     public void resolvePlanDelegatesToResolver() throws Exception
     {
         final PlanRef plan = new PlanRef("monthly", null);
@@ -597,5 +655,38 @@ public class RecurlySubscriptionBillingConnectorTest
         assertTrue(connector.listPaymentMethods(
                 new BillingCustomerRef(BillingPlatform.RECURLY, "code-customer")).isEmpty());
         verify(apiClient, never()).listBillingInfos(any());
+    }
+
+    @Test
+    public void listsTheCustomersSubscriptionsThroughTheApiClient() throws Exception
+    {
+        final com.adyen.commerce.connector.dto.NormalizedSubscription snapshot =
+                new com.adyen.commerce.connector.dto.NormalizedSubscription(
+                        new com.adyen.commerce.connector.dto.BillingSubscriptionRef(
+                                com.adyen.commerce.connector.enums.BillingPlatform.RECURLY, "uuid-1"),
+                        com.adyen.commerce.connector.dto.NormalizedSubscriptionStatus.ACTIVE, "monthly", 1, null,
+                        null, false, null);
+        when(apiClient.listSubscriptions(org.mockito.ArgumentMatchers.eq("account-1"), org.mockito.ArgumentMatchers.any())).thenReturn(List.of(snapshot));
+
+        assertEquals(List.of(snapshot), connector.listCustomerSubscriptions("account-1"));
+    }
+
+    @Test
+    public void theCallersBudgetReachesTheApiClient() throws Exception
+    {
+        final java.util.function.BooleanSupplier budget = () -> true;
+        connector.listCustomerSubscriptions("account-1", budget);
+
+        verify(apiClient).listSubscriptions("account-1", budget);
+    }
+
+    @Test
+    public void aFailedListingIsNotSwallowedByTheConnector() throws Exception
+    {
+        when(apiClient.listSubscriptions(org.mockito.ArgumentMatchers.eq("account-1"), org.mockito.ArgumentMatchers.any()))
+                .thenThrow(new com.adyen.commerce.connector.exception.RetryableBillingException("down"));
+
+        assertThrows(com.adyen.commerce.connector.exception.RetryableBillingException.class,
+                () -> connector.listCustomerSubscriptions("account-1"));
     }
 }

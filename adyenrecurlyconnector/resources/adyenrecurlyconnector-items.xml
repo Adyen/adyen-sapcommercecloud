@@ -125,6 +125,11 @@
                     <description>Optional Recurly price/currency reference for future catalog variants.</description>
                     <persistence type="property"/>
                 </attribute>
+                <attribute qualifier="planFamily" type="java.lang.String">
+                    <description>Optional group of plans for the SAME_PLAN_FAMILY duplicate-subscription rule: plans with the
+                        same family count as one subscription. Empty = the rule falls back to the plan itself.</description>
+                    <persistence type="property"/>
+                </attribute>
                 <attribute qualifier="baseStore" type="BaseStore">
                     <description>Store the mapping applies to. Empty = default for every store without its own
                         mapping of this product; a store's own mapping wins.</description>

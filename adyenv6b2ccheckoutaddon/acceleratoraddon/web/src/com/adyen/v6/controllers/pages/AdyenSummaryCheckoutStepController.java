@@ -20,6 +20,7 @@
  */
 package com.adyen.v6.controllers.pages;
 
+import com.adyen.v6.service.PaymentAuthorisationRefusedException;
 import com.adyen.constants.ApiConstants.RefusalReason;
 import com.adyen.model.checkout.*;
 import com.adyen.model.payment.PaymentResult;
@@ -56,6 +57,7 @@ import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.http.HttpHeaders;
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.NoSuchMessageException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -84,6 +86,7 @@ public class AdyenSummaryCheckoutStepController extends AbstractCheckoutStepCont
     private static final Logger LOGGER = Logger.getLogger(AdyenSummaryCheckoutStepController.class);
 
     private static final String SUMMARY = "summary";
+    private static final String CART_REFUSAL_KEY_PREFIX = "text.cart.subscription.payment.";
 
     @Resource(name = "siteBaseUrlResolutionService")
     private SiteBaseUrlResolutionService siteBaseUrlResolutionService;
@@ -179,12 +182,14 @@ public class AdyenSummaryCheckoutStepController extends AbstractCheckoutStepCont
     /**
      * Handles Ratepay payment processing
      */
-    private String handleRatepayPayment(HttpServletRequest request, CartData cartData, RedirectAttributes redirectModel) 
+    protected String handleRatepayPayment(HttpServletRequest request, CartData cartData, RedirectAttributes redirectModel) 
             throws CommerceCartModificationException, CMSItemNotFoundException {
         try {
             OrderData orderData = adyenCheckoutFacade.authorisePayment(request, cartData);
             LOGGER.debug(REDIRECTING_TO_CONFIRMATION);
             return redirectToOrderConfirmationPage(orderData);
+        } catch (PaymentAuthorisationRefusedException e) {
+            return redirectToCartWithRefusal(e, redirectModel);
         } catch (ApiException e) {
             LOGGER.error(API_EXCEPTION_START_MESSAGE + e.getError(), e);
         } catch (AdyenNonAuthorizedPaymentException e) {
@@ -219,6 +224,8 @@ public class AdyenSummaryCheckoutStepController extends AbstractCheckoutStepCont
             }
             
             return redirectToOrderConfirmationPage(orderData);
+        } catch (PaymentAuthorisationRefusedException e) {
+            return redirectToCartWithRefusal(e, redirectModel);
         } catch (ApiException e) {
             LOGGER.error(API_EXCEPTION_START_MESSAGE, e);
         } catch (AdyenNonAuthorizedPaymentException e) {
@@ -230,6 +237,40 @@ public class AdyenSummaryCheckoutStepController extends AbstractCheckoutStepCont
         LOGGER.debug("Redirecting to summary view");
         GlobalMessages.addErrorMessage(model, CHECKOUT_ERROR_AUTHORIZATION_FAILED);
         return enterStep(model, redirectModel);
+    }
+
+    /**
+     * A payment guard refused before anything went to Adyen (for example a subscription the customer already
+     * has): the cart is what needs to change, so the customer goes back to it with the reason as a flash message.
+     * The message is {@code text.cart.subscription.payment.<errorCode>} (defined by the subscription addon, may carry
+     * a link to My Subscriptions) when that resolves, else the plain {@code checkout.error.<errorCode>} (always
+     * present: the subscription addon is optional). The flash holder renders it unescaped and sanitized.
+     */
+    protected String redirectToCartWithRefusal(PaymentAuthorisationRefusedException e, RedirectAttributes redirectModel) {
+        LOGGER.info("Payment refused before authorisation, errorCode: " + e.getErrorCode());
+        // A flash message, not addErrorMessage(Model...): on RedirectAttributes that overload adds a plain model
+        // attribute, which a redirect turns into a query parameter (or drops, for a list) instead of carrying over.
+        GlobalMessages.addFlashMessage(redirectModel, GlobalMessages.ERROR_MESSAGES_HOLDER, resolveRefusalMessageKey(e));
+        return REDIRECT_PREFIX + CART_PREFIX;
+    }
+
+    protected String resolveRefusalMessageKey(PaymentAuthorisationRefusedException e) {
+        final String cartKey = CART_REFUSAL_KEY_PREFIX + e.getErrorCode();
+        return isMessageResolvable(cartKey) ? cartKey : e.getMessageKey();
+    }
+
+    protected boolean isMessageResolvable(String key) {
+        final String message = lookupMessage(key);
+        return message != null && !key.equals(message);
+    }
+
+    /** The message for the key in the current locale, or {@code null} when no message source has it. */
+    protected String lookupMessage(String key) {
+        try {
+            return getMessageSource().getMessage(key, null, null, getI18nService().getCurrentLocale());
+        } catch (NoSuchMessageException ex) {
+            return null;
+        }
     }
 
     /**

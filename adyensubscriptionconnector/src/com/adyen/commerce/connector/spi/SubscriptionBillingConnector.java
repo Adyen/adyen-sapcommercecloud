@@ -22,6 +22,7 @@ package com.adyen.commerce.connector.spi;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.BooleanSupplier;
 
 import com.adyen.commerce.connector.dto.BillingCustomerRef;
 import com.adyen.commerce.connector.dto.BillingPaymentMethodRef;
@@ -130,6 +131,37 @@ public interface SubscriptionBillingConnector
 	 * @return a normalized live snapshot
 	 */
 	NormalizedSubscription fetchSubscription(BillingSubscriptionRef subscription) throws BillingException;
+
+	/**
+	 * Every subscription the platform holds for this customer, whatever created it, so a caller can tell that
+	 * the customer already owns one this system has no local record of. Read-only, and called only on the
+	 * path that must be right (before a payment is authorised), never while a page renders.
+	 *
+	 * <p>The empty default is not a refusal: a connector that cannot list simply lets the caller decide on its
+	 * own records. Snapshots carry the plan id but not the SAP product, which the platform does not know.</p>
+	 *
+	 * @param externalCustomerId the platform's id for the customer, as {@link #ensureCustomer} returned it
+	 * @return normalized snapshots, never {@code null}
+	 */
+	default List<NormalizedSubscription> listCustomerSubscriptions(final String externalCustomerId)
+			throws BillingException
+	{
+		return List.of();
+	}
+
+	/**
+	 * The same listing, for a caller that works against a deadline. {@code mayContinue} is asked before each page
+	 * after the first; once it answers {@code false} the connector stops paging and returns what it has read so
+	 * far (a possibly partial list, which is still evidence of what the customer owns). It cannot interrupt a
+	 * request already in flight: a single hanging call is bounded only by the transport timeout.
+	 *
+	 * <p>The default ignores the predicate and delegates, which is right for a connector that lists in one call.</p>
+	 */
+	default List<NormalizedSubscription> listCustomerSubscriptions(final String externalCustomerId,
+			final BooleanSupplier mayContinue) throws BillingException
+	{
+		return listCustomerSubscriptions(externalCustomerId);
+	}
 
 	/**
 	 * Update an existing subscription (plan, quantity, price). Null request fields are left unchanged.
