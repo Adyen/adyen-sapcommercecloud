@@ -171,6 +171,13 @@ public interface AdyenCheckoutFacade {
     boolean showRememberDetails();
 
     /**
+     * Returns whether the current base store allows stored-card (one-click) payments without a CVC.
+     */
+    default boolean isSkipCvcForOneClick() {
+        return false;
+    }
+
+    /**
      * Returns whether Social Security Number should be shown on the checkout page.
      * Relevant for open-invoice methods.
      */

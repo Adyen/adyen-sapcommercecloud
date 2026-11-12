@@ -1343,6 +1343,12 @@ public class DefaultAdyenCheckoutFacade implements AdyenCheckoutFacade {
     }
 
     @Override
+    public boolean isSkipCvcForOneClick() {
+        BaseStoreModel baseStore = baseStoreService.getCurrentBaseStore();
+        return baseStore != null && Boolean.TRUE.equals(baseStore.getAdyenSkipCvcForOneClick());
+    }
+
+    @Override
     public boolean showRememberDetails() {
         BaseStoreModel baseStore = baseStoreService.getCurrentBaseStore();
 

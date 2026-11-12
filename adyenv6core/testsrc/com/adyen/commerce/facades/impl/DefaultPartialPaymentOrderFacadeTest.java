@@ -94,6 +94,102 @@ public class DefaultPartialPaymentOrderFacadeTest {
         verify(modelServiceMock).save(partialPaymentOrderModelMock);
     }
 
+    @Test
+    public void cancelPartialPaymentOrder_shouldSendLatestStoredOrderData() throws Exception {
+        when(adyenPartialPaymentOrderRepositoryMock.findPartialPaymentOrderByPspReference(PSP_REFERENCE))
+                .thenReturn(partialPaymentOrderModelMock);
+        when(partialPaymentOrderModelMock.getOrderData()).thenReturn("LATEST_ORDER_DATA");
+        when(ordersApiMock.cancelOrder(any(CancelOrderRequest.class))).thenReturn(cancelOrderResponseMock);
+
+        testObj.cancelPartialPaymentOrder(PSP_REFERENCE);
+
+        verify(ordersApiMock).cancelOrder(cancelOrderRequestCaptor.capture());
+        assertEquals("LATEST_ORDER_DATA", cancelOrderRequestCaptor.getValue().getOrder().getOrderData());
+        assertEquals(PSP_REFERENCE, cancelOrderRequestCaptor.getValue().getOrder().getPspReference());
+    }
+
+    @Test
+    public void cancelPartialPaymentOrder_withOrderPair_shouldSendOrderPspAndGivenOrderData() throws Exception {
+        when(adyenPartialPaymentOrderRepositoryMock.findPartialPaymentOrderByPspReference(PSP_REFERENCE))
+                .thenReturn(partialPaymentOrderModelMock);
+        when(ordersApiMock.cancelOrder(any(CancelOrderRequest.class))).thenReturn(cancelOrderResponseMock);
+
+        testObj.cancelPartialPaymentOrder(PSP_REFERENCE, "ORDER_PSP", "GIVEN_ORDER_DATA");
+
+        verify(ordersApiMock).cancelOrder(cancelOrderRequestCaptor.capture());
+        assertEquals("ORDER_PSP", cancelOrderRequestCaptor.getValue().getOrder().getPspReference());
+        assertEquals("GIVEN_ORDER_DATA", cancelOrderRequestCaptor.getValue().getOrder().getOrderData());
+        verify(adyenPartialPaymentOrderRepositoryMock).findPartialPaymentOrderByPspReference(PSP_REFERENCE);
+        verify(partialPaymentOrderModelMock).setStatus(AdyenPartialPaymentStatus.CANCELLED);
+        verify(modelServiceMock).save(partialPaymentOrderModelMock);
+    }
+
+    @Test
+    public void cancelPartialPaymentOrder_withOrderPair_shouldFallBackToStoredOrderDataWhenGivenIsEmpty() throws Exception {
+        when(adyenPartialPaymentOrderRepositoryMock.findPartialPaymentOrderByPspReference(PSP_REFERENCE))
+                .thenReturn(partialPaymentOrderModelMock);
+        when(partialPaymentOrderModelMock.getOrderData()).thenReturn("STORED_DATA");
+        when(ordersApiMock.cancelOrder(any(CancelOrderRequest.class))).thenReturn(cancelOrderResponseMock);
+
+        testObj.cancelPartialPaymentOrder(PSP_REFERENCE, "ORDER_PSP", "");
+
+        verify(ordersApiMock).cancelOrder(cancelOrderRequestCaptor.capture());
+        assertEquals("STORED_DATA", cancelOrderRequestCaptor.getValue().getOrder().getOrderData());
+    }
+
+    @Test
+    public void cancelPartialPaymentOrder_withOrderPair_shouldNotThrowWhenSavingTheStatusFailsAfterAdyenCancelled() throws Exception {
+        when(adyenPartialPaymentOrderRepositoryMock.findPartialPaymentOrderByPspReference(PSP_REFERENCE))
+                .thenReturn(partialPaymentOrderModelMock);
+        when(ordersApiMock.cancelOrder(any(CancelOrderRequest.class))).thenReturn(cancelOrderResponseMock);
+        doThrow(new RuntimeException("db down")).when(modelServiceMock).save(partialPaymentOrderModelMock);
+
+        testObj.cancelPartialPaymentOrder(PSP_REFERENCE, "ORDER_PSP", "DATA");
+
+        verify(ordersApiMock).cancelOrder(any(CancelOrderRequest.class));
+    }
+
+    @Test
+    public void cancelPartialPaymentOrder_withOrderPair_shouldLeaveStatusUntouchedWhenAdyenRejects() throws Exception {
+        when(adyenPartialPaymentOrderRepositoryMock.findPartialPaymentOrderByPspReference(PSP_REFERENCE))
+                .thenReturn(partialPaymentOrderModelMock);
+        when(ordersApiMock.cancelOrder(any(CancelOrderRequest.class)))
+                .thenThrow(new ApiException("The provided Order Data is not valid. ErrorCode: 14_037", 422));
+
+        try {
+            testObj.cancelPartialPaymentOrder(PSP_REFERENCE, "ORDER_PSP", "DATA");
+            org.junit.Assert.fail("expected RuntimeException");
+        } catch (RuntimeException e) {
+            // expected
+        }
+
+        verify(partialPaymentOrderModelMock, never()).setStatus(any());
+        verify(modelServiceMock, never()).save(any());
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void cancelPartialPaymentOrder_withOrderPair_shouldThrowWhenOrderPspIsEmpty() {
+        testObj.cancelPartialPaymentOrder(PSP_REFERENCE, "", "DATA");
+    }
+
+    @Test
+    public void cancelPartialPaymentOrder_shouldLeaveStatusUntouchedWhenAdyenRejects() throws Exception {
+        when(adyenPartialPaymentOrderRepositoryMock.findPartialPaymentOrderByPspReference(PSP_REFERENCE))
+                .thenReturn(partialPaymentOrderModelMock);
+        when(ordersApiMock.cancelOrder(any(CancelOrderRequest.class)))
+                .thenThrow(new ApiException("The provided Order Data is not valid. ErrorCode: 14_037", 422));
+
+        try {
+            testObj.cancelPartialPaymentOrder(PSP_REFERENCE);
+            org.junit.Assert.fail("expected RuntimeException");
+        } catch (RuntimeException e) {
+            // expected
+        }
+
+        verify(partialPaymentOrderModelMock, never()).setStatus(any());
+        verify(modelServiceMock, never()).save(any());
+    }
+
     @Test(expected = IllegalArgumentException.class)
     public void cancelPartialPaymentOrder_shouldThrowWhenPspReferenceIsNull() {
         testObj.cancelPartialPaymentOrder(null);

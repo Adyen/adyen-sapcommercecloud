@@ -45,6 +45,8 @@ public class PaymentRequestValidatorTest {
 
     private static final String REMEMBER_DETAILS_ERROR = "checkout.error.paymentethod.rememberdetails.invalid";
 
+    private static final String CSE_MISSING_ERROR = "checkout.error.paymentmethod.cse.missing";
+
     @Test
     public void storingIsRejectedWhenTheStoreDoesNotOfferIt() {
         Errors errors = validate(newCardRequest(true), false);
@@ -70,6 +72,44 @@ public class PaymentRequestValidatorTest {
         Errors errors = validate(newCardRequest(false), true);
 
         assertEquals(0, errors.getErrorCount());
+    }
+
+    @Test
+    public void storedCardWithoutCvcIsRejectedWhenCvcIsNotSkipped() {
+        Errors errors = validateStored(storedCardRequest("pm-1"), Set.of("pm-1"), false);
+
+        assertTrue(hasError(errors, CSE_MISSING_ERROR));
+    }
+
+    @Test
+    public void storedCardWithoutCvcIsAcceptedWhenCvcIsSkipped() {
+        Errors errors = validateStored(storedCardRequest("pm-1"), Set.of("pm-1"), true);
+
+        assertEquals(0, errors.getErrorCount());
+    }
+
+    @Test
+    public void unknownStoredCardIsRejectedEvenWhenCvcIsSkipped() {
+        Errors errors = validateStored(storedCardRequest("pm-other"), Set.of("pm-1"), true);
+
+        assertTrue(hasError(errors, "checkout.error.paymentmethod.recurringDetailReference.invalid"));
+    }
+
+    private Errors validateStored(PlaceOrderRequest placeOrderRequest, Set<String> storedCards, boolean skipCvc) {
+        BeanPropertyBindingResult errors = new BeanPropertyBindingResult(placeOrderRequest, "placeOrderRequest");
+        new PaymentRequestValidator(storedCards, false, false, skipCvc).validate(placeOrderRequest, errors);
+        return errors;
+    }
+
+    private PlaceOrderRequest storedCardRequest(String storedPaymentMethodId) {
+        PaymentRequest paymentRequest = new PaymentRequest();
+        paymentRequest.setPaymentMethod(new CheckoutPaymentMethod(new CardDetails()
+                .storedPaymentMethodId(storedPaymentMethodId)
+                .type(CardDetails.TypeEnum.SCHEME)));
+        PlaceOrderRequest placeOrderRequest = new PlaceOrderRequest();
+        placeOrderRequest.setPaymentRequest(paymentRequest);
+        placeOrderRequest.setUseAdyenDeliveryAddress(true);
+        return placeOrderRequest;
     }
 
     private Errors validate(PlaceOrderRequest placeOrderRequest, boolean showRememberTheseDetails) {

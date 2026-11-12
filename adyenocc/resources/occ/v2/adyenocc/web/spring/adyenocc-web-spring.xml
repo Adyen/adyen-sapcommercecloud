@@ -12,5 +12,8 @@
 
     <context:component-scan base-package="com.adyen.commerce.controllers"/>
     <context:component-scan base-package="com.adyen.commerce.exceptionhandler"/>
+    <!-- The advice must be registered in the OCC web context, otherwise OCC's own resolver answers with
+         {"errors":[{"type":"AdyenControllerError"}]} and the errorCode is lost. -->
+    <context:component-scan base-package="com.adyen.commerce.occ.exceptionhandler"/>
 
 </beans>

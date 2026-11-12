@@ -5,12 +5,19 @@ import com.adyen.commerce.response.ErrorResponse;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.log4j.Logger;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
+/**
+ * Ordered first so that OCC's generic exception advice (which would answer with an {@code errors[]} body that
+ * has no errorCode) cannot take an {@link AdyenControllerException} before this handler does.
+ */
 @ControllerAdvice
+@Order(Ordered.HIGHEST_PRECEDENCE)
 public class AdyenOCCControllerExceptionHandler {
 
     private static final Logger LOG = Logger.getLogger(AdyenOCCControllerExceptionHandler.class);

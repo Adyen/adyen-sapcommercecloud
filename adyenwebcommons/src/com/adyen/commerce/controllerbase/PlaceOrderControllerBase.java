@@ -127,7 +127,9 @@ public abstract class PlaceOrderControllerBase {
         boolean showRememberDetails = getAdyenCheckoutApiFacade().showRememberDetails();
         boolean holderNameRequired = getAdyenCheckoutApiFacade().getHolderNameRequired();
 
-        PaymentRequestValidator paymentRequestValidator = new PaymentRequestValidator(getAdyenCheckoutApiFacade().getStoredCards(), showRememberDetails, holderNameRequired);
+        boolean skipCvcForOneClick = getAdyenCheckoutApiFacade().isSkipCvcForOneClick();
+
+        PaymentRequestValidator paymentRequestValidator = new PaymentRequestValidator(getAdyenCheckoutApiFacade().getStoredCards(), showRememberDetails, holderNameRequired, skipCvcForOneClick);
         paymentRequestValidator.validate(placeOrderRequest, bindingResult);
 
         if (bindingResult.hasErrors()) {
