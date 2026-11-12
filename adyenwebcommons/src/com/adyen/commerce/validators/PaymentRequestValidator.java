@@ -20,7 +20,14 @@ public class PaymentRequestValidator implements Validator {
 
     private final Set<String> storedCards;
 
+    private final boolean skipCvcForOneClick;
+
     public PaymentRequestValidator(Set<String> storedCards, boolean showRememberTheseDetails, boolean cardHolderNameRequired) {
+        this(storedCards, showRememberTheseDetails, cardHolderNameRequired, false);
+    }
+
+    public PaymentRequestValidator(Set<String> storedCards, boolean showRememberTheseDetails, boolean cardHolderNameRequired, boolean skipCvcForOneClick) {
+        this.skipCvcForOneClick = skipCvcForOneClick;
         this.cardHolderNameRequired = cardHolderNameRequired;
         this.showRememberTheseDetails = showRememberTheseDetails;
         this.storedCards = storedCards;
@@ -51,7 +58,7 @@ public class PaymentRequestValidator implements Validator {
                 if (storedCards == null || !storedCards.contains(cardDetails.getStoredPaymentMethodId())) {
                     errors.reject("checkout.error.paymentmethod.recurringDetailReference.invalid");
                 }
-                if (StringUtils.isEmpty(cardDetails.getEncryptedSecurityCode())) {
+                if (!skipCvcForOneClick && StringUtils.isEmpty(cardDetails.getEncryptedSecurityCode())) {
                     errors.reject("checkout.error.paymentmethod.cse.missing");
                 }
             } else if(StringUtils.isNotEmpty(cardDetails.getSrcScheme())){
