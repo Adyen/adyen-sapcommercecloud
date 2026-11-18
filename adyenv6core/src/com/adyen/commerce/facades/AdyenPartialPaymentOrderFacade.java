@@ -27,4 +27,16 @@ public interface AdyenPartialPaymentOrderFacade {
      * @throws RuntimeException if the operation fails
      */
     void cancelPartialPaymentOrder(String pspReference);
+
+    /**
+     * Cancel the Adyen order identified by an explicit order pair via /orders/cancel.
+     * The record's own pspReference is the balance-check one, which Adyen does not know as an order; the order
+     * PSP reference and its latest orderData come from the payment request/response.
+     *
+     * @param pspReference      key of the stored partial payment, looked up and marked CANCELLED on success
+     * @param orderPspReference PSP reference of the Adyen order to cancel
+     * @param orderData         latest orderData of that order
+     * @throws RuntimeException if the operation fails
+     */
+    void cancelPartialPaymentOrder(String pspReference, String orderPspReference, String orderData);
 }

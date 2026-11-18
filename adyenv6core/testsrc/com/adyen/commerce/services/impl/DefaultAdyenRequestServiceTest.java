@@ -1,13 +1,18 @@
 package com.adyen.commerce.services.impl;
 
 import com.adyen.commerce.decorator.AdyenPaymentRequestDecorator;
+import com.adyen.commerce.data.AdyenPartialPaymentOrderData;
+import com.adyen.v6.model.RequestInfo;
 import com.adyen.model.checkout.CheckoutPaymentMethod;
+import com.adyen.model.checkout.EncryptedOrderData;
 import com.adyen.model.checkout.EcontextVoucherDetails;
 import com.adyen.model.checkout.PaymentRequest;
 import com.adyen.model.checkout.ShopperName;
 import de.hybris.bootstrap.annotations.UnitTest;
 import de.hybris.platform.commercefacades.order.data.CCPaymentInfoData;
 import de.hybris.platform.commercefacades.order.data.CartData;
+import de.hybris.platform.commercefacades.product.data.PriceData;
+import de.hybris.platform.commercefacades.storesession.data.CurrencyData;
 import de.hybris.platform.commercefacades.user.data.AddressData;
 import de.hybris.platform.core.model.user.CustomerModel;
 import de.hybris.platform.order.CartService;
@@ -20,10 +25,12 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 
+import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.Optional;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.mockito.Mockito.when;
@@ -307,5 +314,57 @@ public class DefaultAdyenRequestServiceTest {
         assertEquals(lastName, paymentRequest.getShopperName().getLastName());
         assertEquals(email, paymentRequest.getShopperEmail());
         assertEquals(telephoneNumber, paymentRequest.getTelephoneNumber());
+    }
+
+    @Test
+    public void shouldAttachOriginOrderToRemainingAmountPayment() {
+        originPaymentRequest.setOrder(new EncryptedOrderData().pspReference("ORDER_PSP").orderData("ORDER_DATA"));
+
+        PaymentRequest result = buildBase(originPaymentRequest, createPartialPaymentOrderData());
+
+        assertNotNull(result.getOrder());
+        assertEquals("ORDER_PSP", result.getOrder().getPspReference());
+        assertEquals("ORDER_DATA", result.getOrder().getOrderData());
+        assertEquals(Long.valueOf(2500), result.getAmount().getValue());
+        assertEquals("EUR", result.getAmount().getCurrency());
+    }
+
+    @Test
+    public void shouldNotAttachOrderToRegularPayment() {
+        originPaymentRequest.setOrder(new EncryptedOrderData().pspReference("ORDER_PSP").orderData("ORDER_DATA"));
+
+        PaymentRequest result = buildBase(originPaymentRequest, null);
+
+        assertNull(result.getOrder());
+        assertEquals(Long.valueOf(10000), result.getAmount().getValue());
+    }
+
+    @Test
+    public void shouldNotAttachHalfFilledOrderToRemainingAmountPayment() {
+        originPaymentRequest.setOrder(new EncryptedOrderData().pspReference("ORDER_PSP"));
+        assertNull(buildBase(originPaymentRequest, createPartialPaymentOrderData()).getOrder());
+
+        originPaymentRequest.setOrder(null);
+        assertNull(buildBase(originPaymentRequest, createPartialPaymentOrderData()).getOrder());
+        assertNull(buildBase(null, createPartialPaymentOrderData()).getOrder());
+    }
+
+    private PaymentRequest buildBase(PaymentRequest origin, AdyenPartialPaymentOrderData partialPaymentOrderData) {
+        PriceData total = new PriceData();
+        total.setValue(new BigDecimal("100.00"));
+        total.setCurrencyIso("EUR");
+        cartData.setTotalPriceWithTax(total);
+        cartData.setCode("CART_1");
+        return testObj.buildBasePaymentRequest("MERCHANT", cartData, origin, new RequestInfo(), customerModel, partialPaymentOrderData);
+    }
+
+    private AdyenPartialPaymentOrderData createPartialPaymentOrderData() {
+        CurrencyData currency = new CurrencyData();
+        currency.setIsocode("EUR");
+        AdyenPartialPaymentOrderData data = new AdyenPartialPaymentOrderData();
+        data.setPspReference("BALANCE_CHECK_PSP");
+        data.setRemainingAmount(new BigDecimal("25.00"));
+        data.setCurrency(currency);
+        return data;
     }
 }

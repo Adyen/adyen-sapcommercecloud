@@ -329,6 +329,8 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
 
         if (partialPaymentOrderData != null) {
             builder.amount(partialPaymentOrderData.getRemainingAmount(), partialPaymentOrderData.getCurrency().getIsocode());
+            // Attach the Adyen order, otherwise Adyen treats this payment as standalone and leaves the order open
+            builder.order(resolvePartialPaymentOrder(originPaymentsRequest));
         }
 
         // Set return URL
@@ -354,6 +356,22 @@ public class DefaultAdyenRequestService implements AdyenRequestService {
         setRiskData(paymentRequest, cartData, originPaymentsRequest);
 
         return paymentRequest;
+    }
+
+    /**
+     * Order for the remaining-amount payment. The persisted AdyenPartialPaymentOrderData carries only the
+     * balance-check pspReference (the /orders reference) and no orderData, so both values come from the
+     * order the Drop-in put into the place-order request.
+     *
+     * @return the order, or null when the request has no complete order (a half-filled order is never returned)
+     */
+    protected EncryptedOrderData resolvePartialPaymentOrder(PaymentRequest originPaymentsRequest) {
+        EncryptedOrderData order = originPaymentsRequest != null ? originPaymentsRequest.getOrder() : null;
+        if (order == null || StringUtils.isEmpty(order.getPspReference()) || StringUtils.isEmpty(order.getOrderData())) {
+            LOG.warn("Remaining-amount payment has no complete Adyen order (pspReference/orderData); sending it without the order");
+            return null;
+        }
+        return new EncryptedOrderData().pspReference(order.getPspReference()).orderData(order.getOrderData());
     }
 
     protected PaymentRequest buildPartialPaymentRequest(String merchantAccount, CartData cartData,

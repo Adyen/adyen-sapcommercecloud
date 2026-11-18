@@ -29,6 +29,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.lang3.StringUtils;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 
 public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade implements AdyenCheckoutApiFacade {
 
@@ -116,8 +118,9 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
         } catch (PaymentAuthorisationRefusedException e) {
             // The remaining amount is refused after the gift card leg went through: release the held amount
             // instead of leaving the shopper's gift card reserved for a payment that will not happen.
+            // Nothing reached Adyen, so the order to release is the one the Drop-in sent with the request.
             if (partialPaymentOrderData != null) {
-                cancelPartialPaymentOrdersOnFailure();
+                cancelPartialPaymentOrdersOnFailure(partialPaymentOrderData.getPspReference(), resolveOrderToCancel(null, paymentRequest));
             }
             throw e;
         }
@@ -141,16 +144,72 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
         }
 
         // Payment failed — cancel any partial payment orders (gift card amounts) before throwing
-        cancelPartialPaymentOrdersOnFailure();
+        cancelPartialPaymentOrdersOnFailure(partialPaymentOrderData == null ? null : partialPaymentOrderData.getPspReference(),
+                resolveOrderToCancel(paymentResponse, paymentRequest));
         throw new AdyenNonAuthorizedPaymentException(paymentResponse);
+    }
+
+    /**
+     * Cancel all partial payment orders associated with the current session cart, without knowing the Adyen
+     * order they belong to (falls back to the values stored on each record).
+     */
+    protected void cancelPartialPaymentOrdersOnFailure() {
+        cancelPartialPaymentOrdersOnFailure(null, null, null);
+    }
+
+    protected void cancelPartialPaymentOrdersOnFailure(String orderPspReference, String orderData) {
+        cancelPartialPaymentOrdersOnFailure(null, orderPspReference, orderData);
+    }
+
+    /**
+     * @param currentPspReference balance-check psp of the partial payment of the current attempt, null if unknown
+     * @param order               the Adyen order to cancel, null if unknown
+     */
+    protected void cancelPartialPaymentOrdersOnFailure(String currentPspReference, EncryptedOrderData order) {
+        if (order == null) {
+            cancelPartialPaymentOrdersOnFailure(currentPspReference, null, null);
+        } else {
+            cancelPartialPaymentOrdersOnFailure(currentPspReference, order.getPspReference(), order.getOrderData());
+        }
+    }
+
+    /**
+     * Picks the Adyen order to cancel: the one in the payment response (it carries the latest orderData),
+     * otherwise the one the Drop-in sent with the payment request.
+     *
+     * @return the order, or null when neither carries an order PSP reference
+     */
+    protected EncryptedOrderData resolveOrderToCancel(PaymentResponse paymentResponse, PaymentRequest paymentRequest) {
+        return resolveOrderToCancel(paymentResponse == null ? null : paymentResponse.getOrder(),
+                paymentRequest == null ? null : paymentRequest.getOrder());
+    }
+
+    protected EncryptedOrderData resolveOrderToCancel(CheckoutOrderResponse responseOrder, EncryptedOrderData requestOrder) {
+        if (responseOrder != null && StringUtils.isNotEmpty(responseOrder.getPspReference())) {
+            String orderData = responseOrder.getOrderData();
+            if (StringUtils.isEmpty(orderData) && requestOrder != null
+                    && responseOrder.getPspReference().equals(requestOrder.getPspReference())) {
+                orderData = requestOrder.getOrderData();
+            }
+            return new EncryptedOrderData().pspReference(responseOrder.getPspReference()).orderData(orderData);
+        }
+        if (requestOrder != null && StringUtils.isNotEmpty(requestOrder.getPspReference())) {
+            return requestOrder;
+        }
+        return null;
     }
 
     /**
      * Cancel all partial payment orders associated with the current session cart.
      * This is called when a payment fails after a gift card has already been redeemed,
      * to release the held amount back to the gift card via Adyen /orders/cancel.
+     * <p>
+     * With an order pair /orders/cancel is called once, for the record of the current attempt (the newest
+     * CREATED/AUTHORIZED one when it is not known - records are prepended to the cart). Other open records may
+     * belong to an older Adyen order and are left alone. Without a pair each record is cancelled with its
+     * own stored values, which Adyen will most likely reject.
      */
-    protected void cancelPartialPaymentOrdersOnFailure() {
+    protected void cancelPartialPaymentOrdersOnFailure(String currentPspReference, String orderPspReference, String orderData) {
         if (getAdyenPartialPaymentOrderFacade() == null) {
             LOGGER.warn("AdyenPartialPaymentOrderFacade not available — skipping partial payment order cancellation");
             return;
@@ -160,11 +219,22 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
             if (cartModel == null || cartModel.getAdyenPartialPaymentOrders() == null) {
                 return;
             }
+            List<AdyenPartialPaymentOrderModel> toCancel = new ArrayList<>();
             for (AdyenPartialPaymentOrderModel partialPayment : cartModel.getAdyenPartialPaymentOrders()) {
                 if (partialPayment.getPspReference() != null
                         && !partialPayment.getPspReference().isEmpty()
                         && (partialPayment.getStatus() == AdyenPartialPaymentStatus.CREATED
                             || partialPayment.getStatus() == AdyenPartialPaymentStatus.AUTHORIZED)) {
+                    toCancel.add(partialPayment);
+                }
+            }
+            if (toCancel.isEmpty()) {
+                return;
+            }
+            if (StringUtils.isEmpty(orderPspReference)) {
+                LOGGER.warn("No Adyen order PSP reference available — cancelling partial payment orders with the stored values, "
+                        + "Adyen will likely reject the cancellation");
+                for (AdyenPartialPaymentOrderModel partialPayment : toCancel) {
                     try {
                         getAdyenPartialPaymentOrderFacade().cancelPartialPaymentOrder(partialPayment.getPspReference());
                         LOGGER.info("Cancelled partial payment order on payment failure, PSP reference: " + partialPayment.getPspReference());
@@ -172,6 +242,32 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
                         LOGGER.error("Failed to cancel partial payment order with PSP reference: " + partialPayment.getPspReference(), e);
                     }
                 }
+                return;
+            }
+            AdyenPartialPaymentOrderModel current = toCancel.get(0);
+            if (currentPspReference != null) {
+                for (AdyenPartialPaymentOrderModel partialPayment : toCancel) {
+                    if (currentPspReference.equals(partialPayment.getPspReference())) {
+                        current = partialPayment;
+                        break;
+                    }
+                }
+            }
+            try {
+                getAdyenPartialPaymentOrderFacade().cancelPartialPaymentOrder(current.getPspReference(), orderPspReference, orderData);
+            } catch (Exception e) {
+                LOGGER.error("Failed to cancel partial payment order with order PSP reference: " + orderPspReference, e);
+                return;
+            }
+            LOGGER.info("Cancelled partial payment order on payment failure, order PSP reference: " + orderPspReference);
+            if (toCancel.size() > 1) {
+                List<String> others = new ArrayList<>();
+                for (AdyenPartialPaymentOrderModel partialPayment : toCancel) {
+                    if (partialPayment != current) {
+                        others.add(partialPayment.getPspReference());
+                    }
+                }
+                LOGGER.warn("Partial payment orders not cancelled: may belong to another Adyen order, PSP references: " + others);
             }
         } catch (Exception e) {
             LOGGER.error("Failed to cancel partial payment orders on payment failure", e);
@@ -230,7 +326,9 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
 
         // Payment additional details failed or unexpected result — cancel any partial payment
         // orders (gift card amounts) before throwing
-        cancelPartialPaymentOrdersOnFailure();
+        // PaymentDetailsRequest carries no order, so without PaymentDetailsResponse.order there is no fallback
+        // and the stored values are used.
+        cancelPartialPaymentOrdersOnFailure(null, resolveOrderToCancel(paymentsDetailsResponse.getOrder(), null));
         throw new AdyenNonAuthorizedPaymentException(paymentsDetailsResponse);
     }
 
@@ -328,8 +426,31 @@ public class DefaultAdyenCheckoutApiFacade extends DefaultAdyenCheckoutFacade im
                     AdyenPartialPaymentStatus.AUTHORIZED,
                     remainingAmount
             );
+            refreshPartialPaymentOrderData(partialPaymentData.getPspReference(), paymentResponse);
         }
         return paymentResponse;
+    }
+
+    /**
+     * Adyen answers every payment made with an order by an updated order (new orderData and remainingAmount).
+     * /orders/cancel only accepts the latest orderData, so the one stored when the order was created is stale
+     * once the gift card has been charged.
+     */
+    protected void refreshPartialPaymentOrderData(String pspReference, PaymentResponse paymentResponse) {
+        if (paymentResponse.getOrder() == null || paymentResponse.getOrder().getOrderData() == null
+                || paymentResponse.getOrder().getOrderData().isEmpty()) {
+            return;
+        }
+        try {
+            AdyenPartialPaymentOrderModel partialPayment = adyenPartialPaymentOrderRepository.findPartialPaymentOrderByPspReference(pspReference);
+            if (partialPayment != null) {
+                partialPayment.setOrderData(paymentResponse.getOrder().getOrderData());
+                getModelService().save(partialPayment);
+            }
+        } catch (Exception e) {
+            // The gift card leg is already authorised: a failed refresh must not turn it into an error.
+            LOGGER.warn("Failed to store the latest orderData for partial payment PSP reference: " + pspReference, e);
+        }
     }
 
     @Override
