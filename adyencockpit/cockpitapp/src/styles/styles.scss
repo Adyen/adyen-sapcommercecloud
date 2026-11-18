@@ -1,0 +1,32 @@
+// Every value in the partials below resolves to an Adyen Bento token, and every class name matches
+// the one Customer Area uses, so a component can be compared with the original in the inspector.
+// When Adyen changes a value, re-extract the token layer and the cockpit follows.
+@use 'bento-tokens';
+@use 'bento/typography';
+@use 'bento/button';
+@use 'bento/form';
+@use 'bento/display';
+@use 'bento/data-grid';
+@use 'bento/overlay';
+@use 'bento/shell';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--b-text-body-font-family);
+  font-size: var(--b-text-body-font-size);
+  line-height: var(--b-text-body-line-height);
+  color: var(--b-color-label-primary);
+  background: var(--b-color-background-primary);
+  -webkit-font-smoothing: antialiased;
+}

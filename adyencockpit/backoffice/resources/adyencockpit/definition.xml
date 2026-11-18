@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<widget-definition xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:noNamespaceSchemaLocation="http://www.hybris.com/schema/cockpitng/widget-definition.xsd"
+                   id="com.adyen.cockpit.widgets.adyencockpit">
+    <name>Adyen Cockpit</name>
+    <description>Hosts the Adyen cockpit application.</description>
+    <defaultTitle>Adyen</defaultTitle>
+    <author>Adyen</author>
+    <version>1.0</version>
+    <view src="adyencockpit.zul"/>
+    <keywords>
+        <keyword>adyen</keyword>
+    </keywords>
+    <controller class="com.adyen.cockpit.widgets.AdyenCockpitController"/>
+</widget-definition>

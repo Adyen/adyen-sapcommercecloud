@@ -1,0 +1,63 @@
+// A real <table> styled as Bento's data grid. Bento's own grid is div-based for virtualisation and
+// column resizing; a semantic table gives the same look for the row counts a cockpit shows, with
+// table semantics for assistive technology at no cost.
+.b-data-grid {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+
+  // Inside a card the grid runs to the card's edges, as in Customer Area. The cell padding plus its
+  // 1px border equals the card's padding, so text still lines up with the card content.
+  .b-card__body > & {
+    width: auto;
+    margin-inline: calc(-1 * var(--b-spacer-070));
+  }
+
+  &__table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  &__column {
+    height: 34px;
+    padding: 0 15px;
+    background: var(--b-color-background-primary);
+    border-bottom: var(--b-border-width-s) solid var(--b-color-separator-primary);
+    color: var(--b-color-label-primary);
+    font-weight: var(--b-text-body-strongest-font-weight);
+    text-align: left;
+    white-space: nowrap;
+
+    &--numeric { text-align: right; }
+  }
+
+  &__row {
+    background: var(--b-color-background-primary);
+
+    &:not(:last-child) { border-bottom: var(--b-border-width-s) solid var(--b-color-separator-primary); }
+
+    &--clickable {
+      cursor: pointer;
+      &:hover { background: var(--b-color-background-primary-hover); }
+    }
+  }
+
+  &__cell {
+    padding: 14px 15px;
+    vertical-align: middle;
+    // Lets an identifier with no spaces, a URL say, wrap rather than widen the table past its container.
+    overflow-wrap: anywhere;
+
+    &--numeric { text-align: right; font-variant-numeric: tabular-nums slashed-zero; }
+    &--nowrap  { white-space: nowrap; }
+  }
+
+  &--condensed .b-data-grid__cell { padding: var(--b-spacer-040) 15px; }
+
+  &__empty,
+  &__loading {
+    padding: var(--b-spacer-100) var(--b-spacer-080);
+    text-align: center;
+    color: var(--b-color-label-secondary);
+  }
+}

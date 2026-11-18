@@ -1,0 +1,113 @@
+@use 'mixins' as m;
+
+.b-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--b-spacer-040);
+  padding: var(--b-spacer-040) var(--b-spacer-060);
+  border: 0;
+  border-radius: var(--b-border-radius-m);
+  box-shadow: inset 0 0 0 var(--b-border-width-s) transparent;
+  font: inherit;
+  font-weight: var(--b-text-body-stronger-font-weight);
+  cursor: pointer;
+  user-select: none;
+  text-decoration: none;
+  @include m.transition(color, background-color, box-shadow);
+
+  &:focus-visible { @include m.focus-ring; }
+
+  &__label {
+    line-height: var(--b-text-body-line-height);
+    white-space: nowrap;
+  }
+
+  &__icon { display: inline-flex; }
+
+  // --- variants ---------------------------------------------------------------------------------
+  &--primary {
+    background: var(--b-color-background-inverse-primary);
+    color: var(--b-color-label-on-color);
+    &:hover  { background: var(--b-color-background-inverse-primary-hover); }
+    &:active { background: var(--b-color-background-inverse-primary-active); }
+  }
+
+  &--secondary {
+    background: var(--b-color-background-tertiary);
+    color: var(--b-color-label-primary);
+    &:hover  { background: var(--b-color-background-tertiary-hover); }
+    &:active { background: var(--b-color-background-tertiary-active); }
+  }
+
+  &--tertiary {
+    background: transparent;
+    color: var(--b-color-label-primary);
+    padding: 0;
+    height: auto;
+    &:hover { color: var(--b-color-label-primary-hover); }
+  }
+
+  &--tertiary-with-background {
+    background: transparent;
+    color: var(--b-color-label-primary);
+    &:hover  { background: var(--b-color-background-tertiary-hover); }
+    &:active { background: var(--b-color-background-tertiary-active); }
+  }
+
+  &--primary-critical {
+    background: var(--b-color-background-critical-strong);
+    color: var(--b-color-label-on-color);
+    &:hover  { background: var(--b-color-background-critical-strong-hover); }
+    &:active { background: var(--b-color-background-critical-strong-active); }
+  }
+
+  &--secondary-critical {
+    background: var(--b-color-background-critical-weak-transparent);
+    color: var(--b-color-label-on-background-critical-weak);
+    &:hover  { background: var(--b-color-background-critical-weak-transparent-hover); }
+    &:active { background: var(--b-color-background-critical-weak-transparent-active); }
+  }
+
+  &--tertiary-critical {
+    background: transparent;
+    color: var(--b-color-label-critical);
+    padding: 0;
+    &:hover  { color: var(--b-color-label-critical-hover); }
+    &:active { color: var(--b-color-label-critical-active); }
+  }
+
+  // --- size and shape ---------------------------------------------------------------------------
+  &--condensed { padding: var(--b-spacer-020) var(--b-spacer-050); }
+
+  &--icon-only {
+    padding: var(--b-spacer-050);
+    &.b-button--condensed { padding: var(--b-spacer-030); }
+    &.b-button--tertiary  { padding: var(--b-spacer-010); height: 24px; }
+  }
+
+  &--loading { cursor: progress; }
+
+  // Disabled wins over every variant, so it comes last.
+  &:disabled,
+  &--disabled {
+    background: var(--b-color-background-disabled);
+    color: var(--b-color-label-disabled);
+    cursor: not-allowed;
+    &.b-button--tertiary,
+    &.b-button--tertiary-critical { background: transparent; }
+  }
+}
+
+.b-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: b-spin 0.7s linear infinite;
+}
+
+@keyframes b-spin {
+  to { transform: rotate(360deg); }
+}

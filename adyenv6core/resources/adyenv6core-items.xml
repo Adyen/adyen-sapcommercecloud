@@ -265,6 +265,19 @@
                     </persistence>
                     <modifiers encrypted="true"/>
                 </attribute>
+                <attribute qualifier="adyenManagementApiKey" type="java.lang.String">
+                    <description>Management API key used to configure this store's Adyen account from the
+                        setup wizard. Kept apart from adyenAPIKey because it is a different credential with
+                        a different purpose: this one may hold the "API credentials read and write" role and
+                        can therefore mint and rotate further credentials, so it is the more dangerous of the
+                        two and is never used to take a payment.</description>
+                    <persistence type="property">
+                        <columntype>
+                            <value>varchar(1024)</value>
+                        </columntype>
+                    </persistence>
+                    <modifiers encrypted="true"/>
+                </attribute>
                 <attribute qualifier="adyenNotificationUsername" type="java.lang.String">
                     <description>Server Communication HTTP Basic username</description>
                     <persistence type="property"/>

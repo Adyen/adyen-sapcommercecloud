@@ -1,0 +1,62 @@
+// Bento's named text styles. Weight variants (stronger/strongest) and the "wide" line height are
+// modifiers on the base style, exactly as Customer Area composes them.
+.b-typography {
+  margin: 0;
+  font-variant-numeric: var(--b-text-font-variant-numeric);
+
+  &--body {
+    font-family: var(--b-text-body-font-family);
+    font-size: var(--b-text-body-font-size);
+    line-height: var(--b-text-body-line-height);
+    font-weight: var(--b-text-body-font-weight);
+  }
+  &--body-wide      { line-height: var(--b-text-body-wide-line-height); }
+  &--body-stronger  { font-weight: var(--b-text-body-stronger-font-weight); }
+  &--body-strongest { font-weight: var(--b-text-body-strongest-font-weight); }
+
+  &--caption {
+    font-family: var(--b-text-caption-font-family);
+    font-size: var(--b-text-caption-font-size);
+    line-height: var(--b-text-caption-line-height);
+    font-weight: var(--b-text-caption-font-weight);
+  }
+  &--caption-stronger { font-weight: var(--b-text-caption-stronger-font-weight); }
+
+  &--eyebrow {
+    font-family: var(--b-text-eyebrow-font-family-secondary);
+    font-size: var(--b-text-eyebrow-font-size);
+    line-height: var(--b-text-eyebrow-line-height);
+    font-weight: var(--b-text-eyebrow-font-weight);
+    text-transform: uppercase;
+    font-variant-numeric: slashed-zero;
+  }
+
+  &--subtitle {
+    font-family: var(--b-text-subtitle-font-family);
+    font-size: var(--b-text-subtitle-font-size);
+    line-height: var(--b-text-subtitle-line-height);
+    font-weight: var(--b-text-subtitle-font-weight);
+  }
+
+  &--title {
+    font-family: var(--b-text-title-font-family);
+    font-size: var(--b-text-title-font-size);
+    line-height: var(--b-text-title-line-height);
+    font-weight: var(--b-text-title-font-weight);
+  }
+  &--title-m {
+    font-family: var(--b-text-title-m-font-family);
+    font-size: var(--b-text-title-m-font-size);
+    line-height: var(--b-text-title-m-line-height);
+    font-weight: var(--b-text-title-m-font-weight);
+  }
+  &--title-l {
+    font-family: var(--b-text-title-l-font-family);
+    font-size: var(--b-text-title-l-font-size);
+    line-height: var(--b-text-title-l-line-height);
+    font-weight: var(--b-text-title-l-font-weight);
+  }
+
+  &--secondary { color: var(--b-color-label-secondary); }
+  &--mono      { font-family: var(--b-text-body-font-family-secondary); }
+}

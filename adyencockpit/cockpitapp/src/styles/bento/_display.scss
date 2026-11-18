@@ -1,0 +1,250 @@
+@use 'mixins' as m;
+
+// --- card ----------------------------------------------------------------------------------------
+.b-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--b-color-background-primary);
+  border: var(--b-border-width-s) solid var(--b-color-outline-primary);
+  border-radius: var(--b-border-radius-l);
+
+  &--secondary { background: var(--b-color-background-secondary); }
+
+  &__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+    padding: var(--b-spacer-060) var(--b-spacer-070) 0;
+  }
+  &__title-wrapper { display: flex; flex-direction: column; min-width: 0; }
+  &__subtitle { color: var(--b-color-label-secondary); }
+
+  &__body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: var(--b-spacer-070);
+    padding: var(--b-spacer-070);
+  }
+  &__header + &__body { padding-top: var(--b-spacer-060); }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--b-spacer-040);
+    padding: 0 var(--b-spacer-070) var(--b-spacer-070);
+  }
+
+  // --- expandable (step card) --------------------------------------------------------------------
+  &__header--expandable {
+    width: 100%;
+    align-items: center;
+    justify-content: flex-start;
+    gap: var(--b-spacer-060);
+    padding: var(--b-spacer-070) var(--b-spacer-090);
+    border: 0;
+    border-radius: var(--b-border-radius-l);
+    background: transparent;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover .b-card__toggle { background: var(--b-color-background-tertiary-hover); }
+    &:focus-visible { @include m.focus-ring; }
+
+    .b-card__title-wrapper { flex: 1; }
+  }
+
+  &__toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    @include m.transition(background-color);
+  }
+
+  &__complete {
+    display: inline-flex;
+    flex-shrink: 0;
+    color: var(--b-color-background-success-strong);
+  }
+
+  // Customer Area's step card: header 16px 24px, body on the card's ordinary 24px, not indented.
+  &--expandable &__body { padding: 0 var(--b-spacer-090) var(--b-spacer-090); }
+  &--expandable &__actions { padding: 0 var(--b-spacer-090) var(--b-spacer-090); }
+}
+
+// --- tag -----------------------------------------------------------------------------------------
+.b-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--b-spacer-030);
+  width: fit-content;
+  padding: var(--b-spacer-010) var(--b-spacer-040);
+  border-radius: var(--b-border-radius-s);
+  color: var(--b-color-label-primary);
+  white-space: nowrap;
+
+  &--grey   { background: var(--b-color-background-secondary); }
+  &--white  { background: var(--b-color-background-primary); }
+  &--green  { background: var(--b-color-background-success-weak);  color: var(--b-color-label-on-background-success-weak); }
+  &--red    { background: var(--b-color-background-critical-weak); color: var(--b-color-label-on-background-critical-weak); }
+  &--orange { background: var(--b-color-background-warning-weak);  color: var(--b-color-label-on-background-warning-weak); }
+  &--blue   { background: var(--b-color-background-highlight-weak); color: var(--b-color-label-on-background-highlight-weak); }
+}
+
+// --- status (dot + label) ------------------------------------------------------------------------
+.b-status {
+  display: inline-flex;
+  align-items: center;
+  column-gap: var(--b-spacer-060);
+  color: var(--b-color-label-primary);
+
+  &__indicator {
+    flex-shrink: 0;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+
+    &--green  { background: var(--b-color-decorative-green); }
+    &--red    { background: var(--b-color-decorative-red); }
+    &--orange { background: var(--b-color-decorative-orange); }
+    &--yellow { background: var(--b-color-decorative-yellow); }
+    &--blue   { background: var(--b-color-decorative-blue); }
+    &--grey   { background: var(--b-color-decorative-grey); }
+  }
+}
+
+// --- alert ---------------------------------------------------------------------------------------
+.b-alert {
+  display: flex;
+  width: 100%;
+
+  &__inner-container {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--b-spacer-070);
+    width: 100%;
+    padding: var(--b-spacer-070);
+    border-radius: var(--b-border-radius-m);
+  }
+
+  &--highlight .b-alert__inner-container { background: var(--b-color-background-highlight-weak); }
+  &--success   .b-alert__inner-container { background: var(--b-color-background-success-weak); }
+  &--warning   .b-alert__inner-container { background: var(--b-color-background-warning-weak); }
+  &--critical  .b-alert__inner-container { background: var(--b-color-background-critical-weak); }
+
+  &--highlight .b-alert__icon { color: var(--b-color-background-highlight-strong); }
+  &--success   .b-alert__icon { color: var(--b-color-background-success-strong); }
+  &--warning   .b-alert__icon { color: var(--b-color-background-warning-strong); }
+  &--critical  .b-alert__icon { color: var(--b-color-background-critical-strong); }
+
+  &__icon {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    height: 24px;
+  }
+
+  &__content { flex: 1; max-width: 700px; }
+  &__description { margin-top: var(--b-spacer-010); }
+  &__actions {
+    display: flex;
+    gap: var(--b-spacer-070);
+    margin-top: var(--b-spacer-050);
+  }
+
+  &__close-button {
+    display: inline-flex;
+    padding: var(--b-spacer-010);
+    border: 0;
+    border-radius: var(--b-border-radius-s);
+    background: transparent;
+    color: var(--b-color-label-primary);
+    cursor: pointer;
+    &:hover { background: var(--b-color-background-tertiary-hover); }
+    &:focus-visible { @include m.focus-ring; }
+  }
+}
+
+// --- structured list (label / value) -------------------------------------------------------------
+.b-structured-list {
+  display: grid;
+  grid-template-columns: minmax(96px, min(40%, 200px)) minmax(0, 1fr);
+  column-gap: var(--b-spacer-090);
+  row-gap: var(--b-spacer-060);
+  margin: 0;
+
+  &__label { color: var(--b-color-label-secondary); }
+  &__value {
+    margin: 0;
+    color: var(--b-color-label-primary);
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+}
+
+// --- empty state ---------------------------------------------------------------------------------
+.b-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--b-spacer-120) var(--b-spacer-080);
+  text-align: center;
+
+  &__icon { margin-bottom: var(--b-spacer-070); color: var(--b-color-label-tertiary); }
+  &__title { max-width: 600px; margin-bottom: var(--b-spacer-020); color: var(--b-color-label-primary); word-break: break-word; }
+  &__details { max-width: 600px; margin-bottom: var(--b-spacer-070); color: var(--b-color-label-secondary); }
+}
+
+// --- code snippet --------------------------------------------------------------------------------
+.b-code-snippet {
+  display: flex;
+  flex-direction: column;
+
+  &__action-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--b-spacer-040) var(--b-spacer-060);
+    background: var(--b-color-background-tertiary);
+    border-radius: var(--b-border-radius-m) var(--b-border-radius-m) 0 0;
+    color: var(--b-color-label-secondary);
+  }
+
+  &__code-area {
+    margin: 0;
+    padding: var(--b-spacer-060);
+    background: var(--b-color-background-secondary);
+    border-radius: 0 0 var(--b-border-radius-m) var(--b-border-radius-m);
+    overflow: auto;
+    font-family: var(--b-text-body-font-family-secondary);
+    font-size: var(--b-text-caption-font-size);
+    line-height: var(--b-text-caption-wide-line-height);
+    font-variant-numeric: slashed-zero;
+    white-space: pre;
+  }
+}
+
+// --- divider -------------------------------------------------------------------------------------
+.b-divider {
+  height: 0;
+  margin: 0;
+  border: 0;
+  border-top: var(--b-border-width-s) solid var(--b-color-separator-primary);
+}
+
+// --- link ----------------------------------------------------------------------------------------
+.b-link {
+  color: var(--b-color-link-primary);
+  text-decoration: underline;
+  cursor: pointer;
+  &:hover { color: var(--b-color-link-primary-hover); }
+  &:focus-visible { @include m.focus-ring; border-radius: 2px; }
+  &--quiet { color: var(--b-color-link-quiet); &:hover { color: var(--b-color-link-quiet-hover); } }
+}
