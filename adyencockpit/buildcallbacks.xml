@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="adyencockpit_buildcallbacks">
+
+    <!--
+      Assembles webfragmentExt_adyencockpit.jar into the backoffice webapp. The jar carries two things:
+      the fragment descriptor, which maps the cockpit paths through Backoffice's own security chain,
+      and the built application under META-INF/resources, which Tomcat mounts at the context root.
+
+      The jar name is load-bearing. The /backoffice context runs with defaultPluggabilityScan="false"
+      and an allowlist of "webfragment*.jar", matched case-sensitively, so anything else is ignored in
+      silence. The trailing "Ext_" keeps it inside the pattern backoffice's own clean target sweeps.
+    -->
+
+    <property name="adyencockpit_web_fragment_file" value="${ext.adyencockpit.path}/resources/web-fragment.xml"/>
+    <property name="adyencockpit_web_fragment_dest_jar"
+              value="${ext.backoffice.path}/web/webroot/WEB-INF/lib/webfragmentExt_adyencockpit.jar"/>
+    <property name="adyencockpit_staging" value="${ext.adyencockpit.path}/webfragment-staging"/>
+    <property name="adyencockpit_spa_home" value="${ext.adyencockpit.path}/cockpitapp"/>
+    <property name="adyencockpit_spa_dist" value="${adyencockpit_spa_home}/dist/adyencockpit/browser"/>
+
+    <macrodef name="adyencockpit_after_clean">
+        <sequential>
+            <adyencockpit_remove_web_fragment/>
+            <delete dir="${adyencockpit_staging}" quiet="true"/>
+        </sequential>
+    </macrodef>
+
+    <macrodef name="adyencockpit_after_build">
+        <sequential>
+            <adyencockpit_remove_web_fragment/>
+            <adyencockpit_build_spa/>
+            <adyencockpit_create_web_fragment/>
+        </sequential>
+    </macrodef>
+
+    <macrodef name="adyencockpit_remove_web_fragment">
+        <sequential>
+            <delete file="${adyencockpit_web_fragment_dest_jar}" failonerror="false" verbose="true"/>
+        </sequential>
+    </macrodef>
+
+    <!--
+      Builds the cockpit application with the Node that ships with the platform, so the result does not
+      depend on what happens to be installed on the machine running the build. Set
+      adyencockpit.spa.build.skip=true to assemble from resources/webapp instead.
+    -->
+    <macrodef name="adyencockpit_build_spa">
+        <sequential>
+            <if>
+                <and>
+                    <available file="${adyencockpit_spa_home}/package.json"/>
+                    <not>
+                        <istrue value="${adyencockpit.spa.build.skip}"/>
+                    </not>
+                </and>
+                <then>
+                    <echo level="info" message="adyencockpit: building the cockpit application..."/>
+                    <invokeNpm path="${adyencockpit_spa_home}" arguments="ci --no-audit --no-fund"/>
+                    <invokeNpm path="${adyencockpit_spa_home}" arguments="run build"/>
+                </then>
+                <else>
+                    <echo level="info"
+                          message="adyencockpit: no application project found or the build is skipped; the fragment will carry resources/webapp."/>
+                </else>
+            </if>
+        </sequential>
+    </macrodef>
+
+    <macrodef name="adyencockpit_create_web_fragment">
+        <sequential>
+            <delete dir="${adyencockpit_staging}" quiet="true"/>
+            <mkdir dir="${adyencockpit_staging}/META-INF/resources/adyencockpit"/>
+            <copy file="${adyencockpit_web_fragment_file}" todir="${adyencockpit_staging}/META-INF"/>
+            <if>
+                <available file="${adyencockpit_spa_dist}" type="dir"/>
+                <then>
+                    <copy todir="${adyencockpit_staging}/META-INF/resources/adyencockpit">
+                        <fileset dir="${adyencockpit_spa_dist}"/>
+                    </copy>
+                </then>
+                <else>
+                    <copy todir="${adyencockpit_staging}/META-INF/resources/adyencockpit">
+                        <fileset dir="${ext.adyencockpit.path}/resources/webapp"/>
+                    </copy>
+                </else>
+            </if>
+            <jar destfile="${adyencockpit_web_fragment_dest_jar}" basedir="${adyencockpit_staging}"/>
+            <echo level="info" message="adyencockpit: wrote ${adyencockpit_web_fragment_dest_jar}"/>
+        </sequential>
+    </macrodef>
+
+</project>

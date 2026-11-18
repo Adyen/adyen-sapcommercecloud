@@ -1,0 +1,256 @@
+@use 'mixins' as m;
+
+// The Customer Area frame: a full-width top bar split into a sidebar-width block and a page block,
+// then the navigation drawer beside the page. Both chrome surfaces sit on background-secondary with
+// separators; the page itself is background-primary.
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100%;
+  overflow-x: hidden;
+
+  &__header {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: stretch;
+    border-bottom: var(--b-border-width-s) solid var(--b-color-separator-primary);
+    background-color: var(--b-color-background-secondary);
+  }
+
+  &__sidebar-header {
+    flex: 0 0 248px;
+    width: 248px;
+    border-right: var(--b-border-width-s) solid var(--b-color-separator-primary);
+  }
+
+  &__page-header {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+  }
+
+  &__content {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  width: 100%;
+  padding: 0 var(--b-spacer-060) 0 var(--b-spacer-080);
+  overflow: hidden;
+}
+
+// --- account block (read-only here: the cockpit belongs to one installation) ---------------------
+.app-sidebar-account {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 48px;
+  padding: var(--b-spacer-040);
+  border-radius: var(--b-border-radius-m);
+
+  &__image {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    margin-right: var(--b-spacer-060);
+    border-radius: var(--b-border-radius-m);
+    background: var(--b-color-background-highlight-weak);
+    color: var(--b-color-background-highlight-strong);
+    font-weight: var(--b-text-body-strongest-font-weight);
+  }
+
+  &__data { display: flex; flex-direction: column; min-width: 0; }
+
+  &__name {
+    font-size: var(--b-text-body-font-size);
+    font-weight: var(--b-text-body-stronger-font-weight);
+    line-height: var(--b-text-body-line-height);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__type {
+    font-size: var(--b-text-caption-font-size);
+    line-height: var(--b-text-caption-line-height);
+    color: var(--b-color-label-secondary);
+  }
+}
+
+// --- top bar -------------------------------------------------------------------------------------
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: var(--b-spacer-140);
+  padding: var(--b-spacer-040) var(--b-spacer-060);
+}
+
+.app-header-section {
+  display: flex;
+  align-items: center;
+  gap: var(--b-spacer-040);
+}
+
+.app-header-breadcrumbs {
+  display: flex;
+  align-items: center;
+  margin-left: var(--b-spacer-040);
+
+  &__item {
+    display: inline-flex;
+    padding: var(--b-spacer-040) var(--b-spacer-030);
+    color: var(--b-color-label-secondary);
+
+    &--active { color: var(--b-color-label-primary); }
+  }
+
+  &__icon {
+    display: inline-flex;
+    color: var(--b-color-label-always-dark);
+  }
+}
+
+.b-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--b-color-background-inverse-secondary);
+  color: var(--b-color-label-inverse-primary);
+  font-size: var(--b-text-caption-font-size);
+  font-weight: var(--b-text-caption-stronger-font-weight);
+  text-transform: uppercase;
+}
+
+// --- drawer + navigation -------------------------------------------------------------------------
+.b-drawer {
+  display: flex;
+  height: 100%;
+  position: relative;
+
+  &__drawer {
+    flex-shrink: 0;
+    width: 248px;
+    height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    background-color: var(--b-color-background-secondary);
+    border-right: var(--b-border-width-s) solid var(--b-color-separator-primary);
+  }
+
+  &__page {
+    flex-grow: 1;
+    height: 100%;
+    overflow: auto;
+    background: var(--b-color-background-primary);
+  }
+}
+
+.app-sidebar__navigation {
+  display: flex;
+  flex-direction: column;
+  gap: var(--b-spacer-080);
+  padding: var(--b-spacer-070) var(--b-spacer-060);
+}
+
+.b-navigation-menu {
+  &__header {
+    display: flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 0 var(--b-spacer-020);
+    margin-bottom: var(--b-spacer-020);
+  }
+
+  &__title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--b-color-label-secondary);
+    font-family: var(--b-text-caption-font-family-secondary);
+    text-transform: uppercase;
+    font-variant-numeric: slashed-zero;
+  }
+
+  &__content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+}
+
+.b-navigation-menu-item {
+  border-radius: var(--b-border-radius-m);
+  @include m.transition(background-color);
+
+  &:hover { background-color: var(--b-color-background-tertiary-hover); }
+
+  &--selected {
+    background-color: var(--b-color-background-navigation);
+    &:hover { background-color: var(--b-color-background-navigation-hover); }
+  }
+
+  &__link {
+    display: flex;
+    align-items: center;
+    gap: var(--b-spacer-020);
+    min-height: 32px;
+    padding: 2px var(--b-spacer-020);
+    border-radius: var(--b-border-radius-m);
+    color: var(--b-color-label-primary);
+    text-decoration: none;
+
+    &:focus-visible { @include m.focus-ring; }
+  }
+
+  &__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+  }
+}
+
+// --- page layout ---------------------------------------------------------------------------------
+.b-page {
+  max-width: 1440px;
+  padding: var(--b-spacer-080) var(--b-spacer-090) var(--b-spacer-120);
+}
+
+.b-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--b-spacer-080);
+  margin-bottom: var(--b-spacer-090);
+
+  &__titles { display: flex; flex-direction: column; gap: var(--b-spacer-010); min-width: 0; }
+  &__description { color: var(--b-color-label-secondary); }
+  &__actions { display: flex; flex-shrink: 0; gap: var(--b-spacer-040); }
+}
+
+.b-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--b-spacer-070);
+
+  & + & { margin-top: var(--b-spacer-110); }
+}

@@ -1,0 +1,279 @@
+@use 'mixins' as m;
+
+// --- label, requirement, error ------------------------------------------------------------------
+.b-field-label {
+  display: inline-block;
+  margin-bottom: var(--b-spacer-040);
+  color: var(--b-color-label-primary);
+
+  &__requirement {
+    margin-left: var(--b-spacer-020);
+    color: var(--b-color-label-secondary);
+    font-weight: var(--b-text-body-font-weight);
+  }
+}
+
+.b-error-message {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--b-spacer-020);
+  margin-top: var(--b-spacer-020);
+  color: var(--b-color-label-critical);
+}
+
+// --- text input ----------------------------------------------------------------------------------
+.b-input-field {
+  display: flex;
+  flex-direction: column;
+
+  &__input-box {
+    display: flex;
+    align-items: center;
+    height: 36px;
+    background: var(--b-color-background-primary);
+    border: var(--b-border-width-s) solid var(--b-color-outline-tertiary);
+    border-radius: var(--b-border-radius-m);
+    color: var(--b-color-label-primary);
+    @include m.transition(border-color, box-shadow);
+
+    &:hover { border-color: var(--b-color-outline-tertiary-hover); }
+    &:focus-within { @include m.focus-ring; border-color: var(--b-color-outline-tertiary-active); }
+  }
+
+  &__input {
+    flex: 1;
+    min-width: 0;
+    margin: var(--b-spacer-040) var(--b-spacer-060);
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    color: inherit;
+    outline: none;
+
+    &::placeholder { color: var(--b-color-label-tertiary); }
+  }
+
+  &__icon-before { display: inline-flex; margin-left: var(--b-spacer-060); color: var(--b-color-label-secondary); }
+  &__icon-before ~ .b-input-field__input { margin-left: var(--b-spacer-040); }
+
+  &__static-value {
+    color: var(--b-color-label-secondary);
+    white-space: nowrap;
+    &--start { margin-left: var(--b-spacer-060); }
+    &--end   { margin-right: var(--b-spacer-060); }
+  }
+
+  &__footer {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--b-spacer-040);
+    margin-top: var(--b-spacer-020);
+  }
+  &__description { color: var(--b-color-label-secondary); }
+  &__hint { color: var(--b-color-label-secondary); text-align: right; white-space: nowrap; }
+
+  &--condensed {
+    .b-input-field__input-box { height: 28px; }
+    .b-input-field__input { margin: var(--b-spacer-020) var(--b-spacer-050); }
+  }
+
+  &--error .b-input-field__input-box {
+    border-color: var(--b-color-outline-critical);
+    box-shadow: 0 0 0 0.5px var(--b-color-outline-critical);
+  }
+
+  &--disabled .b-input-field__input-box {
+    background: var(--b-color-background-disabled);
+    border-color: var(--b-color-outline-disabled);
+    color: var(--b-color-label-disabled);
+    cursor: not-allowed;
+  }
+
+  &--readonly .b-input-field__input-box {
+    background: transparent;
+  }
+
+  &--mono .b-input-field__input {
+    font-family: var(--b-text-body-font-family-secondary);
+    font-variant-numeric: slashed-zero;
+  }
+}
+
+// --- select --------------------------------------------------------------------------------------
+// A native <select> dressed as Bento's dropdown trigger. The full listbox (search, multi-select) is a
+// later component; the native control keeps keyboard and screen-reader behaviour for free.
+.b-select {
+  position: relative;
+  display: flex;
+
+  &__control {
+    appearance: none;
+    width: 100%;
+    height: 36px;
+    padding: 0 36px 0 var(--b-spacer-060);
+    background: var(--b-color-background-primary);
+    border: var(--b-border-width-s) solid var(--b-color-outline-tertiary);
+    border-radius: var(--b-border-radius-m);
+    font: inherit;
+    color: var(--b-color-label-primary);
+    cursor: pointer;
+    @include m.transition(border-color, box-shadow);
+
+    &:hover { border-color: var(--b-color-outline-tertiary-hover); }
+    &:focus-visible { @include m.focus-ring; }
+    &:disabled {
+      background: var(--b-color-background-disabled);
+      border-color: var(--b-color-outline-disabled);
+      color: var(--b-color-label-disabled);
+      cursor: not-allowed;
+    }
+  }
+
+  &__chevron {
+    position: absolute;
+    right: var(--b-spacer-060);
+    top: 50%;
+    transform: translateY(-50%);
+    display: inline-flex;
+    pointer-events: none;
+    color: var(--b-color-label-secondary);
+  }
+
+  &--error .b-select__control { border-color: var(--b-color-outline-critical); }
+}
+
+// --- checkbox ------------------------------------------------------------------------------------
+.b-checkbox {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: var(--b-spacer-040);
+  cursor: pointer;
+
+  &__outline {
+    appearance: none;
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    margin: 2px 0 0;
+    border: var(--b-border-width-s) solid var(--b-color-outline-tertiary);
+    border-radius: var(--b-border-radius-s);
+    background: var(--b-color-background-primary) center / 12px no-repeat;
+    cursor: inherit;
+    @include m.transition(background-color, border-color);
+
+    &:hover { border-color: var(--b-color-outline-tertiary-hover); }
+    &:focus-visible { @include m.focus-ring; }
+
+    &:checked {
+      background-color: var(--b-color-background-inverse-primary);
+      border-color: var(--b-color-background-inverse-primary);
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='%23fff' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    }
+
+    &:disabled {
+      background-color: var(--b-color-background-disabled);
+      border-color: var(--b-color-outline-disabled);
+      cursor: not-allowed;
+    }
+
+    // Declared after :disabled on purpose: a disabled box that is checked still has to show the tick.
+    &:checked:disabled {
+      background-color: var(--b-color-label-disabled);
+      border-color: transparent;
+    }
+  }
+
+  &__text { display: flex; flex-direction: column; }
+  &__description { color: var(--b-color-label-secondary); }
+
+  &--disabled { color: var(--b-color-label-disabled); cursor: not-allowed; }
+}
+
+// --- toggle (switch) -----------------------------------------------------------------------------
+.b-toggle {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: var(--b-spacer-040);
+  cursor: pointer;
+
+  &__input { @include m.visually-hidden; }
+
+  &__track {
+    position: relative;
+    flex-shrink: 0;
+    width: 36px;
+    height: 20px;
+    border: var(--b-border-width-s) solid var(--b-color-outline-tertiary);
+    border-radius: 12px;
+    background: var(--b-color-background-primary);
+    @include m.transition(background-color, border-color);
+  }
+
+  &__handle {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--b-color-background-inverse-primary);
+    transition: transform var(--b-animation-duration-moderate) var(--b-animation-easing-standard),
+                width var(--b-animation-duration-moderate) var(--b-animation-easing-standard),
+                height var(--b-animation-duration-moderate) var(--b-animation-easing-standard);
+  }
+
+  &__input:checked + .b-toggle__track {
+    background: var(--b-color-background-inverse-primary);
+    border-color: var(--b-color-background-inverse-primary);
+
+    .b-toggle__handle {
+      top: 1px;
+      left: 1px;
+      width: 16px;
+      height: 16px;
+      background: var(--b-color-background-primary);
+      transform: translateX(100%);
+    }
+  }
+
+  &__input:focus-visible + .b-toggle__track { @include m.focus-ring; }
+
+  &__text { display: flex; flex-direction: column; }
+  &__description { color: var(--b-color-label-secondary); }
+
+  // Qualified with the input state so it outranks the checked rule above, which is more specific.
+  &--disabled {
+    color: var(--b-color-label-disabled);
+    cursor: not-allowed;
+
+    .b-toggle__input + .b-toggle__track {
+      border-color: var(--b-color-outline-disabled);
+      background: var(--b-color-background-disabled);
+      .b-toggle__handle { background: var(--b-color-label-disabled); }
+    }
+
+    .b-toggle__input:checked + .b-toggle__track {
+      border-color: transparent;
+      background: var(--b-color-label-disabled);
+      .b-toggle__handle { background: var(--b-color-background-primary); }
+    }
+  }
+}
+
+// --- form layout ---------------------------------------------------------------------------------
+.b-form-layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--b-spacer-080);
+}
+
+.b-form-layout-group {
+  display: grid;
+  column-gap: var(--b-spacer-050);
+  row-gap: var(--b-spacer-080);
+
+  &--100   { grid-template-columns: 1fr; }
+  &--50-50 { grid-template-columns: 1fr 1fr; }
+  &--50    { grid-template-columns: minmax(0, 50%); }
+}

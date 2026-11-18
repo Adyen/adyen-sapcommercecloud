@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-fragment xmlns="https://jakarta.ee/xml/ns/jakartaee"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee
+                  https://jakarta.ee/xml/ns/jakartaee/web-fragment_6_0.xsd"
+              version="6.0">
+
+    <name>webfragment_adyencockpit</name>
+
+    <!-- springSecurityFilterChain is declared by a core backoffice fragment, so that fragment has to
+         be processed before this one adds a mapping to it. -->
+    <ordering>
+        <after>
+            <name>webfragment_springSecurityFilterChain</name>
+        </after>
+        <before>
+            <others/>
+        </before>
+    </ordering>
+
+    <servlet>
+        <servlet-name>AdyenCockpitApiServlet</servlet-name>
+        <servlet-class>com.adyen.cockpit.servlet.AdyenCockpitApiServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>AdyenCockpitApiServlet</servlet-name>
+        <url-pattern>/adyencockpit/api/*</url-pattern>
+    </servlet-mapping>
+
+    <!-- What makes the cockpit share the Backoffice login: everything under these paths passes
+         through Backoffice's own security chain, so there is no second session and no second
+         login form. The SPA files are served by the container's default servlet from
+         META-INF/resources in this same jar. -->
+    <filter-mapping>
+        <filter-name>springSecurityFilterChain</filter-name>
+        <url-pattern>/adyencockpit/*</url-pattern>
+    </filter-mapping>
+
+</web-fragment>
