@@ -293,7 +293,12 @@
                 </attribute>
                 <attribute qualifier="adyenNotificationHMACKey" type="java.lang.String">
                     <description>Server Communication HMAC Key</description>
-                    <persistence type="property"/>
+                    <persistence type="property">
+                        <columntype>
+                            <value>varchar(1024)</value>
+                        </columntype>
+                    </persistence>
+                    <modifiers encrypted="true"/>
                 </attribute>
                 <attribute qualifier="adyenAllowEmptyHMACKey" type="java.lang.boolean">
                     <description>Accept webhook notifications even when no HMAC Key is configured. Insecure: leave disabled in production.</description>
