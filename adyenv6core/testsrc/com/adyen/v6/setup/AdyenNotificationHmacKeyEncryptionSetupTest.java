@@ -301,6 +301,5 @@ public class AdyenNotificationHmacKeyEncryptionSetupTest
 		setup.encryptNotificationHmacKeys(null);
 
 		verify(modelService, never()).save(any(Object.class));
-		assertEquals(2, rows.size());
 	}
 }

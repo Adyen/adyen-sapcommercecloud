@@ -198,6 +198,7 @@ public class AdyenNotificationHmacKeyEncryptionSetup
 		}
 		catch (final RuntimeException e)
 		{
+			// Rethrown as is, so the caller logs the original class; only checked exceptions are wrapped below.
 			throw e;
 		}
 		catch (final Exception e)

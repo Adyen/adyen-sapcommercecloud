@@ -20,6 +20,7 @@
  */
 package com.adyen.v6.interceptor;
 
+import java.text.MessageFormat;
 import java.util.Locale;
 import java.util.ResourceBundle;
 import java.util.function.BiFunction;
@@ -72,7 +73,14 @@ public class AdyenApiEndpointPrefixValidateInterceptor implements ValidateInterc
 		// without the key the adapter answers with the English fallback instead of the bare key.
 		return new InterceptorException(buildMessage(storeUid), null, this,
 				new ExceptionLocalizer(MESSAGE_KEY, new Object[] { storeUid },
-						new LocalizationAdapter((key, args) -> buildMessage(storeUid))));
+						new LocalizationAdapter((key, args) -> localizeOrFallback(key, args, storeUid))));
+	}
+
+	/** Resolves the key with the given arguments, or the English fallback when the session language lacks it. */
+	protected String localizeOrFallback(final String key, final Object[] args, final String storeUid)
+	{
+		final String localized = localize(key, args);
+		return localized == null || localized.isEmpty() || key.equals(localized) ? fallbackMessage(storeUid) : localized;
 	}
 
 	/** The translated message, or null when the key does not resolve. */
@@ -144,7 +152,7 @@ public class AdyenApiEndpointPrefixValidateInterceptor implements ValidateInterc
 
 	protected String fallbackMessage(final String storeUid)
 	{
-		return java.text.MessageFormat.format(FALLBACK_MESSAGE, storeUid);
+		return MessageFormat.format(FALLBACK_MESSAGE, storeUid);
 	}
 
 	/** Pure rule: null and empty are valid; a scheme, colon, dot, slash, whitespace or -checkout-live is not. */
