@@ -99,13 +99,12 @@ public class AdyenNotificationHmacKeyEncryptionSetupTest
 			}
 
 			@Override
-			protected String decrypt(final String value)
+			protected void tryDecrypt(final String value)
 			{
 				if (undecryptable.contains(value))
 				{
 					throw new IllegalStateException("error in decryption");
 				}
-				return "plain";
 			}
 		};
 		setup.setModelService(modelService);
@@ -124,7 +123,7 @@ public class AdyenNotificationHmacKeyEncryptionSetupTest
 		rows = List.of(new AdyenNotificationHmacKeyEncryptionSetup.RawKey(1L, CLEAR));
 		final BaseStoreModel store = storeFor(1L);
 
-		setup.encryptNotificationHmacKeys(null);
+		setup.encryptNotificationHmacKeys();
 
 		// Cleared first: a single save would make the platform decrypt the clear-text old value and fail.
 		final InOrder order = inOrder(store, modelService);
@@ -170,7 +169,7 @@ public class AdyenNotificationHmacKeyEncryptionSetupTest
 		};
 		counting.setModelService(modelService);
 
-		counting.encryptNotificationHmacKeys(null);
+		counting.encryptNotificationHmacKeys();
 
 		assertEquals(1, transactions[0]);
 		verify(modelService, times(2)).save(store);
@@ -182,7 +181,7 @@ public class AdyenNotificationHmacKeyEncryptionSetupTest
 		attributeEncrypted = false;
 		rows = List.of(new AdyenNotificationHmacKeyEncryptionSetup.RawKey(1L, CLEAR));
 
-		setup.encryptNotificationHmacKeys(null);
+		setup.encryptNotificationHmacKeys();
 
 		assertFalse(rawKeysRead);
 		verifyNoInteractions(modelService);
@@ -223,7 +222,7 @@ public class AdyenNotificationHmacKeyEncryptionSetupTest
 		final BaseStoreModel second = storeFor(2L);
 		doThrow(new IllegalStateException("boom")).when(modelService).save(first);
 
-		assertThrows(IllegalStateException.class, () -> setup.encryptNotificationHmacKeys(null));
+		assertThrows(IllegalStateException.class, () -> setup.encryptNotificationHmacKeys());
 
 		verify(modelService).detach(first);
 		verifyNoInteractions(second);
@@ -235,8 +234,8 @@ public class AdyenNotificationHmacKeyEncryptionSetupTest
 		// Regression: a filter that required ";S;" re-encrypted this form on the second run.
 		rows = List.of(new AdyenNotificationHmacKeyEncryptionSetup.RawKey(1L, ENCRYPTED));
 
-		setup.encryptNotificationHmacKeys(null);
-		setup.encryptNotificationHmacKeys(null);
+		setup.encryptNotificationHmacKeys();
+		setup.encryptNotificationHmacKeys();
 
 		verifyNoInteractions(modelService);
 	}
@@ -246,7 +245,7 @@ public class AdyenNotificationHmacKeyEncryptionSetupTest
 	{
 		rows = List.of(new AdyenNotificationHmacKeyEncryptionSetup.RawKey(1L, ENCRYPTED));
 
-		setup.encryptNotificationHmacKeys(null);
+		setup.encryptNotificationHmacKeys();
 
 		verifyNoInteractions(modelService);
 	}
@@ -257,7 +256,7 @@ public class AdyenNotificationHmacKeyEncryptionSetupTest
 		rows = List.of(new AdyenNotificationHmacKeyEncryptionSetup.RawKey(1L, ENCRYPTED));
 		undecryptable = Set.of(ENCRYPTED);
 
-		setup.encryptNotificationHmacKeys(null);
+		setup.encryptNotificationHmacKeys();
 
 		verifyNoInteractions(modelService);
 	}
@@ -269,7 +268,7 @@ public class AdyenNotificationHmacKeyEncryptionSetupTest
 				new AdyenNotificationHmacKeyEncryptionSetup.RawKey(2L, ""),
 				new AdyenNotificationHmacKeyEncryptionSetup.RawKey(3L, "  "));
 
-		setup.encryptNotificationHmacKeys(null);
+		setup.encryptNotificationHmacKeys();
 
 		verifyNoInteractions(modelService);
 	}
@@ -283,7 +282,7 @@ public class AdyenNotificationHmacKeyEncryptionSetupTest
 		final BaseStoreModel second = storeFor(2L);
 		doThrow(new IllegalStateException("boom " + CLEAR)).when(modelService).save(first);
 
-		setup.encryptNotificationHmacKeys(null);
+		setup.encryptNotificationHmacKeys();
 
 		verify(modelService).save(first);
 		verify(modelService).detach(first);
@@ -297,8 +296,8 @@ public class AdyenNotificationHmacKeyEncryptionSetupTest
 		rows = List.of(new AdyenNotificationHmacKeyEncryptionSetup.RawKey(1L, ENCRYPTED),
 				new AdyenNotificationHmacKeyEncryptionSetup.RawKey(2L, ENCRYPTED));
 
-		setup.encryptNotificationHmacKeys(null);
-		setup.encryptNotificationHmacKeys(null);
+		setup.encryptNotificationHmacKeys();
+		setup.encryptNotificationHmacKeys();
 
 		verify(modelService, never()).save(any(Object.class));
 	}

@@ -33,7 +33,6 @@ import com.adyen.v6.constants.Adyenv6coreConstants;
 import de.hybris.platform.core.PK;
 import de.hybris.platform.core.Registry;
 import de.hybris.platform.core.initialization.SystemSetup;
-import de.hybris.platform.core.initialization.SystemSetupContext;
 import de.hybris.platform.servicelayer.model.ModelService;
 import de.hybris.platform.servicelayer.type.TypeService;
 import de.hybris.platform.store.BaseStoreModel;
@@ -69,7 +68,7 @@ public class AdyenNotificationHmacKeyEncryptionSetup
 	}
 
 	@SystemSetup(type = SystemSetup.Type.ESSENTIAL, process = SystemSetup.Process.ALL)
-	public void encryptNotificationHmacKeys(final SystemSetupContext context)
+	public void encryptNotificationHmacKeys()
 	{
 		if (!isAttributeEncrypted())
 		{
@@ -279,7 +278,7 @@ public class AdyenNotificationHmacKeyEncryptionSetup
 	{
 		try
 		{
-			decrypt(value);
+			tryDecrypt(value);
 			return true;
 		}
 		catch (final RuntimeException e)
@@ -288,9 +287,10 @@ public class AdyenNotificationHmacKeyEncryptionSetup
 		}
 	}
 
-	protected String decrypt(final String value)
+	/** Decrypts the value only to check that it can be decrypted; throws when it cannot. The result is discarded. */
+	protected void tryDecrypt(final String value)
 	{
-		return Registry.getMasterTenant().getValueEncryptor().decrypt(value);
+		Registry.getMasterTenant().getValueEncryptor().decrypt(value);
 	}
 
 	protected ModelService getModelService()
