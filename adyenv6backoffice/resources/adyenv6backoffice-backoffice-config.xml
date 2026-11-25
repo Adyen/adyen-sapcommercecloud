@@ -56,7 +56,10 @@
 	</context>
 
 
-	<context merge-by="type" type="BaseStore" component="editor-area">
+	<!-- Admins only. principal matches the user uid or the active Backoffice role, never plain group membership;
+	     every context that adds to these tabs must carry the same principal, or the tab shows for everyone.
+	     merge-by="principal" makes the principal-less BaseStore context the parent, so the OOTB tabs stay. -->
+	<context merge-by="principal" type="BaseStore" component="editor-area" principal="admin,backofficeadministratorrole">
 		<editorArea:editorArea xmlns:editorArea="http://www.hybris.com/cockpitng/component/editorArea">
 			<editorArea:tab name="hmc.adyen">
 				<editorArea:section name="hmc.adyen.account">
@@ -80,7 +83,7 @@
 				<editorArea:section name="hmc.adyen.notifications">
 					<editorArea:attribute qualifier="adyenNotificationUsername"/>
 					<editorArea:attribute qualifier="adyenNotificationPassword" editor="com.hybris.cockpitng.editor.defaultpassword"/>
-					<editorArea:attribute qualifier="adyenNotificationHMACKey"/>
+					<editorArea:attribute qualifier="adyenNotificationHMACKey" editor="com.hybris.cockpitng.editor.defaultpassword"/>
 					<editorArea:attribute qualifier="adyenAllowEmptyHMACKey"/>
 				</editorArea:section>
 				<editorArea:section name="hmc.adyen.expressPayments">

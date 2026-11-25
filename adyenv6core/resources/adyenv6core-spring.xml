@@ -267,6 +267,18 @@
         <property name="orderConverter" ref="orderConverter"/>
     </bean>
 
+    <!-- ============================================================= -->
+    <!-- Interceptors                                                  -->
+    <!-- Rejects a live endpoint prefix that is a pasted URL or host.  -->
+    <!-- ============================================================= -->
+    <bean id="adyenApiEndpointPrefixValidateInterceptor"
+          class="com.adyen.v6.interceptor.AdyenApiEndpointPrefixValidateInterceptor"/>
+    <bean id="adyenApiEndpointPrefixValidateInterceptorMapping"
+          class="de.hybris.platform.servicelayer.interceptor.impl.InterceptorMapping">
+        <property name="interceptor" ref="adyenApiEndpointPrefixValidateInterceptor"/>
+        <property name="typeCode" value="BaseStore"/>
+    </bean>
+
     <!-- Process notification cronjob -->
     <bean id="adyenProcessNotificationCronJob" class="com.adyen.v6.cronjob.AdyenProcessNotificationCronJob">
         <property name="modelService" ref="modelService"/>
@@ -831,6 +843,15 @@
         <property name="baseStoreService" ref="baseStoreService"/>
         <property name="i18NService" ref="i18NService"/>
         <property name="commonI18NService" ref="commonI18NService"/>
+    </bean>
+
+    <!-- ============================================================= -->
+    <!-- System setup                                                  -->
+    <!-- ============================================================= -->
+    <bean id="adyenNotificationHmacKeyEncryptionSetup"
+          class="com.adyen.v6.setup.AdyenNotificationHmacKeyEncryptionSetup">
+        <property name="modelService" ref="modelService"/>
+        <property name="typeService" ref="typeService"/>
     </bean>
 
 </beans>
