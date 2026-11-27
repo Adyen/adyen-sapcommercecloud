@@ -16,6 +16,11 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
+import com.adyen.cockpit.api.ErrorCode;
+import com.adyen.cockpit.api.provider.Provider;
+import com.adyen.cockpit.api.provider.ProviderError;
+import com.adyen.cockpit.api.provider.ProviderErrorClassifier;
+
 import de.hybris.platform.servicelayer.config.ConfigurationService;
 import de.hybris.platform.store.BaseStoreModel;
 
@@ -37,6 +42,8 @@ public class ManagementApiClient
 	/** Overrides the environment a store's test mode selects. Unset in normal use. */
 	static final String ENDPOINT_OVERRIDE_PROPERTY = "adyencockpit.management.api.endpoint";
 
+	private static final ProviderErrorClassifier CLASSIFIER = new ProviderErrorClassifier();
+
 	private static final String X_API_KEY = "X-API-Key";
 	private static final int CONNECT_TIMEOUT_MS = 10_000;
 	private static final int READ_TIMEOUT_MS = 30_000;
@@ -55,8 +62,12 @@ public class ManagementApiClient
 		MISCONFIGURED
 	}
 
-	/** What Adyen answered. Exactly one of body and failure is set. */
-	public record Response(Map<String, Object> body, Failure failure, int status)
+	/**
+	 * What Adyen answered. Exactly one of body and failure is set. {@code error} is the same failure in the
+	 * API core's vocabulary (null on success): {@code failure} is what the store setup page shows, {@code
+	 * error} is what later routes surface as a provider error.
+	 */
+	public record Response(Map<String, Object> body, Failure failure, int status, ProviderError error)
 	{
 		public boolean ok()
 		{
@@ -65,12 +76,28 @@ public class ManagementApiClient
 
 		static Response of(final Map<String, Object> body)
 		{
-			return new Response(body == null ? Map.of() : body, null, 200);
+			return new Response(body == null ? Map.of() : body, null, 200, null);
 		}
 
 		static Response failed(final Failure failure, final int status)
 		{
-			return new Response(Map.of(), failure, status);
+			return new Response(Map.of(), failure, status, derive(failure, status));
+		}
+
+		/** For a failure built without a provider answer in hand (tests, fakes): the error its status implies. */
+		private static ProviderError derive(final Failure failure, final int status)
+		{
+			final Integer httpStatus = status > 0 ? status : null;
+			return switch (failure)
+			{
+				case UNRECOGNISED -> new ProviderError(ErrorCode.PROVIDER_UNAUTHORISED, Provider.ADYEN, httpStatus, null);
+				case FORBIDDEN -> new ProviderError(ErrorCode.PROVIDER_FORBIDDEN, Provider.ADYEN, httpStatus, null);
+				case UNREACHABLE -> new ProviderError(ErrorCode.PROVIDER_UNREACHABLE, Provider.ADYEN, null, null);
+				case MISCONFIGURED -> new ProviderError(ErrorCode.PROVIDER_MISCONFIGURED, Provider.ADYEN, null, null);
+				case REJECTED -> httpStatus == null
+						? new ProviderError(ErrorCode.PROVIDER_REJECTED, Provider.ADYEN, null, null)
+						: CLASSIFIER.classify(Provider.ADYEN, httpStatus, null, null);
+			};
 		}
 	}
 
@@ -84,6 +111,12 @@ public class ManagementApiClient
 		factory.setConnectTimeout(CONNECT_TIMEOUT_MS);
 		factory.setReadTimeout(READ_TIMEOUT_MS);
 		this.restTemplate = new RestTemplate(factory);
+	}
+
+	/** For tests: answers come from the given template instead of the network. */
+	protected ManagementApiClient(final RestTemplate restTemplate)
+	{
+		this.restTemplate = restTemplate;
 	}
 
 	public Response get(final BaseStoreModel store, final String path, final String apiKey)
@@ -133,31 +166,38 @@ public class ManagementApiClient
 		{
 			final HttpStatusCode status = e.getStatusCode();
 			LOG.info("Adyen answered {} to {} {}.", status.value(), method, pathOf(url));
-			if (status.value() == 401)
-			{
-				return Response.failed(Failure.UNRECOGNISED, 401);
-			}
-			if (status.value() == 403)
-			{
-				return Response.failed(Failure.FORBIDDEN, 403);
-			}
-			return Response.failed(Failure.REJECTED, status.value());
+			final ProviderError error = CLASSIFIER.classify(Provider.ADYEN, status.value(), e.getResponseHeaders(),
+					e.getResponseBodyAsString());
+			return new Response(Map.of(), failureOf(status.value()), status.value(), error);
 		}
 		catch (final ResourceAccessException e)
 		{
 			LOG.warn("Adyen could not be reached for {} {} ({}).", method, pathOf(url), e.getClass().getSimpleName());
-			return Response.failed(Failure.UNREACHABLE, 0);
+			final ProviderError error = CLASSIFIER.classifyTransport(Provider.ADYEN, e);
+			// Keep failure and error consistent: a timeout stays UNREACHABLE for the page, a bad URL is MISCONFIGURED.
+			return new Response(Map.of(), error.code() == ErrorCode.PROVIDER_MISCONFIGURED ? Failure.MISCONFIGURED
+					: Failure.UNREACHABLE, 0, error);
 		}
 		catch (final IllegalArgumentException e)
 		{
 			LOG.error("The Management API endpoint is not a usable absolute URL.");
-			return Response.failed(Failure.MISCONFIGURED, 0);
+			return new Response(Map.of(), Failure.MISCONFIGURED, 0, CLASSIFIER.classifyTransport(Provider.ADYEN, e));
 		}
 		catch (final RestClientException e)
 		{
 			LOG.warn("Adyen call {} {} failed ({}).", method, pathOf(url), e.getClass().getSimpleName());
 			return Response.failed(Failure.REJECTED, 0);
 		}
+	}
+
+	private static Failure failureOf(final int status)
+	{
+		return switch (status)
+		{
+			case 401 -> Failure.UNRECOGNISED;
+			case 403 -> Failure.FORBIDDEN;
+			default -> Failure.REJECTED;
+		};
 	}
 
 	private static String pathOf(final String url)

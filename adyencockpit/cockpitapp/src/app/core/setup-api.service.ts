@@ -2,6 +2,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, of, throwError } from 'rxjs';
 
+import { ApiError } from './api-error';
 import {
   CredentialCheck,
   MerchantAccounts,
@@ -81,10 +82,18 @@ function isSessionEnded(err: HttpErrorResponse): boolean {
   return err.status === 200 || text.trimStart().startsWith('<');
 }
 
+/** The `message` of the error envelope; the legacy `{ error }` string is still accepted. */
 function serverMessage(err: HttpErrorResponse): string | null {
-  return err.error && typeof err.error === 'object' && 'error' in err.error && typeof (err.error as { error: unknown }).error === 'string'
-    ? (err.error as { error: string }).error
-    : null;
+  const body: unknown = err.error;
+  if (!body || typeof body !== 'object') {
+    return null;
+  }
+  const { message } = body as Partial<ApiError>;
+  if (typeof message === 'string' && message) {
+    return message;
+  }
+  const legacy = (body as { error?: unknown }).error;
+  return typeof legacy === 'string' ? legacy : null;
 }
 
 /** A message a merchant can act on, from whatever the request failed with. */

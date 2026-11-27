@@ -15,4 +15,31 @@
         <property name="managementApiClient" ref="adyencockpitManagementApiClient"/>
     </bean>
 
+    <bean id="adyencockpitRouteRegistry" class="com.adyen.cockpit.api.DefaultCockpitRouteRegistry"/>
+
+    <bean id="adyencockpitAccess" class="com.adyen.cockpit.api.CockpitAccess"/>
+
+    <bean id="adyencockpitBootstrapRoute" class="com.adyen.cockpit.api.routes.BootstrapRoute">
+        <property name="access" ref="adyencockpitAccess"/>
+        <property name="userService" ref="userService"/>
+        <property name="baseStoreService" ref="baseStoreService"/>
+    </bean>
+
+    <bean id="adyencockpitSetupStoresRoute" class="com.adyen.cockpit.setup.routes.SetupStoresRoute"
+          parent="adyencockpitSetupRouteParent"/>
+    <bean id="adyencockpitSetupMerchantAccountsRoute" class="com.adyen.cockpit.setup.routes.SetupMerchantAccountsRoute"
+          parent="adyencockpitSetupRouteParent"/>
+    <bean id="adyencockpitSetupManagementKeyRoute" class="com.adyen.cockpit.setup.routes.SetupManagementKeyRoute"
+          parent="adyencockpitSetupRouteParent"/>
+    <bean id="adyencockpitSetupMerchantAccountRoute" class="com.adyen.cockpit.setup.routes.SetupMerchantAccountRoute"
+          parent="adyencockpitSetupRouteParent"/>
+    <bean id="adyencockpitSetupProvisionRoute" class="com.adyen.cockpit.setup.routes.SetupProvisionRoute"
+          parent="adyencockpitSetupRouteParent"/>
+
+    <!-- Shared wiring of the setup routes; abstract, so it is not a route itself. -->
+    <bean id="adyencockpitSetupRouteParent" abstract="true">
+        <property name="setupService" ref="adyencockpitSetupService"/>
+        <property name="baseStoreService" ref="baseStoreService"/>
+    </bean>
+
 </beans>
